@@ -2,6 +2,8 @@
 
 > CC0-1.0 open-source hardware · Raspberry Pi Pico-style 2 × 20 pin layout · RISC-V multimedia SoC
 
+<img width="3807" height="4095" alt="3D_PCB1_2026-09" src="https://github.com/user-attachments/assets/650270c6-b822-48ad-bceb-6358ae01c4cd" />
+
 This compact development board is based on the **F101S3**. It follows the Raspberry Pi Pico form factor with two 20-pin rows, and includes 16 MiB of PSRAM plus 16 MiB of NOR Flash with XIP (execute-in-place) support. It is a capable hardware platform for RISC-V graphics, display, audio, and general-purpose I/O projects.
 
 > The *multiplexed functions* in this document are functions the SoC **can select** on a pin. They are not simultaneous functions, nor do they imply that every function is routed, enabled, or used by default on this board. Configure one function per pin in pinctrl/pinmux software.
