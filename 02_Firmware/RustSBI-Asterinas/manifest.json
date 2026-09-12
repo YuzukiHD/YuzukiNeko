@@ -1,0 +1,93 @@
+{
+  "board": "Yuzuki Neko F101S3",
+  "flash_bytes": 16777216,
+  "flash_offset": 0,
+  "image_bytes": 7143424,
+  "image_sha256": "368b658f93cb921a66c690a1ae26def95fbb500d0098b955695cebb977228cc5",
+  "preserved_range": [
+    "0x6d0000",
+    "0x1000000"
+  ],
+  "payloads": [
+    {
+      "name": "spl",
+      "bytes": 49152,
+      "flash_offset": "0x0",
+      "ram_address": "0x20000",
+      "sha256": "b2512c8513515112e4d0f8f8f26465977c27a2bbc87e8411f6487c64398e6b7c",
+      "standalone_file": "syterkit-3bf4f61f.bin",
+      "original_file": "spinor-boot_spi.bin"
+    },
+    {
+      "name": "dtb",
+      "bytes": 2237,
+      "flash_offset": "0x10000",
+      "ram_address": "0x40f40000",
+      "sha256": "6af04864e32fa6d1e64143fd5967f9aa49b48e9807aa31c7dd039885f89621e0",
+      "standalone_file": null,
+      "original_file": "yuzuki-neko.dtb"
+    },
+    {
+      "name": "rustsbi",
+      "bytes": 270336,
+      "flash_offset": "0x50000",
+      "ram_address": "0x40f80000",
+      "sha256": "ce456b0b6625c8dca1c64fc8b5da87225baefdd59b01904c07a703488d8a42a9",
+      "standalone_file": "rustsbi-0.4.1.bin",
+      "original_file": "fw_jump.bin"
+    },
+    {
+      "name": "kernel",
+      "bytes": 2762160,
+      "flash_offset": "0xd0000",
+      "ram_address": "0x40000000",
+      "sha256": "be96fbaf2c799b7a80913f2f97d9b2538e6693a24ee7fec627e3b70aafe3ce60",
+      "standalone_file": "asterinas.bin",
+      "original_file": "Image"
+    },
+    {
+      "name": "initramfs",
+      "bytes": 541184,
+      "flash_offset": "0x5d0000",
+      "ram_address": "0x40500000",
+      "sha256": "0cdadaafaad63f62b7753ea6cf8f52d61bef424f40521def0e8faf29cc32a8b6",
+      "standalone_file": null,
+      "original_file": "initramfs.cpio"
+    }
+  ],
+  "image_file": "yuzukineko-rustsbi-asterinas.img",
+  "format": "Raw SPI NOR boot image; not a PhoenixSuit container or a whole-device backup",
+  "source_versions": {
+    "syterkit": {
+      "repository": "https://github.com/luojia65/SyterKit",
+      "upstream_repository": "https://github.com/YuzukiHD/SyterKit",
+      "base_commit": "3bf4f61fc7a1a40137a49482e1a225fef0b97a42",
+      "local_changes": "Neko SPI NOR loader and Asterinas handoff; not an unmodified build of the base commit"
+    },
+    "rustsbi": {
+      "repository": "https://github.com/rustsbi/rustsbi",
+      "version": "0.4.1",
+      "commit": "4068e0d062493d2af3aeed7eb20bf84acd4b2c0f",
+      "local_changes": "No-color patch, Neko RV32 scalar target and WARN logging"
+    },
+    "asterinas": {
+      "repository": "https://github.com/asterinas/asterinas",
+      "base_commit": "db0d7958d891ce62caaf66a06e58ef2c87bd2946",
+      "local_changes": "Neko RV32 port and BusyBox integration (v3 full-port.patch)"
+    },
+    "busybox": {
+      "version": "1.37.0",
+      "configuration": "Static RV32GC ILP32D musl build"
+    },
+    "musl": {
+      "version": "1.2.5"
+    }
+  },
+  "validation": {
+    "date": "2026-09-12",
+    "board": "Yuzuki Neko F101-S3",
+    "flash_readback": "matched image SHA-256",
+    "boot": "SPI NOR boot reached BusyBox shell; nine examples passed",
+    "serial": "115200 8N1; long input may require approximately 20 ms delay per character"
+  }
+}
