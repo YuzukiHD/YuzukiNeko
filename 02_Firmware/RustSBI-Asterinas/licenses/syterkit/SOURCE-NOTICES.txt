@@ -1,0 +1,2149 @@
+Additional upstream source notices; this collection includes files not linked into this board image.
+
+SOURCE: arch/arm/backtrace.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/arm/compiler_rt.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/arm/efex.S
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/arm/efex.lds.S
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/arm/exception.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/arm/include/barrier.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/arm/include/byteorder.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/arm/include/cache.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/arm/include/endian.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/arm/include/interrupt.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/arm/include/io.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/arm/include/jmp.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/arm/include/linkage.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/arm/include/mmu.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/arm/include/timer.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/arm/include/types.h
+/* SPDX-License-Identifier:	GPL-2.0+ */
+
+SOURCE: arch/arm/mmu.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/arm/start.S
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/arm/syterkit.lds.S
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/arm/timer.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/riscv/cpu/c906/cache.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/riscv/cpu/c906/efex.S
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/riscv/cpu/c906/start.S
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/riscv/cpu/c907/cache.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/riscv/cpu/c907/efex.S
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/riscv/cpu/c907/start.S
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/riscv/cpu/e907/cache.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/riscv/cpu/e907/efex.S
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/riscv/cpu/e907/start.S
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/riscv/cpu/e907/sysmap.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/riscv/efex.lds.S
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/riscv/exception.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/riscv/include/asm/trap.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/riscv/include/barrier.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/riscv/include/cache.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/riscv/include/interrupt.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/riscv/include/io.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/riscv/include/jmp.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/riscv/include/limits.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/riscv/include/linkage.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/riscv/include/mmu.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/riscv/include/stdarg.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/riscv/include/stdbool.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/riscv/include/stddef.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/riscv/include/stdint.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/riscv/include/timer.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/riscv/include/types.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/riscv/memcmp.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/riscv/memcpy.S
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/riscv/memset.S
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/riscv/riscv32/backtrace.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/riscv/riscv32/compiler_rt.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/riscv/riscv64/backtrace.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/riscv/syterkit.lds.S
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: arch/riscv/timer.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/100ask-d1-h/board.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/100ask-d1-h/eabi_compat.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/100ask-d1-h/head.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/100ask-d1-h/hello_world/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/100ask-d1-h/init_dram/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/100ask-d1-h/load_hifi4/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/100ask-d1-h/syter_boot/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/100ask-t113i/board.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/100ask-t113i/eabi_compat.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/100ask-t113i/head.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/100ask-t113i/hello_world/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/100ask-t113i/load_c906/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/100ask-t113i/load_hifi4/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/100ask-t113i/os_test/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/100ask-t113i/sys_info/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/100ask-t113i/syter_boot/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/100ask-t113s3/board.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/100ask-t113s3/eabi_compat.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/100ask-t113s3/head.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/100ask-t113s3/hello_world/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/100ask-t113s3/load_hifi4/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/100ask-t113s3/syter_boot_rtt/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/100ask-t113s3/usb_test/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/avaota-86box/board.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/avaota-86box/boot/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/avaota-86box/eabi_compat.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/avaota-86box/head.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/avaota-86box/hello_world/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/avaota-86box/memtest/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/avaota-86box/memtest/memtester.c
+/* SPDX-License-Identifier: GPL-2.0 */
+
+SOURCE: archive/boards/avaota-86box/usb_test/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/dongshanpi-aict/board.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/dongshanpi-aict/eabi_compat.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/dongshanpi-aict/head.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/dongshanpi-aict/hello_world/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/dongshanpi-aict/syter_boot/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/dongshanpi-aict/syter_boot_spi/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/mcore-r818/board.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/mcore-r818/eabi_compat.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/mcore-r818/extlinux_boot/fdt.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/mcore-r818/extlinux_boot/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/mcore-r818/head.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/mcore-r818/hello_world/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/mcore-r818/init_dram/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/mcore-r818/smhc_test/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/mcore-r818/syter_boot/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/project-yosemite/board.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/project-yosemite/eabi_compat.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/project-yosemite/head.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/project-yosemite/hello_world/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/project-yosemite/syter_boot/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/project-yosemite/syter_boot_spi/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/yuzukihomekit/board.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/yuzukihomekit/eabi_compat.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/yuzukihomekit/head.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/yuzukihomekit/load_c906/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/yuzukihomekit/syter_boot/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/yuzukihomekit/usb_test/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/yuzukilizard/board.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/yuzukilizard/eabi_compat.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/yuzukilizard/head.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/yuzukilizard/hello_world/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/yuzukilizard/syter_boot/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: archive/boards/yuzukilizard/syter_boot_spi/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/avaota-a1/app_dram/hello_world/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/avaota-a1/app_efex/init_dram/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/avaota-a1/app_sram/extlinux_boot/fdt.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/avaota-a1/app_sram/extlinux_boot/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/avaota-a1/app_sram/extlinux_boot/spi_lcd.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/avaota-a1/app_sram/hello_world/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/avaota-a1/app_sram/load_app_dram/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/avaota-a1/app_sram/load_e906/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/avaota-a1/app_sram/mem_speed/bench.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/avaota-a1/app_sram/mem_speed/bench.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/avaota-a1/app_sram/mem_speed/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/avaota-a1/app_sram/smhc2_test/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/avaota-a1/app_sram/smhc_test/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/avaota-a1/app_sram/spi_lcd/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/avaota-a1/app_sram/syter_boot/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/avaota-a1/app_sram/syter_boot_bl33/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/avaota-a1/app_sram/syter_boot_uboot/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/avaota-a1/board.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/avaota-a1/eabi_compat.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/avaota-a1/head.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/avaota-f1/app_dram/hello_world/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/avaota-f1/app_efex/init_dram/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/avaota-f1/app_sram/app/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/avaota-f1/app_sram/boot/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/avaota-f1/board.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/avaota-f1/eabi_compat.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/avaota-f1/head.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/avaota-f2/app_dram/hello_world/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/avaota-f2/app_efex/init_dram/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/avaota-f2/app_sram/app/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/avaota-f2/arch_boot/arch_boot.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/avaota-f2/arch_boot/payloads/c907_boot0.S
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/avaota-f2/board.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/avaota-f2/eabi_compat.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/avaota-f2/head.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/avaota-m1/app_dram/hello_world/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/avaota-m1/app_efex/init_dram/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/avaota-m1/app_sram/hello_world/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/avaota-m1/board.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/avaota-m1/eabi_compat.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/avaota-m1/head.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/longanpi-3h/app_dram/hello_world/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/longanpi-3h/app_efex/init_dram/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/longanpi-3h/app_sram/cli_test/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/longanpi-3h/app_sram/hello_world/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/longanpi-3h/app_sram/load_bl31/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/longanpi-3h/app_sram/smhc_test/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/longanpi-3h/app_sram/syter_boot/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/longanpi-3h/app_sram/tinymaix/arch_cpu.h
+/* Copyright 2022 Sipeed Technology Co., Ltd. All Rights Reserved.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+    http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================*/
+
+SOURCE: boards/longanpi-3h/app_sram/tinymaix/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/longanpi-3h/app_sram/tinymaix/tinymaix.h
+/* Copyright 2022 Sipeed Technology Co., Ltd. All Rights Reserved.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+    http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================*/
+
+SOURCE: boards/longanpi-3h/app_sram/tinymaix/tm_layers.c
+/* Copyright 2022 Sipeed Technology Co., Ltd. All Rights Reserved.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+    http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================*/
+
+SOURCE: boards/longanpi-3h/app_sram/tinymaix/tm_layers_O1.c
+/* Copyright 2022 Sipeed Technology Co., Ltd. All Rights Reserved.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+    http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================*/
+
+SOURCE: boards/longanpi-3h/app_sram/tinymaix/tm_layers_fp8.c
+/* Copyright 2022 Sipeed Technology Co., Ltd. All Rights Reserved.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+    http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================*/
+
+SOURCE: boards/longanpi-3h/app_sram/tinymaix/tm_model.c
+/* Copyright 2022 Sipeed Technology Co., Ltd. All Rights Reserved.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+    http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================*/
+
+SOURCE: boards/longanpi-3h/app_sram/tinymaix/tm_port.h
+/* Copyright 2022 Sipeed Technology Co., Ltd. All Rights Reserved.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+    http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================*/
+
+SOURCE: boards/longanpi-3h/app_sram/tinymaix/tm_stat.c
+/* Copyright 2022 Sipeed Technology Co., Ltd. All Rights Reserved.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+    http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================*/
+
+SOURCE: boards/longanpi-3h/board.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/longanpi-3h/eabi_compat.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/longanpi-3h/head.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/radxa-cubie-a7a/app_dram/hello_world/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/radxa-cubie-a7a/app_efex/init_dram/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/radxa-cubie-a7a/app_sram/hello_world/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/radxa-cubie-a7a/board.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/radxa-cubie-a7a/eabi_compat.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/radxa-cubie-a7a/head.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/radxa-cubie-a7z/app_dram/hello_world/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/radxa-cubie-a7z/app_efex/init_dram/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/radxa-cubie-a7z/app_sram/hello_world/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/radxa-cubie-a7z/board.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/radxa-cubie-a7z/eabi_compat.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/radxa-cubie-a7z/head.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/tinyvision/app_dram/hello_world/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/tinyvision/app_efex/init_dram/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/tinyvision/app_sram/cli_test/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/tinyvision/app_sram/fdt_cli/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/tinyvision/app_sram/fdt_parser/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/tinyvision/app_sram/hello_world/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/tinyvision/app_sram/i2c_oled/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/tinyvision/app_sram/i2c_test/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/tinyvision/app_sram/load_e907/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/tinyvision/app_sram/read_chip_efuse/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/tinyvision/app_sram/read_chipsid/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/tinyvision/app_sram/ruapu_test/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/tinyvision/app_sram/spi_lcd/lcd.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/tinyvision/app_sram/spi_lcd/lcd_init.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/tinyvision/app_sram/spi_lcd/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/tinyvision/app_sram/syter_amp/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/tinyvision/app_sram/syter_boot/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/tinyvision/app_sram/syter_boot_sdnand/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/tinyvision/app_sram/syter_boot_spi/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/tinyvision/app_sram/syter_bootargs/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/tinyvision/app_sram/usb_test/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/tinyvision/board.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/tinyvision/eabi_compat.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/tinyvision/head.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/tlt153-minievm/app_dram/apps/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/tlt153-minievm/app_efex/init_dram/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/tlt153-minievm/app_sram/apps/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/tlt153-minievm/app_sram/smp/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/tlt153-minievm/app_sram/smp/smp.S
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/tlt153-minievm/board.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/tlt153-minievm/eabi_compat.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/tlt153-minievm/head.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/tlt536-evm/app_efex/hello_world/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/tlt536-evm/app_sram/hello_world/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/tlt536-evm/board.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/tlt536-evm/eabi_compat.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/tlt536-evm/head.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/yuzukineko/app_efex/hello_world/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/yuzukineko/app_sram/app-rs/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/yuzukineko/app_sram/app/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/yuzukineko/app_sram/intc_test/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/yuzukineko/app_sram/spinor-boot-rv64i/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/yuzukineko/app_sram/spinor-boot/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/yuzukineko/app_sram/usb-boot-rv64i/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/yuzukineko/app_sram/usb-boot/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/yuzukineko/app_sram/usb_test/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/yuzukineko/arch_boot/arch_boot.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/yuzukineko/arch_boot/payloads/arch_boot.S
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/yuzukineko/board.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/yuzukineko/eabi_compat.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: boards/yuzukineko/head.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: core/backtrace/backtrace-full.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: core/backtrace/backtrace-min.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: core/cli/commands.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: core/cli/history.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: core/cli/lineedit.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: core/cli/parse.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: core/common.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: core/efex.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: core/fdt_wrapper.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: core/log/format.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: core/log/log.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: core/os.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: core/uart.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/clk/clk-sun20iw1.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/clk/clk-sun252iw1.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/clk/clk-sun252iw2.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/clk/clk-sun300iw1.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/clk/clk-sun50iw10.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/clk/clk-sun50iw9.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/clk/clk-sun55iw3.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/clk/clk-sun55iw6.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/clk/clk-sun60iw2.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/clk/clk-sun65iw1.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/clk/clk-sun8iw20.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/clk/clk-sun8iw21.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/clk/clk-sun8iw22.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/clk/clk.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/dma/dma.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/dram/dram-sun20iw1.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/dram/dram-sun252iw1.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/dram/dram-sun300iw1.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/dram/dram-sun50iw10.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/dram/dram-sun50iw9.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/dram/dram-sun55iw3.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/dram/dram-sun55iw6.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/dram/dram-sun60iw2.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/dram/dram-sun65iw1.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/dram/dram-sun8iw20.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/dram/dram-sun8iw21.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/dram/dram-sun8iw22.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/dram/dram.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/gpio/gpio-v1.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/gpio/gpio-v2-pow.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/gpio/gpio-v2.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/gpio/gpio-v3.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/gpio/gpio-v4.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/i2c/i2c.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/intc/clic.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/intc/gic.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/intc/plic.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/mmc/core.c
+/* SPDX-License-Identifier:	GPL-2.0+ */
+
+SOURCE: drivers/mmc/host/mmc-generic.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/mmc/host/mmc-sun300iw1.c
+/* SPDX-License-Identifier:	GPL-2.0+ */
+
+SOURCE: drivers/mmc/host/mmc-sun55iw3.c
+/* SPDX-License-Identifier:	GPL-2.0+ */
+
+SOURCE: drivers/mmc/host/mmc-sun55iw6.c
+/* SPDX-License-Identifier:	GPL-2.0+ */
+
+SOURCE: drivers/mmc/host/mmc-sun8iw22.c
+/* SPDX-License-Identifier:	GPL-2.0+ */
+
+SOURCE: drivers/mmc/hs-timing.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/mmc/sdcard.c
+/* SPDX-License-Identifier:	GPL-2.0+ */
+
+SOURCE: drivers/mmc/sdhci.c
+/* SPDX-License-Identifier:	GPL-2.0+ */
+
+SOURCE: drivers/mmc/tuning.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/mtd/nand/spi-nand.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/mtd/spi-nor/spi-nor.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/mtd/spif-nor/spif-nor.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/pcie/controller/pcie-dw.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/pcie/ep/pcie-ep.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/pcie/pcie-core.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/pcie/phy/pcie-phy-sun55iw6.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/pcie/rc/pcie-rc.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/pmu/axp-config.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/pmu/axp.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/pmu/axp1530.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/pmu/axp2101.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/pmu/axp2202.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/pmu/axp333.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/pmu/axp8191.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/psram/psram-sun252iw2.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/psram/psram.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/pwm/pwm.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/remoteproc/hifi4-reg.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/remoteproc/remoteproc.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/remoteproc/rproc-sun20iw1.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/remoteproc/rproc-sun300iw1.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/remoteproc/rproc-sun50iw10.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/remoteproc/rproc-sun55iw3.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/remoteproc/rproc-sun8iw20.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/remoteproc/rproc-sun8iw21.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/rtc/rtc.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/serial/serial.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/sid/platform/sid-platform.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/sid/platform/sid-platform.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/sid/platform/sid-sun20iw1.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/sid/platform/sid-sun252iw1.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/sid/platform/sid-sun252iw2.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/sid/platform/sid-sun300iw1.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/sid/platform/sid-sun50iw10.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/sid/platform/sid-sun50iw9.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/sid/platform/sid-sun55iw3.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/sid/platform/sid-sun55iw6.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/sid/platform/sid-sun60iw2.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/sid/platform/sid-sun65iw1.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/sid/platform/sid-sun8iw20.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/sid/platform/sid-sun8iw21.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/sid/platform/sid-sun8iw22.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/sid/sid.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/soc/soc.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/spi/spi.c
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+
+/* Copyright (c) 2023, Allwinner Technology Co., Ltd. */
+
+SOURCE: drivers/spif/platform/spif-platform.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/spif/platform/spif-v0.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/spif/platform/spif-v1.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/spif/platform/spif-v2.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/spif/spif-regs.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/spif/spif-sunxi.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/ufs/host/generic.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/ufs/host/sun60iw2.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/ufs/scsi.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/ufs/ufs.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/ufs/ufshc.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/usb/function/usb_fel.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/usb/function/usb_winusb.c
+/* SPDX-License-Identifier:	GPL-2.0+ */
+
+SOURCE: drivers/usb/platform/usb_platform.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/usb/platform/usb_sun252iw2.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: drivers/usb/usb_controller.c
+/* SPDX-License-Identifier:	GPL-2.0+ */
+
+SOURCE: drivers/usb/usb_device.c
+/* SPDX-License-Identifier:	GPL-2.0+ */
+
+SOURCE: drivers/usb/usb_lowlevel.c
+/* SPDX-License-Identifier:	GPL-2.0+ */
+
+SOURCE: drivers/usb/usb_manager.c
+/* SPDX-License-Identifier:	GPL-2.0+ */
+
+SOURCE: dts/include/dt-bindings/dram/dram-param.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: dts/include/dt-bindings/gpio/sunxi-gpio.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: dts/include/dt-bindings/pwm/sunxi-pwm.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: dts/include/dt-bindings/soc/sun20iw1.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: dts/include/dt-bindings/soc/sun252iw1.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: dts/include/dt-bindings/soc/sun252iw2.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+/*
+ * (C) Copyright 2013-2026
+ * Allwinner Technology Co., Ltd. <www.allwinnertech.com>
+ */
+
+SOURCE: dts/include/dt-bindings/soc/sun300iw1.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: dts/include/dt-bindings/soc/sun50iw10.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: dts/include/dt-bindings/soc/sun50iw9.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: dts/include/dt-bindings/soc/sun55iw3.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: dts/include/dt-bindings/soc/sun55iw6.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: dts/include/dt-bindings/soc/sun60iw2.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: dts/include/dt-bindings/soc/sun65iw1.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: dts/include/dt-bindings/soc/sun8iw20.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: dts/include/dt-bindings/soc/sun8iw21.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: dts/include/dt-bindings/soc/sun8iw22.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: dts/include/dt-compatible/clic-dt.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: dts/include/dt-compatible/dma-dt.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: dts/include/dt-compatible/dram-dt.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: dts/include/dt-compatible/dt-common.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: dts/include/dt-compatible/gic-dt.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: dts/include/dt-compatible/gpio-dt.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: dts/include/dt-compatible/i2c-dt.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: dts/include/dt-compatible/mmc-dt.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: dts/include/dt-compatible/pcie-dt.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: dts/include/dt-compatible/pinctrl-dt.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: dts/include/dt-compatible/plic-dt.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: dts/include/dt-compatible/psram-dt.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: dts/include/dt-compatible/pwm-dt.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: dts/include/dt-compatible/remoteproc-dt.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: dts/include/dt-compatible/rtc-dt.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: dts/include/dt-compatible/serial-dt.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: dts/include/dt-compatible/sid-dt.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: dts/include/dt-compatible/soc-dt.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: dts/include/dt-compatible/spi-dt.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: dts/include/dt-compatible/spi-nand-dt.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: dts/include/dt-compatible/spi-nor-dt.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: dts/include/dt-compatible/spif-dt.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: dts/include/dt-compatible/spif-nor-dt.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: dts/include/dt-compatible/ufs-dt.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: dts/include/dt-compatible/usb-dt.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/backtrace.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/cli/cli.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/cli/cli_config.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/cli/cli_history.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/cli/cli_shell.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/cli/cli_termesc.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/common.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/ctype.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/driver.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/clk/clk.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/clk/sun20iw1/reg.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/clk/sun252iw1/reg.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+/*
+ * (C) Copyright 2013-2025
+ * Allwinner Technology Co., Ltd. <www.allwinnertech.com>
+ * 
+ * original from bsp uboot defines
+ */
+
+SOURCE: include/drivers/clk/sun252iw2/reg.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+/*
+ * (C) Copyright 2013-2026
+ * Allwinner Technology Co., Ltd. <www.allwinnertech.com>
+ *
+ * original from bsp uboot defines
+ */
+
+SOURCE: include/drivers/clk/sun300iw1/clk.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/clk/sun300iw1/reg.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+/*
+ * (C) Copyright 2013-2025
+ * Allwinner Technology Co., Ltd. <www.allwinnertech.com>
+ * 
+ * original from bsp uboot defines
+ */
+
+SOURCE: include/drivers/clk/sun50iw10/reg.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+/*
+ * (C) Copyright 2013-2025
+ * Allwinner Technology Co., Ltd. <www.allwinnertech.com>
+ * 
+ * original from bsp uboot defines
+ */
+
+SOURCE: include/drivers/clk/sun50iw9/reg.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+/*
+ * (C) Copyright 2013-2025
+ * Allwinner Technology Co., Ltd. <www.allwinnertech.com>
+ * 
+ * original from bsp uboot defines
+ */
+
+SOURCE: include/drivers/clk/sun55iw3/clk.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/clk/sun55iw3/reg.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+/*
+ * (C) Copyright 2013-2025
+ * Allwinner Technology Co., Ltd. <www.allwinnertech.com>
+ * 
+ * original from bsp uboot defines
+ */
+
+SOURCE: include/drivers/clk/sun55iw6/reg.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+/*
+ * (C) Copyright 2013-2025
+ * Allwinner Technology Co., Ltd. <www.allwinnertech.com>
+ * 
+ * original from bsp uboot defines
+ */
+
+SOURCE: include/drivers/clk/sun60iw2/reg.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+/*
+ * (C) Copyright 2013-2025
+ * Allwinner Technology Co., Ltd. <www.allwinnertech.com>
+ * 
+ * original from bsp uboot defines
+ */
+
+SOURCE: include/drivers/clk/sun65iw1/reg.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+/*
+ * (C) Copyright 2013-2025
+ * Allwinner Technology Co., Ltd. <www.allwinnertech.com>
+ * 
+ * original from bsp uboot defines
+ */
+
+SOURCE: include/drivers/clk/sun8iw20/reg.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/clk/sun8iw21/reg.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/clk/sun8iw22/reg.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+/*
+ * (C) Copyright 2013-2025
+ * Allwinner Technology Co., Ltd. <www.allwinnertech.com>
+ * 
+ * original from bsp uboot defines
+ */
+
+SOURCE: include/drivers/dma/dma.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/dma/reg.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/dram/dram.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/dram/sun20iw1/reg.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/dram/sun300iw1/reg.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/dram/sun8iw20/reg.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/dram/sun8iw21/reg.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/gpio/gpio.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/i2c/i2c.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/intc/clic.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/intc/gic.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/intc/intc.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/intc/plic.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/mmc/hs-timing.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/mmc/mmc.h
+/* SPDX-License-Identifier:	GPL-2.0+ */
+
+SOURCE: include/drivers/mmc/reg.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/mmc/sdcard.h
+/* SPDX-License-Identifier:	GPL-2.0+ */
+
+SOURCE: include/drivers/mmc/sdhci.h
+/* SPDX-License-Identifier:	GPL-2.0+ */
+
+SOURCE: include/drivers/mmc/tuning.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/mtd/spi-nand.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/mtd/spi-nor.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/mtd/spif-nor.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/pcie/controller/pcie-controller.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/pcie/ep/pcie-ep.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/pcie/pcie.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/pcie/phy/pcie-phy.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/pcie/rc/pcie-rc.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/pmu/axp.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/pmu/reg-axp.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/pmu/reg/reg-axp1530.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/pmu/reg/reg-axp2101.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/pmu/reg/reg-axp2202.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/pmu/reg/reg-axp333.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/pmu/reg/reg-axp8191.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/psram/psram.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/pwm/pwm.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/remoteproc/remoteproc.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/rtc/rtc.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/sid/sid.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/soc/soc.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/spi/reg.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/spi/spi.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/spif/spif.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/ufs/host/sunxi.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/ufs/scsi.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/ufs/ufs.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/ufs/ufshc.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/usb/function/usb_fel.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/usb/function/usb_function.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/usb/platform/usb_platform.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/usb/usb.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/usb/usb_controller.h
+/* SPDX-License-Identifier:	GPL-2.0+ */
+
+SOURCE: include/drivers/usb/usb_device.h
+/* SPDX-License-Identifier:	GPL-2.0+ */
+
+SOURCE: include/drivers/usb/usb_lowlevel.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/usb/usb_manager.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/drivers/usb/usb_regs.h
+/* SPDX-License-Identifier:	GPL-2.0+ */
+
+SOURCE: include/drivers/usb/usb_types.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/dt2c/driver.h
+/* SPDX-License-Identifier: MIT */
+
+SOURCE: include/efex.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/format.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/image/image_loader.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/lib/elf/elf_helpers.h
+/* SPDX-License-Identifier: GPL-2.0 */
+
+SOURCE: include/lib/elf/elf_loader.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/lib/fatfs/ff.h
+/*----------------------------------------------------------------------------/
+/  FatFs - Generic FAT Filesystem module  R0.15                               /
+/-----------------------------------------------------------------------------/
+/
+/ Copyright (C) 2022, ChaN, all right reserved.
+/
+/ FatFs module is an open source software. Redistribution and use of FatFs in
+/ source and binary forms, with or without modification, are permitted provided
+/ that the following condition is met:
+
+/ 1. Redistributions of source code must retain the above copyright notice,
+/    this condition and the following disclaimer.
+/
+/ This software is provided by the copyright holder and contributors "AS IS"
+/ and any warranties related to this software are DISCLAIMED.
+/ The copyright owner or contributors be NOT LIABLE for any damages caused
+/ by use of this software.
+/
+/----------------------------------------------------------------------------*/
+
+SOURCE: include/lib/fatfs/media.h
+/* ----------------------------------------------------------------------------
+ *         ATMEL Microcontroller Software Support
+ * ----------------------------------------------------------------------------
+ * Copyright (c) 2006, Atmel Corporation
+ *
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * - Redistributions of source code must retain the above copyright notice,
+ * this list of conditions and the disclaimer below.
+ *
+ * Atmel's name may not be used to endorse or promote products derived from
+ * this software without specific prior written permission.
+ *
+ * DISCLAIMER: THIS SOFTWARE IS PROVIDED BY ATMEL "AS IS" AND ANY EXPRESS OR
+ * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT ARE
+ * DISCLAIMED. IN NO EVENT SHALL ATMEL BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA,
+ * OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+ * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+ * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+SOURCE: include/lib/fdt/fdt.h
+/* SPDX-License-Identifier: (GPL-2.0-or-later OR BSD-2-Clause) */
+
+/*
+ * libfdt - Flat Device Tree manipulation
+ * Copyright (C) 2006 David Gibson, IBM Corporation.
+ * Copyright 2012 Kim Phillips, Freescale Semiconductor.
+ */
+
+SOURCE: include/lib/fdt/libfdt.h
+/* SPDX-License-Identifier: (GPL-2.0-or-later OR BSD-2-Clause) */
+
+/*
+ * libfdt - Flat Device Tree manipulation
+ * Copyright (C) 2006 David Gibson, IBM Corporation.
+ */
+
+SOURCE: include/lib/fdt/libfdt_env.h
+/* SPDX-License-Identifier: (GPL-2.0-or-later OR BSD-2-Clause) */
+
+/*
+ * libfdt - Flat Device Tree manipulation
+ * Copyright (C) 2006 David Gibson, IBM Corporation.
+ * Copyright 2012 Kim Phillips, Freescale Semiconductor.
+ */
+
+SOURCE: include/lib/fdt/libfdt_internal.h
+/* SPDX-License-Identifier: (GPL-2.0-or-later OR BSD-2-Clause) */
+
+/*
+ * libfdt - Flat Device Tree manipulation
+ * Copyright (C) 2006 David Gibson, IBM Corporation.
+ */
+
+SOURCE: include/log.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/malloc.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/os.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/stdlib.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/string.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: include/uart.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: lib/ctype.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: lib/elf/elf32.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: lib/elf/elf64.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: lib/fatfs/ff.c
+/*----------------------------------------------------------------------------/
+/  FatFs - Generic FAT Filesystem Module  R0.15 w/patch1                      /
+/-----------------------------------------------------------------------------/
+/
+/ Copyright (C) 2022, ChaN, all right reserved.
+/
+/ FatFs module is an open source software. Redistribution and use of FatFs in
+/ source and binary forms, with or without modification, are permitted provided
+/ that the following condition is met:
+/
+/ 1. Redistributions of source code must retain the above copyright notice,
+/    this condition and the following disclaimer.
+/
+/ This software is provided by the copyright holder and contributors "AS IS"
+/ and any warranties related to this software are DISCLAIMED.
+/ The copyright owner or contributors be NOT LIABLE for any damages caused
+/ by use of this software.
+/
+/----------------------------------------------------------------------------*/
+
+SOURCE: lib/fatfs/ffunicode.c
+/*
+/ Copyright (C) 2022, ChaN, all right reserved.
+/
+/ FatFs module is an open source software. Redistribution and use of FatFs in
+/ source and binary forms, with or without modification, are permitted provided
+/ that the following condition is met:
+/
+/ 1. Redistributions of source code must retain the above copyright notice,
+/    this condition and the following disclaimer.
+/
+/ This software is provided by the copyright holder and contributors "AS IS"
+/ and any warranties related to this software are DISCLAIMED.
+/ The copyright owner or contributors be NOT LIABLE for any damages caused
+/ by use of this software.
+*/
+
+SOURCE: lib/fdt/fdt.c
+/*
+ * libfdt - Flat Device Tree manipulation
+ * Copyright (C) 2006 David Gibson, IBM Corporation.
+ */
+
+SOURCE: lib/fdt/fdt_addresses.c
+/*
+ * libfdt - Flat Device Tree manipulation
+ * Copyright (C) 2014 David Gibson <david@gibson.dropbear.id.au>
+ * Copyright (C) 2018 embedded brains GmbH
+ */
+
+SOURCE: lib/fdt/fdt_empty_tree.c
+/*
+ * libfdt - Flat Device Tree manipulation
+ * Copyright (C) 2012 David Gibson, IBM Corporation.
+ */
+
+SOURCE: lib/fdt/fdt_overlay.c
+/*
+ * libfdt - Flat Device Tree manipulation
+ * Copyright (C) 2016 Free Electrons
+ * Copyright (C) 2016 NextThing Co.
+ */
+
+SOURCE: lib/fdt/fdt_ro.c
+/*
+ * libfdt - Flat Device Tree manipulation
+ * Copyright (C) 2006 David Gibson, IBM Corporation.
+ */
+
+SOURCE: lib/fdt/fdt_rw.c
+/*
+ * libfdt - Flat Device Tree manipulation
+ * Copyright (C) 2006 David Gibson, IBM Corporation.
+ */
+
+SOURCE: lib/fdt/fdt_strerror.c
+/*
+ * libfdt - Flat Device Tree manipulation
+ * Copyright (C) 2006 David Gibson, IBM Corporation.
+ *     EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+SOURCE: lib/fdt/fdt_sw.c
+/*
+ * libfdt - Flat Device Tree manipulation
+ * Copyright (C) 2006 David Gibson, IBM Corporation.
+ */
+
+SOURCE: lib/fdt/fdt_wip.c
+/*
+ * libfdt - Flat Device Tree manipulation
+ * Copyright (C) 2006 David Gibson, IBM Corporation.
+ */
+
+SOURCE: lib/malloc.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: lib/stdlib.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: lib/string.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: scripts/kconfig/conf.c
+/*
+ * Copyright (C) 2002 Roman Zippel <zippel@linux-m68k.org>
+ */
+
+SOURCE: scripts/kconfig/confdata.c
+/*
+ * Copyright (C) 2002 Roman Zippel <zippel@linux-m68k.org>
+ */
+
+SOURCE: scripts/kconfig/expr.c
+/*
+ * Copyright (C) 2002 Roman Zippel <zippel@linux-m68k.org>
+ */
+
+SOURCE: scripts/kconfig/expr.h
+/* SPDX-License-Identifier: GPL-2.0 */
+
+/*
+ * Copyright (C) 2002 Roman Zippel <zippel@linux-m68k.org>
+ */
+
+SOURCE: scripts/kconfig/internal.h
+/* SPDX-License-Identifier: GPL-2.0-only */
+
+SOURCE: scripts/kconfig/list.h
+/* SPDX-License-Identifier: GPL-2.0 */
+
+SOURCE: scripts/kconfig/lkc.h
+/* SPDX-License-Identifier: GPL-2.0 */
+
+/*
+ * Copyright (C) 2002 Roman Zippel <zippel@linux-m68k.org>
+ */
+
+SOURCE: scripts/kconfig/lkc_proto.h
+/* SPDX-License-Identifier: GPL-2.0 */
+
+SOURCE: scripts/kconfig/lxdialog/dialog.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: scripts/kconfig/mconf.c
+/*
+ * Copyright (C) 2002 Roman Zippel <zippel@linux-m68k.org>
+ *
+ * Introduced single menu mode (show all sub-menus in one large tree).
+ * 2002-11-06 Petr Baudis <pasky@ucw.cz>
+ *
+ * i18n, 2005, Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+ */
+
+SOURCE: scripts/kconfig/menu.c
+/*
+ * Copyright (C) 2002 Roman Zippel <zippel@linux-m68k.org>
+ */
+
+SOURCE: scripts/kconfig/symbol.c
+/*
+ * Copyright (C) 2002 Roman Zippel <zippel@linux-m68k.org>
+ */
+
+SOURCE: scripts/kconfig/util.c
+/*
+ * Copyright (C) 2002-2005 Roman Zippel <zippel@linux-m68k.org>
+ * Copyright (C) 2002-2005 Sam Ravnborg <sam@ravnborg.org>
+ */
+
+SOURCE: test/cases/backtrace_arm_decoder_qemu/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/backtrace_arm_full_qemu/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/backtrace_arm_interwork_qemu/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/backtrace_arm_invalid_context_qemu/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/backtrace_arm_optimized_qemu/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/backtrace_arm_thumb_callchain_qemu/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/backtrace_c906_callchain_qemu/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/backtrace_c906_frame_validation_qemu/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/backtrace_c906_full_qemu/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/backtrace_c906_invalid_context_qemu/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/backtrace_c906_optimized_qemu/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/backtrace_e907_callchain_qemu/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/backtrace_e907_decoder_qemu/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/backtrace_e907_full_qemu/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/backtrace_e907_invalid_context_qemu/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/backtrace_e907_optimized_qemu/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/cli_commands/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/cli_history/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/cli_lineedit/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/cli_parse/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/core_timer/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/driver_mmc_tuning/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/driver_remoteproc_mock/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/driver_rtc_mock/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/dt2c_clic/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/dt2c_dma/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/dt2c_dram/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/dt2c_gic/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/dt2c_gpio/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/dt2c_i2c_pmu/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/dt2c_mmc/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/dt2c_plic/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/dt2c_pwm/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/dt2c_remoteproc/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/dt2c_rtc/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/dt2c_serial/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/dt2c_sid/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/dt2c_spi_dma/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/dt2c_spi_nand/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/dt2c_spi_nor/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/dt2c_usb/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/format_arm_qemu/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/format_riscv64_qemu/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/lib_malloc/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/cases/log_format/main.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/include/cache.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/include/io.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/include/log.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/include/mmu.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/include/syter_test.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/include/timer.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/include/types.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/support/host.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/support/qemu/arm-startup/aarch64-transition.S
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/support/qemu/arm-startup/runtime.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/support/qemu/arm-startup/start.S
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/support/qemu/arm/runtime.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/support/qemu/arm/start.S
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/support/qemu/riscv/runtime.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: test/support/qemu/riscv/start.S
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: tools/bin/include/dt2c/dt.h
+/* SPDX-License-Identifier: MIT */
+
+SOURCE: tools/bin/include/dt2c/dt_runtime.h
+/* SPDX-License-Identifier: MIT */
+
+SOURCE: tools/mkbacktrace.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: utils/bl33/include/linkage.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: utils/bl33/include/stdbool.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: utils/bl33/source/format.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: utils/bl33/source/string.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: utils/bl33/source/timer.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: utils/bl33_t527/include/linkage.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: utils/bl33_t527/include/stdbool.h
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: utils/bl33_t527/source/format.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: utils/bl33_t527/source/string.c
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+SOURCE: utils/bl33_t527/source/timer.c
+/* SPDX-License-Identifier: GPL-2.0+ */
