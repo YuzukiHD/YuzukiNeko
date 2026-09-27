@@ -52,6 +52,12 @@ F101S3 has no `PD10` or `PD11`. On the V1.3 PCB, the PD silkscreen was numbered 
 | `PD11` | `PD13` | MUX selection must use `PD13` |
 | `PD12`–`PD20` | `PD14`–`PD22` | Each corresponding label is offset by +2 |
 
+### V1.4 and earlier errata: microSD card-detect (CD) pull-down
+
+The microSD card-detect (CD) signal is `PF6`, pulled down by `R11`. On V1.4 and earlier boards `R11` is **10 kΩ**. That value is too high for the pin to settle reliably below the logic-low threshold, so card insertion may not be detected. Until the hardware is changed, configure `PF6`'s **output drive strength to its lowest setting** in pinctrl. V1.5 changes `R11` to **1 kΩ**, which resolves the problem.
+
+> **Which revision do I need?** If you only need the F101S3 with 16 MiB PSRAM, V1.4 is enough: replace `R11` with 1 kΩ and the card-detect problem is gone. V1.5 exists specifically for the 32 MiB PSRAM configuration, which requires the additional PSRAM LDO rail.
+
 | Header row | Left: V1.3 silkscreen | Left: actual SoC GPIO / V1.4 silkscreen | Right: V1.3 silkscreen | Right: actual SoC GPIO / V1.4 silkscreen |
 | ---: | --- | --- | --- | --- |
 | 1 | `3V3` | `3V3` | `5V` | `5V` |
@@ -156,6 +162,14 @@ This table is not a list of default board connections. It provides complete, typ
 - Display, LVDS, MIPI DSI, USB, and XIP Flash are high-speed or boot-critical resources. Check the BSP pinctrl settings, device tree, and boot log before attaching expansion hardware.
 - The CAN controllers expose logic-level signals only. A CAN transceiver and correct bus termination are required for a physical CAN bus.
 - GPIO electrical limits, ADC range, output drive strength, and `FEL` download behavior must be confirmed by the complete F101S3 datasheet, schematic, and BSP. On a V1.3 board, always translate the affected PD silkscreen labels using the errata table before configuring pinmux; V1.4 silkscreen uses the corrected GPIO names.
+
+## Revision History
+
+| Revision | Changes |
+| --- | --- |
+| V1.5 | Added a dedicated PSRAM LDO rail, which enables the 32 MiB PSRAM configuration; this revision targets the 32 MiB build. microSD CD pull-down `R11` changed from 10 kΩ to 1 kΩ on `PF6` (see the V1.4-and-earlier errata above). |
+| V1.4 | Corrected the PD silkscreen numbering; see the V1.3 errata table. For 16 MiB builds, V1.4 with `R11` changed to 1 kΩ is sufficient. |
+| V1.3 | Initial release. |
 
 ## Contributing and License
 
