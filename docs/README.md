@@ -4,7 +4,7 @@
   <img width="380" alt="YuzukiNeko 3D 渲染" src="https://github.com/user-attachments/assets/650270c6-b822-48ad-bceb-6358ae01c4cd">
 </p>
 
-YuzukiNeko 是一块基于 <strong>Allwinner F101 系列 SoC</strong> 的开发板，采用 Raspberry Pi Pico 的 2 × 20 针外形。板载 16 MiB PSRAM（F101S3，V1.5 的 32 MiB 配置使用 F101S4）和 16 MiB 支持 XIP（就地执行）的 NOR Flash，适合做 RISC-V 图形、显示、音频和通用 I/O 项目。硬件设计以 CC0 1.0 发布。
+YuzukiNeko 是一块基于 <strong>Allwinner F101 系列 SoC</strong> 的开发板，采用 Raspberry Pi Pico 的 2 × 20 针外形。板载 16 MiB PSRAM（F101S3，V1.5 的 32 MiB 配置使用 F101S4）和 16 MiB NOR Flash（支持 XIP，即就地执行），适合做 RISC-V 图形、显示、音频和通用 I/O 项目。硬件设计以 CC0 1.0 发布。
 
 ## 这份文档包含什么
 

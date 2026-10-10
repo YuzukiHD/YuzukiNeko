@@ -8,7 +8,7 @@
 | <strong>V1.4</strong> | 修正 PD 脚丝印编号，见下方 V1.3 勘误。只用 16 MiB 配置时，V1.4 把 `R11` 换成 1 kΩ 即可。 |
 | <strong>V1.3</strong> | 初始版本。 |
 
-!> <strong>该选哪个版本？</strong> 只需要 F101S3 + 16 MiB PSRAM：V1.4 够用，把 `R11` 换成 1 kΩ，microSD 检测问题就消失了。V1.5 是专门为 32 MiB PSRAM 配置准备的，它需要额外的 PSRAM LDO 电源轨。
+!> <strong>该选哪个版本？</strong> 如果只需要 F101S3 + 16 MiB PSRAM，V1.4 就够用：把 `R11` 换成 1 kΩ，microSD 检测问题就消失了。V1.5 是专门为 32 MiB PSRAM 配置准备的，它需要额外的 PSRAM LDO 电源轨。
 
 ## V1.3：PD 丝印编号错误
 

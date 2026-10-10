@@ -109,7 +109,7 @@ arduino-cli core install yuzuki:f101
 
 ### 验证状态
 
-只列有串口可验证的结果，画面和声音没有人工评判：
+下面只列出能用串口验证的结果，画面和声音没有人工评判：
 
 - 已验证：SelfTest（String、计时、数学、GPIO、ADC、PWM、Wire、SPI、Serial RX 回显）、AnalogSerial、DisplayBasics、Flash 启动、Windows 上的 `upload.cmd`；此前在单外设核心上验证过 `I2S` 回环、`SD`、`Watchdog`、`G2D`、`VideoDecoder` JPEG。
 - 已编译但<strong>尚未在当前核心上运行</strong>：`DBI`、`G2D`、`VideoDecoder`、`Audio`、`SPDIF`、`USBDevice`、`USBHost`、`MP4*`、H.264、PNG。
