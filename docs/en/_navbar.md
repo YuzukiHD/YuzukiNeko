@@ -1,0 +1,4 @@
+- Language
+  - [简体中文](/)
+  - [English](/en/)
+- [GitHub](https://github.com/YuzukiHD/YuzukiNeko)

@@ -1,0 +1,27 @@
+- Getting Started
+  - [Introduction](/en/README.md)
+  - [Quick Start](/en/quickstart.md)
+- Hardware
+  - [Board Overview](/en/hardware/overview.md)
+  - [Pinout](/en/hardware/pinout.md)
+  - [Pin Multiplexing (MUX)](/en/hardware/mux.md)
+  - [Common Peripheral Pin Groups](/en/hardware/groups.md)
+  - [Errata and Version Differences](/en/hardware/errata.md)
+  - [Hardware Files](/en/hardware/files.md)
+- Boot and Download
+  - [FEL Download Mode and Tools](/en/boot/fel.md)
+  - [SPI NOR Layout and Backup](/en/boot/flash-layout.md)
+- Firmware
+  - [RustSBI + Asterinas](/en/firmware/rustsbi-asterinas.md)
+- Development
+  - [Software Overview](/en/dev/overview.md)
+  - [Arduino](/en/dev/arduino.md)
+  - [Zephyr](/en/dev/zephyr.md)
+  - [UF2 Drag-and-Drop Flashing](/en/dev/uf2.md)
+  - [Other Systems and Components](/en/dev/others.md)
+- Enclosure
+  - [3D-Printed Enclosure](/en/shell.md)
+- Reference
+  - [FAQ](/en/faq.md)
+  - [License](/en/license.md)
+  - [Contributing](/en/contributing.md)
