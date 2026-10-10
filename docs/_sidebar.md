@@ -1,0 +1,27 @@
+- 入门
+  - [项目简介](/README.md)
+  - [快速开始](/quickstart.md)
+- 硬件
+  - [板卡概览](/hardware/overview.md)
+  - [引脚排布](/hardware/pinout.md)
+  - [引脚复用 (MUX)](/hardware/mux.md)
+  - [常用外设引脚组合](/hardware/groups.md)
+  - [勘误与版本差异](/hardware/errata.md)
+  - [硬件文件说明](/hardware/files.md)
+- 启动与下载
+  - [FEL 下载模式与工具](/boot/fel.md)
+  - [SPI NOR 布局与备份](/boot/flash-layout.md)
+- 固件
+  - [RustSBI + Asterinas](/firmware/rustsbi-asterinas.md)
+- 开发
+  - [软件方案总览](/dev/overview.md)
+  - [Arduino](/dev/arduino.md)
+  - [Zephyr](/dev/zephyr.md)
+  - [UF2 拖放烧录](/dev/uf2.md)
+  - [其他系统与组件](/dev/others.md)
+- 外壳
+  - [3D 打印外壳](/shell.md)
+- 参考
+  - [常见问题](/faq.md)
+  - [许可证](/license.md)
+  - [参与贡献](/contributing.md)
