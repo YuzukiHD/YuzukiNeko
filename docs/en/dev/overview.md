@@ -4,12 +4,24 @@ YuzukiNeko is a single-core RISC-V (rv32imac) board that can run a variety of so
 
 | Option | Suited for | Status and notes | Docs |
 | --- | --- | --- | --- |
-| **Arduino** | Writing sketches quickly, getting familiar with the Arduino API | Prebuilt core (Zephyr inside), no toolchain setup; several examples verified on the EVB | [Arduino](arduino.md) |
-| **Zephyr** | A full RTOS using display, audio, USB, G2D, video decoding, etc. | Board `yuzukineko`, complete peripheral drivers | [Zephyr](zephyr.md) |
-| **UF2 downloader** | Flashing applications by dropping a `.uf2` file, no tools to install | The board runs a USB drive `F101BOOT` | [UF2 Drag-and-Drop Flashing](uf2.md) |
-| **RustSBI + Asterinas** | A system with a Linux-style shell right away | Ready-made image, nine BusyBox demos | [RustSBI + Asterinas](../firmware/rustsbi-asterinas.md) |
-| **Linux + Buildroot** | A full Linux with a writable, persistent root filesystem | Ready-made images (RV32 / RV64I), SquashFS + JFFS2 overlay | [Linux + Buildroot](../firmware/linux-buildroot.md) |
-| **MicroPython, RT-Thread, ESP-IDF, etc.** | Other ecosystems | Mostly still in progress | [Other Systems and Components](others.md) |
+| **Arduino** | Writing sketches quickly, getting familiar with the Arduino API | Prebuilt core (Zephyr inside), no toolchain setup; several examples verified on the EVB | [Arduino](arduino/index.md) |
+| **Zephyr** | A full RTOS using display, audio, USB, G2D, video decoding, etc. | Board `yuzukineko`, complete peripheral drivers | [Zephyr](zephyr/index.md) |
+| **UF2 downloader** | Flashing applications by dropping a `.uf2` file, no tools to install | The board runs a USB drive `F101BOOT` | [UF2 Drag-and-Drop Flashing](uf2/index.md) |
+| **RustSBI + Asterinas** | A system with a Linux-style shell right away | Ready-made image, nine BusyBox demos | [RustSBI + Asterinas](asterinas/rustsbi-asterinas.md) |
+| **Linux + Buildroot** | A full Linux with a writable, persistent root filesystem | Ready-made images (RV32 / RV64I), SquashFS + JFFS2 overlay | [Linux + Buildroot](linux/linux-buildroot.md) |
+| **MicroPython** | Upstream Zephyr port as the application, plus an `f101` module (G2D, audio, chip ID); REPL on the console | Verified on the EVB: floating point, `machine` Pin/SPI/ADC/PWM/WDT, SD mount, display writes, G2D, tone output | [MicroPython](zephyr/micropython/index.md) |
+| **RT-Thread** | v5.3.0, BSP `sun252iw2`, entirely on the device model and a built-in device tree | Drivers ported and tested on the EVB; USB host not run (the single port is taken by the download cable) | [RT-Thread](rt-thread/index.md) |
+| **ESP-IDF** | v6.1 port, target `sun252i-f101` | In progress: gpio/uart/i2c/spi/adc/ledc/sdmmc, esp_lcd RGB panel, DMA and audio (on-chip codec) pass EVB tests; USB and WiFi not done | [ESP-IDF](esp-idf/index.md) |
+| **mGBA** | Game Boy Advance emulator port | Runs | [mGBA](zephyr/mgba/index.md) |
+| **NES** | NES emulator port | Builds and links; not yet run on the board | [NES](zephyr/nes/index.md) |
+| **Doom** | Doom port | Builds and links; not yet run on the board | [Doom](zephyr/doom/index.md) |
+
+## Technology Stacks
+
+The two Linux-style routes are kept apart:
+
+- [Linux Development](linux/index.md): the C stack, standard Linux kernel + Buildroot.
+- [Asterinas Development](asterinas/index.md): the pure-Rust stack, RustSBI + Asterinas.
 
 ## Boot Methods
 

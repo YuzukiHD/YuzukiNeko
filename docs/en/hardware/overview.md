@@ -33,7 +33,7 @@ The following is how existing software uses the header pins. It is **not a fixed
 | `PB0` / `PB1` | UART1 TX / RX, console of the Zephyr `yuzukineko` board | Zephyr board configuration |
 | `PE2` | VBUS switch in USB host mode | Zephyr USB host driver |
 | `PE10` | Speaker amplifier enable for onboard audio (configurations with an amplifier) | Zephyr / Arduino audio |
-| `PD5` | UF2 downloader button (active low, internal pull-up): hold it at power-up to enter `F101BOOT` | UF2 loader, see [UF2](../dev/uf2.md) |
+| `PD5` | UF2 downloader button (active low, internal pull-up): hold it at power-up to enter `F101BOOT` | UF2 loader, see [UF2](../dev/uf2/index.md) |
 | `PD0`–`PD22` | RGB LCD data/timing lines | Display stack, occupied once display is enabled |
 
 !> Which pin group the console serial port actually uses depends on the software (Zephyr `yuzukineko`: UART1 `PB0/PB1`; Arduino `Serial`: as configured by that board's core). Before wiring, rely on the [schematic](files.md) and the notes of the firmware you flashed.

@@ -44,16 +44,16 @@ Suited if you want to see an interactive system right away. The image is already
    xfel spinor read 0x0 0x6d0000 readback.img
    sha256sum yuzukineko-rustsbi-asterinas.img readback.img
    ```
-   The image is 7,143,424 bytes, exactly `0x6d0000`, so the read-back range is the same length as the image. The two digests should match each other and the record in `SHA256SUMS`. See the [firmware page](firmware/rustsbi-asterinas.md) for details.
+   The image is 7,143,424 bytes, exactly `0x6d0000`, so the read-back range is the same length as the image. The two digests should match each other and the record in `SHA256SUMS`. See the [firmware page](dev/asterinas/rustsbi-asterinas.md) for details.
 5. Release the FEL button and reset:
    ```sh
    xfel reset
    ```
 6. Open a serial terminal at 115200 8N1 to get the BusyBox shell.
 
-For the full description and how to replace individual components, see [RustSBI + Asterinas](firmware/rustsbi-asterinas.md).
+For the full description and how to replace individual components, see [RustSBI + Asterinas](dev/asterinas/rustsbi-asterinas.md).
 
-?> If you want changes to persist (a writable root filesystem that survives a reboot), or you need the RV64I variant, use a [Linux + Buildroot](firmware/linux-buildroot.md) image instead. The steps are the same, but that image covers the whole 16 MiB, so writing it also overwrites the data persisted on the board.
+?> If you want changes to persist (a writable root filesystem that survives a reboot), or you need the RV64I variant, use a [Linux + Buildroot](dev/linux/linux-buildroot.md) image instead. The steps are the same, but that image covers the whole 16 MiB, so writing it also overwrites the data persisted on the board.
 
 ## Route B: write a first Blink with Arduino
 
@@ -68,14 +68,14 @@ Suited if you are familiar with Arduino; no toolchain setup is needed.
 4. On first use install the FEL USB driver (on Windows install WinUSB with Zadig, on Linux add a udev rule), see [FEL Download Mode and Tools](boot/fel.md#usb-drivers-and-permissions).
 5. Open the **Blink** example, compile, put the board into FEL, then use **Sketch → Upload Using Programmer**.
 
-For detailed steps, API coverage and limitations see [Arduino](dev/arduino.md).
+For detailed steps, API coverage and limitations see [Arduino](dev/arduino/index.md).
 
 ## Route C: develop with Zephyr
 
-Suited if you need a full RTOS, drivers and multimedia features. The Zephyr `yuzukineko` board support is in the F101 workspace, see [Zephyr](dev/zephyr.md).
+Suited if you need a full RTOS, drivers and multimedia features. The Zephyr `yuzukineko` board support is in the F101 workspace, see [Zephyr](dev/zephyr/index.md).
 
 ## Next steps
 
 - Want to connect peripherals → [Pinout](hardware/pinout.md)
-- Want to flash by dragging and dropping a `.uf2` → [UF2 Drag-and-Drop Flashing](dev/uf2.md)
+- Want to flash by dragging and dropping a `.uf2` → [UF2 Drag-and-Drop Flashing](dev/uf2/index.md)
 - Running into problems → [FAQ](faq.md)

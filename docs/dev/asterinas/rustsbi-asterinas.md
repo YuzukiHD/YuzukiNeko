@@ -24,9 +24,9 @@ BROM → SyterKit → RustSBI → Asterinas → BusyBox shell
 
 ## 刷入完整镜像
 
-<strong>Windows、Linux、macOS 都可以做刷机主机。</strong> 先按[FEL 下载模式与工具](../boot/fel.md)装好 xfel 或 rfel。下面假设工具在 `PATH` 里，终端位于镜像所在目录。
+<strong>Windows、Linux、macOS 都可以做刷机主机。</strong> 先按[FEL 下载模式与工具](../../boot/fel.md)装好 xfel 或 rfel。下面假设工具在 `PATH` 里，终端位于镜像所在目录。
 
-首次安装或从其他固件切换时用完整镜像。它写入 NOR `0x000000..0x6d0000`，`0x6d0000..0x1000000` 不受影响。“完整”指文件包含启动所需的一切，并不是补到整片 16 MiB。要保留原固件，请先[备份](../boot/flash-layout.md#备份整片-flash)。
+首次安装或从其他固件切换时用完整镜像。它写入 NOR `0x000000..0x6d0000`，`0x6d0000..0x1000000` 不受影响。“完整”指文件包含启动所需的一切，并不是补到整片 16 MiB。要保留原固件，请先[备份](../../boot/flash-layout.md#备份整片-flash)。
 
 1. 按住 <strong>FEL</strong> 键，重新接上 USB 数据线，松开。
 2. 检查芯片和 Flash：
@@ -51,7 +51,7 @@ BROM → SyterKit → RustSBI → Asterinas → BusyBox shell
 
 用 <strong>115200 波特、8N1、无流控</strong>连接板子的 UART。启动后进入 BusyBox shell。RustSBI 使用 WARN 级日志，正常启动时看不到它的 INFO 横幅。
 
-?> 本包的说明没有指明控制台接在哪一组排针引脚上。请对照[原理图](../hardware/files.md)确认串口引脚。
+?> 本包的说明没有指明控制台接在哪一组排针引脚上。请对照[原理图](../../hardware/files.md)确认串口引脚。
 
 ## 单独替换某个组件
 

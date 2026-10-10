@@ -12,15 +12,43 @@
 - Boot and Download
   - [FEL Download Mode and Tools](/en/boot/fel.md)
   - [SPI NOR Layout and Backup](/en/boot/flash-layout.md)
-- Firmware
-  - [RustSBI + Asterinas](/en/firmware/rustsbi-asterinas.md)
-  - [Linux + Buildroot](/en/firmware/linux-buildroot.md)
 - Development
   - [Software Overview](/en/dev/overview.md)
-  - [Arduino](/en/dev/arduino.md)
-  - [Zephyr](/en/dev/zephyr.md)
-  - [UF2 Drag-and-Drop Flashing](/en/dev/uf2.md)
-  - [Other Systems and Components](/en/dev/others.md)
+  - Arduino
+    - [Introduction](/en/dev/arduino/index.md)
+    - [Installation](/en/dev/arduino/install.md)
+    - [First Sketch](/en/dev/arduino/first-sketch.md)
+    - [Writing Sketches and APIs](/en/dev/arduino/api.md)
+    - [Peripheral Libraries](/en/dev/arduino/libraries.md)
+    - [How It Runs and Hardware Notes](/en/dev/arduino/internals.md)
+  - Zephyr
+    - [Introduction](/en/dev/zephyr/index.md)
+    - [Boards](/en/dev/zephyr/boards.md)
+    - [Build and Run](/en/dev/zephyr/build-run.md)
+    - [Pin Conflicts](/en/dev/zephyr/pin-conflicts.md)
+    - [Samples](/en/dev/zephyr/samples.md)
+    - MicroPython
+      - [Introduction](/en/dev/zephyr/micropython/index.md)
+    - mGBA
+      - [Introduction](/en/dev/zephyr/mgba/index.md)
+    - NES
+      - [Introduction](/en/dev/zephyr/nes/index.md)
+    - Doom
+      - [Introduction](/en/dev/zephyr/doom/index.md)
+  - Linux Development
+    - [Introduction](/en/dev/linux/index.md)
+    - [Linux + Buildroot](/en/dev/linux/linux-buildroot.md)
+  - Asterinas Development
+    - [Introduction](/en/dev/asterinas/index.md)
+    - [RustSBI + Asterinas](/en/dev/asterinas/rustsbi-asterinas.md)
+  - UF2 Drag-and-Drop Flashing
+    - [Introduction](/en/dev/uf2/index.md)
+    - [Making a .uf2](/en/dev/uf2/make-uf2.md)
+    - [Flash Layout and First Installation](/en/dev/uf2/flash-layout.md)
+  - RT-Thread
+    - [Introduction](/en/dev/rt-thread/index.md)
+  - ESP-IDF
+    - [Introduction](/en/dev/esp-idf/index.md)
 - Enclosure
   - [3D-Printed Enclosure](/en/shell.md)
 - Reference

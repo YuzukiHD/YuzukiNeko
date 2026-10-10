@@ -20,15 +20,15 @@ Two images are provided, one per CPU mode: **RV32** (C907, `ilp32d`) and **RV64I
 
 Each image is complete — bootloader, device tree, SBI firmware, kernel and root filesystem — and is exactly the size of the Flash chip. Space that holds no payload, and the overlay partition, is erased (`0xFF`).
 
-Unlike [RustSBI + Asterinas](rustsbi-asterinas.md), which is a 7 MiB partial image that boots into an initramfs, these images cover all 16 MiB of the Flash and mount a persistent root filesystem from it.
+Unlike [RustSBI + Asterinas](../asterinas/rustsbi-asterinas.md), which is a 7 MiB partial image that boots into an initramfs, these images cover all 16 MiB of the Flash and mount a persistent root filesystem from it.
 
 `.img` here means **raw SPI NOR data**. It is neither a PhoenixSuit container nor a disk image with a partition table.
 
 ## Flashing the Full Image
 
-**Windows, Linux and macOS can all be the flashing host.** First install xfel or rfel as described in [FEL Download Mode and Tools](../boot/fel.md). The steps below assume the tool is in `PATH` and the terminal is in the directory containing the images.
+**Windows, Linux and macOS can all be the flashing host.** First install xfel or rfel as described in [FEL Download Mode and Tools](../../boot/fel.md). The steps below assume the tool is in `PATH` and the terminal is in the directory containing the images.
 
-Use a full image for a first installation or when switching from other firmware. Because each image is the full 16 MiB, writing it replaces **everything** on the Flash chip, including the overlay partition that holds the board's persistent changes. If you want to keep what is on the board, [back it up](../boot/flash-layout.md#back-up-the-whole-flash) first.
+Use a full image for a first installation or when switching from other firmware. Because each image is the full 16 MiB, writing it replaces **everything** on the Flash chip, including the overlay partition that holds the board's persistent changes. If you want to keep what is on the board, [back it up](../../boot/flash-layout.md#back-up-the-whole-flash) first.
 
 1. Hold the **FEL** button, replug the USB data cable, and release.
 2. Check the chip and Flash:
@@ -64,7 +64,7 @@ console=ttyS1,115200n8 earlycon=uart8250,mmio32,0x02500400 loglevel=8 printk.tim
 
 The console is UART1 / `ttyS1`. Booting mounts the SquashFS root read-only, `/sbin/init` builds the overlayfs on top of it, and a login prompt appears. The configuration sets no root password, so Buildroot's default applies: log in as `root` with an empty password.
 
-?> The documentation of this package does not state which header pins the console is wired to. Check the serial pins against the [schematics](../hardware/files.md).
+?> The documentation of this package does not state which header pins the console is wired to. Check the serial pins against the [schematics](../../hardware/files.md).
 
 ?> On a first boot, `/sbin/init` has to erase and format the JFFS2 overlay partition. This takes a moment, so the first boot is slower than later ones.
 

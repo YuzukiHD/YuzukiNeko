@@ -12,15 +12,43 @@
 - 启动与下载
   - [FEL 下载模式与工具](/boot/fel.md)
   - [SPI NOR 布局与备份](/boot/flash-layout.md)
-- 固件
-  - [RustSBI + Asterinas](/firmware/rustsbi-asterinas.md)
-  - [Linux + Buildroot](/firmware/linux-buildroot.md)
 - 开发
   - [软件方案总览](/dev/overview.md)
-  - [Arduino](/dev/arduino.md)
-  - [Zephyr](/dev/zephyr.md)
-  - [UF2 拖放烧录](/dev/uf2.md)
-  - [其他系统与组件](/dev/others.md)
+  - Arduino
+    - [简介](/dev/arduino/index.md)
+    - [安装](/dev/arduino/install.md)
+    - [第一个草图](/dev/arduino/first-sketch.md)
+    - [编写草图与 API](/dev/arduino/api.md)
+    - [外设库](/dev/arduino/libraries.md)
+    - [运行原理与硬件注意事项](/dev/arduino/internals.md)
+  - Zephyr
+    - [简介](/dev/zephyr/index.md)
+    - [板级](/dev/zephyr/boards.md)
+    - [编译与运行](/dev/zephyr/build-run.md)
+    - [引脚冲突](/dev/zephyr/pin-conflicts.md)
+    - [示例](/dev/zephyr/samples.md)
+    - MicroPython
+      - [简介](/dev/zephyr/micropython/index.md)
+    - mGBA
+      - [简介](/dev/zephyr/mgba/index.md)
+    - NES
+      - [简介](/dev/zephyr/nes/index.md)
+    - Doom
+      - [简介](/dev/zephyr/doom/index.md)
+  - Linux 开发
+    - [简介](/dev/linux/index.md)
+    - [Linux + Buildroot](/dev/linux/linux-buildroot.md)
+  - Asterinas 开发
+    - [简介](/dev/asterinas/index.md)
+    - [RustSBI + Asterinas](/dev/asterinas/rustsbi-asterinas.md)
+  - UF2 拖放烧录
+    - [简介](/dev/uf2/index.md)
+    - [制作 .uf2](/dev/uf2/make-uf2.md)
+    - [Flash 布局与首次安装](/dev/uf2/flash-layout.md)
+  - RT-Thread
+    - [简介](/dev/rt-thread/index.md)
+  - ESP-IDF
+    - [简介](/dev/esp-idf/index.md)
 - 外壳
   - [3D 打印外壳](/shell.md)
 - 参考
