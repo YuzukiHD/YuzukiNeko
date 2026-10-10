@@ -8,6 +8,7 @@ YuzukiNeko 是 RISC-V（rv32imac）单核板，可以跑多种软件。选哪条
 | <strong>Zephyr</strong> | 完整 RTOS，使用显示、音频、USB、G2D、视频解码等 | 板级 `yuzukineko`，外设驱动齐全 | [Zephyr](zephyr.md) |
 | <strong>UF2 下载器</strong> | 不装工具，拖放 `.uf2` 烧录应用 | 板上运行一个 USB 盘 `F101BOOT` | [UF2 拖放烧录](uf2.md) |
 | <strong>RustSBI + Asterinas</strong> | 想直接看到 Linux 风格 shell 的系统 | 现成镜像，BusyBox 九个示例 | [RustSBI + Asterinas](../firmware/rustsbi-asterinas.md) |
+| <strong>Linux + Buildroot</strong> | 需要完整 Linux、可写且能持久化的根文件系统 | 现成镜像（RV32 / RV64I），SquashFS + JFFS2 overlay | [Linux + Buildroot](../firmware/linux-buildroot.md) |
 | <strong>MicroPython、RT-Thread、ESP-IDF 等</strong> | 其他生态 | 多数仍在推进中 | [其他系统与组件](others.md) |
 
 ## 启动方式

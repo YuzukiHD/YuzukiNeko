@@ -14,6 +14,7 @@
   - [SPI NOR Layout and Backup](/en/boot/flash-layout.md)
 - Firmware
   - [RustSBI + Asterinas](/en/firmware/rustsbi-asterinas.md)
+  - [Linux + Buildroot](/en/firmware/linux-buildroot.md)
 - Development
   - [Software Overview](/en/dev/overview.md)
   - [Arduino](/en/dev/arduino.md)

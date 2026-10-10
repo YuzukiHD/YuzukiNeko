@@ -1,0 +1,228 @@
+{
+  "board": "Yuzuki Neko F101-S3",
+  "soc": "Allwinner SUN252I-F101 (C907, T-Head XuanTie)",
+  "flash_bytes": 16777216,
+  "format": "Raw SPI NOR image, 16 MiB, one file per architecture. Unused space and the overlay partition are erased (0xFF). Not a PhoenixSuit container, not a disk image with a partition table, and not a whole-device backup.",
+  "boot_chain": "BROM -> SyterKit SPL -> OpenSBI fw_jump -> Linux -> BusyBox",
+  "layout": [
+    {
+      "name": "bootloader",
+      "flash_offset": "0x000000",
+      "reserved_bytes": 65536,
+      "ram_address": "0x00020000",
+      "read_size_bytes": null,
+      "content": "SyterKit SPL with an eGON boot header; loaded by the BROM into SRAM. Brings up PSRAM, then copies the three payloads below from their fixed NOR offsets into PSRAM row by row."
+    },
+    {
+      "name": "dtb",
+      "flash_offset": "0x010000",
+      "reserved_bytes": 262144,
+      "ram_address": "0x40f40000",
+      "read_size_bytes": 262144,
+      "content": "Device tree. Also carries the flash@0 fixed-partition table that the kernel uses for the rootfs and overlay MTD partitions."
+    },
+    {
+      "name": "opensbi",
+      "flash_offset": "0x050000",
+      "reserved_bytes": 524288,
+      "ram_address": "0x40f80000",
+      "read_size_bytes": 524288,
+      "content": "OpenSBI fw_jump, built for PLATFORM=generic with PLATFORM_DEFCONFIG=sun252i-f101. SBI firmware that starts the kernel."
+    },
+    {
+      "name": "kernel",
+      "flash_offset": "0x0d0000",
+      "reserved_bytes": 6291456,
+      "ram_address": "0x40000000",
+      "read_size_bytes": 6291456,
+      "content": "Linux Image (arch/riscv/boot/Image). SquashFS root is mounted read-only from the rootfs partition."
+    },
+    {
+      "name": "rootfs",
+      "flash_offset": "0x6d0000",
+      "reserved_bytes": 8585216,
+      "ram_address": null,
+      "read_size_bytes": null,
+      "content": "rootfs.squashfs (xz), written at its real size. Mounted as a read-only MTD partition by the kernel; not copied to RAM by the SPL."
+    },
+    {
+      "name": "overlay",
+      "flash_offset": "0xf00000",
+      "reserved_bytes": 1048576,
+      "ram_address": null,
+      "read_size_bytes": null,
+      "content": "Erased (0xFF). The JFFS2 partition that /sbin/init formats and mounts as the writable overlayfs upper, making the root filesystem persistent."
+    }
+  ],
+  "layout_notes": [
+    "Read sizes are fixed: the SPL reads exactly 256 KiB for the device tree, 512 KiB for fw_jump and 6 MiB for the Image, then validates the DTB. A replacement payload must fit its reserved region; the SPL does not read the file's real length.",
+    "Payloads are packed back to back so that every offset stays 2 KiB aligned, and the same offsets are repeated as MTD fixed partitions in the kernel device tree.",
+    "The overlay partition is the last 1 MiB. Writing an image over it discards any changes previously persisted on the board."
+  ],
+  "images": [
+    {
+      "arch": "rv32",
+      "description": "RV32 build for the F101 C907 cores, ilp32d ABI",
+      "file": "linux-7.2-YuzukiNeko-sun252i-f101-buildroot-nor.img",
+      "bytes": 16777216,
+      "sha256": "a03c905ed2517ed61865753e3cdb6e720943e73bfb0fdb37db2e42f3509761ff",
+      "buildroot_defconfig": "yuzukihd_yuzukineko_nor_defconfig",
+      "linux_defconfig": "sun252i_f101_yuzukineko",
+      "buildroot_git_describe": "2026.08-30-g47c45f7f62",
+      "payloads": [
+        {
+          "name": "bootloader",
+          "file": "spinor-boot_spi.bin",
+          "flash_offset": "0x000000",
+          "bytes": 49152,
+          "sha256": "bcacc35b396587710d1e99c318b98e0f35c9718edcf673eaf7deeba34c93c478"
+        },
+        {
+          "name": "dtb",
+          "file": "sun252i-f101-yuzukineko.dtb",
+          "flash_offset": "0x010000",
+          "bytes": 8152,
+          "sha256": "5af635bb3267cd059e75ed89249b8694f75f9b3d7321f5e044cf7443158e56f6"
+        },
+        {
+          "name": "opensbi",
+          "file": "fw_jump.bin",
+          "flash_offset": "0x050000",
+          "bytes": 266352,
+          "sha256": "6a5411c92a0da9b6c3041a01579c4e496248e8ecc7c79da33667707ad0a64b9e"
+        },
+        {
+          "name": "kernel",
+          "file": "Image",
+          "flash_offset": "0x0d0000",
+          "bytes": 4996072,
+          "sha256": "1cb634f1b7fc29eaacde7f7ad41c9d57f6788e96637667b74989f3b898c5bf76"
+        },
+        {
+          "name": "rootfs",
+          "file": "rootfs.squashfs",
+          "flash_offset": "0x6d0000",
+          "bytes": 1282048,
+          "sha256": "8cbb2f27e3ff263a738e4e756459d42697dd28a297409635f2d71e7e7aacf61d"
+        }
+      ],
+      "rootfs_build_timestamp": "2026-09-05T18:19:16Z",
+      "busybox_build_timestamp": "2026-09-05T18:13:2xZ"
+    },
+    {
+      "arch": "rv64i",
+      "description": "RV64I build, lp64 ABI",
+      "file": "linux-7.2-YuzukiNeko-sun252i-f101-buildroot-rv64i-nor.img",
+      "bytes": 16777216,
+      "sha256": "d2b22608809b26a9f82f674337ab86cf3dfb420b2ee6c4820705d9afba0f8f14",
+      "buildroot_defconfig": "yuzukihd_yuzukineko_rv64i_nor_defconfig",
+      "linux_defconfig": "sun252i_f101_rv64_yuzukineko",
+      "buildroot_git_describe": "2026.08-90-gd0c6a0c40e",
+      "payloads": [
+        {
+          "name": "bootloader",
+          "file": "spinor-boot-rv64i_spi.bin",
+          "flash_offset": "0x000000",
+          "bytes": 49152,
+          "sha256": "e986efdf96bf3d453277cd875a7c3bf170e74279e96c5e2f05b9fb6072a9ce98"
+        },
+        {
+          "name": "dtb",
+          "file": "sun252i-f101-yuzukineko-rv64i.dtb",
+          "flash_offset": "0x010000",
+          "bytes": 10284,
+          "sha256": "96823cfa35ffae07febbf9d0d8583227fcdf56ad541fdd5ec80afebe3bfae663"
+        },
+        {
+          "name": "opensbi",
+          "file": "fw_jump.bin",
+          "flash_offset": "0x050000",
+          "bytes": 268744,
+          "sha256": "e1060d5b827b38c106c6a74a87d0815948ab5eb826e197e872ce1bb567ea1b0b"
+        },
+        {
+          "name": "kernel",
+          "file": "Image",
+          "flash_offset": "0x0d0000",
+          "bytes": 5881208,
+          "sha256": "9fe49ae27b6e31faf7c0996cd34c07524d6efb7dd315ba31ca37ed671c83ca56"
+        },
+        {
+          "name": "rootfs",
+          "file": "rootfs.squashfs",
+          "flash_offset": "0x6d0000",
+          "bytes": 1253376,
+          "sha256": "d72394bc12e5ee1a7cab2893078fb81de5775d35a3a6e5c81f32c300034b561e"
+        }
+      ],
+      "rootfs_build_timestamp": "2026-09-08T15:07:31Z",
+      "busybox_build_timestamp": "2026-09-08T13:40:5xZ"
+    }
+  ],
+  "source_versions": {
+    "buildroot_external": {
+      "repository": "https://github.com/YuzukiHD/buildroot-external-yuzukihd",
+      "branch": "main",
+      "commit_at_documentation_time": "1e250e57a85f456ae5fb7881a6229ef1dc86d4ac",
+      "note": "The external tree that defines both board defconfigs, the SyterKit build recipe and post-image-nor.sh. It is a moving branch; the images may have been built from an earlier revision."
+    },
+    "buildroot": {
+      "version": "2026.08 tag plus commits; git describe recorded in each kernel banner",
+      "git_describe_per_image": {
+        "rv32": "2026.08-30-g47c45f7f62",
+        "rv64i": "2026.08-90-gd0c6a0c40e"
+      },
+      "note": "The two images were produced by different Buildroot revisions, which is why their git describe strings differ."
+    },
+    "syterkit": {
+      "repository": "https://github.com/YuzukiHD/SyterKit",
+      "commit": "f95d29d611ce439a2510957b0f312b5b439f53b8",
+      "license": "GPL-2.0-or-later",
+      "note": "Pinned exactly by SYTERKIT_VERSION in boot/syterkit/syterkit.mk, so this commit is the one used for both images."
+    },
+    "opensbi": {
+      "repository": "https://github.com/YuzukiHD/opensbi",
+      "branch": "sun252i-f101",
+      "version": "1.9",
+      "commit_at_documentation_time": "08cbbe0bf6d2aaf0e8dbef8c548f4befdf3b7a7e",
+      "license": "BSD-2-Clause",
+      "note": "The defconfig names a branch, not a commit, so the exact built revision is not pinned by the image. The commit above is the branch tip observed on 2026-10-10."
+    },
+    "linux": {
+      "repository": "https://github.com/YuzukiHD/linux-mainline",
+      "branch": "sun252i_f101_7.2",
+      "version": "7.2.0",
+      "commit_at_documentation_time": "95cd7466c948927af159c58593f7bca519f4c8a3",
+      "license": "GPL-2.0 WITH Linux-syscall-note",
+      "note": "The defconfig names a branch, not a commit, so the exact built revision is not pinned by the image. The commit above is the branch tip observed on 2026-10-10."
+    },
+    "busybox": {
+      "version": "1.38.0",
+      "license": "GPL-2.0",
+      "note": "Version read from the BusyBox banner inside each image's SquashFS root, not inferred from the defconfig."
+    },
+    "musl": {
+      "version": "1.2.6",
+      "license": "MIT",
+      "note": "Buildroot's default musl for the revisions recorded above."
+    },
+    "toolchain": {
+      "gcc": "15.3.0",
+      "binutils": "2.45.1",
+      "libc": "musl",
+      "license": "GPL-3.0-or-later, with the GCC Runtime Library Exception",
+      "note": "Read from the kernel build banner; this is Buildroot's internal musl toolchain."
+    }
+  },
+  "verification": {
+    "date": "2026-10-10",
+    "method": "Offline analysis of the two image files only. Region boundaries were found by scanning for the last non-0xFF byte in each region; payload sizes and SHA-256 values below are those byte ranges. BusyBox, kernel, OpenSBI and Buildroot version strings were read out of the images themselves.",
+    "confirmed": [
+      "Both images are exactly 16777216 bytes and their SHA-256 values match SHA256SUMS.",
+      "Every payload fits its reserved region with the margins in layout.",
+      "The offsets match both post-image-nor.sh in the external tree and the F101_NOR_* defines in SyterKit's boards/yuzukineko/app_sram/spinor-boot/main.c.",
+      "The 1 MiB overlay partition at 0xf00000 is all 0xFF in both images."
+    ],
+    "not_recorded": "No hardware boot test is recorded in this package. The board-level result for a given board and flash chip is not asserted here."
+  }
+}

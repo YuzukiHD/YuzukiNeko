@@ -14,6 +14,7 @@
   - [SPI NOR 布局与备份](/boot/flash-layout.md)
 - 固件
   - [RustSBI + Asterinas](/firmware/rustsbi-asterinas.md)
+  - [Linux + Buildroot](/firmware/linux-buildroot.md)
 - 开发
   - [软件方案总览](/dev/overview.md)
   - [Arduino](/dev/arduino.md)
