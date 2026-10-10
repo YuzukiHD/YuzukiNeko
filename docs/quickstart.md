@@ -44,16 +44,16 @@
    xfel spinor read 0x0 0x6d0000 readback.img
    sha256sum yuzukineko-rustsbi-asterinas.img readback.img
    ```
-   镜像大小 7,143,424 字节，正好是 `0x6d0000`，所以读回的范围与镜像等长，两个摘要应一致，并与 `SHA256SUMS` 中的记录相同。细节见[固件页](firmware/rustsbi-asterinas.md)。
+   镜像大小 7,143,424 字节，正好是 `0x6d0000`，所以读回的范围与镜像等长，两个摘要应一致，并与 `SHA256SUMS` 中的记录相同。细节见[固件页](dev/asterinas/rustsbi-asterinas.md)。
 5. 松开 FEL 键，复位：
    ```sh
    xfel reset
    ```
 6. 串口终端 115200 8N1 打开，进入 BusyBox shell。
 
-完整说明与单独替换各组件的方法见 [RustSBI + Asterinas](firmware/rustsbi-asterinas.md)。
+完整说明与单独替换各组件的方法见 [RustSBI + Asterinas](dev/asterinas/rustsbi-asterinas.md)。
 
-?> 想要改动能保留（可写根文件系统，重启后仍在），或者需要 RV64I 版本，可以改用 [Linux + Buildroot](firmware/linux-buildroot.md) 的镜像。流程一样，但那个镜像覆盖整片 16 MiB，写入时会一并覆盖板上持久化的数据。
+?> 想要改动能保留（可写根文件系统，重启后仍在），或者需要 RV64I 版本，可以改用 [Linux + Buildroot](dev/linux/linux-buildroot.md) 的镜像。流程一样，但那个镜像覆盖整片 16 MiB，写入时会一并覆盖板上持久化的数据。
 
 ## 路线 B：用 Arduino 写第一个 Blink
 
@@ -68,14 +68,14 @@
 4. 首次需要安装 FEL 的 USB 驱动（Windows 用 Zadig 装 WinUSB，Linux 加 udev 规则），见 [FEL 下载模式与工具](boot/fel.md#usb-驱动与权限)。
 5. 打开示例 <strong>Blink</strong>，编译，让板子进入 FEL，然后 <strong>项目 → 使用编程器上传</strong>。
 
-详细步骤、API 支持范围和限制见 [Arduino](dev/arduino.md)。
+详细步骤、API 支持范围和限制见 [Arduino](dev/arduino/index.md)。
 
 ## 路线 C：用 Zephyr 开发
 
-适合需要完整 RTOS、驱动和多媒体功能的用户。Zephyr 的 `yuzukineko` 板级支持在 F101 工作区内，见 [Zephyr](dev/zephyr.md)。
+适合需要完整 RTOS、驱动和多媒体功能的用户。Zephyr 的 `yuzukineko` 板级支持在 F101 工作区内，见 [Zephyr](dev/zephyr/index.md)。
 
 ## 下一步
 
 - 想接外设 → [引脚排布](hardware/pinout.md)
-- 想拖放 `.uf2` 烧录 → [UF2 拖放烧录](dev/uf2.md)
+- 想拖放 `.uf2` 烧录 → [UF2 拖放烧录](dev/uf2/index.md)
 - 遇到问题 → [常见问题](faq.md)

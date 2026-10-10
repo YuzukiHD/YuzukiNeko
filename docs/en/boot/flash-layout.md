@@ -46,7 +46,7 @@ How the Flash is divided depends on which software you install. The same board c
 | Asterinas | `0x0d0000` | 5 MiB (up to the initramfs) | `0x40000000` |
 | initramfs | `0x5d0000` | 1 MiB | `0x40500000` |
 
-The full image is written to `0x000000..0x6d0000`; `0x6d0000..0x1000000` is not touched. See [RustSBI + Asterinas](../firmware/rustsbi-asterinas.md) for details.
+The full image is written to `0x000000..0x6d0000`; `0x6d0000..0x1000000` is not touched. See [RustSBI + Asterinas](../dev/asterinas/rustsbi-asterinas.md) for details.
 
 ### Linux + Buildroot image
 
@@ -59,7 +59,7 @@ The full image is written to `0x000000..0x6d0000`; `0x6d0000..0x1000000` is not 
 | SquashFS rootfs | `0x6d0000` | up to `0xf00000` (about 8.2 MiB) | mounted from MTD |
 | JFFS2 overlay | `0xf00000` | 1 MiB | mounted from MTD |
 
-The full image covers the **whole 16 MiB**, including the overlay partition, so writing it discards changes already persisted on the board. See [Linux + Buildroot](../firmware/linux-buildroot.md) for details.
+The full image covers the **whole 16 MiB**, including the overlay partition, so writing it discards changes already persisted on the board. See [Linux + Buildroot](../dev/linux/linux-buildroot.md) for details.
 
 ### Arduino / UF2 layout
 
@@ -71,7 +71,7 @@ The full image covers the **whole 16 MiB**, including the overlay partition, so 
 | Application header page (Arduino core / Zephyr application) | `0x200000` (up to about `0x4CF000` bytes) |
 | Arduino sketch | `0x400000` |
 
-See [Arduino](../dev/arduino.md) and [UF2 Drag-and-Drop Flashing](../dev/uf2.md) for details.
+See [Arduino](../dev/arduino/index.md) and [UF2 Drag-and-Drop Flashing](../dev/uf2/index.md) for details.
 
 ?> The regions in the tables above overlap (for example, they all place SyterKit starting at `0x000000`), so **do not mix them on the same Flash**. When switching from one layout to another, write the complete boot part of the new layout and read it back with `xfel spinor read` to confirm.
 

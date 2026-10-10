@@ -12,7 +12,7 @@ Your xfel / rfel version is too old to support F101. Upgrade and try again.
 The Flash already contains a valid boot loader, which runs directly at power-on instead of entering FEL. You must hold the FEL key while powering on.
 
 **The board does nothing after writing Flash.**
-Read back the written region and compare the SHA-256; make sure you wrote the complete image rather than a single component (writing only the three `.bin` files does not install the device tree and root filesystem). See [RustSBI + Asterinas](firmware/rustsbi-asterinas.md).
+Read back the written region and compare the SHA-256; make sure you wrote the complete image rather than a single component (writing only the three `.bin` files does not install the device tree and root filesystem). See [RustSBI + Asterinas](dev/asterinas/rustsbi-asterinas.md).
 
 **I want to restore the original firmware.**
 Use the full-chip image you backed up earlier: `xfel spinor write 0x0 neko-backup.bin`, then read back to verify and reset. Without a backup it cannot be restored, so back up the Flash before touching it.

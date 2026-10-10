@@ -24,9 +24,9 @@ Single images are `.bin`; the combined image is `.img`. The `.img` is **raw SPI 
 
 ## Flashing the Full Image
 
-**Windows, Linux and macOS can all be the flashing host.** First install xfel or rfel as described in [FEL Download Mode and Tools](../boot/fel.md). The steps below assume the tool is in `PATH` and the terminal is in the directory containing the images.
+**Windows, Linux and macOS can all be the flashing host.** First install xfel or rfel as described in [FEL Download Mode and Tools](../../boot/fel.md). The steps below assume the tool is in `PATH` and the terminal is in the directory containing the images.
 
-Use the full image for a first installation or when switching from other firmware. It writes NOR `0x000000..0x6d0000`, and `0x6d0000..0x1000000` is unaffected. "Full" means the file contains everything needed to boot; it is not padded to the whole 16 MiB. To keep the original firmware, [back it up](../boot/flash-layout.md#back-up-the-whole-flash) first.
+Use the full image for a first installation or when switching from other firmware. It writes NOR `0x000000..0x6d0000`, and `0x6d0000..0x1000000` is unaffected. "Full" means the file contains everything needed to boot; it is not padded to the whole 16 MiB. To keep the original firmware, [back it up](../../boot/flash-layout.md#back-up-the-whole-flash) first.
 
 1. Hold the **FEL** button, replug the USB data cable, and release.
 2. Check the chip and Flash:
@@ -51,7 +51,7 @@ Use the full image for a first installation or when switching from other firmwar
 
 Connect to the board's UART at **115200 baud, 8N1, no flow control**. After boot you land in the BusyBox shell. RustSBI uses WARN-level logging, so its INFO banner is not visible in a normal boot.
 
-?> The documentation of this package does not state which header pins the console is wired to. Check the serial pins against the [schematics](../hardware/files.md).
+?> The documentation of this package does not state which header pins the console is wired to. Check the serial pins against the [schematics](../../hardware/files.md).
 
 ## Replacing Individual Components
 

@@ -20,15 +20,15 @@ BROM → SyterKit → OpenSBI → Linux → BusyBox
 
 每个镜像都是完整的——引导加载器、设备树、SBI 固件、内核、根文件系统——并且正好是整片 Flash 的大小。不存放载荷的空隙和 overlay 分区都擦成 `0xFF`。
 
-与 [RustSBI + Asterinas](rustsbi-asterinas.md) 不同：那个是 7 MiB 的部分镜像、启动到 initramfs；这里的镜像覆盖整片 16 MiB，并从 Flash 挂载可持久化的根文件系统。
+与 [RustSBI + Asterinas](../asterinas/rustsbi-asterinas.md) 不同：那个是 7 MiB 的部分镜像、启动到 initramfs；这里的镜像覆盖整片 16 MiB，并从 Flash 挂载可持久化的根文件系统。
 
 `.img` 是按固定偏移拼好的<strong>原始 SPI NOR 数据</strong>，既不是 PhoenixSuit 容器，也不是带分区表的磁盘镜像。
 
 ## 刷入完整镜像
 
-<strong>Windows、Linux、macOS 都可以做刷机主机。</strong> 先按 [FEL 下载模式与工具](../boot/fel.md) 装好 xfel 或 rfel。下面假设工具在 `PATH` 里，终端位于镜像所在目录。
+<strong>Windows、Linux、macOS 都可以做刷机主机。</strong> 先按 [FEL 下载模式与工具](../../boot/fel.md) 装好 xfel 或 rfel。下面假设工具在 `PATH` 里，终端位于镜像所在目录。
 
-首次安装或从其他固件切换时用完整镜像。因为每个镜像都是整片 16 MiB，写入会<strong>覆盖整片 Flash</strong>，包括存放板子持久化改动的 overlay 分区。想保留板上的内容，请先[备份](../boot/flash-layout.md#备份整片-flash)。
+首次安装或从其他固件切换时用完整镜像。因为每个镜像都是整片 16 MiB，写入会<strong>覆盖整片 Flash</strong>，包括存放板子持久化改动的 overlay 分区。想保留板上的内容，请先[备份](../../boot/flash-layout.md#备份整片-flash)。
 
 1. 按住 <strong>FEL</strong> 键，重新接上 USB 数据线，松开。
 2. 检查芯片和 Flash：
@@ -64,7 +64,7 @@ console=ttyS1,115200n8 earlycon=uart8250,mmio32,0x02500400 loglevel=8 printk.tim
 
 控制台是 UART1 / `ttyS1`。启动时先把 SquashFS 根挂载为只读，再由 `/sbin/init` 在上面搭好 overlayfs，然后出现登录提示。配置里没有设置 root 密码，因此适用 Buildroot 的默认值：用 `root` 登录，密码为空。
 
-?> 本包的说明没有指明控制台接在哪一组排针引脚上。请对照[原理图](../hardware/files.md)确认串口引脚。
+?> 本包的说明没有指明控制台接在哪一组排针引脚上。请对照[原理图](../../hardware/files.md)确认串口引脚。
 
 ?> 首次启动时 `/sbin/init` 需要擦除并格式化 JFFS2 overlay 分区，会花一点时间，所以第一次启动比之后慢。
 

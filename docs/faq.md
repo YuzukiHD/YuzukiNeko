@@ -12,7 +12,7 @@ xfel / rfel 版本太旧，不支持 F101。升级后重试。
 Flash 里已经有有效的启动加载器，上电直接运行它，不再自己进 FEL。必须按住 FEL 键上电。
 
 <strong>写完 Flash 之后板子没反应。</strong>
-回读写入的区域，比较 SHA-256；确认写的是完整镜像而不是单个组件（单独写三个 `.bin` 不会安装设备树和根文件系统）。见 [RustSBI + Asterinas](firmware/rustsbi-asterinas.md)。
+回读写入的区域，比较 SHA-256；确认写的是完整镜像而不是单个组件（单独写三个 `.bin` 不会安装设备树和根文件系统）。见 [RustSBI + Asterinas](dev/asterinas/rustsbi-asterinas.md)。
 
 <strong>我想恢复原来的固件。</strong>
 用此前备份的整片镜像：`xfel spinor write 0x0 neko-backup.bin`，然后回读校验、复位。没有备份就无法还原，所以动 Flash 之前先备份。
