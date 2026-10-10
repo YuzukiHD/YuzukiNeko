@@ -8,6 +8,7 @@
   - [Common Peripheral Pin Groups](/en/hardware/groups.md)
   - [Errata and Version Differences](/en/hardware/errata.md)
   - [Hardware Files](/en/hardware/files.md)
+  - [YuzukiCube-M Base Board](/en/baseboard.md)
 - Boot and Download
   - [FEL Download Mode and Tools](/en/boot/fel.md)
   - [SPI NOR Layout and Backup](/en/boot/flash-layout.md)
