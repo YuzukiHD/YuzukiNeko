@@ -20,11 +20,11 @@ You should see output like `AWUSBFEX ID=0x00193700(F101)`. The USB device VID/PI
 
 ## Installing xfel
 
-xfel repository: <https://github.com/xboot/xfel>. The firmware packages were tested on the board with v1.3.6; the version you use must support the F101.
+xfel repository: <https://github.com/xboot/xfel>. Use **v1.4.0** or later, the current release; it adds the F101 `xfel extra exec riscv64` command. The version you use must support the F101.
 
 ### Windows
 
-Download `xfel-windows-v1.3.6.7z` from the [v1.3.6 release page](https://github.com/xboot/xfel/releases/tag/v1.3.6), **extract everything**, add the directory containing `xfel.exe` to `PATH`, and reopen PowerShell. The bundled DLLs must stay next to `xfel.exe`. Without a `PATH` entry, you can use `./xfel.exe` in place of `xfel` from the tool directory.
+Download `xfel-windows-v1.4.0.7z` from the [v1.4.0 release page](https://github.com/xboot/xfel/releases/tag/v1.4.0), **extract everything**, add the directory containing `xfel.exe` to `PATH`, and reopen PowerShell. The bundled DLLs must stay next to `xfel.exe`. Without a `PATH` entry, you can use `./xfel.exe` in place of `xfel` from the tool directory.
 
 ### Linux (Debian / Ubuntu as an example)
 
