@@ -16,6 +16,7 @@ YuzukiNeko is a development board based on the **Allwinner F101 series SoC**, us
 | Work out whether my board is V1.3 / V1.4 / V1.5 | [Errata and Version Differences](hardware/errata.md) |
 | Enter download mode, install xfel / rfel | [FEL Download Mode and Tools](boot/fel.md) |
 | Flash a ready-made firmware (RustSBI + Asterinas) | [RustSBI + Asterinas](firmware/rustsbi-asterinas.md) |
+| Use the base board for display, Wi-Fi, CAN or audio | [YuzukiCube-M Base Board](baseboard.md) |
 | Write programs | [Software Overview](dev/overview.md) |
 | Print an enclosure | [3D-Printed Enclosure](shell.md) |
 

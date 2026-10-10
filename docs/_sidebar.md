@@ -8,6 +8,7 @@
   - [常用外设引脚组合](/hardware/groups.md)
   - [勘误与版本差异](/hardware/errata.md)
   - [硬件文件说明](/hardware/files.md)
+  - [YuzukiCube-M 底板](/baseboard.md)
 - 启动与下载
   - [FEL 下载模式与工具](/boot/fel.md)
   - [SPI NOR 布局与备份](/boot/flash-layout.md)
