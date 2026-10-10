@@ -8,6 +8,7 @@ YuzukiNeko is a single-core RISC-V (rv32imac) board that can run a variety of so
 | **Zephyr** | A full RTOS using display, audio, USB, G2D, video decoding, etc. | Board `yuzukineko`, complete peripheral drivers | [Zephyr](zephyr.md) |
 | **UF2 downloader** | Flashing applications by dropping a `.uf2` file, no tools to install | The board runs a USB drive `F101BOOT` | [UF2 Drag-and-Drop Flashing](uf2.md) |
 | **RustSBI + Asterinas** | A system with a Linux-style shell right away | Ready-made image, nine BusyBox demos | [RustSBI + Asterinas](../firmware/rustsbi-asterinas.md) |
+| **Linux + Buildroot** | A full Linux with a writable, persistent root filesystem | Ready-made images (RV32 / RV64I), SquashFS + JFFS2 overlay | [Linux + Buildroot](../firmware/linux-buildroot.md) |
 | **MicroPython, RT-Thread, ESP-IDF, etc.** | Other ecosystems | Mostly still in progress | [Other Systems and Components](others.md) |
 
 ## Boot Methods

@@ -48,6 +48,19 @@ Flash 的划分取决于你装的是哪套软件。同一块板子可以有以�
 
 完整镜像写入 `0x000000..0x6d0000`；`0x6d0000..0x1000000` 不会被碰到。详见 [RustSBI + Asterinas](../firmware/rustsbi-asterinas.md)。
 
+### Linux + Buildroot 镜像
+
+| 组件 | NOR 偏移 | 本布局预留 | 载入 RAM 地址 |
+| --- | --- | --- | --- |
+| SyterKit | `0x000000` | 64 KiB | `0x00020000` |
+| 设备树 | `0x010000` | 256 KiB | `0x40f40000` |
+| OpenSBI `fw_jump` | `0x050000` | 512 KiB | `0x40f80000` |
+| Linux Image | `0x0d0000` | 6 MiB | `0x40000000` |
+| SquashFS 根文件系统 | `0x6d0000` | 到 `0xf00000`（约 8.2 MiB） | 从 MTD 挂载 |
+| JFFS2 overlay | `0xf00000` | 1 MiB | 从 MTD 挂载 |
+
+完整镜像覆盖<strong>整片 16 MiB</strong>，包括 overlay 分区，所以写入会丢掉板上已经持久化的改动。详见 [Linux + Buildroot](../firmware/linux-buildroot.md)。
+
 ### Arduino / UF2 布局
 
 | 内容 | NOR 偏移 |
@@ -60,7 +73,7 @@ Flash 的划分取决于你装的是哪套软件。同一块板子可以有以�
 
 详见 [Arduino](../dev/arduino.md) 与 [UF2 拖放烧录](../dev/uf2.md)。
 
-?> 上面两张表里的区域有重叠（例如都从 `0x000000` 开始放 SyterKit），<strong>不要在同一块 Flash 上混着写</strong>。从一种布局换到另一种时，写入新布局的完整引导部分，并用 `xfel spinor read` 回读确认。
+?> 上面几张表里的区域有重叠（例如都从 `0x000000` 开始放 SyterKit），<strong>不要在同一块 Flash 上混着写</strong>。从一种布局换到另一种时，写入新布局的完整引导部分，并用 `xfel spinor read` 回读确认。
 
 ## 写入前自检清单
 

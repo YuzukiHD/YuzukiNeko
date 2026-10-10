@@ -1,0 +1,9 @@
+# Byte-exact content must not go through end-of-line conversion.
+#
+# SPI NOR images are compared with the SHA-256 values in SHA256SUMS and
+# manifest.json, and the license texts under licenses/ are kept verbatim --
+# licenses/README.md records their SHA-256 values and states that the original
+# texts are preserved unmodified. With core.autocrlf=true a Windows checkout
+# would rewrite their line endings and break both claims.
+*.img -text
+02_Firmware/Linux-Buildroot/** -text

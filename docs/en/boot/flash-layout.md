@@ -48,6 +48,19 @@ How the Flash is divided depends on which software you install. The same board c
 
 The full image is written to `0x000000..0x6d0000`; `0x6d0000..0x1000000` is not touched. See [RustSBI + Asterinas](../firmware/rustsbi-asterinas.md) for details.
 
+### Linux + Buildroot image
+
+| Component | NOR offset | Reserved in this layout | RAM load address |
+| --- | --- | --- | --- |
+| SyterKit | `0x000000` | 64 KiB | `0x00020000` |
+| Device tree | `0x010000` | 256 KiB | `0x40f40000` |
+| OpenSBI `fw_jump` | `0x050000` | 512 KiB | `0x40f80000` |
+| Linux Image | `0x0d0000` | 6 MiB | `0x40000000` |
+| SquashFS rootfs | `0x6d0000` | up to `0xf00000` (about 8.2 MiB) | mounted from MTD |
+| JFFS2 overlay | `0xf00000` | 1 MiB | mounted from MTD |
+
+The full image covers the **whole 16 MiB**, including the overlay partition, so writing it discards changes already persisted on the board. See [Linux + Buildroot](../firmware/linux-buildroot.md) for details.
+
 ### Arduino / UF2 layout
 
 | Content | NOR offset |
@@ -60,7 +73,7 @@ The full image is written to `0x000000..0x6d0000`; `0x6d0000..0x1000000` is not 
 
 See [Arduino](../dev/arduino.md) and [UF2 Drag-and-Drop Flashing](../dev/uf2.md) for details.
 
-?> The regions in the two tables above overlap (for example, both place SyterKit starting at `0x000000`), so **do not mix them on the same Flash**. When switching from one layout to another, write the complete boot part of the new layout and read it back with `xfel spinor read` to confirm.
+?> The regions in the tables above overlap (for example, they all place SyterKit starting at `0x000000`), so **do not mix them on the same Flash**. When switching from one layout to another, write the complete boot part of the new layout and read it back with `xfel spinor read` to confirm.
 
 ## Pre-write Checklist
 
