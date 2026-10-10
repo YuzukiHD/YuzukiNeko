@@ -155,12 +155,14 @@ so use the full image for the first installation.
 ### Installing xfel
 
 Obtain the tool from the [xboot/xfel repository](https://github.com/xboot/xfel).
-This package was tested on the board using v1.3.6; your version must support F101.
+Use **v1.4.0** or later, the current release; it adds the F101
+`xfel extra exec riscv64` command. This package was tested on the board using
+v1.3.6, and your version must support F101.
 
 **Windows**
 
-Download `xfel-windows-v1.3.6.7z` from the repository's
-[v1.3.6 release](https://github.com/xboot/xfel/releases/tag/v1.3.6), extract the
+Download `xfel-windows-v1.4.0.7z` from the repository's
+[v1.4.0 release](https://github.com/xboot/xfel/releases/tag/v1.4.0), extract the
 entire archive, add the directory containing `xfel.exe` to PATH, and reopen
 PowerShell. Keep the bundled DLLs alongside the executable. If you do not set
 PATH, you can run `./xfel.exe` from the tool's directory instead of `xfel`.

@@ -20,11 +20,11 @@ xfel version
 
 ## 安装 xfel
 
-xfel 仓库：<https://github.com/xboot/xfel>。固件包是用 v1.3.6 在板子上测试的，使用的版本必须支持 F101。
+xfel 仓库：<https://github.com/xboot/xfel>。请使用 <strong>v1.4.0</strong> 或更新版本——v1.4.0 增加了 F101 的 `xfel extra exec riscv64` 命令。使用的版本必须支持 F101。
 
 ### Windows
 
-从仓库 [v1.3.6 发布页](https://github.com/xboot/xfel/releases/tag/v1.3.6)下载 `xfel-windows-v1.3.6.7z`，<strong>整个解压</strong>，把含 `xfel.exe` 的目录加入 `PATH`，重新打开 PowerShell。随附的 DLL 必须和 `xfel.exe` 放在一起。不设 `PATH` 时，可以在工具目录里用 `./xfel.exe` 代替 `xfel`。
+从仓库 [v1.4.0 发布页](https://github.com/xboot/xfel/releases/tag/v1.4.0)下载 `xfel-windows-v1.4.0.7z`，<strong>整个解压</strong>，把含 `xfel.exe` 的目录加入 `PATH`，重新打开 PowerShell。随附的 DLL 必须和 `xfel.exe` 放在一起。不设 `PATH` 时，可以在工具目录里用 `./xfel.exe` 代替 `xfel`。
 
 ### Linux（以 Debian / Ubuntu 为例）
 
