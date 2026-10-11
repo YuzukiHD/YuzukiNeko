@@ -8,3 +8,8 @@ dist/
 .env.*
 *.log
 .DS_Store
+
+# copied from node_modules by scripts/copy-vendor.mjs
+public/mermaid.min.js
+public/asciinema-player.min.js
+public/asciinema-player.css

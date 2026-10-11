@@ -1,7 +1,8 @@
 // Loaded on every page: draws the mermaid diagrams and starts the asciinema players.
-// Both libraries are only fetched on pages that use them.
-const MERMAID = 'https://cdn.jsdelivr.net/npm/mermaid@12.0.0/dist/mermaid.esm.min.mjs';
-const ASCIINEMA = 'https://cdn.jsdelivr.net/npm/asciinema-player@3.8.0/dist/bundle/';
+// Both libraries are the site's own copies (public/, see scripts/copy-vendor.mjs). mermaid is loaded by a
+// blocking script in front of the first diagram of a page; the asciinema player is only fetched on pages
+// that use it.
+const ASCIINEMA = new URL('./', import.meta.url).href;
 
 function loadScript(src) {
 	return new Promise((resolve, reject) => {
@@ -16,7 +17,7 @@ function loadScript(src) {
 async function drawMermaid() {
 	const nodes = [...document.querySelectorAll('pre.mermaid')];
 	if (!nodes.length) return;
-	const { default: mermaid } = await import(MERMAID);
+	const mermaid = window.mermaid;
 	const dark = document.documentElement.dataset.theme === 'dark';
 	mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: dark ? 'dark' : 'default' });
 	await mermaid.run({ nodes });

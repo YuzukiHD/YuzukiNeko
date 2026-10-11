@@ -1,5 +1,7 @@
 // Remark plugin for the docs:
-//  - ```mermaid code blocks become <pre class="mermaid"> (drawn in the browser by public/enhance.js)
+//  - ```mermaid code blocks become <pre class="mermaid"> (drawn in the browser by public/enhance.js);
+//    the first one on a page is preceded by a blocking <script> for the site's own copy of mermaid,
+//    so the library is there when the page has been parsed and nothing is fetched from a CDN
 //  - links to other pages written as relative or root paths ending in .md point at the page URL
 //  - the asciinema placeholders get the not-content class and data-src="assets/casts/..." gets the site base
 import path from 'node:path';
@@ -24,11 +26,14 @@ export function remarkDocs({ base = '' } = {}) {
 			return `${base}/${target}${target ? '/' : ''}${hash}`;
 		};
 
+		let mermaidLoaded = false;
 		visit(tree, (node, index, parent) => {
 			if (node.type === 'code' && node.lang === 'mermaid' && parent && index !== undefined) {
+				const loader = mermaidLoaded ? '' : `<script src="${base}/mermaid.min.js"></script>`;
+				mermaidLoaded = true;
 				parent.children[index] = {
 					type: 'html',
-					value: `<pre class="mermaid">${escapeHtml(node.value)}</pre>`,
+					value: `${loader}<pre class="mermaid">${escapeHtml(node.value)}</pre>`,
 				};
 			} else if (node.type === 'link' && typeof node.url === 'string') {
 				node.url = pageUrl(node.url);
