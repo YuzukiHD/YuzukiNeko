@@ -1,6 +1,6 @@
 - Getting Started
   - [Introduction](/en/README.md)
-  - [Quick Start](/en/quickstart.md)
+  - [First Steps](/en/quickstart.md)
 - Hardware
   - [Board Overview](/en/hardware/overview.md)
   - [Pinout](/en/hardware/pinout.md)
@@ -12,6 +12,9 @@
 - Boot and Download
   - [FEL Download Mode and Tools](/en/boot/fel.md)
   - [SPI NOR Layout and Backup](/en/boot/flash-layout.md)
+- Quick Start
+  - [Linux Prebuilt Images](/en/dev/linux/linux-prebuilt.md)
+  - [RustSBI + Asterinas](/en/dev/asterinas/rustsbi-asterinas.md)
 - Development
   - [Software Overview](/en/dev/overview.md)
   - Arduino
@@ -37,10 +40,11 @@
       - [Introduction](/en/dev/zephyr/doom/index.md)
   - Linux Development
     - [Introduction](/en/dev/linux/index.md)
+    - [Manual Build](/en/dev/linux/linux-manual.md)
+    - [Manual Build, RV64I](/en/dev/linux/linux-manual-rv64.md)
     - [Linux + Buildroot](/en/dev/linux/linux-buildroot.md)
   - Asterinas Development
     - [Introduction](/en/dev/asterinas/index.md)
-    - [RustSBI + Asterinas](/en/dev/asterinas/rustsbi-asterinas.md)
   - UF2 Drag-and-Drop Flashing
     - [Introduction](/en/dev/uf2/index.md)
     - [Making a .uf2](/en/dev/uf2/make-uf2.md)

@@ -10,12 +10,12 @@ YuzukiNeko 是一块基于 <strong>Allwinner F101 系列 SoC</strong> 的开发�
 
 | 想做的事 | 去哪里 |
 | --- | --- |
-| 第一次上电，让板子跑起来 | [快速开始](quickstart.md) |
+| 第一次上电，让板子跑起来 | [上手指南](quickstart.md) |
 | 查某个引脚能做什么 | [引脚排布](hardware/pinout.md)、[引脚复用](hardware/mux.md) |
 | 接 UART / I²C / SPI / CAN / PWM | [常用外设引脚组合](hardware/groups.md) |
 | 搞清楚自己的板子是 V1.3 / V1.4 / V1.5 | [勘误与版本差异](hardware/errata.md) |
 | 进入下载模式、安装 xfel / rfel | [FEL 下载模式与工具](boot/fel.md) |
-| 刷入现成的固件（RustSBI + Asterinas、Linux + Buildroot） | [RustSBI + Asterinas](dev/asterinas/rustsbi-asterinas.md)、[Linux + Buildroot](dev/linux/linux-buildroot.md) |
+| 刷入现成的固件（RustSBI + Asterinas、Linux + Buildroot） | [RustSBI + Asterinas](dev/asterinas/rustsbi-asterinas.md)、[预编译 Linux 镜像](dev/linux/linux-prebuilt.md) |
 | 用底板接显示、Wi-Fi、CAN、音频 | [YuzukiCube-M 底板](baseboard.md) |
 | 写程序 | [软件方案总览](dev/overview.md) |
 | 打印外壳 | [3D 打印外壳](shell.md) |

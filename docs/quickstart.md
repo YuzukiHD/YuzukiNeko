@@ -53,7 +53,7 @@
 
 完整说明与单独替换各组件的方法见 [RustSBI + Asterinas](dev/asterinas/rustsbi-asterinas.md)。
 
-?> 想要改动能保留（可写根文件系统，重启后仍在），或者需要 RV64I 版本，可以改用 [Linux + Buildroot](dev/linux/linux-buildroot.md) 的镜像。流程一样，但那个镜像覆盖整片 16 MiB，写入时会一并覆盖板上持久化的数据。
+?> 想要改动能保留（可写根文件系统，重启后仍在），或者需要 RV64I 版本，可以改用[预编译镜像](dev/linux/linux-prebuilt.md)里的 Linux 镜像。流程一样，但那个镜像覆盖整片 16 MiB，写入时会一并覆盖板上持久化的数据。
 
 ## 路线 B：用 Arduino 写第一个 Blink
 

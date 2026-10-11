@@ -20,7 +20,7 @@ xfel version
 
 ## 安装 xfel
 
-xfel 仓库：<https://github.com/xboot/xfel>。请使用 <strong>v1.4.0</strong> 或更新版本——v1.4.0 增加了 F101 的 `xfel extra exec riscv64` 命令。使用的版本必须支持 F101。
+xfel 仓库：<https://github.com/xboot/xfel>。请使用 <strong>v1.4.0</strong> 或更新版本——v1.4.0 增加了 F101 的 `xfel extra exec riscv64` 命令。
 
 ### Windows
 

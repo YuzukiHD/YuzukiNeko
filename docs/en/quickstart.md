@@ -53,7 +53,7 @@ Suited if you want to see an interactive system right away. The image is already
 
 For the full description and how to replace individual components, see [RustSBI + Asterinas](dev/asterinas/rustsbi-asterinas.md).
 
-?> If you want changes to persist (a writable root filesystem that survives a reboot), or you need the RV64I variant, use a [Linux + Buildroot](dev/linux/linux-buildroot.md) image instead. The steps are the same, but that image covers the whole 16 MiB, so writing it also overwrites the data persisted on the board.
+?> If you want changes to persist (a writable root filesystem that survives a reboot), or you need the RV64I variant, use a Linux image from [Prebuilt Images](dev/linux/linux-prebuilt.md) instead. The steps are the same, but that image covers the whole 16 MiB, so writing it also overwrites the data persisted on the board.
 
 ## Route B: write a first Blink with Arduino
 

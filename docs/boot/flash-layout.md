@@ -59,7 +59,7 @@ Flash 的划分取决于你装的是哪套软件。同一块板子可以有以�
 | SquashFS 根文件系统 | `0x6d0000` | 到 `0xf00000`（约 8.2 MiB） | 从 MTD 挂载 |
 | JFFS2 overlay | `0xf00000` | 1 MiB | 从 MTD 挂载 |
 
-完整镜像覆盖<strong>整片 16 MiB</strong>，包括 overlay 分区，所以写入会丢掉板上已经持久化的改动。详见 [Linux + Buildroot](../dev/linux/linux-buildroot.md)。
+完整镜像覆盖<strong>整片 16 MiB</strong>，包括 overlay 分区，所以写入会丢掉板上已经持久化的改动。详见 [预编译镜像](../dev/linux/linux-prebuilt.md)。
 
 ### Arduino / UF2 布局
 

@@ -59,7 +59,7 @@ The full image is written to `0x000000..0x6d0000`; `0x6d0000..0x1000000` is not 
 | SquashFS rootfs | `0x6d0000` | up to `0xf00000` (about 8.2 MiB) | mounted from MTD |
 | JFFS2 overlay | `0xf00000` | 1 MiB | mounted from MTD |
 
-The full image covers the **whole 16 MiB**, including the overlay partition, so writing it discards changes already persisted on the board. See [Linux + Buildroot](../dev/linux/linux-buildroot.md) for details.
+The full image covers the **whole 16 MiB**, including the overlay partition, so writing it discards changes already persisted on the board. See [Prebuilt Images](../dev/linux/linux-prebuilt.md) for details.
 
 ### Arduino / UF2 layout
 

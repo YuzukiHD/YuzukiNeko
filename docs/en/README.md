@@ -10,12 +10,12 @@ YuzukiNeko is a development board based on the **Allwinner F101 series SoC**, us
 
 | I want to... | Where to go |
 | --- | --- |
-| Power up for the first time and get the board running | [Quick Start](quickstart.md) |
+| Power up for the first time and get the board running | [First Steps](quickstart.md) |
 | Find out what a pin can do | [Pinout](hardware/pinout.md), [Pin Multiplexing](hardware/mux.md) |
 | Connect UART / I²C / SPI / CAN / PWM | [Common Peripheral Pin Groups](hardware/groups.md) |
 | Work out whether my board is V1.3 / V1.4 / V1.5 | [Errata and Version Differences](hardware/errata.md) |
 | Enter download mode, install xfel / rfel | [FEL Download Mode and Tools](boot/fel.md) |
-| Flash a ready-made firmware (RustSBI + Asterinas, Linux + Buildroot) | [RustSBI + Asterinas](dev/asterinas/rustsbi-asterinas.md), [Linux + Buildroot](dev/linux/linux-buildroot.md) |
+| Flash a ready-made firmware (RustSBI + Asterinas, Linux + Buildroot) | [RustSBI + Asterinas](dev/asterinas/rustsbi-asterinas.md), [Prebuilt Linux images](dev/linux/linux-prebuilt.md) |
 | Use the base board for display, Wi-Fi, CAN or audio | [YuzukiCube-M Base Board](baseboard.md) |
 | Write programs | [Software Overview](dev/overview.md) |
 | Print an enclosure | [3D-Printed Enclosure](shell.md) |

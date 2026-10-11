@@ -1,6 +1,6 @@
 - 入门
   - [项目简介](/README.md)
-  - [快速开始](/quickstart.md)
+  - [上手指南](/quickstart.md)
 - 硬件
   - [板卡概览](/hardware/overview.md)
   - [引脚排布](/hardware/pinout.md)
@@ -12,6 +12,9 @@
 - 启动与下载
   - [FEL 下载模式与工具](/boot/fel.md)
   - [SPI NOR 布局与备份](/boot/flash-layout.md)
+- 快速开始
+  - [Linux 预编译镜像](/dev/linux/linux-prebuilt.md)
+  - [RustSBI + Asterinas](/dev/asterinas/rustsbi-asterinas.md)
 - 开发
   - [软件方案总览](/dev/overview.md)
   - Arduino
@@ -37,10 +40,11 @@
       - [简介](/dev/zephyr/doom/index.md)
   - Linux 开发
     - [简介](/dev/linux/index.md)
+    - [手动构建](/dev/linux/linux-manual.md)
+    - [手动构建 RV64I](/dev/linux/linux-manual-rv64.md)
     - [Linux + Buildroot](/dev/linux/linux-buildroot.md)
   - Asterinas 开发
     - [简介](/dev/asterinas/index.md)
-    - [RustSBI + Asterinas](/dev/asterinas/rustsbi-asterinas.md)
   - UF2 拖放烧录
     - [简介](/dev/uf2/index.md)
     - [制作 .uf2](/dev/uf2/make-uf2.md)
