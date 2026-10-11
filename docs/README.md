@@ -18,7 +18,7 @@ npm run build   # 构建到 dist/
 | `public/casts/` | asciinema 录像（`.cast`） |
 | `public/enhance.js` | 浏览器端脚本：画 mermaid 图、启动 asciinema 播放器 |
 | `src/plugins/remark-docs.mjs` | 构建期插件，见下 |
-| `sidebar.mjs` | 侧边栏，按章节分组，默认折叠 |
+| `sidebar.mjs` | 侧边栏，按章节分组；一级分组默认展开，嵌套的子分组默认折叠 |
 | `astro.config.mjs` | 站点配置，`site` 和 `base` 对应 GitHub Pages 的地址 |
 
 ## 写页面

@@ -19,7 +19,7 @@ YuzukiNeko 是一块基于 <strong>Allwinner F101 系列 SoC</strong> 的开发�
 | 进入下载模式、安装 xfel / rfel | [FEL 下载模式与工具](boot/fel.md) |
 | 刷入现成的固件（RustSBI + Asterinas、Linux + Buildroot） | [RustSBI + Asterinas](dev/asterinas/rustsbi-asterinas.md)、[预编译 Linux 镜像](dev/linux/linux-prebuilt.md) |
 | 用底板接显示、Wi-Fi、CAN、音频 | [YuzukiCube-M 底板](baseboard.md) |
-| 写程序 | [软件方案总览](dev/overview.md) |
+| 写程序 | [Zephyr 开发](dev/zephyr/index.md)、[Linux 开发](dev/linux/index.md)、[RustSBI + Asterinas](dev/asterinas/rustsbi-asterinas.md) |
 | 打印外壳 | [3D 打印外壳](shell.md) |
 
 ## 板卡规格
@@ -52,7 +52,7 @@ YuzukiNeko 是一块基于 <strong>Allwinner F101 系列 SoC</strong> 的开发�
 | 连接与外设 | USB 2.0 DRD × 1、SDIO 2.0、SPI × 2、UART × 6、TWI × 3、CAN × 2、PWM、IR_RX、GPADC、TPADC |
 
 :::tip
-上表是 SoC 的能力上限，不等于开发板上每一项都已引出或有现成软件支持。引出了哪些、软件支持到什么程度，见[引脚排布](hardware/pinout.md)和[软件方案总览](dev/overview.md)。
+上表是 SoC 的能力上限，不等于开发板上每一项都已引出或有现成软件支持。引出了哪些、软件支持到什么程度，见[引脚排布](hardware/pinout.md)和各软件方案的文档（[Zephyr](dev/zephyr/index.md)、[Linux](dev/linux/index.md)）。
 :::
 
 ## 相关项目

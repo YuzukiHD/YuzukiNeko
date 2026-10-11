@@ -7,6 +7,15 @@
 	margin: 1em auto;
 }
 
+/*
+ * Starlight makes every svg in the article a block (display: block), which pushes the
+ * big play button of the player to the left. The player opts out with `not-content`,
+ * this is the same thing in plain CSS, in case a page was rendered before that class existed.
+ */
+.sl-markdown-content .asciinema-cast svg {
+	display: revert;
+}
+
 /* the search box sits at the right end of the top bar (desktop layout) */
 @media (min-width: 50rem) {
 	.header > div:nth-child(2) {
