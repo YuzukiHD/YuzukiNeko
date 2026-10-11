@@ -6,10 +6,10 @@ F101 片上的视频引擎（video engine）可以用硬件解码 <strong>JPEG</
 
 | 编码 | 用法 | 输出格式 |
 | --- | --- | --- |
-| JPEG | 单张图片，`vdec_decode_image()` | `VDEC_FORMAT_NV12`（不支持 NV21） |
+| JPEG | 单张图片，`vdec_decode_image()` | `VDEC_FORMAT_NV12` 或 `VDEC_FORMAT_NV21` |
 | PNG | 单张图片，`vdec_decode_image()` | `VDEC_FORMAT_RGBA8888` |
-| MJPEG | 一连串 JPEG，`vdec_stream_*()`，`codec` 用 `VDEC_CODEC_JPEG` | `VDEC_FORMAT_NV12` |
-| H.264 | 视频流，`vdec_stream_*()` | `VDEC_FORMAT_NV12` |
+| MJPEG | 一连串 JPEG，`vdec_stream_*()`，`codec` 用 `VDEC_CODEC_JPEG` | `VDEC_FORMAT_NV12` 或 `VDEC_FORMAT_NV21` |
+| H.264 | 视频流，`vdec_stream_*()` | `VDEC_FORMAT_NV12` 或 `VDEC_FORMAT_NV21` |
 
 输出格式的含义：
 
@@ -170,16 +170,19 @@ const struct device *dev = DEVICE_DT_GET(DT_NODELABEL(ve));
 | `CONFIG_VDEC_SUNXI` | y | 视频引擎驱动。依赖设备树里 `ve` 启用，并依赖 `CONFIG_FPU` |
 | `CONFIG_VDEC_SUNXI_JPEG` | y | JPEG 解码 |
 | `CONFIG_VDEC_SUNXI_PNG` | y | PNG 解码 |
-| `CONFIG_VDEC_SUNXI_H264` | y | H.264 解码 |
+| `CONFIG_VDEC_SUNXI_H264` | y | H.264 解码（只支持帧图像，不支持场编码和宏块自适应帧场编码） |
+| `CONFIG_VDEC_SUNXI_RVV` | y | 用向量扩展加速 CPU 一侧的字节循环：PNG 的滤波、校验和像素转换，NV21 的色度交换，H.264 起始码查找。依赖 `CONFIG_SUN252I_F101_RVV`，引擎解码本身不受影响 |
+| `CONFIG_VDEC_SUNXI_H264_DIRECT_NV12` | n | 实验性：H.264 由引擎通过第二路输出直接写线性 NV12，省掉单独的转换。依赖 `CONFIG_VDEC_SUNXI_H264` |
+| `CONFIG_VDEC_SUNXI_H264_DIRECT_CHECK` | n | 调试用：对流的前几张图再做一次转换，并打印两张线性图有多少字节不同。依赖上一项 |
+| `CONFIG_VDEC_SUNXI_MEM_TRACE` | n | 调试用：打印每一次图片和工作缓冲的分配 |
 | `CONFIG_VDEC_SUNXI_CLOCK_MHZ` | 300 | 模块时钟的目标频率（MHz），实际取时钟分频器能产生的、不超过源频率的最接近值 |
 | `CONFIG_VDEC_SUNXI_STREAM_BUFFER_KB` | 512 | 压缩数据缓冲区大小（KiB）。一张 JPEG 或 PNG 必须放得下；应用打开流时可以要更大的 |
-| `CONFIG_VDEC_SUNXI_MAX_MEMORY_KB` | 8192 | 一个解码器可用的内存上限（KiB），包括图片和流缓冲，决定一个流能拿到几个帧缓冲 |
+| `CONFIG_VDEC_SUNXI_MAX_MEMORY_KB` | 12288 | 一个解码器可用的内存上限（KiB），包括图片和流缓冲，决定一个流能拿到几个帧缓冲（不会少于 H.264 参考帧数加 3） |
 | `CONFIG_VDEC_SUNXI_MEM_ALIGN` | 4096 | 交给视频引擎的每块缓冲的对齐 |
-| `CONFIG_VDEC_SUNXI_LOG_LEVEL` | 3 | 驱动胶水层的日志级别 |
-| `CONFIG_VDEC_SUNXI_LIBCEDARC_PATH` | 空 | 预编译解码库的路径，空则用驱动目录下的 `lib/libcedarc.a` |
+| `CONFIG_VDEC_SUNXI_LOG_LEVEL` | 3 | 驱动的日志级别 |
 
-:::caution
-引擎相关的代码在一个<strong>预编译库</strong> `libcedarc.a` 里，驱动只提供它运行需要的系统接口（时钟、复位、中断、内存、线程、信号量），放在 `drivers/vdec/sunxi/glue/`。这个库缺失时编译会失败。
+:::note
+驱动全部是 C 源码，不依赖预编译库：`ve_hw.c` 管视频引擎（时钟、复位、中断、图片转换），`ve_pool.c` 和 `ve_stream.c` 管图片和压缩数据，`ve_session.c` 把它们接到各个解码器（`ve_jpeg*.c`、`ve_h264*.c`、`ve_png.c`）。JPEG 的标记由软件解析，寄存器由 `ve_jpeg_hw.c` 配置；H.264 的语法解析、参考帧管理和引擎配置在 `ve_h264*.c`；PNG 完全由软件解码（全部颜色类型和位深、tRNS、Adam7）。
 :::
 
 ## 接口详解
@@ -191,7 +194,7 @@ const struct device *dev = DEVICE_DT_GET(DT_NODELABEL(ve));
 演示程序的测试数据：JPEG、PNG 和 H.264 用的是 `samples/drivers/vdec/` 里三个示例内嵌的图片（都是 320×240）；MJPEG 用 ffmpeg 生成了 5 张 320×240 的 JPEG。
 
 :::caution
-驱动内部用的预编译库会在解码时打印几行 `<err>` 日志（如 `empty cedar plugin init`），这是库的习惯，不代表出错。它们是延迟输出的，会和演示程序的 `printk` 输出交错。下面贴的日志只保留演示程序自己打印的行，驱动日志见 [驱动日志](#驱动日志)。
+解码失败时驱动会打印 `<err>` 日志。日志是延迟输出的，会和演示程序的 `printk` 输出交错，所以下面贴的日志只保留演示程序自己打印的行，驱动日志见 [驱动日志](#驱动日志)。
 :::
 
 ### vdec_decode_image
@@ -209,30 +212,30 @@ int vdec_decode_image(const struct device *dev, enum vdec_codec codec,
 | `dev` | 视频引擎设备，`DEVICE_DT_GET(DT_NODELABEL(ve))` |
 | `codec` | `VDEC_CODEC_JPEG` 或 `VDEC_CODEC_PNG` |
 | `data`、`len` | 压缩后的整张图片。返回后驱动不再引用，调用者可以立刻释放或复用这块内存 |
-| `format` | 想要的帧格式。JPEG 用 `VDEC_FORMAT_NV12`，PNG 用 `VDEC_FORMAT_RGBA8888` |
+| `format` | 想要的帧格式。JPEG 用 `VDEC_FORMAT_NV12` 或 `VDEC_FORMAT_NV21`，PNG 用 `VDEC_FORMAT_RGBA8888` |
 | `frame` | 输出，成功时被填好 |
 
 返回值，下表最后一栏是演示程序在板子上得到的结果：
 
 | 返回值 | 头文件注释里的含义 | 示例中的情形 |
 | --- | --- | --- |
-| `0` | 成功 | JPEG→NV12、PNG→RGBA8888 |
+| `0` | 成功 | JPEG→NV12、JPEG→NV21、PNG→RGBA8888 |
 | `-ENOTSUP` | 编码、格式或图片不支持 | PNG→NV12；JPEG→RGBA8888；`VDEC_CODEC_H264` 传给本函数 |
 | `-EINVAL` | 参数错误，或图片已损坏 | 16 个 `0x55` 当 JPEG |
 | `-ENOMEM` | 图片放不进解码器内存 | 没有触发 |
-| `-EIO` | 硬件解码失败 | 只有半张的 JPEG；<strong>JPEG→NV21</strong>（见下） |
+| `-EIO` | 硬件解码失败 | 只有半张的 JPEG |
 
 要点：
 
-- <strong>阻塞</strong>到解码完成。320×240 的 JPEG 约 3–4 ms，PNG 约 3 ms。
+- <strong>阻塞</strong>到解码完成。320×240 的 JPEG 约 2 ms，PNG 约 28 ms（PNG 由软件解码）。
 - 成功之后，解码器被这一帧<strong>占用</strong>，直到 `vdec_frame_release()`。期间别的 `vdec_decode_image()` 和 `vdec_stream_open()` 都会等待。所以拿到帧、用完、释放，不要长期持有。
 - 失败时不占用，不需要释放；出错后解码器可以继续用（演示里半张 JPEG 失败后，一张正常的 JPEG 立刻解码成功）。
-- JPEG 帧的 `pts` 是 `-1`（没有时间戳）；PNG 帧的 `pts` 是 `0`。
+- JPEG 和 PNG 帧的 `pts` 都是 `-1`（没有时间戳）。
 - PNG 是 `RGBA8888`：`plane[0]` 是像素，`stride[0]` 是每行字节数（320×4=1280），`plane[1]` 是 NULL，`stride[1]` 为 0。内存里的字节顺序是 A、B、G、R。
 
 #### 示例：JPEG
 
-演示程序依次请求 NV21、NV12、NV21，把每个调用的返回值打印出来。成功时再打印帧信息和亮度平面的 CRC，最后释放。
+演示程序依次请求 NV21、NV12、NV21，把每个调用的返回值打印出来，验证两种格式都能解码。成功时再打印帧信息和亮度平面的 CRC，最后释放。
 
 ```c
 static void demo_jpeg(void)
@@ -261,15 +264,21 @@ static void demo_jpeg(void)
 日志：
 
 ```text
-[jpeg] vdec_decode_image(format 2) = -EIO, 1 ms
-[jpeg] vdec_decode_image(format 1) = 0, 4 ms
+[jpeg] vdec_decode_image(format 2) = 0, 2 ms
+[jpeg] frame: format 2, 320x240, stride 320/320, pts -1
+[jpeg] luma crc f6be232d
+[jpeg] vdec_frame_release done
+[jpeg] vdec_decode_image(format 1) = 0, 2 ms
 [jpeg] frame: format 1, 320x240, stride 320/320, pts -1
 [jpeg] luma crc f6be232d
 [jpeg] vdec_frame_release done
-[jpeg] vdec_decode_image(format 2) = -EIO, 2 ms
+[jpeg] vdec_decode_image(format 2) = 0, 2 ms
+[jpeg] frame: format 2, 320x240, stride 320/320, pts -1
+[jpeg] luma crc f6be232d
+[jpeg] vdec_frame_release done
 ```
 
-第一和第三行是 `format 2`（`VDEC_FORMAT_NV21`），JPEG 不支持，返回 `-EIO`；第二行 `format 1`（`VDEC_FORMAT_NV12`）成功，帧是 320×240，亮度和色度的 `stride` 都是 320，`pts` 为 -1。
+`format 2` 是 `VDEC_FORMAT_NV21`，`format 1` 是 `VDEC_FORMAT_NV12`，三次都成功。帧是 320×240，亮度和色度的 `stride` 都是 320，`pts` 为 -1。NV21 和 NV12 是同一张图，只是色度的字节顺序对调，所以三次的亮度 CRC 相同。
 
 #### 示例：PNG
 
@@ -298,8 +307,8 @@ static void demo_png(void)
 日志：
 
 ```text
-[png] vdec_decode_image(RGBA8888) = 0, 3 ms
-[png] frame: format 3, 320x240, stride 1280/0, pts 0
+[png] vdec_decode_image(RGBA8888) = 0, 28 ms
+[png] frame: format 3, 320x240, stride 1280/0, pts -1
 [png] first pixel bytes (A, B, G, R): ff ff ff ff
 [png] vdec_frame_release done
 ```
@@ -411,9 +420,9 @@ static void demo_frame_release(void)
 日志：
 
 ```text
-[release] first decode = 0, plane 0x402c0000
+[release] first decode = 0, plane 0x4029f000
 [release] vdec_frame_release done
-[release] second decode = 0, plane 0x402c0000
+[release] second decode = 0, plane 0x4029f000
 [release] vdec_frame_release done
 ```
 
@@ -472,12 +481,12 @@ static void demo_hold(void)
 
 ```text
 [hold] vdec_stream_open(holding_frames 2) = 0
-[hold] 2 frames held, get_frame = -EBUSY
+[hold] 3 frames held, get_frame = -EBUSY
 [hold] after releasing them, get_frame = -EAGAIN
 [hold] vdec_stream_close done
 ```
 
-`2 frames held, get_frame = -EBUSY` 是释放之前的状态；释放之后变成 `-EAGAIN`（要更多数据，因为这个函数没有再喂数据），不再是 `-EBUSY`。
+`3 frames held, get_frame = -EBUSY` 是释放之前的状态；释放之后变成 `-EAGAIN`（要更多数据，因为这个函数没有再喂数据），不再是 `-EBUSY`。
 
 ### vdec_stream_open
 
@@ -931,12 +940,12 @@ static void demo_hold(void)
 
 ```text
 [hold] vdec_stream_open(holding_frames 2) = 0
-[hold] 2 frames held, get_frame = -EBUSY
+[hold] 3 frames held, get_frame = -EBUSY
 [hold] after releasing them, get_frame = -EAGAIN
 [hold] vdec_stream_close done
 ```
 
-拿到 2 帧就返回 `-EBUSY` 了。释放之后恢复，见 [vdec_frame_release](#vdec_frame_release) 一节。
+拿到 3 帧才返回 `-EBUSY`（解码器的帧缓冲不会少于 3 张，所以 `holding_frames` 设成 2 也能多拿一帧）。释放之后恢复，见 [vdec_frame_release](#vdec_frame_release) 一节。
 
 ### vdec_stream_flush
 
@@ -1098,7 +1107,7 @@ static void demo_stream_close(void)
 | `format` | 想要的帧格式。JPEG 只支持 `VDEC_FORMAT_NV12`；H.264 用 `VDEC_FORMAT_NV12` |
 | `buffer_size` | 压缩数据缓冲区的字节数，要能装下一次 `feed` 的最大一组 NAL；0 为默认值 |
 | `no_cache_ops` | CPU 不会读这些帧（只给显示引擎或 2D 加速器读）时设为 true，省掉缓存维护 |
-| `holding_frames` | 应用同时持有的帧数；0 为默认的 3，`VDEC_HOLD_NONE` 为不持有。解码器会分配 2 张加上这个数量的图片。设为 2 时，拿 2 帧不放就会 `-EBUSY` |
+| `holding_frames` | 应用同时持有的帧数；0 为默认的 3，`VDEC_HOLD_NONE` 为不持有。解码器会分配 2 张加上这个数量的图片。实际的帧缓冲数不会少于 3 张，所以设为 2 时，在 MJPEG 流上拿 3 帧不放才会 `-EBUSY` |
 | `width`、`height` | 图片尺寸，只有 JPEG 流需要 |
 
 ### struct vdec_frame
@@ -1117,24 +1126,22 @@ static void demo_stream_close(void)
 | 格式 | 值 | 内存布局 |
 | --- | --- | --- |
 | `VDEC_FORMAT_NV12` | 1 | 8 位亮度平面，后面接半分辨率的 Cb/Cr 交错平面 |
-| `VDEC_FORMAT_NV21` | 2 | 同上，但交错顺序是 Cr/Cb。JPEG 不支持（返回 `-EIO`） |
+| `VDEC_FORMAT_NV21` | 2 | 同上，但交错顺序是 Cr/Cb |
 | `VDEC_FORMAT_RGBA8888` | 3 | 32 位小端字，R 在最高字节、A 在最低字节（内存里的字节顺序是 A、B、G、R） |
 
 ## 驱动日志
 
-预编译库在解码时会打印下面这些 `<err>` 级别的日志：
+驱动在出错时打印下面这些 `<err>` 级别的日志。正常解码不会打印 `<err>` 日志，不再有预编译库留下的 `cedarc` 日志。
 
 | 日志 | 说明 |
 | --- | --- |
-| `cedarc <AddVDPlugin:1564>: empty cedar plugin init` | 解码时出现，MP4 播放器正常播放时也有，<strong>无害</strong> |
-| `cedarc <resetSramCtrlReg:1656>: reset sram` | 与上一条一起出现，<strong>无害</strong> |
-| `vdec_sunxi: not a valid picture` | 输入的数据不是合法图片 |
-| `vdec_sunxi: decoding failed: 5` | 硬件解码失败 |
-| `vdec_sunxi: no picture came out` | 没有图片输出 |
-| `cedarc <JpegMallocFrmBuffer:320>: n_memory_usage=2, nFrameNum=…` | 在失败的 JPEG 解码附近出现 |
-| `cedarc <JpegMallocFrmBuffer:385>: memory not enough` | 同上 |
+| `vdec_sunxi: not a valid picture` | 输入的数据不是合法图片。演示程序里是 16 个 `0x55` 当 JPEG 的那一步 |
+| `vdec_sunxi: decoding failed: 1` | 解码失败，数字是内部状态码。演示程序里是只有半张的 JPEG 那一步，调用返回 `-EIO` |
+| `vdec_sunxi: not enough memory to decode`、`out of memory for N bytes` | 图片放不进解码器的内存预算，调用返回 `-ENOMEM`。演示程序没有触发 |
+| `vdec_sunxi: stream buffer is full`、`the picture does not fit in the stream buffer` | 压缩数据缓冲放不下，见 `CONFIG_VDEC_SUNXI_STREAM_BUFFER_KB`。演示程序没有触发 |
+| `vdec_sunxi: interrupt timeout: top …`（`<wrn>`） | 引擎一直没有产生中断。演示程序没有触发 |
 
-这些日志是延迟输出的，会和演示程序的 `printk` 交错，没有逐条对应到演示程序里的具体调用，这里只列出现的现象。
+这些日志是延迟输出的，会和演示程序的 `printk` 交错，这里只列出现的现象。前两行是在板子上跑演示程序时实际出现的，其余几行来自驱动源码。
 
 ## 示例
 
@@ -1145,7 +1152,6 @@ static void demo_stream_close(void)
 | H.264 | `samples/drivers/vdec/h264` | 解码内嵌的 H.264 片段，每一帧都和主机解码的 CRC32 对比（H.264 的解码过程是严格规定的，结果必须一致），并按片段的帧率显示 |
 | H.264 播放器 | `samples/drivers/vdec/h264_player` | 播放 TF 卡上的 Annex B H.264 裸流（默认 `/SD:/badapple.h264`），按帧率显示，带统计叠加层 |
 | MP4 播放器 | `samples/drivers/mp4_player` | 视频加声音，见 [MP4 播放器](../apps/mp4-player.md) |
-| 探测 | `samples/drivers/vdec_probe` | 直接通过预编译库把视频引擎拉起来，打印它报告的信息，用于底层调试 |
 
 编译示例（以 JPEG 为例）：
 
@@ -1771,14 +1777,20 @@ west build -b yuzukineko -d build/vdec-api vdec_api
 下载运行的方法见 [编译与运行](../zephyr-build-run.md)。控制台 UART1 上输出的演示程序自己的行如下（驱动的 `<err>` 日志已去掉，见 [驱动日志](#驱动日志)）：
 
 ```text
-[jpeg] vdec_decode_image(format 2) = -EIO, 1 ms
-[jpeg] vdec_decode_image(format 1) = 0, 4 ms
+[jpeg] vdec_decode_image(format 2) = 0, 2 ms
+[jpeg] frame: format 2, 320x240, stride 320/320, pts -1
+[jpeg] luma crc f6be232d
+[jpeg] vdec_frame_release done
+[jpeg] vdec_decode_image(format 1) = 0, 2 ms
 [jpeg] frame: format 1, 320x240, stride 320/320, pts -1
 [jpeg] luma crc f6be232d
 [jpeg] vdec_frame_release done
-[jpeg] vdec_decode_image(format 2) = -EIO, 2 ms
-[png] vdec_decode_image(RGBA8888) = 0, 3 ms
-[png] frame: format 3, 320x240, stride 1280/0, pts 0
+[jpeg] vdec_decode_image(format 2) = 0, 2 ms
+[jpeg] frame: format 2, 320x240, stride 320/320, pts -1
+[jpeg] luma crc f6be232d
+[jpeg] vdec_frame_release done
+[png] vdec_decode_image(RGBA8888) = 0, 28 ms
+[png] frame: format 3, 320x240, stride 1280/0, pts -1
 [png] first pixel bytes (A, B, G, R): ff ff ff ff
 [png] vdec_frame_release done
 [error] PNG as NV12             = -ENOTSUP
@@ -1787,9 +1799,9 @@ west build -b yuzukineko -d build/vdec-api vdec_api
 [error] 16 bytes of 0x55 (JPEG) = -EINVAL
 [error] half a JPEG             = -EIO
 [error] a good JPEG afterwards  = 0
-[release] first decode = 0, plane 0x402c0000
+[release] first decode = 0, plane 0x4029f000
 [release] vdec_frame_release done
-[release] second decode = 0, plane 0x402c0000
+[release] second decode = 0, plane 0x4029f000
 [release] vdec_frame_release done
 [open] MJPEG 320x240                      = 0
 [open] H.264                              = 0
@@ -1832,23 +1844,23 @@ west build -b yuzukineko -d build/vdec-api vdec_api
 [h264] frame: format 1, 320x240, stride 320/320, pts 1
 [h264] get_frame = -EAGAIN
 [h264] feed NAL #3 (type 1, 136 bytes, pts 3) = 0, used 136
-[h264] get_frame = -EAGAIN
-[h264] feed NAL #4 (type 1, 108 bytes, pts 4) = 0, used 108
 [h264] get_frame = 0
 [h264] frame: format 1, 320x240, stride 320/320, pts 2
 [h264] get_frame = -EAGAIN
-[h264] feed NAL #5 (type 1, 87 bytes, pts 5) = 0, used 87
+[h264] feed NAL #4 (type 1, 108 bytes, pts 4) = 0, used 108
 [h264] get_frame = 0
 [h264] frame: format 1, 320x240, stride 320/320, pts 3
 [h264] get_frame = -EAGAIN
+[h264] feed NAL #5 (type 1, 87 bytes, pts 5) = 0, used 87
 [h264] get_frame = 0
 [h264] frame: format 1, 320x240, stride 320/320, pts 4
 [h264] get_frame = -EAGAIN
+[h264] get_frame = 0
 [h264] flush = 0 (after 33 NAL units)
 [h264] 30 frames decoded, all CRCs checked
 [h264] vdec_stream_close done
 [hold] vdec_stream_open(holding_frames 2) = 0
-[hold] 2 frames held, get_frame = -EBUSY
+[hold] 3 frames held, get_frame = -EBUSY
 [hold] after releasing them, get_frame = -EAGAIN
 [hold] vdec_stream_close done
 [flush] vdec_stream_open = 0

@@ -899,25 +899,21 @@ OpenCORE 的 AAC 解码接口，示例按这个顺序用：
 
 ## 控制台输出
 
-开始播放时先打印一行文件信息，之后每 5 秒一次统计，播完打印汇总。下面是 `yuzukineko` 上播放一个 960×540、30 fps、约 3 分钟的文件的实际输出（节选）：
+开始播放时先打印一行文件信息，之后每 5 秒一次统计，播完打印汇总。下面是 `yuzukineko` 上播放一个 960×540、30 fps、320 帧（约 11 秒）的文件的实际输出，所以只有两次统计：
 
 ```text
-*** Booting Zephyr OS build 9678a5939f81 ***
-[00:00:00.493,000] <inf> display_sunxi: 1024x768 @ 60 Hz, fb 0x400a4740, video plane 0
-playing /SD:/video540p.mp4: 960x540, 5395 frames, with sound
-[00:00:01.540,000] <err> vdec_sunxi_glue: cedarc <AddVDPlugin:1564>: empty cedar plugin init
-149 shown (29.72 fps), 0 dropped, A/V offset 36 ms, audio underruns 0
-  per 5012 ms: decode 3093 ms, read+convert 75 ms, feed 22 ms, show 1814 ms, wait 0 ms
-300 shown (30.04 fps), 0 dropped, A/V offset 38 ms, audio underruns 0
-  per 5025 ms: decode 3369 ms, read+convert 76 ms, feed 18 ms, show 1555 ms, wait 0 ms
-...
-5254 shown (29.74 fps), 28 dropped, A/V offset 34 ms, audio underruns 0
-  per 5009 ms: decode 3452 ms, read+convert 82 ms, feed 21 ms, show 1446 ms, wait 0 ms
-done: 5367 shown, 28 dropped, 0 audio underruns
+*** Booting Zephyr OS build 5d1fe64303ff ***
+[00:00:00.493,000] <inf> display_sunxi: 1024x768 @ 60 Hz, fb 0x40099500, video plane 0
+playing /SD:/video540p.mp4: 960x540, 320 frames, with sound
+150 shown (29.82 fps), 0 dropped, A/V offset 29 ms, audio underruns 0
+  per 5030 ms: decode 2983 ms, read+convert 110 ms, feed 27 ms, show 1902 ms, wait 1 ms
+299 shown (29.64 fps), 2 dropped, A/V offset 38 ms, audio underruns 0
+  per 5026 ms: decode 2929 ms, read+convert 120 ms, feed 24 ms, show 1945 ms, wait 1 ms
+done: 318 shown, 2 dropped, 0 audio underruns
 ```
 
 :::tip
-开头那条 `cedarc … empty cedar plugin init` 是视频引擎库初始化时打印的，播放不受影响。屏幕是 1024×768，960×540 的视频缩放铺满后保持长宽比。
+屏幕是 1024×768，960×540 的视频缩放铺满后保持长宽比。
 :::
 
 | 字段 | 含义 |
