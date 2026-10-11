@@ -1,0 +1,27 @@
+:root {
+	/* width of the article column, Starlight's default is 45rem */
+	--sl-content-width: 60rem;
+}
+
+.asciinema-cast {
+	margin: 1em auto;
+}
+
+/* the search box sits at the right end of the top bar (desktop layout) */
+@media (min-width: 50rem) {
+	.header > div:nth-child(2) {
+		justify-content: flex-end;
+	}
+}
+
+pre.mermaid {
+	background: none;
+	border: none;
+	text-align: center;
+	margin: 1em 0;
+}
+
+/* tables of the original pages are wide: let them use the full content width */
+.sl-markdown-content table {
+	width: 100%;
+}

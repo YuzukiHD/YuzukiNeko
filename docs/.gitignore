@@ -1,0 +1,10 @@
+# build output and caches
+node_modules/
+dist/
+.astro/
+
+# local files
+.env
+.env.*
+*.log
+.DS_Store

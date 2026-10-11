@@ -1,0 +1,44 @@
+name: Deploy docs to GitHub Pages
+
+on:
+  # rebuild when the docs change
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - '.github/workflows/deploy-docs.yml'
+  # build by hand from the Actions tab
+  workflow_dispatch:
+
+# the job clones the repository and creates a Pages deployment
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# one deployment at a time, a newer push waits for the running one
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+      - name: Install, build and upload the site
+        uses: withastro/action@v6
+        with:
+          path: docs
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
