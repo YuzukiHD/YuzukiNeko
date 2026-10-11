@@ -109,6 +109,9 @@ i2c1: i2c@2502400 {
 ### 绑定：allwinner,sunxi-twi.yaml
 
 ```yaml
+# Copyright (c) 2026 Yuzuki Tsuru
+# SPDX-License-Identifier: Apache-2.0
+
 description: Allwinner sunxi two-wire interface controller
 
 compatible: "allwinner,sunxi-twi"
@@ -118,11 +121,14 @@ include: [i2c-controller.yaml, pinctrl-device.yaml]
 properties:
   reg:
     required: true
+
   clocks:
     required: true
+
   resets:
     type: phandle-array
     required: true
+
   clock-frequency:
     required: true
 ```
@@ -716,7 +722,7 @@ west build -b yuzukineko -d build/i2c-api i2c_api
 [scan] 1 device(s) found
 [write_read] product id register 0x8140 = 0: 39 36 37 00 "967"
 [write+read] i2c_write(register address) = 0
-[write+read] i2c_read(1 byte)            = 0: 0x69
+[write+read] i2c_read(1 byte)            = 0: 0x63
 [burst] i2c_burst_read(0x81, 4)       = 0
 [transfer] write + restart + read       = 0: "967"
 [transfer] 10 bit address               = -ENOTSUP

@@ -4,19 +4,9 @@ title: "AAC - AAC 解码器"
 
 AAC 解码器把 AAC 音频帧解成 16 位 PCM。它是 OpenCORE（Android 早期的多媒体框架）里的定点 AAC 解码器：只用整数运算，不用 libm，在没有 FPU 参与的情况下就能在板子上实时解码。Zephyr 里把它作为一个库放进来，应用直接调用它的 C 接口 `<pvmp4audiodecoder_api.h>`，不经过设备模型。
 
-| 项目 | 内容 |
-| --- | --- |
-| 胶水层 | `zephyr/lib/opencore_aac/`：`Kconfig`、`CMakeLists.txt`、`include/oscl_base.h`、`include/oscl_mem.h` |
-| 解码器源码 | west 项目 `modules/lib/opencore`，目录 `codecs_v2/audio/aac/dec/`（`src/` 142 个 `.cpp` 文件，`include/` 里是对外头文件） |
-| 头文件 | `pvmp4audiodecoder_api.h`，应用里 `#include <pvmp4audiodecoder_api.h>`；`CONFIG_OPENCORE_AAC=y` 后头文件路径自动加到所有目标 |
-| Kconfig | `CONFIG_OPENCORE_AAC`，由 `zephyr/lib/Kconfig` 引入，`zephyr/lib/CMakeLists.txt` 在选项打开时编译 |
-| 编码 | AAC-LC。不支持 HE-AAC：编译时没有定义 `AAC_PLUS`，SBR 和 PS 的代码不参与 |
-| 声道 | 单声道、双声道；不支持多于两个声道 |
-| 码流格式 | ADTS（解码器自己找帧头）、ADIF，或者没有帧头的原始帧（先用 `AudioSpecificConfig` 配置，MP4 文件里的音频样本就是这种） |
-| 输出 | 16 位有符号 PCM，左右声道交错，每帧每声道 1024 个样本；`outputFormat` 字段不起作用，输出总是交错的 |
-| 内存 | 解码器状态 48680 字节（`PVMP4AudioDecoderGetMemRequirements()`），由调用者分配；库内部不调用 `malloc` |
-| 代码大小 | 库的目标文件合计 58486 字节（`.text`，示例用 `-Og` 编译） |
-| 依赖 | 只用 C 库的 `memset`、`memcpy` 等（`oscl_mem.h` 映射过去），不依赖任何设备 |
+源码分两部分。Zephyr 一侧的胶水在 `zephyr/lib/opencore_aac/`（`Kconfig`、`CMakeLists.txt`、`include/oscl_base.h`、`include/oscl_mem.h`），解码器本体在 west 项目 `modules/lib/opencore` 的 `codecs_v2/audio/aac/dec/`（`src/` 下 142 个 `.cpp` 文件，`include/` 下是对外头文件）。应用里 `#include <pvmp4audiodecoder_api.h>`，`CONFIG_OPENCORE_AAC=y` 之后头文件路径自动加到所有目标。`CONFIG_OPENCORE_AAC` 由 `zephyr/lib/Kconfig` 引入，`zephyr/lib/CMakeLists.txt` 在选项打开时编译这个库。
+
+这个构建能解的是 AAC-LC，单声道和双声道。编译时没有定义 `AAC_PLUS`，所以 HE-AAC 的 SBR 和 PS 不解码。输入可以是 ADTS（解码器自己找帧头），也可以是没有帧头的原始帧（先用 `AudioSpecificConfig` 配置，MP4 文件里的音频样本就是这种）。输出是 16 位有符号 PCM，左右声道交错，每帧每声道 1024 个样本。解码器状态 48680 字节，由调用者分配，库内部不调用 `malloc`；库的目标文件合计 58486 字节（示例用 `-Og` 编译）。除了 `memset`、`memcpy` 等 C 库函数（`oscl_mem.h` 映射过去），它不依赖任何设备。
 
 胶水层很薄。解码器的源文件是用 `.cpp` 扩展名写的 C 代码，`CMakeLists.txt` 把它们用 C 编译（`set_source_files_properties(... LANGUAGE C)`），排除掉 C++ 封装类 `decoder_aac.cpp`；`oscl_base.h` 提供原来来自 OpenCORE 基础库的整数类型和几个宏，`oscl_mem.h` 把 `oscl_memset` 等映射到标准 C 函数。
 
@@ -54,13 +44,13 @@ flowchart LR
     DEC --> PCM["pOutputBuffer<br/>int16，左右交错<br/>每帧 frameLength × 声道 个样本"]
     DEC --> INFO["samplingRate、encodedChannels<br/>frameLength、audioObjectType<br/>inputBufferUsedLength"]
     INFO --> NEXT["下一帧的输入位置<br/>（ADTS：inputBufferUsedLength 之后）"]
-    PCM --> CHECK["本页的演示：CRC-32、峰值<br/>和主机、ffmpeg 对比"]
+    PCM --> CHECK["演示里的检查：CRC-32、峰值<br/>和主机、ffmpeg 对比"]
     PCM -.复制.-> SLAB["k_mem_slab 块"]
     SLAB -.-> I2S["i2s_write<br/>frame_clk_freq = samplingRate<br/>16 位，2 声道"]
     I2S -.-> CODEC["I2S 发送 → 片上 codec → 耳机、功放"]
 ```
 
-虚线部分是接 I2S 播放的路径，本页的演示不播放，只检查 PCM 数据。完整的播放例子是 `zephyr/samples/drivers/mp4_player`（MP4 解封装后逐个样本解码，解出的 PCM 放进内存块，再用 `i2s_write()` 送给 I2S），I2S 和 codec 的用法见 [AUDIO - 音频驱动](../drivers/audio.md)。MP4 容器的解析见 [MP4 - MP4 解封装](mp4.md)。
+虚线部分是接 I2S 播放的路径，演示里的 `demo_play()` 走了这条路径，见后面的验证项“播放”。MP4 解封装后逐个样本解码再播放的完整例子是 `zephyr/samples/drivers/mp4_player`，I2S 和 codec 的用法见 [AUDIO - 音频驱动](../drivers/audio.md)，MP4 容器的解析见 [MP4 - MP4 解封装](mp4.md)。
 
 ## 设备树
 
@@ -133,10 +123,11 @@ AAC 解码器是纯软件的库，没有设备树节点，也没有绑定。
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <zephyr/audio/codec.h>
+#include <zephyr/drivers/i2s.h>
 #include <zephyr/kernel.h>
 #include <zephyr/sys/crc.h>
 #include <zephyr/sys/printk.h>
-/* last: the decoder headers redefine __inline, which the C library headers must not see */
 #include <pvmp4audiodecoder_api.h>
 
 #include "clips.h"
@@ -151,6 +142,18 @@ static const uint8_t asc_a[2] = {0x12, 0x10};	/* 44.1 kHz, stereo */
 static const uint8_t asc_b[2] = {0x13, 0x88};	/* 22.05 kHz, mono */
 
 #define MAX_FRAMES 128
+
+/* playback: one block of the I2S stream is one decoded frame, 1024 samples of 2 channels */
+#define PLAY_BLOCK	(1024 * 2 * sizeof(int16_t))
+#define PLAY_BLOCKS	8
+#define PLAY_PREFILL	4	/* blocks queued before the stream is started */
+#define PLAY_LOOPS	3	/* clip_a is played this many times */
+
+K_MEM_SLAB_DEFINE_STATIC(play_slab, PLAY_BLOCK, PLAY_BLOCKS, 4);
+
+/* the digital side of the on-chip codec is an I2S device, the analog side an audio codec device */
+static const struct device *const codec_i2s = DEVICE_DT_GET(DT_NODELABEL(audio_codec));
+static const struct device *const codec_ctl = DEVICE_DT_GET(DT_NODELABEL(codec_analog));
 
 /* one frame of an ADTS stream: where the header starts, its length, the payload behind it */
 struct adts_frame {
@@ -332,7 +335,7 @@ static void setup_ext(tPVMP4AudioDecoderExternal *ext, int desired)
 }
 ```
 
-`index_adts()` 按 ADTS 帧头里 13 位的帧长把数据切成帧，用来取出不带帧头的原始帧；`account()` 把每帧的 PCM 累计成 CRC-32、峰值和绝对值之和，并和 ffmpeg 解出的参考帧比较；`HOST_CRC_*` 是在主机上用同一份解码器源码编译、解同一段数据得到的 CRC-32（见后面的“和主机对比”）。
+`index_adts()` 按 ADTS 帧头里 13 位的帧长把数据切成帧，用来取出不带帧头的原始帧；`account()` 把每帧的 PCM 累计成 CRC-32、峰值和绝对值之和，并和 ffmpeg 解出的参考帧比较；`HOST_CRC_*` 是在主机上用同一份解码器源码编译、解同一段数据得到的 CRC-32（见后面的验证项）。
 
 ### PVMP4AudioDecoderGetMemRequirements
 
@@ -453,19 +456,19 @@ static void demo_decode_frame(void)
 [decode] first frame: 44100 Hz, 2 channels in the stream, 1024 samples per channel, audio object type 2, 0 bit/s, used 345 bytes
 [decode] clip_a, ADTS, desiredChannels 2: last PVMP4AudioDecodeFrame = 0
 [decode] 64 frames, 131072 samples, CRC-32 145b0881 (host 145b0881, match)
-[decode] peak 3025, mean |sample| 1814, 81754 us in total, 1277 us per frame
+[decode] peak 3025, mean |sample| 1814, 81924 us in total, 1280 us per frame
 [decode] frames 20..21 against ffmpeg: largest difference 1
 [decode] first frame: 22050 Hz, 1 channels in the stream, 1024 samples per channel, audio object type 2, 0 bit/s, used 286 bytes
 [decode] clip_b, ADTS, desiredChannels 1: last PVMP4AudioDecodeFrame = 0
 [decode] 26 frames, 26624 samples, CRC-32 31898848 (host 31898848, match)
-[decode] peak 8215, mean |sample| 2506, 16958 us in total, 652 us per frame
+[decode] peak 8215, mean |sample| 2506, 16988 us in total, 653 us per frame
 [decode] frames 10..11 against ffmpeg: largest difference 2
 [decode] clip_b, ADTS, desiredChannels 2: last PVMP4AudioDecodeFrame = 0
 [decode] 26 frames, 53248 samples, CRC-32 11a83335 (host 11a83335, match)
-[decode] peak 8215, mean |sample| 2506, 16862 us in total, 648 us per frame
+[decode] peak 8215, mean |sample| 2506, 17072 us in total, 656 us per frame
 ```
 
-一帧 44.1 kHz 的音频长 23.2 毫秒，板子上解一帧用 1277 微秒（`-Og` 编译、双声道）。CRC-32 和主机上同一份源码解出来的完全一致；和 ffmpeg 的浮点解码器相比，抽出来的两帧最大差 1 到 2 个最低位。`bitRate` 读出来是 0，所以演示里只打印了它而不使用。
+一帧 44.1 kHz 的音频长 23.2 毫秒，板子上解一帧用 1280 微秒（`-Og` 编译、双声道）。CRC-32 和主机上同一份源码解出来的完全一致；和 ffmpeg 的浮点解码器相比，抽出来的两帧最大差 1 到 2 个最低位。`bitRate` 读出来是 0，所以演示里只打印了它而不使用。
 
 `desiredChannels` 只处理单声道的流（复制到两个声道）。双声道的流把它设成 1 时，源码里没有下混的代码，输出仍然是两声道交错的数据，所以不支持立体声到单声道的转换；要单声道自己对左右声道取平均。
 
@@ -816,12 +819,94 @@ static void demo_disable_aac_plus(void)
 [plus] 8 frames decoded = 0, 44100 Hz
 ```
 
-## 和主机对比
+## 验证项
 
-怎样确认板子上解出来的 PCM 是对的：
+下面每一项写验证了什么、怎么验证的、板上看到的输出。输出行引自后面的完整日志。
 
-1. 用同一份解码器源码在主机上编译一个程序（`host_decode.c` 和 `build_host.sh`，见完整演示程序），解同一段 ADTS 数据，得到 PCM 的 CRC-32。板子上两段数据的 CRC-32 和主机完全一致（`145b0881`、`31898848`、`11a83335`），所以 RISC-V 上的编译结果和主机逐位相同。
-2. 用 ffmpeg 解同一段数据（`ffmpeg -i a.aac -f s16le -acodec pcm_s16le a_ref.pcm`），和主机解码器的输出逐样本比较：`clip_a` 整段最大差 3，`clip_b` 整段最大差 14（单位是 16 位样本的最低位）。AAC 解码器的输出允许有舍入差别，OpenCORE 是定点的，ffmpeg 是浮点的，所以不要求逐位相同。演示程序里把 ffmpeg 解出的两帧放进固件，在板子上也算出了差值（上面日志里的 `largest difference`）。
+### 解码结果和主机一致
+
+输入是 `clip_a`（44.1 kHz 双声道，64 帧，24172 字节）和 `clip_b`（22.05 kHz 单声道，26 帧，5202 字节）。做法：把同一份解码器源码在主机上编译（`host_decode.c` 和 `build_host.sh`，见完整演示程序），解同一段数据，算 PCM 的 CRC-32；板子上边解边累计同样的 CRC-32，打印时和写在源码里的主机值比较。板上输出：
+
+```text
+[decode] 64 frames, 131072 samples, CRC-32 145b0881 (host 145b0881, match)
+[decode] 26 frames, 26624 samples, CRC-32 31898848 (host 31898848, match)
+[decode] 26 frames, 53248 samples, CRC-32 11a83335 (host 11a83335, match)
+```
+
+三项都一致（第三项是 `clip_b` 用 `desiredChannels` 2 解），说明 RISC-V 上的编译结果和主机逐位相同。
+
+### 解码结果和 ffmpeg 接近
+
+输入同上。做法：用 ffmpeg 解同一段数据（`ffmpeg -i a.aac -f s16le -acodec pcm_s16le a_ref.pcm`），把其中两帧（`clip_a` 的第 20、21 帧，`clip_b` 的第 10、11 帧）放进固件，板子上算最大的样本差。OpenCORE 是定点的，ffmpeg 是浮点的，所以不要求逐位相同。板上输出：
+
+```text
+[decode] frames 20..21 against ffmpeg: largest difference 1
+[decode] frames 10..11 against ffmpeg: largest difference 2
+```
+
+另外在主机上把两段数据整段和 ffmpeg 比较（没有上板）：`clip_a` 最大差 3，`clip_b` 最大差 14，单位是 16 位样本的最低位。
+
+### 原始帧解码
+
+输入是去掉 ADTS 帧头的 `clip_a`、`clip_b`，配置分别用 `PVMP4AudioDecoderConfig()`（`AudioSpecificConfig` 的两个字节）和 `PVMP4SetAudioConfig()`（数字参数）。做法：解出的 PCM 的 CRC-32 和直接解 ADTS 的比较。板上输出：
+
+```text
+[config] 64 frames, CRC-32 145b0881, same as the ADTS decode (145b0881): yes
+[config] clip_b raw frames: 26 frames, CRC-32 31898848, host 31898848: match
+[setcfg] 64 frames, CRC-32 145b0881, same as the ADTS decode (145b0881): yes
+```
+
+### 单声道流的声道处理
+
+输入是单声道的 `clip_b`。做法：`desiredChannels` 设 1 和设 2 各解一遍，设 1 时输出 26624 个样本，设 2 时 53248 个样本，两者的 CRC-32 都和主机的对应结果一致（见上面第一项）。
+
+### 出错的输入
+
+输入是四种坏数据：乱码、切掉一半的 ADTS 帧、切掉一半的原始帧、`inputBufferUsedLength` 超过缓冲区。做法：看返回值。板上输出：
+
+```text
+[error] ADTS stream with garbage    = MP4AUDEC_LOST_FRAME_SYNC (30)
+[error] ADTS frame cut in half      = MP4AUDEC_LOST_FRAME_SYNC (30)
+[error] raw frame cut in half       = MP4AUDEC_INCOMPLETE_FRAME (20)
+[error] used length beyond the end  = MP4AUDEC_INVALID_FRAME (10)
+```
+
+`Config` 和 `PVMP4SetAudioConfig()` 的错误输入同样看返回值：1 字节的 `AudioSpecificConfig` 返回 `MP4AUDEC_INCOMPLETE_FRAME`，全零的返回 `MP4AUDEC_INVALID_FRAME`，3 声道和 CELP 对象类型返回 -1。
+
+### 复位叠加缓冲区
+
+输入是 `clip_a` 的第 0 到 32 帧。做法：连续解，和在第 30 帧前调用 `PVMP4AudioDecoderResetBuffer()` 再解，比较第 30、31、32 帧的 CRC-32。板上输出：第 30 帧不同，第 31、32 帧相同，和叠加缓冲区被清零的预期一致（输出见 `PVMP4AudioDecoderResetBuffer` 一节）。
+
+### 关闭 SBR 开关
+
+输入是 `aacPlusEnabled` 设为 true 的解码器。做法：调用 `PVMP4AudioDecoderDisableAacPlus()` 前后读这个标志，再配置并解 8 帧。板上输出标志从 1 变成 0，`aacPlusUpsamplingFactor` 是 1，采样率仍是 44100 Hz。这里只验证了标志位，因为这个构建没有 SBR。
+
+### 播放
+
+输入是 `clip_a`，循环解 3 遍（每遍 64 帧，约 1.49 秒）。做法：每解出一帧，复制到 `k_mem_slab` 的块里，用 `i2s_write()` 送给片上 codec 的 I2S（44100 Hz、16 位、2 声道），预填 4 块后 `I2S_TRIGGER_START`，最后 `I2S_TRIGGER_DRAIN`。检查三项：`i2s_write()` 都返回 0、没有欠载（`-EIO`）、从第一块到播完的时间和音频长度（4458 毫秒）相当，说明 I2S 是按 44.1 kHz 在消费数据。板上输出：
+
+```text
+[play] i2s_configure(44100 Hz, 16 bit, 2 channels) = 0
+[play] i2s_trigger(START) after 4 blocks = 0
+[play] i2s_trigger(DRAIN) = 0
+[play] 192 blocks written (3 x 64 frames), 0 i2s_write errors, 0 underruns, 4487 ms since the first block (the audio is 4458 ms long)
+```
+
+192 块全部写入，没有写入错误和欠载，4487 毫秒对 4458 毫秒的音频，数据是按 44.1 kHz 被消费的。
+
+没有验证的是声音本身：板子的耳机口接耳机能不能听到、听起来对不对，需要人来听，这里没有做。
+
+### 没有验证的项
+
+| 项 | 原因 |
+| --- | --- |
+| 耳机口出来的声音 | 需要人听 |
+| `PVMP4SetAudioConfig()` 传入不在 13 个标准值里的采样率 | 源码里返回值被后面的调用覆盖，函数不报错；没有写测试 |
+| 立体声流 `desiredChannels` 设 1 | 源码里没有下混的代码，没有跑 |
+| ADIF 格式、AAC Main、LTP、SSR 的流 | 没有这些格式的样本，只用 AAC-LC |
+| HE-AAC（SBR、PS）流 | 这个构建没有定义 `AAC_PLUS`，不解码，没有用 HE-AAC 流测试 |
+| 多个解码器实例同时解码 | 状态都在调用者给的内存里，没有写测试 |
+| 解码一帧的栈用量 | 演示的栈是 16384 字节，没有测量最小值 |
 
 ## 完整演示程序
 
@@ -861,6 +946,11 @@ CONFIG_SHELL=n
 CONFIG_DEVMEM_SHELL=n
 CONFIG_LOG_PRINTK=n
 CONFIG_CRC=y
+CONFIG_I2S=y
+CONFIG_AUDIO=y
+CONFIG_AUDIO_CODEC=y
+CONFIG_DMA=y
+CONFIG_GPIO=y
 ```
 
 ### src/clips.h
@@ -995,10 +1085,11 @@ sys.stdout.write(out)
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <zephyr/audio/codec.h>
+#include <zephyr/drivers/i2s.h>
 #include <zephyr/kernel.h>
 #include <zephyr/sys/crc.h>
 #include <zephyr/sys/printk.h>
-/* last: the decoder headers redefine __inline, which the C library headers must not see */
 #include <pvmp4audiodecoder_api.h>
 
 #include "clips.h"
@@ -1013,6 +1104,18 @@ static const uint8_t asc_a[2] = {0x12, 0x10};	/* 44.1 kHz, stereo */
 static const uint8_t asc_b[2] = {0x13, 0x88};	/* 22.05 kHz, mono */
 
 #define MAX_FRAMES 128
+
+/* playback: one block of the I2S stream is one decoded frame, 1024 samples of 2 channels */
+#define PLAY_BLOCK	(1024 * 2 * sizeof(int16_t))
+#define PLAY_BLOCKS	8
+#define PLAY_PREFILL	4	/* blocks queued before the stream is started */
+#define PLAY_LOOPS	3	/* clip_a is played this many times */
+
+K_MEM_SLAB_DEFINE_STATIC(play_slab, PLAY_BLOCK, PLAY_BLOCKS, 4);
+
+/* the digital side of the on-chip codec is an I2S device, the analog side an audio codec device */
+static const struct device *const codec_i2s = DEVICE_DT_GET(DT_NODELABEL(audio_codec));
+static const struct device *const codec_ctl = DEVICE_DT_GET(DT_NODELABEL(codec_analog));
 
 /* one frame of an ADTS stream: where the header starts, its length, the payload behind it */
 struct adts_frame {
@@ -1493,6 +1596,91 @@ static void demo_disable_aac_plus(void)
 	free(mem);
 }
 
+/* decode clip_a PLAY_LOOPS times and play the PCM on the headphone output */
+static void demo_play(void)
+{
+	struct i2s_config cfg = {
+		.word_size = 16,
+		.channels = 2,
+		.format = I2S_FMT_DATA_FORMAT_I2S,
+		.options = I2S_OPT_BIT_CLK_MASTER | I2S_OPT_FRAME_CLK_MASTER,
+		.frame_clk_freq = 44100,
+		.mem_slab = &play_slab,
+		.block_size = PLAY_BLOCK,
+		.timeout = 2000,
+	};
+	audio_property_value_t vol = {.vol = 140};
+	tPVMP4AudioDecoderExternal ext;
+	void *mem = new_decoder();
+	int written = 0, write_errors = 0, underruns = 0, queued = 0, ret;
+	bool running = false;
+	int64_t t0;
+
+	if (mem == NULL || !device_is_ready(codec_i2s) || !device_is_ready(codec_ctl)) {
+		printk("[play] device not ready\n");
+		free(mem);
+		return;
+	}
+	ret = i2s_configure(codec_i2s, I2S_DIR_TX, &cfg);
+	printk("[play] i2s_configure(44100 Hz, 16 bit, 2 channels) = %d\n", ret);
+	audio_codec_start_output(codec_ctl);
+	audio_codec_set_property(codec_ctl, AUDIO_PROPERTY_OUTPUT_VOLUME, AUDIO_CHANNEL_ALL, vol);
+
+	t0 = k_uptime_get();
+	for (int loop = 0; loop < PLAY_LOOPS; loop++) {
+		setup_ext(&ext, 2);
+		PVMP4AudioDecoderInitLibrary(&ext, mem);
+		ext.pInputBuffer = (UChar *)clip_a;
+		ext.inputBufferCurrentLength = sizeof(clip_a);
+		while (ext.inputBufferUsedLength + 7 < (int)sizeof(clip_a)) {
+			void *blk;
+
+			ext.pOutputBuffer = pcm;
+			ext.pOutputBuffer_plus = pcm + 2048;
+			ret = PVMP4AudioDecodeFrame(&ext, mem);
+			if (ret != MP4AUDEC_SUCCESS) {
+				printk("[play] decode error %d\n", ret);
+				goto out;
+			}
+			if (k_mem_slab_alloc(&play_slab, &blk, K_SECONDS(2)) != 0) {
+				printk("[play] no free block\n");
+				goto out;
+			}
+			memcpy(blk, pcm, PLAY_BLOCK);
+			ret = i2s_write(codec_i2s, blk, PLAY_BLOCK);
+			if (ret == -EIO) {
+				/* the stream ran dry: start it again */
+				underruns++;
+				running = false;
+				queued = 0;
+				k_mem_slab_free(&play_slab, blk);
+				i2s_trigger(codec_i2s, I2S_DIR_TX, I2S_TRIGGER_PREPARE);
+				continue;
+			} else if (ret != 0) {
+				write_errors++;
+				k_mem_slab_free(&play_slab, blk);
+				goto out;
+			}
+			written++;
+			if (!running && ++queued >= PLAY_PREFILL) {
+				ret = i2s_trigger(codec_i2s, I2S_DIR_TX, I2S_TRIGGER_START);
+				printk("[play] i2s_trigger(START) after %d blocks = %d\n", queued, ret);
+				running = (ret == 0);
+			}
+		}
+	}
+out:
+	ret = i2s_trigger(codec_i2s, I2S_DIR_TX, I2S_TRIGGER_DRAIN);
+	k_sleep(K_MSEC(300));
+	audio_codec_stop_output(codec_ctl);
+	printk("[play] i2s_trigger(DRAIN) = %d\n", ret);
+	printk("[play] %d blocks written (%d x %d frames), %d i2s_write errors, %d underruns, "
+	       "%lld ms since the first block (the audio is %d ms long)\n",
+	       written, PLAY_LOOPS, 64, write_errors, underruns, k_uptime_get() - t0,
+	       PLAY_LOOPS * 64 * 1024 * 1000 / 44100);
+	free(mem);
+}
+
 int main(void)
 {
 	int na = index_adts(clip_a, sizeof(clip_a), frames_a);
@@ -1508,6 +1696,7 @@ int main(void)
 	demo_set_audio_config();
 	demo_reset_buffer();
 	demo_disable_aac_plus();
+	demo_play();
 	printk("done\n");
 	k_sleep(K_FOREVER);
 
@@ -1645,16 +1834,16 @@ AAC decoder demo: clip_a 24172 bytes, 64 ADTS frames; clip_b 5202 bytes, 26 ADTS
 [decode] first frame: 44100 Hz, 2 channels in the stream, 1024 samples per channel, audio object type 2, 0 bit/s, used 345 bytes
 [decode] clip_a, ADTS, desiredChannels 2: last PVMP4AudioDecodeFrame = 0
 [decode] 64 frames, 131072 samples, CRC-32 145b0881 (host 145b0881, match)
-[decode] peak 3025, mean |sample| 1814, 81754 us in total, 1277 us per frame
+[decode] peak 3025, mean |sample| 1814, 81924 us in total, 1280 us per frame
 [decode] frames 20..21 against ffmpeg: largest difference 1
 [decode] first frame: 22050 Hz, 1 channels in the stream, 1024 samples per channel, audio object type 2, 0 bit/s, used 286 bytes
 [decode] clip_b, ADTS, desiredChannels 1: last PVMP4AudioDecodeFrame = 0
 [decode] 26 frames, 26624 samples, CRC-32 31898848 (host 31898848, match)
-[decode] peak 8215, mean |sample| 2506, 16958 us in total, 652 us per frame
+[decode] peak 8215, mean |sample| 2506, 16988 us in total, 653 us per frame
 [decode] frames 10..11 against ffmpeg: largest difference 2
 [decode] clip_b, ADTS, desiredChannels 2: last PVMP4AudioDecodeFrame = 0
 [decode] 26 frames, 53248 samples, CRC-32 11a83335 (host 11a83335, match)
-[decode] peak 8215, mean |sample| 2506, 16862 us in total, 648 us per frame
+[decode] peak 8215, mean |sample| 2506, 17072 us in total, 656 us per frame
 [error] ADTS stream with garbage    = MP4AUDEC_LOST_FRAME_SYNC (30)
 [error] ADTS frame cut in half      = MP4AUDEC_LOST_FRAME_SYNC (30)
 [error] raw frame cut in half       = MP4AUDEC_INCOMPLETE_FRAME (20)
@@ -1678,12 +1867,15 @@ AAC decoder demo: clip_a 24172 bytes, 64 ADTS frames; clip_b 5202 bytes, 26 ADTS
 [plus] after PVMP4AudioDecoderDisableAacPlus: aacPlusEnabled 0
 [plus] PVMP4AudioDecoderConfig = 0, aacPlusUpsamplingFactor 1, 44100 Hz
 [plus] 8 frames decoded = 0, 44100 Hz
+[play] i2s_configure(44100 Hz, 16 bit, 2 channels) = 0
+[play] i2s_trigger(START) after 4 blocks = 0
+[play] i2s_trigger(DRAIN) = 0
+[play] 192 blocks written (3 x 64 frames), 0 i2s_write errors, 0 underruns, 4487 ms since the first block (the audio is 4458 ms long)
 done
 ```
 
 ## 在自己的应用里使用
 
 1. `prj.conf`：`CONFIG_OPENCORE_AAC=y`，栈给足（`CONFIG_MAIN_STACK_SIZE` 或解码线程的栈至少 16384），解码器状态内存用 `malloc()`（要设 `CONFIG_COMMON_LIBC_MALLOC_ARENA_SIZE`）或静态数组。
-2. 头文件 `#include <pvmp4audiodecoder_api.h>` 要放在 Zephyr 的头文件之后：解码器的头文件把 `__inline` 定义成了 `static __inline__`，放在前面会让 C 库头文件里的 `__inline` 函数出错。
-3. 流程：`GetMemRequirements` 分配内存，`InitLibrary`，有 `AudioSpecificConfig` 就 `Config`，然后每帧 `DecodeFrame`，把 `pOutputBuffer` 里的数据交给 I2S。
-4. 从 MP4 来的 AAC 样本是原始帧，要先 `Config`；`.aac` 文件是 ADTS，直接解。
+2. 流程：`GetMemRequirements` 分配内存，`InitLibrary`，有 `AudioSpecificConfig` 就 `Config`，然后每帧 `DecodeFrame`，把 `pOutputBuffer` 里的数据交给 I2S。
+3. 从 MP4 来的 AAC 样本是原始帧，要先 `Config`；`.aac` 文件是 ADTS，直接解。

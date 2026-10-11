@@ -335,7 +335,7 @@ uint32_t rvv_hold_v8(uint32_t seed, uint32_t iters)
 west build -b yuzukineko -d build/rvv zephyr/samples/drivers/rvv
 ```
 
-全部检查通过时，最后一行输出是 `RVV: all checks passed`，示例的 `sample.yaml` 就是用这一行判断测试是否通过。示例的 `sample.yaml` 里 `platform_allow` 写的是评估板 `f101_evb`；`yuzukineko` 同样是 F101，我这边只确认了能编译。
+全部检查通过时，最后一行输出是 `RVV: all checks passed`，示例的 `sample.yaml` 就是用这一行判断测试是否通过。示例的 `sample.yaml` 里 `platform_allow` 写的是评估板 `f101_evb`；`yuzukineko` 同样是 F101，示例已在 `yuzukineko` 上编译通过，没有上板运行。
 
 ## 常见问题
 

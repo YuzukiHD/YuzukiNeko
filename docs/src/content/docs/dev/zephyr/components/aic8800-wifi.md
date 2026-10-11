@@ -2,21 +2,16 @@
 title: "AIC8800 WIFI - 无线网卡驱动"
 ---
 
-AIC8800 是爱科微（AICSemi）的 WiFi + 蓝牙二合一芯片，F101 的 `yuzukineko` 板上用 SDIO 接到 SoC。这个组件是它的 WiFi 部分：FullMAC 主机驱动（命令队列、收发描述符、固件下载）、移植的 wpa_supplicant，以及和 Zephyr 内核、SDIO 协议栈、网络栈之间的适配层。对应用来说，它是一个标准的 Zephyr WiFi 网卡：接口名 `wlan0`，用 `net_mgmt` 的 WiFi 请求扫描、连接、断开、读状态，连上以后用 DHCPv4 取地址，之后就是普通的 BSD 套接字。
+AIC8800 是爱科微（AICSemi）的 WiFi + 蓝牙二合一芯片，`yuzukineko` 板上用 SDIO 接到 SoC。这个组件是它的 WiFi 部分，源码在 `~/f101-zephyr/zephyr-components/aic8800`，是一个 Zephyr 模块（`zephyr/module.yml`），包括 FullMAC 主机驱动（命令队列、收发描述符、固件下载）、移植的 wpa_supplicant，以及和 Zephyr 内核、SDIO 协议栈、网络栈之间的适配层。
 
-蓝牙部分在另一篇：[AIC8800 BT](aic8800-bt.md)。两篇共用同一块硬件，本页讲的总线和固件加载对蓝牙同样适用。
+驱动向 Zephyr 注册一个以太网二层的 WiFi 网卡 `wlan0`，应用用 `net_mgmt` 的 WiFi 请求扫描、连接、断开、读状态，连上以后用 DHCPv4 取地址，之后收发数据就是普通的 BSD 套接字。蓝牙部分在另一篇：[AIC8800 BT](aic8800-bt.md)。两部分共用同一颗芯片、同一条 SDIO 和同一个 REG_ON，固件在同一次启动里下载，所以后面“总线与固件加载”一节对蓝牙同样适用。
 
-| 项目 | 内容 |
-| --- | --- |
-| 源码 | `~/f101-zephyr/zephyr-components/aic8800`（Zephyr 模块，`zephyr/module.yml`） |
-| 芯片 | AIC8800D、DW、DC（D40）、D80，由 Kconfig 的 `AIC8800_CHIP` 选；`yuzukineko` 上电后芯片自报 `chip_id=c3`，驱动按 D80 加载固件 |
-| 总线 | SDIO，4 位，接在 `smhc2`；USB 接口的代码在源码里，但没有移植，`AIC8800_INTF_USB` 依赖 `BROKEN`，不能选 |
-| 固件 | 编进镜像，不放在文件系统或 Flash 分区里，见后面的“固件加载” |
-| 网络接口 | `wlan0`，以太网二层，`wifi_mgmt` 接口；DHCPv4 |
-| 工作模式 | 只有 STA（站点）。源码里有 AP、P2P、射频测试的代码，但没有接到 Zephyr 的 WiFi 管理接口上，应用用不了 |
-| 频段 | 2.4 GHz 和 5 GHz（扫描结果里出现 36、48、157 等 5 GHz 信道） |
-| 加密 | 开放网络、WPA2-PSK。连接 WPA3（SAE）返回 `-ENOTSUP`；`AIC8800_WPA3` 只是打开 SAE 握手的编译，管理接口不接受 SAE |
-| 与蓝牙的关系 | 同一颗芯片、同一条 SDIO、同一个 REG_ON，固件在同一次启动里下载 |
+源码里与 Zephyr 接口相关的几点：
+
+* 芯片型号由 Kconfig 的 `AIC8800_CHIP` 选择（D、DW、DC/D40、D80）。`yuzukineko` 上电后，芯片自己报 `chip_id=c3`，驱动按 D80 加载固件。
+* 总线是 SDIO，4 位，接在 `smhc2`。源码里有 USB 接口的代码，但没有移植，`AIC8800_INTF_USB` 依赖 `BROKEN`，不能选。
+* 工作模式只接了 STA。源码里有 AP、P2P、射频测试的代码，没有接到 Zephyr 的 WiFi 管理接口，应用用不了。
+* 管理接口只接受开放网络和 WPA2-PSK。`AIC8800_WPA3` 只是编译 SAE 握手，连接请求里的 SAE 会被驱动拒绝。
 
 ## 架构
 
@@ -124,7 +119,7 @@ aic8800: sdio card up: 2 functions
 aic8800: chipid 3
 aic8800: chip_id=c3, chip_sub_id=2
 aic8800: ### Upload firmware, @ = 120000
-aic8800: ### dst=0x400e8ce0, size=336848
+aic8800: ### dst=0x400e8e9c, size=336848
 aic8800: rd_version_val=06090101
 aic8800: Start app: 00120000
 ```
@@ -187,7 +182,7 @@ aic8800: Start app: 00120000
 };
 ```
 
-本页的演示不用蓝牙，`bt-reset-gpios` 在 `CONFIG_AIC8800_BT` 没打开时不会被用到。`wakeup-gpios` 在 `yuzukineko` 上没有接，所以板级设备树里没有这一行。
+本文的演示不用蓝牙，`bt-reset-gpios` 在 `CONFIG_AIC8800_BT` 没打开时不会被用到。`wakeup-gpios` 在 `yuzukineko` 上没有接，所以板级设备树里没有这一行。
 
 ### 绑定：aicsemi,aic8800.yaml
 
@@ -262,11 +257,11 @@ properties:
 | `CONFIG_NET_MAX_CONTEXTS` | 24（驱动改了默认） | 同上，网络上下文数 |
 | `CONFIG_ZVFS_OPEN_MAX` | 32（驱动改了默认） | 每条控制通道的套接字也占文件描述符 |
 
-应用的 `prj.conf` 里还要注意几项，它们不是驱动的 Kconfig，但不设会失败：
+应用的 `prj.conf` 里还有几项，它们不是驱动的 Kconfig，但验证程序需要：
 
 | 选项 | 说明 |
 | --- | --- |
-| `CONFIG_MINIMAL_LIBC=y` | 驱动的 `compat/` 头文件按最小 C 库写，板子默认的 picolibc 会因 `getchar` 重复声明而编译失败 |
+| `CONFIG_MINIMAL_LIBC=y` | 使用最小 C 库。换成板子默认的 picolibc 后能编译，扫描也正常，但 wpa_supplicant 的任务一启动就退出（日志里 `ctrl_sock:-1`、`fhost_sta_cfg fail`），连接不能工作，原因没有查到 |
 | `CONFIG_MAIN_STACK_SIZE=8192` | 主线程里要调用 `net_mgmt`，默认栈太小 |
 | `CONFIG_HEAP_MEM_POOL_SIZE=262144` | 驱动从内核堆里分配收发缓冲区和 wpa_supplicant 的数据 |
 | `CONFIG_COMMON_LIBC_MALLOC_ARENA_SIZE=-1` | `malloc` 使用剩余内存 |
@@ -276,21 +271,11 @@ properties:
 | `CONFIG_TEST_RANDOM_GENERATOR=y` | 握手要随机数，SoC 的随机数发生器还没有驱动，先用伪随机源。这是测试用的随机源，不能用于正式产品 |
 | `CONFIG_DISPLAY=n`、`CONFIG_USB_PHY_SUNXI=n` 等 | `yuzukineko` 上 `smhc2` 的引脚和 I2S0、USB 主机的 VBUS 开关共用，用不到的外设关掉 |
 
-## 接口详解
+## 接口与验证项
 
-组件没有自己的应用接口。`wifi.h` 里的 `aic_wifi_init`、`aic_wifi_event_register`、`aic_wifi_get_mode` 等是驱动内部使用的原厂接口，头文件在模块私有的包含路径里，应用的编译选项里没有它，其中 `aic_wifi_get_version` 只有声明、没有实现，应用不要调用。应用用的是 Zephyr 的 `net_if` 和 `net_mgmt` 接口，驱动实现了其中 `wifi_mgmt_ops` 的四个回调：
+组件没有自己的应用接口。`wifi.h` 里的 `aic_wifi_init`、`aic_wifi_event_register`、`aic_wifi_get_mode` 等是驱动内部使用的原厂接口，头文件在模块私有的包含路径里，应用的编译选项里没有它；其中 `aic_wifi_get_version` 只有声明、没有实现。应用用的是 Zephyr 的 `net_if` 和 `net_mgmt` 接口。驱动在 `wifi_mgmt_ops` 里实现了 `scan`、`connect`、`disconnect`、`iface_status` 四个回调，别的回调（AP、省电、监管域、统计等）没有实现。
 
-| `wifi_mgmt_ops` 回调 | 对应的请求 | 状态 |
-| --- | --- | --- |
-| `scan` | `NET_REQUEST_WIFI_SCAN` | 支持 |
-| `connect` | `NET_REQUEST_WIFI_CONNECT` | 支持，开放网络和 WPA2-PSK |
-| `disconnect` | `NET_REQUEST_WIFI_DISCONNECT` | 支持 |
-| `iface_status` | `NET_REQUEST_WIFI_IFACE_STATUS` | 支持，只填状态、SSID、BSSID、频段、信道、RSSI |
-| 其他（`ap_enable`、`set_power_save`、`reg_domain`、`get_stats` 等） | 对应的 `NET_REQUEST_WIFI_*` | 不支持，请求返回 `-ENOTSUP` |
-
-没有 AP 的凭据时，只能做扫描：连接一个真实网络的那一段代码（`CONNECT_SSID` 不为空时才执行）只编译、不运行；演示改为验证参数检查和对一个不存在的网络发连接请求。
-
-演示在 `yuzukineko` 上运行，下面每个接口一个小标题，先是原型和行为，再是一个完整的示例函数和板上的输出。这些示例函数都在同一个 `main.c` 里，开头的头文件、事件回调和全局变量如下：
+下面按验证项逐项写：每一项说明验证了什么、怎么验证的、板上看到了什么输出。验证程序是 `examples/aic8800_wifi_api`，没有 AP 的凭据，所以没有连接真实网络，没有验证的项在最后一节单列。示例函数都在同一个 `main.c` 里，开头的头文件、事件回调和全局变量如下：
 
 ```c
 #include <errno.h>
@@ -358,7 +343,7 @@ static void ipv4_event(struct net_mgmt_event_callback *cb, uint64_t event, struc
 struct net_if *net_if_get_first_wifi(void);
 ```
 
-返回第一个 WiFi 网络接口，没有就返回 `NULL`。驱动注册的接口名是 `wlan0`；接口在 `net_if` 里的初始状态是下线，载波关闭，连上网络后才有载波。
+验证内容：驱动注册的接口能被找到，名字是 `wlan0`，初始状态是下线。验证方法：调用函数，打印接口序号、设备名和 `net_if_is_up()`。
 
 ```c
 static struct net_if *demo_find_interface(void)
@@ -386,7 +371,7 @@ static struct net_if *demo_find_interface(void)
 struct net_linkaddr *net_if_get_link_addr(struct net_if *iface);
 ```
 
-读接口的链路层地址，也就是 MAC。芯片还没有启动时是驱动给的一个本地管理地址 `02:00:00:a1:c8:00`；第一次扫描把芯片启动起来后，换成芯片按 eFuse 里的芯片 ID 生成的地址。所以要在启动之后再读 MAC。
+验证内容：芯片启动前后的 MAC 地址。验证方法：在第一次扫描（它会启动芯片）之前和之后各读一次。启动前是驱动给的本地管理地址 `02:00:00:a1:c8:00`，启动后是芯片按 eFuse 里的芯片 ID 生成的地址。
 
 ```c
 static void demo_mac_address(struct net_if *iface)
@@ -412,7 +397,7 @@ void net_mgmt_init_event_callback(struct net_mgmt_event_callback *cb,
 				  uint64_t mgmt_event_mask);
 ```
 
-初始化一个事件回调：回调函数和关心的事件掩码。驱动会发的 WiFi 事件：
+验证内容：事件掩码里的 WiFi 事件能收到。驱动会发的事件：
 
 | 事件 | 何时发 | `cb->info` |
 | --- | --- | --- |
@@ -422,7 +407,7 @@ void net_mgmt_init_event_callback(struct net_mgmt_event_callback *cb,
 | `NET_EVENT_WIFI_DISCONNECT_RESULT` | 断开 | `struct wifi_status` |
 | `NET_EVENT_IPV4_ADDR_ADD` | DHCP 拿到地址 | 无 |
 
-扫描结果里的加密类型：开放网络是 `WIFI_SECURITY_TYPE_NONE`，WPA 是 `WIFI_SECURITY_TYPE_WPA_PSK`，WPA2 是 `WIFI_SECURITY_TYPE_PSK`，WPA3 是 `WIFI_SECURITY_TYPE_SAE`，别的是 `UNKNOWN`。
+验证方法：初始化回调后发起扫描，回调里逐条打印 `NET_EVENT_WIFI_SCAN_RESULT`，收到 `NET_EVENT_WIFI_SCAN_DONE` 释放信号量。扫描和连接超时两种事件在后面的输出里出现；`NET_EVENT_WIFI_DISCONNECT_RESULT` 和 `NET_EVENT_IPV4_ADDR_ADD` 需要真实连接，没有验证。
 
 ```c
 static void demo_register_events(void)
@@ -441,7 +426,7 @@ static void demo_register_events(void)
 void net_mgmt_add_event_callback(struct net_mgmt_event_callback *cb);
 ```
 
-把回调挂到事件链表上，之后符合掩码的事件会调用它。回调在网络管理事件线程里运行，不是调用者的线程，不要在里面做耗时操作，这里只是打印或者释放信号量。上面的 `demo_register_events` 就是这两个函数的合用示例。
+把回调挂到事件链表上，之后符合掩码的事件会调用它。回调在网络管理事件线程里运行，不是调用者的线程，所以回调里只打印和释放信号量。这一项和上一项用的是同一个示例函数 `demo_register_events`，验证它的输出是：
 
 ```text
 [event] callbacks registered
@@ -454,7 +439,9 @@ int net_mgmt(NET_REQUEST_WIFI_IFACE_STATUS, struct net_if *iface,
 	     struct wifi_iface_status *status, size_t len);
 ```
 
-读接口当前状态。驱动填的字段：`state`（断开、关联中、已连接）、`iface_mode`（始终是 `WIFI_MODE_INFRA`）、已连接时的 `ssid`、`bssid`、`band`、`channel`、`rssi`。`link_mode` 和 `security` 是未知，`beacon_interval`、`twt_capable` 等其他字段不填。
+驱动填的字段：`state`（断开、关联中、已连接）、`iface_mode`（始终是 `WIFI_MODE_INFRA`）、已连接时的 `ssid`、`bssid`、`band`、`channel`、`rssi`；`link_mode` 和 `security` 是未知，其他字段不填。
+
+验证内容：未连接时的状态，以及连接请求进行中的状态。验证方法：扫描前、扫描后、连接请求刚被接受时、断开后各读一次。已连接状态（`COMPLETED` 和 SSID、信道、RSSI）需要真实连接，没有验证。
 
 ```c
 static void demo_iface_status(struct net_if *iface, const char *when)
@@ -478,10 +465,9 @@ static void demo_iface_status(struct net_if *iface, const char *when)
 ```text
 [status] before the scan: state DISCONNECTED, mode STATION
 [status] after the scan: state DISCONNECTED, mode STATION
+[status] while connecting: state ASSOCIATING, mode STATION
 [status] after the disconnect: state DISCONNECTED, mode STATION
 ```
-
-连接请求还在进行时状态是 `ASSOCIATING`，见后面的连接一节。
 
 ### NET_REQUEST_WIFI_SCAN
 
@@ -490,12 +476,9 @@ int net_mgmt(NET_REQUEST_WIFI_SCAN, struct net_if *iface,
 	     struct wifi_scan_params *params, size_t len);
 ```
 
-扫描周围的 AP。驱动不使用 `params`，传 `NULL`、0 即可：它总是扫描全部信道，包括 2.4 GHz 和 5 GHz，没有按 SSID、信道或扫描类型过滤的能力。
+驱动不使用 `params`，传 `NULL`、0：总是扫描全部信道，没有按 SSID、信道过滤的能力。请求返回 0 之后，每个 AP 发一个 `NET_EVENT_WIFI_SCAN_RESULT`，最后发 `NET_EVENT_WIFI_SCAN_DONE`；扫描已在进行时返回 `-EBUSY`（这一点来自源码，没有单独验证）。
 
-* 同一时刻只能有一个扫描，已有扫描在进行时返回 `-EBUSY`。
-* 请求返回 0 之后，每个 AP 发一个 `NET_EVENT_WIFI_SCAN_RESULT`，最后发 `NET_EVENT_WIFI_SCAN_DONE`。
-* 第一次扫描会把芯片启动起来（上电、枚举、下载固件，约 2.6 秒），所以比后面的扫描慢。芯片启动失败时请求返回 `-EIO`，没有结果。
-* 扫描结果里同一个网络的多个 BSSID（路由器的 2.4 GHz、5 GHz 和访客网络）各是一条；隐藏网络的 SSID 为空串。
+验证内容：第一次扫描会启动芯片（上电、枚举、下载固件），之后扫描的结果里要同时有 2.4 GHz 和 5 GHz 的 AP。验证方法：连续扫描两次，打印每个 AP 的信道、RSSI、加密类型、BSSID 和 SSID。同一个路由器的几个 BSSID 各是一条，隐藏网络的 SSID 为空串，加密类型 `UNKNOWN` 的是驱动没有识别的加密方式。
 
 ```c
 static int demo_scan(struct net_if *iface)
@@ -519,47 +502,58 @@ static int demo_scan(struct net_if *iface)
 }
 ```
 
-第一次扫描（这一次包含芯片启动，启动日志见后面的完整日志）：
+第一次扫描（这一次包含芯片启动，启动日志见最后的完整日志）：
 
 ```text
-[00:00:02.609,000] <inf> aic8800:  fhost_cntrl_cfgrwnx_scan resp.status 0
-[scan]  1  ch   2  rssi  -76  WPA2-PSK  e8:ac:23:9d:96:c0  "曾雄"
-[scan]  2  ch   3  rssi  -87  WPA2-PSK  50:ae:86:95:ff:87  "CMCC-FFJ4"
-[scan]  3  ch   6  rssi  -84  WPA2-PSK  de:53:2a:ca:97:2f  ""
-[scan]  4  ch   6  rssi  -33  WPA2-PSK  98:97:cc:5a:28:b7  "ChinaNet-K5ii"
-[scan]  5  ch  11  rssi  -80  UNKNOWN   56:92:6a:17:9d:c5  ""
-[scan]  6  ch  36  rssi  -91  WPA2-PSK  90:7e:43:9b:01:9f  "金屋藏豆乐-5G"
-[scan]  7  ch  36  rssi  -90  WPA2-PSK  92:7e:43:9b:01:9f  ""
-[scan]  8  ch  36  rssi  -87  WPA2-PSK  e8:ac:23:9d:96:c4  "曾雄-5G"
-[scan]  9  ch  44  rssi  -92  WPA2-PSK  68:77:24:7d:ef:c6  "1401-1"
-[scan] 10  ch  44  rssi  -89  WPA2-PSK  50:da:9e:07:5b:fd  "Tenda_5G_EXT  8-1503"
-[scan] 11  ch  48  rssi  -30  WPA2-PSK  98:97:cc:5a:28:b8  "ChinaNet-K5ii"
-[scan] 12  ch  48  rssi  -82  WPA2-PSK  98:97:cc:5a:28:b2  "ChinaNet-K5ii"
-[scan] 13  ch  56  rssi  -92  WPA2-PSK  82:3f:5d:71:52:87  ""
-[scan] 14  ch 157  rssi  -91  WPA2-PSK  a4:1a:3a:8f:99:2c  "小仙女家"
-[scan] 15  ch 157  rssi  -92  WPA2-PSK  a6:1a:3a:af:99:2c  ""
-[scan] 15 access points
+[00:00:02.613,000] <inf> aic8800:  fhost_cntrl_cfgrwnx_scan resp.status 0
+[scan]  1  ch   2  rssi  -77  WPA2-PSK  e8:ac:23:9d:96:c0  "曾雄"
+[scan]  2  ch   6  rssi  -31  WPA2-PSK  98:97:cc:5a:28:b7  "ChinaNet-K5ii"
+[scan]  3  ch   6  rssi  -91  WPA2-PSK  d6:31:27:5a:d1:75  ""
+[scan]  4  ch   6  rssi  -91  WPA2-PSK  80:cf:a2:95:68:94  "Rich_KT"
+[scan]  5  ch   6  rssi  -72  WPA2-PSK  98:97:cc:5a:28:b1  "ChinaNet-K5ii"
+[scan]  6  ch  10  rssi  -84  WPA2-PSK  78:86:b6:bc:73:ce  "ChinaNet-Up3t"
+[scan]  7  ch  11  rssi  -82  WPA2-PSK  50:92:6a:17:9d:c5  "1701"
+[scan]  8  ch  36  rssi  -82  WPA2-PSK  d4:53:2a:ca:97:2e  "1701_5G"
+[scan]  9  ch  36  rssi  -81  WPA2-PSK  de:53:2a:ca:97:2e  ""
+[scan] 10  ch  36  rssi  -87  WPA2-PSK  50:92:6a:17:9d:c6  "1701_5G"
+[scan] 11  ch  36  rssi  -92  WPA2-PSK  4e:f7:70:57:c2:cb  ""
+[scan] 12  ch  36  rssi  -86  WPA2-PSK  5a:92:6a:17:9d:c6  ""
+[scan] 13  ch  48  rssi  -81  WPA2-PSK  98:97:cc:5a:28:b2  "ChinaNet-K5ii"
+[scan] 14  ch  48  rssi  -30  WPA2-PSK  98:97:cc:5a:28:b8  "ChinaNet-K5ii"
+[scan] 14 access points
 ```
 
 第二次扫描只有扫描本身：
 
 ```text
-[00:00:04.157,000] <inf> aic8800:  fhost_cntrl_cfgrwnx_scan resp.status 0
+[00:00:04.164,000] <inf> aic8800:  fhost_cntrl_cfgrwnx_scan resp.status 0
 [scan]  1  ch   2  rssi  -75  WPA2-PSK  e8:ac:23:9d:96:c0  "曾雄"
-[scan]  2  ch   1  rssi  -86  WPA2-PSK  a4:1a:3a:8f:99:2a  "小仙女家"
-[scan]  3  ch   6  rssi  -70  WPA2-PSK  98:97:cc:5a:28:b1  "ChinaNet-K5ii"
-[scan]  4  ch  11  rssi  -82  UNKNOWN   56:92:6a:17:9d:c5  ""
-[scan]  5  ch  40  rssi  -86  WPA2-PSK  24:5a:5f:51:95:51  "1401卧室5G"
-[scan]  6  ch  44  rssi  -92  WPA2-PSK  22:d9:c1:9c:9c:69  "房间"
-[scan]  7  ch  44  rssi  -90  WPA2-PSK  68:77:24:7d:ef:c6  "1401-1"
-[scan]  8  ch  44  rssi  -88  WPA2-PSK  6e:77:24:7d:ef:c6  ""
-[scan]  9  ch  44  rssi  -88  WPA2-PSK  50:da:9e:07:5b:fd  "Tenda_5G_EXT  8-1503"
-[scan] 10  ch  48  rssi  -81  WPA2-PSK  98:97:cc:5a:28:b2  "ChinaNet-K5ii"
-[scan] 11  ch  48  rssi  -31  WPA2-PSK  98:97:cc:5a:28:b8  "ChinaNet-K5ii"
-[scan] 12  ch  56  rssi  -93  WPA3-SAE-HNP  98:9d:42:51:bf:9a  ""
-[scan] 13  ch 157  rssi  -90  WPA2-PSK  a4:1a:3a:8f:99:2c  "小仙女家"
-[scan] 14  ch 157  rssi  -90  WPA2-PSK  a6:1a:3a:af:99:2c  ""
-[scan] 14 access points
+[scan]  2  ch   1  rssi  -91  WPA2-PSK  98:9d:3e:51:bf:96  ""
+[scan]  3  ch   1  rssi  -86  WPA2-PSK  f2:74:8d:5b:6a:ba  ""
+[scan]  4  ch   3  rssi  -91  WPA2-PSK  50:ae:86:95:ff:87  "CMCC-FFJ4"
+[scan]  5  ch   6  rssi  -31  WPA2-PSK  98:97:cc:5a:28:b7  "ChinaNet-K5ii"
+[scan]  6  ch   6  rssi  -72  WPA2-PSK  98:97:cc:5a:28:b1  "ChinaNet-K5ii"
+[scan]  7  ch   6  rssi  -91  WPA2-PSK  d6:31:27:5a:d1:75  ""
+[scan]  8  ch   6  rssi  -92  WPA2-PSK  80:cf:a2:95:68:94  "Rich_KT"
+[scan]  9  ch   6  rssi  -90  WPA2-PSK  2a:17:09:fa:56:84  "Pang"
+[scan] 10  ch   6  rssi  -92  UNKNOWN   92:de:f9:22:36:7e  ""
+[scan] 11  ch  11  rssi  -80  WPA2-PSK  50:92:6a:17:9d:c5  "1701"
+[scan] 12  ch  10  rssi  -83  WPA2-PSK  78:86:b6:bc:73:ce  "ChinaNet-Up3t"
+[scan] 13  ch  11  rssi  -90  WPA2-PSK  f4:e4:51:26:5d:c8  "小扬"
+[scan] 14  ch  11  rssi  -85  WPA2-PSK  90:5e:44:21:c9:d4  "曾雄"
+[scan] 15  ch  11  rssi  -81  UNKNOWN   56:92:6a:17:9d:c5  ""
+[scan] 16  ch  36  rssi  -87  WPA2-PSK  50:92:6a:17:9d:c6  "1701_5G"
+[scan] 17  ch  36  rssi  -92  WPA2-PSK  4e:f7:70:57:c2:cb  ""
+[scan] 18  ch  36  rssi  -87  WPA2-PSK  5a:92:6a:17:9d:c6  ""
+[scan] 19  ch  36  rssi  -92  WPA3-SAE-HNP  14:ea:a2:5f:e6:d4  ""
+[scan] 20  ch  40  rssi  -87  WPA2-PSK  24:5a:5f:51:95:51  "1401卧室5G"
+[scan] 21  ch  44  rssi  -91  WPA2-PSK  68:77:24:7d:ef:c6  "1401-1"
+[scan] 22  ch  48  rssi  -81  WPA2-PSK  98:97:cc:5a:28:b2  "ChinaNet-K5ii"
+[scan] 23  ch  48  rssi  -31  WPA2-PSK  98:97:cc:5a:28:b8  "ChinaNet-K5ii"
+[scan] 24  ch  56  rssi  -94  WPA2-PSK  82:3f:5d:41:52:87  "1201客厅"
+[scan] 25  ch 157  rssi  -95  WPA2-PSK  a4:1a:3a:8f:99:2c  "小仙女家"
+[scan] 26  ch 157  rssi  -96  WPA2-PSK  a6:1a:3a:af:99:2c  ""
+[scan] 26 access points
 ```
 
 ### NET_REQUEST_WIFI_CONNECT
@@ -569,7 +563,7 @@ int net_mgmt(NET_REQUEST_WIFI_CONNECT, struct net_if *iface,
 	     struct wifi_connect_req_params *params, size_t len);
 ```
 
-连接一个网络。请求是异步的：参数检查通过就返回 0，连接在驱动自己的工作队列里做，结果用 `NET_EVENT_WIFI_CONNECT_RESULT` 通知；连上后链路事件打开载波，DHCPv4 开始取地址，拿到地址发 `NET_EVENT_IPV4_ADDR_ADD`。
+请求是异步的：参数检查通过就返回 0，连接在驱动自己的工作队列里做，结果用 `NET_EVENT_WIFI_CONNECT_RESULT` 通知；连上后打开载波，DHCPv4 开始取地址。驱动对参数的处理（来自 `aicz_connect`）：
 
 | 参数 | 驱动的行为 |
 | --- | --- |
@@ -581,59 +575,11 @@ int net_mgmt(NET_REQUEST_WIFI_CONNECT, struct net_if *iface,
 
 连接结果的 `status`：0 成功；`WIFI_STATUS_CONN_TIMEOUT` 是关联在 40 秒内没有完成；`WIFI_STATUS_CONN_FAIL` 是启动连接就失败。
 
-没有凭据，所以下面分两个示例：参数检查，以及对附近不存在的网络发起连接。真实网络的连接用 `demo_connect()`，`CONNECT_SSID` 填上 SSID 和密码就会走这一条，成功时会等到 DHCP 的地址并读状态；本页没有 AP 的凭据，这条路径只编译、没有在板上运行过，不给输出。
+没有 AP 的凭据，验证分三项。连接真实网络的 `demo_connect()` 在 `CONNECT_SSID` 不为空时才会走，那条路径没有在板上运行。
 
-#### 示例：连接一个网络
+#### 验证：参数检查
 
-```c
-static int demo_connect(struct net_if *iface, const char *ssid, const char *psk, int wait_s)
-{
-	struct wifi_connect_req_params params = {
-		.ssid = (const uint8_t *)ssid,
-		.ssid_length = strlen(ssid),
-		.psk = (const uint8_t *)psk,
-		.psk_length = strlen(psk),
-		.security = strlen(psk) > 0 ? WIFI_SECURITY_TYPE_PSK : WIFI_SECURITY_TYPE_NONE,
-		.channel = WIFI_CHANNEL_ANY,
-		.band = WIFI_FREQ_BAND_UNKNOWN,
-	};
-	int ret;
-
-	k_sem_reset(&connect_done);
-	k_sem_reset(&got_ip);
-	ret = net_mgmt(NET_REQUEST_WIFI_CONNECT, iface, &params, sizeof(params));
-	if (ret != 0) {
-		printk("[connect] \"%s\": NET_REQUEST_WIFI_CONNECT failed: %d\n", ssid, ret);
-		return ret;
-	}
-	printk("[connect] \"%s\": request accepted, waiting up to %d s\n", ssid, wait_s);
-	if (k_sem_take(&connect_done, K_SECONDS(wait_s)) != 0) {
-		printk("[connect] \"%s\": no result in %d s\n", ssid, wait_s);
-		return -ETIMEDOUT;
-	}
-	if (connect_status != 0) {
-		printk("[connect] \"%s\": connect result %d\n", ssid, connect_status);
-		return -EIO;
-	}
-	printk("[connect] \"%s\": connected\n", ssid);
-	if (k_sem_take(&got_ip, K_SECONDS(30)) == 0) {
-		char buf[NET_IPV4_ADDR_LEN];
-		struct net_if_ipv4 *ipv4 = iface->config.ip.ipv4;
-
-		printk("[connect] DHCP address %s\n",
-		       net_addr_ntop(AF_INET, &ipv4->unicast[0].ipv4.address.in_addr, buf,
-				     sizeof(buf)));
-	} else {
-		printk("[connect] no address from DHCP in 30 s\n");
-	}
-
-	return 0;
-}
-```
-
-#### 示例：参数检查
-
-这些请求在驱动里被拒绝，不碰射频，立即返回。`-134` 是 `-ENOTSUP`（最小 C 库里 `ENOTSUP` 的值是 134），`-22` 是 `-EINVAL`。
+验证方法：用 5 个字符的口令、SAE、空 SSID 各发一次请求，看返回值。这些请求在驱动里被拒绝，不碰射频，立即返回。返回值是 Zephyr 的 `-errno`：`-22` 是 `-EINVAL`，`-134` 是 `-ENOTSUP`。
 
 ```c
 /* 参数检查：这些请求在驱动里被拒绝，不会碰射频 */
@@ -672,14 +618,67 @@ static void demo_connect_bad_params(struct net_if *iface)
 [connect] empty SSID                           = -22
 ```
 
-#### 示例：连接一个不存在的网络
+#### 验证：连接一个不存在的网络
 
-`MISSING_SSID` 附近没有，请求被接受，驱动启动 wpa_supplicant 去找这个网络，找不到就一直重试扫描，约 30 秒后放弃；连接结果事件要在大约 70 秒后才发出：请求发出后 wpa_supplicant 扫描约 30 秒后退出，之后驱动再等 40 秒（`JOIN_TIMEOUT_MS`）才报超时，结果是 `connect result 3`，即 `WIFI_STATUS_CONN_TIMEOUT`。下面的日志里等了 90 秒，中间重复的扫描日志（每 2.5 秒一行）略去了。这段时间内接口状态是 `ASSOCIATING`，重复发连接请求返回 `-EBUSY`。
+验证方法：对 `MISSING_SSID` 发连接请求（附近没有这个网络），请求被接受后立即读接口状态，再发一次连接请求，然后等连接结果事件，最多等 90 秒。这个示例同时也是连接真实网络的完整流程，所以函数里还有拿到 DHCP 地址的部分。
+
+```c
+static int demo_connect(struct net_if *iface, const char *ssid, const char *psk, int wait_s)
+{
+	struct wifi_connect_req_params params = {
+		.ssid = (const uint8_t *)ssid,
+		.ssid_length = strlen(ssid),
+		.psk = (const uint8_t *)psk,
+		.psk_length = strlen(psk),
+		.security = strlen(psk) > 0 ? WIFI_SECURITY_TYPE_PSK : WIFI_SECURITY_TYPE_NONE,
+		.channel = WIFI_CHANNEL_ANY,
+		.band = WIFI_FREQ_BAND_UNKNOWN,
+	};
+	int ret;
+
+	k_sem_reset(&connect_done);
+	k_sem_reset(&got_ip);
+	ret = net_mgmt(NET_REQUEST_WIFI_CONNECT, iface, &params, sizeof(params));
+	if (ret != 0) {
+		printk("[connect] \"%s\": NET_REQUEST_WIFI_CONNECT failed: %d\n", ssid, ret);
+		return ret;
+	}
+	printk("[connect] \"%s\": request accepted, waiting up to %d s\n", ssid, wait_s);
+	demo_iface_status(iface, "while connecting");
+	ret = net_mgmt(NET_REQUEST_WIFI_CONNECT, iface, &params, sizeof(params));
+	printk("[connect] second request while connecting      = %d\n", ret);
+	if (k_sem_take(&connect_done, K_SECONDS(wait_s)) != 0) {
+		printk("[connect] \"%s\": no result in %d s\n", ssid, wait_s);
+		return -ETIMEDOUT;
+	}
+	if (connect_status != 0) {
+		printk("[connect] \"%s\": connect result %d\n", ssid, connect_status);
+		return -EIO;
+	}
+	printk("[connect] \"%s\": connected\n", ssid);
+	if (k_sem_take(&got_ip, K_SECONDS(30)) == 0) {
+		char buf[NET_IPV4_ADDR_LEN];
+		struct net_if_ipv4 *ipv4 = iface->config.ip.ipv4;
+
+		printk("[connect] DHCP address %s\n",
+		       net_addr_ntop(AF_INET, &ipv4->unicast[0].ipv4.address.in_addr, buf,
+				     sizeof(buf)));
+	} else {
+		printk("[connect] no address from DHCP in 30 s\n");
+	}
+
+	return 0;
+}
+```
+
+输出里，请求被接受后接口状态是 `ASSOCIATING`，第二次请求返回 `-EBUSY`。驱动启动 wpa_supplicant 去找这个网络，找不到就一直重试扫描，约 30 秒后 wpa_supplicant 退出；之后驱动再等 40 秒（`JOIN_TIMEOUT_MS`），所以连接结果事件在请求发出约 70 秒后才来，`connect result 3` 即 `WIFI_STATUS_CONN_TIMEOUT`。中间重复的扫描日志（每 2.5 秒一行）在完整日志里略去了。驱动的日志里不打印口令：`Connect Wi-Fi` 那一行和发给 wpa_supplicant 的 `SET_NETWORK 0 psk ...` 命令里，口令都写成 `<hidden>`，SSID 照常打印。
 
 ```text
 [connect] CONNECT_SSID is empty, no real network to join
 [connect] "f101-no-such-network": request accepted, waiting up to 90 s
-[00:00:35.950,000] <err> aic8800: [AIC] fhost_sta_cfg fail [-1]
+[status] while connecting: state ASSOCIATING, mode STATION
+[connect] second request while connecting      = -16
+[00:00:35.955,000] <err> aic8800: [AIC] fhost_sta_cfg fail [-1]
 [connect] "f101-no-such-network": connect result 3
 ```
 
@@ -689,7 +688,9 @@ static void demo_connect_bad_params(struct net_if *iface)
 int net_mgmt(NET_REQUEST_WIFI_DISCONNECT, struct net_if *iface, void *params, size_t len);
 ```
 
-断开当前连接，停掉 DHCP。已经连上时，会发 `NET_EVENT_WIFI_DISCONNECT_RESULT`；没有连接时请求也返回 0，但不发事件（下面的输出就是这种情况）。
+已经连上时，断开连接、停掉 DHCP，并发 `NET_EVENT_WIFI_DISCONNECT_RESULT`。
+
+验证内容：没有连接时的断开请求。验证方法：连接超时之后发断开请求，等 5 秒看有没有事件，再读状态。请求返回 0，没有事件，状态回到 `DISCONNECTED`。已连接状态下的断开没有验证。
 
 ```c
 static int demo_disconnect(struct net_if *iface)
@@ -716,17 +717,20 @@ static int demo_disconnect(struct net_if *iface)
 [disconnect] request returned 0, no event (nothing was connected)
 ```
 
-### 不支持的部分
+### 没有验证的项
 
-| 功能 | 状态 |
+| 项 | 原因 |
 | --- | --- |
-| AP 模式、`NET_REQUEST_WIFI_AP_ENABLE` | 不支持。源码里有 AP 的代码，没有接到管理接口 |
-| WPA3（SAE）连接 | 不支持，连接请求返回 `-ENOTSUP` |
-| 企业级加密（EAP）、WEP | 不支持 |
-| 按 SSID、信道过滤的扫描，扫描参数 | 不支持，`params` 被忽略 |
-| 省电、监听模式、TWT、监管域、统计 | 不支持 |
-| `iw` 命令 | 不支持。`iw/` 目录没有编进模块 |
-| Zephyr `wifi` shell 命令 | 本页的演示不开 shell，没有验证 |
+| 连接真实网络、`NET_EVENT_WIFI_CONNECT_RESULT` 成功、DHCP 地址、`NET_EVENT_IPV4_ADDR_ADD` | 没有可用的 AP 和凭据 |
+| 已连接状态下的 `NET_REQUEST_WIFI_IFACE_STATUS`（SSID、信道、RSSI）和 `NET_REQUEST_WIFI_DISCONNECT` 的断开事件 | 依赖上一项 |
+| 数据收发（套接字、`aicz_send`、`aicz_zif_rx`） | 依赖上一项 |
+| 开放网络的连接 | 没有开放的、可用于测试的 AP |
+| 扫描已在进行时再扫描返回 `-EBUSY` | 只读了源码，没有构造并发扫描 |
+| AP 模式、P2P、射频测试 | 驱动没有接到 Zephyr 的 WiFi 管理接口，没有对应的 `net_mgmt` 请求可以调用 |
+| WPA3（SAE）连接 | 驱动在参数检查时拒绝（见上面的参数检查），`AIC8800_WPA3` 只编译握手代码 |
+| 省电、监管域、统计等其他 `NET_REQUEST_WIFI_*` | 驱动没有实现这些回调 |
+| `iw` 命令 | `iw/` 目录没有编进模块 |
+| Zephyr 的 `wifi` shell 命令 | 验证程序不开 shell |
 | 蓝牙 | 另见 [AIC8800 BT](aic8800-bt.md) |
 
 ## 完整 demo 程序
@@ -753,7 +757,7 @@ target_sources(app PRIVATE src/main.c)
 # AIC8800 驱动：Kconfig 会选中 SDHC、SDIO 栈、网络栈和 WiFi 管理接口
 CONFIG_AIC8800=y
 
-# 驱动里的 C 库兼容头按最小 C 库写，板子的默认 picolibc 会和它冲突
+# wpa_supplicant 的任务在 picolibc 下一启动就退出（控制口为 -1），连接不能工作，所以用最小 C 库
 CONFIG_MINIMAL_LIBC=y
 
 CONFIG_LOG=y
@@ -977,6 +981,9 @@ static int demo_connect(struct net_if *iface, const char *ssid, const char *psk,
 		return ret;
 	}
 	printk("[connect] \"%s\": request accepted, waiting up to %d s\n", ssid, wait_s);
+	demo_iface_status(iface, "while connecting");
+	ret = net_mgmt(NET_REQUEST_WIFI_CONNECT, iface, &params, sizeof(params));
+	printk("[connect] second request while connecting      = %d\n", ret);
 	if (k_sem_take(&connect_done, K_SECONDS(wait_s)) != 0) {
 		printk("[connect] \"%s\": no result in %d s\n", ssid, wait_s);
 		return -ETIMEDOUT;
@@ -1098,13 +1105,33 @@ west build -b yuzukineko -d build/aic8800-wifi examples/aic8800_wifi_api
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/components-aic8800-wifi/build.cast" data-speed="6"></div>
 
-下载运行的方法见[编译与运行](../zephyr-build-run.md)。`smhc2` 的引脚和 I2S0、USB 主机的 VBUS 开关共用，运行本演示时不要同时用这些外设。
+下载运行的方法见[编译与运行](../zephyr-build-run.md)。`smhc2` 的引脚和 I2S0、USB 主机的 VBUS 开关共用，运行这个程序时不要同时用这些外设。
 
-芯片复位后需要一点时间。板子紧接着断电 1 秒再上电的那一次启动里，SDIO 命令失败（`aicwf_sdio_send_pkt fail-22`、`40500000 rd fail: -3`），固件没有下载，扫描请求返回 `-EIO`；把断电时间延长到 3 秒后正常。遇到这种情况看日志里有没有 `sdio card up` 和 `Start app`。
+### 上电后第一条 SDIO 命令失败
+
+修改前的一次启动里（板子断电 1 秒再上电，上一个程序还在运行时被断电），芯片的 SDIO 已经枚举成功（`sdio card up: 2 functions`），但是 `chipid 3` 之后的第一条命令写入返回 `-22`，5 秒后读芯片寄存器超时，固件没有下载，扫描返回 `-EIO`：
+
+```text
+aic8800: chipid 3
+aic8800: aicwf_sdio_send_pkt fail-22
+aic8800: 40500000 rd fail: -3
+aic8800: wifi_open fail, ret=-1
+[scan] NET_REQUEST_WIFI_SCAN failed: -5
+```
+
+`-22` 是 SDIO function 1 的 FIFO 写（`aicwf_sdio_send_pkt` 里的 `sdio_writesb`）返回的，发生在芯片回应之前。之后用同一份驱动重复验证：断电 1 秒两次、0.3 秒一次，最终版本断电 1 秒一次，都正常启动，这个现象没有再出现，所以原因没有查清，上电时序和 SDIO 电源复位都没有被证实。
+
+驱动里做了两处处理：
+
+* `host/platform/zephyr/sdio_port.c` 的 `aicwf_sdio_send_pkt` 在写返回 `-EINVAL` 或 `-EBUSY`（这两种都是请求没有发到总线上）时，间隔 2 毫秒重试，最多 3 次，每次重试打印 `sdio write retry`。这个重试没有被故障复现验证过，因为故障没有再出现。
+* `REG_ON` 的上电顺序没有改（拉低 100 毫秒，拉高后等 300 毫秒）。
+
+再遇到启动失败时，看日志里有没有 `sdio card up`、`sdio write retry` 和 `Start app`，重新上电即可。
+
 
 ## 板子上的完整日志
 
-下面是演示的完整串口日志，从 Zephyr 的启动横幅开始：前面是芯片启动（上电、SDIO 枚举、芯片识别、固件下载），然后是两次扫描、参数检查、对不存在的网络的连接和断开。
+下面是程序的完整串口日志，从 Zephyr 的启动横幅开始：前面是芯片启动（上电、SDIO 枚举、芯片识别、固件下载），然后是两次扫描、参数检查、对不存在的网络的连接和断开。
 
 ```text
 *** Booting Zephyr OS build b6f3dfe1a1f4 ***
@@ -1120,12 +1147,12 @@ AIC8800 WiFi demo
 [00:00:00.400,000] <inf> aic8800: aic_wifi_reset_power done
 [00:00:01.415,000] <inf> sd: Card does not support CMD8, assuming legacy card
 [00:00:01.426,000] <inf> aic8800: sdio card up: 2 functions
-[00:00:01.426,000] <inf> aic8800: sdio aggr_buf:0x402416d0, aggr_buf_align:0x40241700
+[00:00:01.426,000] <inf> aic8800: sdio aggr_buf:0x40242090, aggr_buf_align:0x402420c0
 [00:00:01.426,000] <inf> aic8800: sdio_host_init:enable func1 ok!
 [00:00:01.426,000] <inf> aic8800: sdio_host_init:aic_sdio_set_block_size 512
 [00:00:01.426,000] <inf> aic8800: sdio_host_init:sdio_set_block_size 512
 [00:00:01.426,000] <inf> aic8800: aicwf_sdio_reg_init
-[00:00:01.426,000] <inf> aic8800: sdio_host_init:host_int ok
+[00:00:01.427,000] <inf> aic8800: sdio_host_init:host_int ok
 [00:00:01.427,000] <inf> aic8800: fhost_rx_init
 [00:00:01.427,000] <inf> aic8800: rwnx_fdrv_init enter
 [00:00:01.427,000] <inf> aic8800: chipid 3
@@ -1134,89 +1161,102 @@ AIC8800 WiFi demo
 [00:00:01.428,000] <inf> aic8800: flag:20=88200002
 [00:00:01.428,000] <inf> aic8800: chip_id=c3, chip_sub_id=2
 [00:00:01.428,000] <inf> aic8800: ### Upload firmware, @ = 120000
-[00:00:01.428,000] <inf> aic8800: ### dst=0x400e8ce0, size=336848
-[00:00:01.587,000] <inf> aic8800: rd_version_val=06090101
-[00:00:01.591,000] <inf> aic8800: Read FW mem: 00120000
-[00:00:01.591,000] <inf> aic8800: cfm: [00120000] = 001a0000
-[00:00:01.591,000] <inf> aic8800: Start app: 00120000
-[00:00:01.614,000] <inf> aic8800: get_userconfig_xtal_cap:enable       :1
-[00:00:01.614,000] <inf> aic8800: get_userconfig_xtal_cap:xtal_cap     :24
-[00:00:01.614,000] <inf> aic8800: get_userconfig_xtal_cap:xtal_cap_fine:31
-[00:00:02.606,000] <inf> aic8800: rwnx_fdrv_init exit
-[00:00:02.606,000] <inf> aic8800: aic_cli_cmd_init
-[00:00:02.606,000] <inf> aic8800: use default mac addr, read efuse
-[00:00:02.606,000] <inf> aic8800: fhost_mac_addr cc:4e:6e:6c:47:9d
-[00:00:02.606,000] <inf> aic8800: Connect Wi-Fi: Empty_SSID, Empty_Password
-[00:00:02.606,000] <inf> aic8800: net_if_add wl
-[00:00:02.606,000] <inf> aic8800: net_tx_buf_sema initial count:200
-[00:00:02.607,000] <inf> aic8800: cli_cmd_task
-[00:00:02.608,000] <inf> aic8800: wifi open ok
-[00:00:02.608,000] <inf> aic8800: aic_wifi_init ok
-[00:00:02.609,000] <inf> aic8800:  fhost_cntrl_cfgrwnx_scan resp.status 0
-[scan]  1  ch   2  rssi  -76  WPA2-PSK  e8:ac:23:9d:96:c0  "曾雄"
-[scan]  2  ch   3  rssi  -87  WPA2-PSK  50:ae:86:95:ff:87  "CMCC-FFJ4"
-[scan]  3  ch   6  rssi  -84  WPA2-PSK  de:53:2a:ca:97:2f  ""
-[scan]  4  ch   6  rssi  -33  WPA2-PSK  98:97:cc:5a:28:b7  "ChinaNet-K5ii"
-[scan]  5  ch  11  rssi  -80  UNKNOWN   56:92:6a:17:9d:c5  ""
-[scan]  6  ch  36  rssi  -91  WPA2-PSK  90:7e:43:9b:01:9f  "金屋藏豆乐-5G"
-[scan]  7  ch  36  rssi  -90  WPA2-PSK  92:7e:43:9b:01:9f  ""
-[scan]  8  ch  36  rssi  -87  WPA2-PSK  e8:ac:23:9d:96:c4  "曾雄-5G"
-[scan]  9  ch  44  rssi  -92  WPA2-PSK  68:77:24:7d:ef:c6  "1401-1"
-[scan] 10  ch  44  rssi  -89  WPA2-PSK  50:da:9e:07:5b:fd  "Tenda_5G_EXT  8-1503"
-[scan] 11  ch  48  rssi  -30  WPA2-PSK  98:97:cc:5a:28:b8  "ChinaNet-K5ii"
-[scan] 12  ch  48  rssi  -82  WPA2-PSK  98:97:cc:5a:28:b2  "ChinaNet-K5ii"
-[scan] 13  ch  56  rssi  -92  WPA2-PSK  82:3f:5d:71:52:87  ""
-[scan] 14  ch 157  rssi  -91  WPA2-PSK  a4:1a:3a:8f:99:2c  "小仙女家"
-[scan] 15  ch 157  rssi  -92  WPA2-PSK  a6:1a:3a:af:99:2c  ""
-[scan] 15 access points
-[mac] link address cc:4e:6e:6c:47:9d, length 6
-[00:00:04.157,000] <inf> aic8800:  fhost_cntrl_cfgrwnx_scan resp.status 0
-[scan]  1  ch   2  rssi  -75  WPA2-PSK  e8:ac:23:9d:96:c0  "曾雄"
-[scan]  2  ch   1  rssi  -86  WPA2-PSK  a4:1a:3a:8f:99:2a  "小仙女家"
-[scan]  3  ch   6  rssi  -70  WPA2-PSK  98:97:cc:5a:28:b1  "ChinaNet-K5ii"
-[scan]  4  ch  11  rssi  -82  UNKNOWN   56:92:6a:17:9d:c5  ""
-[scan]  5  ch  40  rssi  -86  WPA2-PSK  24:5a:5f:51:95:51  "1401卧室5G"
-[scan]  6  ch  44  rssi  -92  WPA2-PSK  22:d9:c1:9c:9c:69  "房间"
-[scan]  7  ch  44  rssi  -90  WPA2-PSK  68:77:24:7d:ef:c6  "1401-1"
-[scan]  8  ch  44  rssi  -88  WPA2-PSK  6e:77:24:7d:ef:c6  ""
-[scan]  9  ch  44  rssi  -88  WPA2-PSK  50:da:9e:07:5b:fd  "Tenda_5G_EXT  8-1503"
-[scan] 10  ch  48  rssi  -81  WPA2-PSK  98:97:cc:5a:28:b2  "ChinaNet-K5ii"
-[scan] 11  ch  48  rssi  -31  WPA2-PSK  98:97:cc:5a:28:b8  "ChinaNet-K5ii"
-[scan] 12  ch  56  rssi  -93  WPA3-SAE-HNP  98:9d:42:51:bf:9a  ""
-[scan] 13  ch 157  rssi  -90  WPA2-PSK  a4:1a:3a:8f:99:2c  "小仙女家"
-[scan] 14  ch 157  rssi  -90  WPA2-PSK  a6:1a:3a:af:99:2c  ""
+[00:00:01.428,000] <inf> aic8800: ### dst=0x400e8e9c, size=336848
+[00:00:01.590,000] <inf> aic8800: rd_version_val=06090101
+[00:00:01.594,000] <inf> aic8800: Read FW mem: 00120000
+[00:00:01.595,000] <inf> aic8800: cfm: [00120000] = 001a0000
+[00:00:01.595,000] <inf> aic8800: Start app: 00120000
+[00:00:01.618,000] <inf> aic8800: get_userconfig_xtal_cap:enable       :1
+[00:00:01.618,000] <inf> aic8800: get_userconfig_xtal_cap:xtal_cap     :24
+[00:00:01.618,000] <inf> aic8800: get_userconfig_xtal_cap:xtal_cap_fine:31
+[00:00:02.610,000] <inf> aic8800: rwnx_fdrv_init exit
+[00:00:02.610,000] <inf> aic8800: aic_cli_cmd_init
+[00:00:02.610,000] <inf> aic8800: use default mac addr, read efuse
+[00:00:02.610,000] <inf> aic8800: fhost_mac_addr cc:4e:6e:6c:47:9d
+[00:00:02.610,000] <inf> aic8800: Connect Wi-Fi: Empty_SSID, <hidden>
+[00:00:02.610,000] <inf> aic8800: net_if_add wl
+[00:00:02.611,000] <inf> aic8800: net_tx_buf_sema initial count:200
+[00:00:02.612,000] <inf> aic8800: cli_cmd_task
+[00:00:02.612,000] <inf> aic8800: wifi open ok
+[00:00:02.612,000] <inf> aic8800: aic_wifi_init ok
+[00:00:02.613,000] <inf> aic8800:  fhost_cntrl_cfgrwnx_scan resp.status 0
+[scan]  1  ch   2  rssi  -77  WPA2-PSK  e8:ac:23:9d:96:c0  "曾雄"
+[scan]  2  ch   6  rssi  -31  WPA2-PSK  98:97:cc:5a:28:b7  "ChinaNet-K5ii"
+[scan]  3  ch   6  rssi  -91  WPA2-PSK  d6:31:27:5a:d1:75  ""
+[scan]  4  ch   6  rssi  -91  WPA2-PSK  80:cf:a2:95:68:94  "Rich_KT"
+[scan]  5  ch   6  rssi  -72  WPA2-PSK  98:97:cc:5a:28:b1  "ChinaNet-K5ii"
+[scan]  6  ch  10  rssi  -84  WPA2-PSK  78:86:b6:bc:73:ce  "ChinaNet-Up3t"
+[scan]  7  ch  11  rssi  -82  WPA2-PSK  50:92:6a:17:9d:c5  "1701"
+[scan]  8  ch  36  rssi  -82  WPA2-PSK  d4:53:2a:ca:97:2e  "1701_5G"
+[scan]  9  ch  36  rssi  -81  WPA2-PSK  de:53:2a:ca:97:2e  ""
+[scan] 10  ch  36  rssi  -87  WPA2-PSK  50:92:6a:17:9d:c6  "1701_5G"
+[scan] 11  ch  36  rssi  -92  WPA2-PSK  4e:f7:70:57:c2:cb  ""
+[scan] 12  ch  36  rssi  -86  WPA2-PSK  5a:92:6a:17:9d:c6  ""
+[scan] 13  ch  48  rssi  -81  WPA2-PSK  98:97:cc:5a:28:b2  "ChinaNet-K5ii"
+[scan] 14  ch  48  rssi  -30  WPA2-PSK  98:97:cc:5a:28:b8  "ChinaNet-K5ii"
 [scan] 14 access points
+[mac] link address cc:4e:6e:6c:47:9d, length 6
+[00:00:04.164,000] <inf> aic8800:  fhost_cntrl_cfgrwnx_scan resp.status 0
+[scan]  1  ch   2  rssi  -75  WPA2-PSK  e8:ac:23:9d:96:c0  "曾雄"
+[scan]  2  ch   1  rssi  -91  WPA2-PSK  98:9d:3e:51:bf:96  ""
+[scan]  3  ch   1  rssi  -86  WPA2-PSK  f2:74:8d:5b:6a:ba  ""
+[scan]  4  ch   3  rssi  -91  WPA2-PSK  50:ae:86:95:ff:87  "CMCC-FFJ4"
+[scan]  5  ch   6  rssi  -31  WPA2-PSK  98:97:cc:5a:28:b7  "ChinaNet-K5ii"
+[scan]  6  ch   6  rssi  -72  WPA2-PSK  98:97:cc:5a:28:b1  "ChinaNet-K5ii"
+[scan]  7  ch   6  rssi  -91  WPA2-PSK  d6:31:27:5a:d1:75  ""
+[scan]  8  ch   6  rssi  -92  WPA2-PSK  80:cf:a2:95:68:94  "Rich_KT"
+[scan]  9  ch   6  rssi  -90  WPA2-PSK  2a:17:09:fa:56:84  "Pang"
+[scan] 10  ch   6  rssi  -92  UNKNOWN   92:de:f9:22:36:7e  ""
+[scan] 11  ch  11  rssi  -80  WPA2-PSK  50:92:6a:17:9d:c5  "1701"
+[scan] 12  ch  10  rssi  -83  WPA2-PSK  78:86:b6:bc:73:ce  "ChinaNet-Up3t"
+[scan] 13  ch  11  rssi  -90  WPA2-PSK  f4:e4:51:26:5d:c8  "小扬"
+[scan] 14  ch  11  rssi  -85  WPA2-PSK  90:5e:44:21:c9:d4  "曾雄"
+[scan] 15  ch  11  rssi  -81  UNKNOWN   56:92:6a:17:9d:c5  ""
+[scan] 16  ch  36  rssi  -87  WPA2-PSK  50:92:6a:17:9d:c6  "1701_5G"
+[scan] 17  ch  36  rssi  -92  WPA2-PSK  4e:f7:70:57:c2:cb  ""
+[scan] 18  ch  36  rssi  -87  WPA2-PSK  5a:92:6a:17:9d:c6  ""
+[scan] 19  ch  36  rssi  -92  WPA3-SAE-HNP  14:ea:a2:5f:e6:d4  ""
+[scan] 20  ch  40  rssi  -87  WPA2-PSK  24:5a:5f:51:95:51  "1401卧室5G"
+[scan] 21  ch  44  rssi  -91  WPA2-PSK  68:77:24:7d:ef:c6  "1401-1"
+[scan] 22  ch  48  rssi  -81  WPA2-PSK  98:97:cc:5a:28:b2  "ChinaNet-K5ii"
+[scan] 23  ch  48  rssi  -31  WPA2-PSK  98:97:cc:5a:28:b8  "ChinaNet-K5ii"
+[scan] 24  ch  56  rssi  -94  WPA2-PSK  82:3f:5d:41:52:87  "1201客厅"
+[scan] 25  ch 157  rssi  -95  WPA2-PSK  a4:1a:3a:8f:99:2c  "小仙女家"
+[scan] 26  ch 157  rssi  -96  WPA2-PSK  a6:1a:3a:af:99:2c  ""
+[scan] 26 access points
 [status] after the scan: state DISCONNECTED, mode STATION
 [connect] passphrase of 5 characters           = -22
 [connect] WPA3 (SAE)                           = -134
 [connect] empty SSID                           = -22
 [connect] CONNECT_SSID is empty, no real network to join
 [connect] "f101-no-such-network": request accepted, waiting up to 90 s
-[00:00:05.709,000] <inf> aic8800: Connect Wi-Fi: f101-no-such-network, password123
-[00:00:05.709,000] <inf> aic8800: fhost_wpa_create_network
-[00:00:05.709,000] <inf> aic8800: fhost_wpa_start
-[00:00:05.712,000] <inf> aic8800: target->sem 4027a1e0
-[00:00:05.712,000] <inf> aic8800: target.sem 0
-[00:00:05.712,000] <inf> aic8800: WPA task started for interface {FVIF-0}
-[00:00:05.712,000] <inf> aic8800: fhost_wpa_execute_cmd cmd:ADD_NETWORK
-[00:00:05.713,000] <inf> aic8800: fhost_wpa_execute_cmd cmd:SET_NETWORK 0 ssid "f101-no-such-network"
-[00:00:05.713,000] <inf> aic8800: fhost_wpa_execute_cmd cmd:SET_NETWORK 0 key_mgmt WPA-PSK
-[00:00:05.714,000] <inf> aic8800: fhost_wpa_execute_cmd cmd:SET_NETWORK 0 psk "password123"
-[00:00:05.944,000] <inf> aic8800: fhost_wpa_execute_cmd cmd:SET_NETWORK 0 ieee80211w 1
-[00:00:05.945,000] <inf> aic8800: fhost_wpa_execute_cmd cmd:SET filter_ssids 1
-[00:00:05.945,000] <inf> aic8800: WPA network 0: created and configured
-[00:00:05.945,000] <inf> aic8800: fhost_wpa_execute_cmd cmd:ENABLE_NETWORK 0
-[00:00:05.946,000] <inf> aic8800:  fhost_cntrl_cfgrwnx_scan resp.status 0
-[00:00:33.979,000] <inf> aic8800:  fhost_cntrl_cfgrwnx_scan resp.status 0
-[00:00:35.947,000] <inf> aic8800: fhost_wpa_execute_cmd cmd:TERMINATE
-[00:00:35.950,000] <inf> aic8800: wpa_supplicant_main end
-[00:00:35.950,000] <inf> aic8800: WPA enter FHOST_WPA_STATE_STOPPED
-[00:00:35.950,000] <inf> aic8800: target->sem 4028d680
-[00:00:35.950,000] <inf> aic8800: fhost_wpa_exit_sema 4028d660
-[00:00:35.950,000] <inf> aic8800: fhost_wpa_kill in
-[00:00:35.950,000] <err> aic8800: [AIC] fhost_sta_cfg fail [-1]
+[status] while connecting: state ASSOCIATING, mode STATION
+[connect] second request while connecting      = -16
+[00:00:05.713,000] <inf> aic8800: Connect Wi-Fi: f101-no-such-network, <hidden>
+[00:00:05.713,000] <inf> aic8800: fhost_wpa_create_network
+[00:00:05.713,000] <inf> aic8800: fhost_wpa_start
+[00:00:05.716,000] <inf> aic8800: target->sem 4027aba0
+[00:00:05.716,000] <inf> aic8800: target.sem 0
+[00:00:05.716,000] <inf> aic8800: WPA task started for interface {FVIF-0}
+[00:00:05.716,000] <inf> aic8800: fhost_wpa_execute_cmd cmd:ADD_NETWORK
+[00:00:05.717,000] <inf> aic8800: fhost_wpa_execute_cmd cmd:SET_NETWORK 0 ssid "f101-no-such-network"
+[00:00:05.717,000] <inf> aic8800: fhost_wpa_execute_cmd cmd:SET_NETWORK 0 key_mgmt WPA-PSK
+[00:00:05.718,000] <inf> aic8800: fhost_wpa_execute_cmd cmd:SET_NETWORK 0 <hidden>
+[00:00:05.948,000] <inf> aic8800: fhost_wpa_execute_cmd cmd:SET_NETWORK 0 ieee80211w 1
+[00:00:05.949,000] <inf> aic8800: fhost_wpa_execute_cmd cmd:SET filter_ssids 1
+[00:00:05.949,000] <inf> aic8800: WPA network 0: created and configured
+[00:00:05.949,000] <inf> aic8800: fhost_wpa_execute_cmd cmd:ENABLE_NETWORK 0
+[00:00:05.950,000] <inf> aic8800:  fhost_cntrl_cfgrwnx_scan resp.status 0
+[00:00:33.983,000] <inf> aic8800:  fhost_cntrl_cfgrwnx_scan resp.status 0
+[00:00:35.951,000] <inf> aic8800: fhost_wpa_execute_cmd cmd:TERMINATE
+[00:00:35.954,000] <inf> aic8800: wpa_supplicant_main end
+[00:00:35.954,000] <inf> aic8800: WPA enter FHOST_WPA_STATE_STOPPED
+[00:00:35.955,000] <inf> aic8800: target->sem 4028e040
+[00:00:35.955,000] <inf> aic8800: fhost_wpa_exit_sema 4028e020
+[00:00:35.955,000] <inf> aic8800: fhost_wpa_kill in
+[00:00:35.955,000] <err> aic8800: [AIC] fhost_sta_cfg fail [-1]
 [connect] "f101-no-such-network": connect result 3
-[00:01:15.951,000] <inf> aic8800: reord_deinit_sta mac  cc:4e:6e
+[00:01:15.955,000] <inf> aic8800: reord_deinit_sta mac  cc:4e:6e
 [disconnect] request returned 0, no event (nothing was connected)
 [status] after the disconnect: state DISCONNECTED, mode STATION
 done

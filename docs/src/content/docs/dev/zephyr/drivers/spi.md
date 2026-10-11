@@ -13,7 +13,7 @@ F101 有 2 个 SPI 控制器，在 Zephyr 里是 `spi0` 和 `spi1`，接口是�
 | 片选 | 硬件片选 0…3，或者设备树里的 `cs-gpios` |
 | 数据线 | 单线；打开 `CONFIG_SPI_EXTENDED_MODES` 后读数据阶段可以用四线 |
 | 频率 | 3 kHz 以下返回 `-EINVAL`；24 MHz 以内用控制器自己的分频；更高的由 PLL 分频得到 |
-| 传输方式 | 轮询；256 字节及以上、4 字节对齐的读缓冲走 DMA |
+| 传输方式 | 轮询；256 字节及以上、64 字节（缓存行）对齐的读缓冲走 DMA |
 | 不支持 | 从机模式、环回（`SPI_MODE_LOOP`）、`SPI_HOLD_ON_CS`、非 8 位字长 |
 
 ## 设备树
@@ -138,6 +138,9 @@ spi0: spi@4025000 {
 ### 绑定：allwinner,sunxi-spi.yaml
 
 ```yaml
+# Copyright (c) 2026 Yuzuki Tsuru
+# SPDX-License-Identifier: Apache-2.0
+
 description: Allwinner sunxi SPI controller
 
 compatible: "allwinner,sunxi-spi"
@@ -147,23 +150,34 @@ include: [spi-controller.yaml, pinctrl-device.yaml]
 properties:
   reg:
     required: true
+
   clocks:
     required: true
+
   clock-names:
     required: true
+
   resets:
     type: phandle-array
     required: true
+
   clock-frequency:
     type: int
     required: true
+
   clock-reg:
     type: int
     required: true
+
   dmas:
-    description: Optional DMA channel for the receive data of long reads ("rx").
+    description: |
+      Optional DMA channel for the receive data of long reads ("rx"). The
+      FIFO is drained by the DMA in 32 bit units; what is left below the
+      FIFO trigger level at the end of a transfer is read by the CPU.
+
   dma-names:
     description: '"rx"'
+
   dma-slot:
     type: int
     description: request line (DRQ) of the SPI receive FIFO
@@ -295,15 +309,15 @@ static void demo_full_duplex(void)
 
 #### 示例：长读和 DMA
 
-读缓冲至少 `CONFIG_SPI_SUNXI_DMA_MIN_LEN`（256）字节、且 4 字节对齐时，数据由 DMA 搬运；否则由 CPU 从接收 FIFO 里读。两种方式读到的数据一样。下面读 4 KiB，并换几个时钟频率看耗时。
+读缓冲至少 `CONFIG_SPI_SUNXI_DMA_MIN_LEN`（256）字节、地址按 64 字节（缓存行）对齐时，数据由 DMA 搬运；否则由 CPU 从接收 FIFO 里读。两种方式读到的数据一样。下面读 4 KiB，并换几个时钟频率看耗时。
 
 ```c
 /* A longer read: the first 16 bytes of the flash, and the speed at several clocks.
- * Reads of 256 bytes or more into a 4 byte aligned buffer go through the DMA controller.
+ * Reads of 256 bytes or more into a 64 byte (cache line) aligned buffer go through the DMA controller.
  */
 static void demo_read_flash(void)
 {
-	static uint8_t page[4096] __aligned(4);
+	static uint8_t page[4096] __aligned(64);
 	static uint8_t first[4096];
 	struct spi_config cfg = cfg_at(1000000, 0);
 	uint8_t cmd[4] = { CMD_READ_DATA, 0, 0, 0 };		/* 24 bit address 0 */
@@ -335,8 +349,8 @@ static void demo_read_flash(void)
 		       us, memcmp(first, page, sizeof(page)) == 0 ? "same data" : "DIFFERENT data");
 	}
 
-	/* a buffer that is not 4 byte aligned is read by the CPU */
-	static uint8_t odd[1 + 512] __aligned(4);
+	/* a buffer that is not 64 byte aligned is read by the CPU */
+	static uint8_t odd[1 + 512] __aligned(64);
 
 	rx_buf.buf = odd + 1;
 	rx_buf.len = 512;
@@ -737,11 +751,11 @@ static void demo_spi_read(void)
 }
 
 /* A longer read: the first 16 bytes of the flash, and the speed at several clocks.
- * Reads of 256 bytes or more into a 4 byte aligned buffer go through the DMA controller.
+ * Reads of 256 bytes or more into a 64 byte (cache line) aligned buffer go through the DMA controller.
  */
 static void demo_read_flash(void)
 {
-	static uint8_t page[4096] __aligned(4);
+	static uint8_t page[4096] __aligned(64);
 	static uint8_t first[4096];
 	struct spi_config cfg = cfg_at(1000000, 0);
 	uint8_t cmd[4] = { CMD_READ_DATA, 0, 0, 0 };		/* 24 bit address 0 */
@@ -773,8 +787,8 @@ static void demo_read_flash(void)
 		       us, memcmp(first, page, sizeof(page)) == 0 ? "same data" : "DIFFERENT data");
 	}
 
-	/* a buffer that is not 4 byte aligned is read by the CPU */
-	static uint8_t odd[1 + 512] __aligned(4);
+	/* a buffer that is not 64 byte aligned is read by the CPU */
+	static uint8_t odd[1 + 512] __aligned(64);
 
 	rx_buf.buf = odd + 1;
 	rx_buf.len = 512;
@@ -935,9 +949,9 @@ west build -b yuzukineko -d build/spi-api spi_api
 [split] spi_read(3 bytes), chip select again  = 0: ff ff ff
 [read] 4096 bytes at address 0 at 1 MHz        = 0
 [read] first 16 bytes: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
-[read] 4096 bytes at  1 MHz = 0, 87500 us, same data
-[read] 4096 bytes at  6 MHz = 0, 21900 us, same data
-[read] 4096 bytes at 24 MHz = 0, 1400 us, same data
+[read] 4096 bytes at  1 MHz = 0, 87600 us, same data
+[read] 4096 bytes at  6 MHz = 0, 22000 us, same data
+[read] 4096 bytes at 24 MHz = 0, 1500 us, same data
 [read] 4096 bytes at 48 MHz = 0, 800 us, same data
 [read] 512 bytes into an unaligned buffer      = 0, same data
 [mode] mode 0 (CPOL 0, CPHA 0) = 0: 85 20 18

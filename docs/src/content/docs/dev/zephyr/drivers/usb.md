@@ -22,7 +22,7 @@ flowchart TB
 | `yuzukineko` | 只开设备模式。VBUS 开关用的 PE2 被 WiFi 的 SDIO 时钟占了，没有给主机口供电的开关，所以 EHCI/OHCI 不开 |
 | 传输 | 设备模式由 CPU 搬运 FIFO 数据（`VEND0` 寄存器的 PIO 位），不用 USB 自带的 DMA |
 
-本页演示的是设备模式：一个 CDC ACM 虚拟串口，主机往里写什么，板子就原样回什么。
+本文演示的是设备模式：一个 CDC ACM 虚拟串口，主机往里写什么，板子就原样回什么。
 
 ## 设备树
 

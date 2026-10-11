@@ -5,7 +5,7 @@ title: "引脚排布"
 下表视角为<strong>元件面朝上，USB-C 接口在顶部</strong>，行号从 USB-C 一端向 microSD 一端递增。
 
 :::caution
-本页的“实际 SoC GPIO”列适用于所有版本。如果你用的是 <strong>V1.3</strong>，丝印从 `PD10` 起比真实 GPIO 小 2，务必先看[勘误](errata.md#v13pd-丝印编号错误)再配置引脚复用。
+本文的“实际 SoC GPIO”列适用于所有版本。如果你用的是 <strong>V1.3</strong>，丝印从 `PD10` 起比真实 GPIO 小 2，务必先看[勘误](errata.md#v13pd-丝印编号错误)再配置引脚复用。
 :::
 
 ## 排针总表

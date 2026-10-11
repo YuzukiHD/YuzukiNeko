@@ -6,15 +6,13 @@ title: "CherryUSB - USB 协议栈"
 
 [USB](../drivers/usb.md) 一页讲的是下面一层：OTG 控制器、EHCI/OHCI 主机控制器和 PHY 的设备树、PHY 的获取与释放，并用一个 CDC ACM 回显演示了设备模式的基本用法。这一页讲协议栈本身：组件怎么分层、Kconfig 怎么选、板级胶水要提供什么、`usbd_*`、`usbh_*` 每个接口怎么用。
 
-| 项目 | 内容 |
-| --- | --- |
-| 版本 | CherryUSB 1.6.1（`modules/lib/cherryusb/VERSION`），作为 Zephyr 模块（`zephyr/module.yml`）接入 |
-| 设备栈 | 控制器 `musb_sunxi`（全志 MUSB），高速（480 Mbit/s）；`yuzukineko` 的 OTG 口用它。数据由 CPU 搬运，不用 USB 自带的 DMA |
-| 主机栈 | EHCI（高速）加 OHCI（低速、全速）的伴随控制器，一个根端口；板子上的 USB 口同时只能做设备或主机 |
-| 设备类 | Kconfig 能打开 CDC ACM、HID、MSC、音频、视频、RNDIS/ECM/NCM、MTP、ADB、DFU、vendor display、TMC；本页用 CDC ACM 加 MSC 演示 |
-| 主机类 | Kconfig 能打开 CDC ACM、HID、MSC、ECM/RNDIS/NCM、视频、音频、蓝牙、ASIX、RTL8152、FTDI、CH34x、CP210x、PL2303、GSM、AOA；hub 类一直打开 |
-| 运行方式 | 主机栈有自己的线程（根 hub 的端口变化线程、枚举）；设备栈的端点回调和类回调直接在中断里跑，不能阻塞 |
-| 板上验证 | 设备栈：CDC ACM 回显和 MSC RAM 盘都在板上跑通。主机栈：EHCI/OHCI 初始化和根 hub 枚举代码跑起来了，但 `yuzukineko` 没有给 USB 口供电的开关，接不上外设，设备枚举和类驱动接口没有在板上运行 |
+CherryUSB 1.6.1（`modules/lib/cherryusb/VERSION`）作为 Zephyr 模块（`zephyr/module.yml`）接入。设备栈的控制器是全志 MUSB（`musb_sunxi`），高速 480 Mbit/s，数据由 CPU 搬运，不用 USB 自带的 DMA。主机栈用 EHCI 加 OHCI 伴随控制器，EHCI 管高速，OHCI 管低速和全速，只有一个根端口。板子上的 USB 口同时只能做设备或主机，两者共用一个 PHY。
+
+Kconfig 里能打开的设备类有 CDC ACM、HID、MSC、音频、视频、RNDIS/ECM/NCM、MTP、ADB、DFU、vendor display、TMC；主机类有 CDC ACM、HID、MSC、ECM/RNDIS/NCM、视频、音频、蓝牙、ASIX、RTL8152、FTDI、CH34x、CP210x、PL2303、GSM、AOA，hub 类一直编进去。文中的演示用 CDC ACM 加 MSC 作设备，主机一侧演示栈的启动和各个类驱动接口的调用。
+
+运行方式：主机栈有自己的线程，根 hub 线程处理端口变化和枚举；设备栈的端点回调和类回调直接在中断里运行，不能阻塞。
+
+哪些接口在板上验证过、哪些没有，写在[验证项](#验证项)一节。
 
 ## 源码位置
 
@@ -108,7 +106,7 @@ flowchart TB
 
 ## 数据流图
 
-设备模式下，主机往 CDC ACM 的批量 OUT 端点写数据，应用把它回显（本页演示）：
+设备模式下，主机往 CDC ACM 的批量 OUT 端点写数据，应用把它回显（本文演示）：
 
 ```mermaid
 flowchart LR
@@ -176,7 +174,7 @@ usbhci: usb@4101000 {
 
 ### 板级设备树
 
-`yuzukineko.dts` 打开 `usbphy` 和 `usbotg`（设备模式），详见 [USB](../drivers/usb.md)。要做主机，在应用目录里放一个 overlay，把设备控制器关掉、打开主机控制器（本页的主机演示就是这样做的）：
+`yuzukineko.dts` 打开 `usbphy` 和 `usbotg`（设备模式），详见 [USB](../drivers/usb.md)。要做主机，在应用目录里放一个 overlay，把设备控制器关掉、打开主机控制器（本文的主机演示就是这样做的）：
 
 ```c
 /* host mode: turn the OTG device controller off and the EHCI/OHCI host controller on.
@@ -212,7 +210,7 @@ usbhci: usb@4101000 {
 | `CONFIG_CHERRYUSB` | `n` | 打开协议栈。OSAL 在 Zephyr 下固定是 `zephyr`，不可选 |
 | `CONFIG_CHERRYUSB_DEVICE` | `n` | 设备模式 |
 | `CONFIG_CHERRYUSB_DEVICE_SPEED_FS` | 速度三选一，默认选它 | 全速（12 Mbit/s） |
-| `CONFIG_CHERRYUSB_DEVICE_SPEED_HS` | 否 | 高速（480 Mbit/s）。F101 的 OTG 控制器支持，本页使用 |
+| `CONFIG_CHERRYUSB_DEVICE_SPEED_HS` | 否 | 高速（480 Mbit/s）。F101 的 OTG 控制器支持，本文使用 |
 | `CONFIG_CHERRYUSB_DEVICE_SPEED_AUTO` | 否 | 自动 |
 | `CONFIG_CHERRYUSB_DEVICE_CUSTOM` | 控制器选一个，默认选它 | 控制器由用户自己提供，F101 不用 |
 | `CONFIG_CHERRYUSB_DEVICE_MUSB_SUNXI` | 否 | 全志 MUSB 控制器。F101 的设备模式必须选它，选了才会编 `port/musb/usb_dc_musb.c` 和 Zephyr 里的 `usb_glue_sunxi.c` |
@@ -264,14 +262,14 @@ usbhci: usb@4101000 {
 
 ### Zephyr 的配套选项
 
-| 选项 | 本页用的值 | 含义 |
+| 选项 | 本文用的值 | 含义 |
 | --- | --- | --- |
 | `CONFIG_MAIN_STACK_SIZE` | 设备 4096，主机 8192 | 主线程栈。主机演示里调用了大缓冲区的类接口，用 8192 |
 | `CONFIG_SYSTEM_WORKQUEUE_STACK_SIZE` | 2048 | 系统工作队列的栈。OSAL 删除线程时，通过系统工作队列释放线程的内存 |
 | `CONFIG_HEAP_MEM_POOL_SIZE` | 65536 | 内核堆。OSAL 创建线程用 `k_aligned_alloc`，需要堆 |
 | `CONFIG_PRINTK` | `y` | CherryUSB 的日志宏被映射到 `printk`（`usb_config.h` 里的 `CONFIG_USB_PRINTF`） |
-| `CONFIG_SHELL` | 本页关 | 打开后会多编 `platform/zephyr/usb_cmd.c`，提供 `lsusb` 等 shell 命令 |
-| `CONFIG_FILE_SYSTEM` | 本页不开 | 同时打开主机模式时，多编 `platform/zephyr/usbh_msc_disk.c`，把 U 盘接到 Zephyr 的磁盘接口 |
+| `CONFIG_SHELL` | 本文关 | 打开后会多编 `platform/zephyr/usb_cmd.c`，提供 `lsusb` 等 shell 命令 |
+| `CONFIG_FILE_SYSTEM` | 本文不开 | 同时打开主机模式时，多编 `platform/zephyr/usbh_msc_disk.c`，把 U 盘接到 Zephyr 的磁盘接口 |
 | `CONFIG_USB_PHY_SUNXI` | `y` | PHY 驱动，设备栈和主机栈的胶水都依赖它 |
 | `CONFIG_USB_PHY_SUNXI_INIT_PRIORITY` | 40 | PHY 的初始化优先级 |
 
@@ -615,6 +613,18 @@ int main(void)
 	}
 
 	usb_dev_msc_report();
+
+	/* the host suspends an idle device; wake it from the device side when that happens */
+	for (int i = 0; i < 40 && !usb_dev_suspended(); i++) {
+		k_msleep(1000);
+	}
+	if (usb_dev_suspended()) {
+		printk("suspended by the host\n");
+		usb_dev_try_remote_wakeup();
+	} else {
+		printk("the host did not suspend the device\n");
+	}
+
 	ret = usb_dev_stop();
 	printk("usbd_deinitialize: %d\n", ret);
 	printk("cherryusb_api done\n");
@@ -721,13 +731,10 @@ static void usbd_event_handler(uint8_t busid, uint8_t event)
 [usb] event INIT
 usbd_initialize: 0
 [usb] event RESET
-[E/usbd_core] descriptor <type:3,index:ee> not found!
-[E/usbd_core] standard request error
-[E/usbd_core] Setup: bmRequestType 0x80, bRequest 0x06, wValue 0x03ee, wIndex 0x0000, wLength 0x0012
 [usb] event CONFIGURED
 ```
 
-`descriptor <type:3,index:ee>` 这三行：Windows 会请求字符串索引 `0xEE`（微软的 OS 字符串描述符），设备没有，栈记一条错误并让这次请求失败，设备照常工作。
+Windows 有时会请求字符串索引 `0xEE`（微软的 OS 字符串描述符）。设备没有这个描述符时，栈会打印 `descriptor <type:3,index:ee> not found!` 并让这次请求失败，设备照常工作。上面这次运行没有出现这几行。
 
 ## 设备栈：描述符
 
@@ -760,13 +767,13 @@ static const uint8_t device_descriptor[] = {
 };
 
 static const uint8_t config_descriptor_hs[] = {
-	USB_CONFIG_DESCRIPTOR_INIT(USB_CONFIG_SIZE, 0x03, 0x01, USB_CONFIG_BUS_POWERED, USBD_MAX_POWER),
+	USB_CONFIG_DESCRIPTOR_INIT(USB_CONFIG_SIZE, 0x03, 0x01, USBD_ATTRIBUTES, USBD_MAX_POWER),
 	CDC_ACM_DESCRIPTOR_INIT(0x00, CDC_INT_EP, CDC_OUT_EP, CDC_IN_EP, USB_BULK_EP_MPS_HS, 0x02),
 	MSC_DESCRIPTOR_INIT(0x02, MSC_OUT_EP, MSC_IN_EP, USB_BULK_EP_MPS_HS, 0x00)
 };
 
 static const uint8_t config_descriptor_fs[] = {
-	USB_CONFIG_DESCRIPTOR_INIT(USB_CONFIG_SIZE, 0x03, 0x01, USB_CONFIG_BUS_POWERED, USBD_MAX_POWER),
+	USB_CONFIG_DESCRIPTOR_INIT(USB_CONFIG_SIZE, 0x03, 0x01, USBD_ATTRIBUTES, USBD_MAX_POWER),
 	CDC_ACM_DESCRIPTOR_INIT(0x00, CDC_INT_EP, CDC_OUT_EP, CDC_IN_EP, USB_BULK_EP_MPS_FS, 0x02),
 	MSC_DESCRIPTOR_INIT(0x02, MSC_OUT_EP, MSC_IN_EP, USB_BULK_EP_MPS_FS, 0x00)
 };
@@ -776,13 +783,13 @@ static const uint8_t device_quality_descriptor[] = {
 };
 
 static const uint8_t other_speed_config_descriptor_hs[] = {
-	USB_OTHER_SPEED_CONFIG_DESCRIPTOR_INIT(USB_CONFIG_SIZE, 0x03, 0x01, USB_CONFIG_BUS_POWERED, USBD_MAX_POWER),
+	USB_OTHER_SPEED_CONFIG_DESCRIPTOR_INIT(USB_CONFIG_SIZE, 0x03, 0x01, USBD_ATTRIBUTES, USBD_MAX_POWER),
 	CDC_ACM_DESCRIPTOR_INIT(0x00, CDC_INT_EP, CDC_OUT_EP, CDC_IN_EP, USB_BULK_EP_MPS_FS, 0x02),
 	MSC_DESCRIPTOR_INIT(0x02, MSC_OUT_EP, MSC_IN_EP, USB_BULK_EP_MPS_FS, 0x00)
 };
 
 static const uint8_t other_speed_config_descriptor_fs[] = {
-	USB_OTHER_SPEED_CONFIG_DESCRIPTOR_INIT(USB_CONFIG_SIZE, 0x03, 0x01, USB_CONFIG_BUS_POWERED, USBD_MAX_POWER),
+	USB_OTHER_SPEED_CONFIG_DESCRIPTOR_INIT(USB_CONFIG_SIZE, 0x03, 0x01, USBD_ATTRIBUTES, USBD_MAX_POWER),
 	CDC_ACM_DESCRIPTOR_INIT(0x00, CDC_INT_EP, CDC_OUT_EP, CDC_IN_EP, USB_BULK_EP_MPS_HS, 0x02),
 	MSC_DESCRIPTOR_INIT(0x02, MSC_OUT_EP, MSC_IN_EP, USB_BULK_EP_MPS_HS, 0x00)
 };
@@ -836,7 +843,7 @@ static void usb_dev_register_descriptors(void)
 }
 ```
 
-在主机上能看到枚举结果，主机脚本找到了 VID `1209`、PID `0002` 的串口和一个标签为 `F101DISK` 的卷，见[在主机上验证](#在主机上验证)。
+在主机上能看到枚举结果，主机脚本找到了 VID `1209`、PID `0002` 的串口和一个标签为 `F101DISK` 的卷，见[验证项](#验证项)。
 
 ## 设备栈：接口与端点
 
@@ -1066,10 +1073,18 @@ void usb_dev_report_endpoints(void)
 int usbd_send_remote_wakeup(uint8_t busid);
 ```
 
-在总线挂起时，设备向主机发远程唤醒。需要三个条件同时满足：配置描述符的 `bmAttributes` 带 `USB_CONFIG_REMOTE_WAKEUP`，主机允许了远程唤醒，设备正处于挂起。否则每个不满足的条件打一行错误，返回 -1。示例的配置没有声明远程唤醒，且调用时总线没有挂起，所以板上返回 -1，这是预期结果：
+在总线挂起时，设备向主机发远程唤醒。三个条件要同时满足，缺一个就打一行错误并返回 -1：
+
+| 条件 | 对应的错误信息 | 怎么满足 |
+| --- | --- | --- |
+| 设备声明支持 | `device does not support remote wakeup` | 配置描述符的 `bmAttributes` 带 `USB_CONFIG_REMOTE_WAKEUP`（0x20）。示例的 `USBD_ATTRIBUTES` 带了 |
+| 主机允许 | `device remote wakeup is not enabled` | 主机发 `SET_FEATURE(DEVICE_REMOTE_WAKEUP)`。Windows 只有在设备的“允许此设备唤醒计算机”打开时才会发 |
+| 总线挂起 | `device is not in suspend state` | 主机挂起总线，Windows 要打开 USB 选择性暂停并且设备空闲 |
 
 ```c
-/* usbd_send_remote_wakeup: only works while suspended with remote wakeup enabled by the host */
+/* usbd_send_remote_wakeup: only works while suspended, with remote wakeup declared in the
+ * configuration descriptor and enabled by the host
+ */
 void usb_dev_try_remote_wakeup(void)
 {
 	int ret = usbd_send_remote_wakeup(0);
@@ -1078,16 +1093,15 @@ void usb_dev_try_remote_wakeup(void)
 }
 ```
 
-板上输出：
+板上输出（示例声明了远程唤醒，所以第一条错误没有了；主机没有允许，总线也没有挂起）：
 
 ```text
-[E/usbd_core] device does not support remote wakeup
 [E/usbd_core] device remote wakeup is not enabled
 [E/usbd_core] device is not in suspend state
 [usb] usbd_send_remote_wakeup: -1
 ```
 
-成功发出远程唤醒的路径（配置里声明、主机允许、总线挂起）没有在板上跑过：Windows 对这个设备没有触发挂起。
+成功路径没有验证出来，原因在[验证项](#验证项)里。
 
 ## CDC ACM 设备类
 
@@ -1256,7 +1270,7 @@ void usbd_msc_get_cap(uint8_t busid, uint8_t lun, uint32_t *block_num, uint32_t 
 板上输出（主机识别出的卷大小是 127488 字节，是扣掉 FAT 结构后的可用大小）：
 
 ```text
-[msc] medium 256 blocks of 512 bytes, 54 reads (27648 bytes), 32 writes (16384 bytes)
+[msc] medium 256 blocks of 512 bytes, 53 reads (27136 bytes), 32 writes (16384 bytes)
 ```
 
 ### usbd_msc_sector_read
@@ -1303,7 +1317,7 @@ int usbd_msc_sector_write(uint8_t busid, uint8_t lun, uint32_t sector, uint8_t *
 }
 ```
 
-主机脚本读了 `README.TXT`，写了 `HELLO.TXT` 再读回来，板上统计的结果是 54 次读 27648 字节、32 次写 16384 字节（含 Windows 挂载卷时自己的读写）。读写的日志见上一个小节的输出和[在主机上验证](#在主机上验证)。
+主机脚本读了 `README.TXT`，写了 `HELLO.TXT` 再读回来，板上统计的结果是 53 次读 27136 字节、32 次写 16384 字节（含 Windows 挂载卷时自己的读写）。读写的结果见[验证项](#验证项)。
 
 ### usbd_msc_set_readonly
 
@@ -1365,15 +1379,15 @@ void usb_dev_msc_report(void)
 
 ### 其他设备类
 
-HID（`usbd_hid_init_intf`）、音频、视频、RNDIS/ECM/NCM、DFU、vendor display 在 Kconfig 里可以打开，源码都在 `class/` 下，用法和上面一样：用 `*_DESCRIPTOR_INIT` 宏拼描述符，`*_init_intf` 加接口，实现类的回调。本页没有演示这些类，在板上没有运行过。vendor display 有单独的示例 `zephyr/samples/drivers/usb/cherryusb_display`。
+HID（`usbd_hid_init_intf`）、音频、视频、RNDIS/ECM/NCM、DFU、vendor display 在 Kconfig 里可以打开，源码都在 `class/` 下，用法和上面一样：用 `*_DESCRIPTOR_INIT` 宏拼描述符，`*_init_intf` 加接口，实现类的回调。本文没有演示这些类，在板上没有运行过。vendor display 有单独的示例 `zephyr/samples/drivers/usb/cherryusb_display`。
 
 ## 主机栈接口
 
 主机栈的使用顺序：`usbh_initialize` 启动控制器和根 hub，之后设备插入由栈在自己的线程里枚举，应用通过事件回调、`usbh_find_class_instance` 和各个类驱动的接口使用设备。
 
-**板上状态：** `yuzukineko` 的 USB 口没有给外设供 5 V 的开关（`PE2` 被 WiFi 的 SDIO 时钟占了），主机口上接不了需要从总线取电的设备，所以设备枚举之后的接口（控制传输、字符串描述符、串口、U 盘、HID）在板上没有运行过，它们的小标题下写“未在板上运行”。有 VBUS 开关的板子（`f101_evb`）可以用 `zephyr/samples/drivers/usb/cherryusb_host`（读 U 盘、串口回环）。`usbh_initialize`、`usbh_find_hubport`、`lsusb` 在板上跑了，结果见[主机日志](#主机日志)。
+`yuzukineko` 的 USB 口没有给外设供 5 V 的开关（`PE2` 被 WiFi 的 SDIO 时钟占了），接不上外设，所以设备枚举之后的接口（控制传输、字符串描述符、串口、U 盘、HID）没有在板上运行，它们的小标题下写“未在板上运行”，原因见[验证项](#验证项)。`usbh_initialize`、`usbh_deinitialize`、`usbh_find_hubport`、`lsusb` 在板上运行过，输出见[主机日志](#主机日志)。有 VBUS 开关的硬件上可以用 `zephyr/samples/drivers/usb/cherryusb_host`（读 U 盘、串口回环）。
 
-示例函数都能编译（本页的主机演示整个编过并在板上运行过初始化部分），写法按源码里的接口声明。
+示例函数按源码里的接口声明写，整个主机演示能编译，初始化部分在板上运行过。
 
 ## 主机栈：初始化
 
@@ -1469,19 +1483,23 @@ static void usbh_event_handler(uint8_t busid, uint8_t hub_index, uint8_t hub_por
 int usbh_deinitialize(uint8_t busid);
 ```
 
-停止根 hub 线程，从总线链表里摘掉，成功返回 0。**在这个移植上不能用：** 调用它会在释放根 hub 线程的内存时触发 CPU 异常（`k_heap_free` 里 `z_unpend_all` 访问了错误的地址，板子 `Halting system`），所以演示没有调用它。这是本移植还没解决的问题，没有改 fork。
+停止根 hub 线程，从总线链表里摘掉，成功返回 0。流程：往消息队列里发一个空消息，根 hub 线程收到后释放各个端口、`usb_hc_deinit`、删除消息队列、给信号量，自己退出；`usbh_hub_deinitialize` 等到信号量后删除信号量并发 `USBH_EVENT_DEINIT`。
+
+之前 `usbh_hub_deinitialize` 在线程已经删掉消息队列之后又删了一次，同一块内存释放两次，`k_heap_free` 在堆的等待队列上访问到被破坏的数据，板子出现 CPU 异常。现在去掉了 `usbh_hub_deinitialize` 里多余的那一次 `usb_osal_mq_delete`（`modules/lib/cherryusb/class/hub/usbh_hub.c`），调用正常返回。
 
 ```c
-/* usbh_deinitialize: stop the root hub and release the controller. Not called by main(): on this port it
- * faults, the thread of the root hub is freed while it is still waited for
- */
+/* usbh_deinitialize: stop the root hub thread and release the controller */
 int usb_host_stop(void)
 {
 	return usbh_deinitialize(0);
 }
 ```
 
-状态：调用会触发异常，不要在应用里使用。
+板上输出：
+
+```text
+usbh_deinitialize: 0
+```
 
 ## 主机栈：查询
 
@@ -1491,7 +1509,7 @@ int usb_host_stop(void)
 struct usbh_hubport *usbh_find_hubport(uint8_t busid, uint8_t hub_index, uint8_t hub_port);
 ```
 
-按 hub 编号和端口号取端口结构。**根 hub 的编号是 1**（编号从 1 开始，传 0 会触发 `ASSERT`），端口号也从 1 开始。端口上没有连接着的设备时返回 `NULL`。结构里有设备地址、速度、设备描述符（`device_desc`）、厂商和产品字符串（`iManufacturer`、`iProduct`）、配置和各接口的类驱动（`config.intf[]`）。
+按 hub 编号和端口号取端口结构。**根 hub 的编号是 1**（编号从 1 开始，传 0 会触发 `ASSERT`），端口号也从 1 开始。端口上没有连接着的设备时返回 `NULL`。`hub_index` 传 0 触发 `ASSERT` 是上游的约定，不是移植的问题：0（`USB_HUB_INDEX_ANY`）只在事件回调里表示“不指定 hub”，查询函数里 hub 编号必须从 1 开始，所以示例传 1。结构里有设备地址、速度、设备描述符（`device_desc`）、厂商和产品字符串（`iManufacturer`、`iProduct`）、配置和各接口的类驱动（`config.intf[]`）。
 
 ```c
 /* usbh_find_hubport: the port of a hub; the root hub is hub 1, ports count from 1. NULL when no device is connected there */
@@ -2060,9 +2078,9 @@ void usb_host_exercise(struct usbh_hubport *hport)
 }
 ```
 
-## 在主机上验证
+## 验证项
 
-设备栈的演示需要 PC 一端的配合。主机是一台 Windows 电脑，板子的 USB 口接在它上面（和 xfel 下载用的是同一个口）。程序运行后，板子的 USB 口重新枚举，出现一个串口（COM 口）和一个 U 盘。下面的 PowerShell 脚本等设备出现，读 `README.TXT`、写 `HELLO.TXT`，再打开 COM 口，发 19 个字节和 1000 个字节，检查原样回来的数据，最后发 BREAK：
+设备栈的演示需要 PC 一端配合。PC 是一台 Windows 电脑，板子的 USB 口接在它上面（和 xfel 下载用的是同一个口）。程序用 xfel 下载运行后，板子的 USB 口重新枚举，PC 上出现一个串口和一个 U 盘。下面的 PowerShell 脚本等设备出现，读写 U 盘，操作串口，最后试着打开远程唤醒：
 
 ```powershell
 # Windows PowerShell: wait for the YuzukiNeko composite device (VID 1209, PID 0002), then
@@ -2112,9 +2130,25 @@ $p.BreakState = $true
 Start-Sleep -Milliseconds 200
 $p.BreakState = $false
 $p.Close()
+
+# let Windows suspend the idle device and accept its remote wakeup (needs administrator rights)
+foreach ($cls in 'MSPower_DeviceEnable', 'MSPower_DeviceWakeEnable') {
+    try {
+        $n = 0
+        Get-CimInstance -Namespace root\wmi -ClassName $cls -ErrorAction Stop | Where-Object { $_.InstanceName -like '*VID_1209&PID_0002*' } | ForEach-Object {
+            $_.Enable = $true
+            Set-CimInstance -InputObject $_ -ErrorAction Stop
+            $n++
+        }
+        Write-Output ("${cls}: enabled on " + $n + " instance(s)")
+    } catch {
+        Write-Output ("${cls}: " + $_.Exception.Message)
+    }
+}
+Start-Sleep 30
 ```
 
-主机一侧的输出：
+脚本在 PC 上的输出：
 
 ```text
 serial: USB 串行设备 (COM13)
@@ -2123,19 +2157,59 @@ README.TXT: Hello from CherryUSB on YuzukiNeko
 HELLO.TXT: written by the host
 echo 1: hello from the host
 echo 2: sent 1000 bytes, got 1000 bytes, same = True
+MSPower_DeviceEnable: 拒绝访问
+MSPower_DeviceWakeEnable: enabled on 0 instance(s)
 ```
 
-| 行 | 说明 |
+板子一侧的输出见[设备日志](#设备日志)。每个验证项说明验了什么、怎么验的、看到什么。
+
+### 复合设备枚举
+
+验证 `usbd_desc_register`、`usbd_add_interface`、`usbd_initialize`、`USBD_EVENT_CONFIGURED`。用 CDC ACM 加 MSC 的复合描述符枚举，看 PC 和板子两边。PC 上脚本找到 `VID_1209&PID_0002` 的串口 COM13 和标签 `F101DISK` 的卷 H:。板子上依次出现 `event INIT`、`event RESET`、`event CONFIGURED`，之后 `speed 3` 说明协商到高速。
+
+### 端点与状态查询
+
+验证 `usbd_get_device_speed`、`usb_device_is_configured`、`usb_device_is_suspend`、`usbd_get_ep_mps`、`usbd_get_ep_mult`、`usbd_get_ep_info`。配置完成后在板子上逐个端点调用，输出五个端点的类型和包长：批量端点 512，CDC 通知的中断端点 8、间隔 10，与描述符一致。
+
+### CDC ACM 回显
+
+验证 `usbd_ep_start_read`、`usbd_ep_start_write` 和零长度包的处理。脚本发 19 字节和 1000 字节，PC 收到的内容与发出的相同（`same = True`），板子统计 `received 1019 bytes in 2 transfer(s), sent back 1019 bytes`。
+
+### CDC ACM 类回调
+
+验证 `set_dtr`、`set_rts`、`set_line_coding`、`get_line_coding`、`send_break`。脚本打开端口时板子打印 `DTR 1`、`RTS 1`、`set_line_coding: 115200`，关闭时打印 `DTR 0`；脚本把 `BreakState` 置位再清除，板子打印两次 `send_break`。Windows 打开端口时还会反复读线路参数，所以 `get_line_coding` 出现很多次。
+
+### MSC 读写
+
+验证 `usbd_msc_get_cap`、`usbd_msc_sector_read`、`usbd_msc_sector_write`、`usbd_msc_set_readonly`、`usbd_msc_get_popup`。PC 上读到 `README.TXT` 的内容，写入 `HELLO.TXT` 后读回内容一致。板子统计 53 次读（27136 字节）、32 次写（16384 字节），其中包含 Windows 挂载卷时自己的读写。脚本没有弹出卷，所以 `get_popup` 为 0；`set_readonly(false)` 之后主机可写，这与写入成功一致。读只读介质时主机拒绝写的行为没有验。
+
+### usbd_deinitialize
+
+演示结束时调用，输出 `event DEINIT`，返回 0。
+
+### 主机栈：初始化、根 hub、反初始化
+
+验证 `usbh_initialize`、`usbh_event_handler_t`、`usbh_find_hubport`、`lsusb`、`usbh_deinitialize`。换上主机演示的固件（设备树 overlay 关掉 OTG 设备控制器，打开 EHCI/OHCI），板子上看到 EHCI/OHCI 的能力寄存器信息（`n_ports:1`，EHCI 用伴随控制器处理低速和全速设备）、`event INIT`、根 hub 在 480M，端口 1 没有设备；`usbh_deinitialize` 返回 0 并发出 `event DEINIT`。
+
+`usbh_deinitialize` 之前这里会崩溃：根 hub 线程退出时已经把消息队列删了，`usbh_hub_deinitialize` 又删了一次，同一块内存释放两次，`k_heap_free` 里 `z_unpend_all` 访问到被破坏的堆结构，出现 CPU 异常。去掉 `class/hub/usbh_hub.c` 里多余的那次删除后，上面的输出才得到。
+
+### 示例工程
+
+`samples/drivers/usb/cherryusb_cdc_acm` 和 `cherryusb_host` 的板名改成了 `yuzukineko`（`sample.yaml`），主机示例补了 `boards/yuzukineko.overlay`，用文中原样的 `west build -b yuzukineko -d build/... zephyr/samples/drivers/usb/<名字>` 命令编译通过，没有加 `-D` 参数。这两个示例只编译，没有运行。
+
+### 没有验证的项
+
+| 项 | 原因 |
 | --- | --- |
-| `serial: ... (COM13)` | CDC ACM 接口被识别成串口 |
-| `volume: H: F101DISK FAT 127488 bytes` | MSC 接口被识别成卷：卷标来自根目录里的卷标项，`FAT` 是 FAT12，大小是 256 个扇区扣掉 FAT 结构后的可用空间 |
-| `README.TXT: ...` | 主机读到了 RAM 盘里的文件，走了 `usbd_msc_sector_read` |
-| `HELLO.TXT: ...` | 主机写了文件再读回，走了 `usbd_msc_sector_write` |
-| `echo 1`、`echo 2` | 串口回显：19 字节、1000 字节原样回来 |
+| 主机栈枚举设备：`USBH_EVENT_DEVICE_CONNECTED` 以后的流程、`usbh_control_transfer`、`usbh_get_string_desc`、`usbh_set_interface`、`usbh_find_class_instance`、`usbh_get_hport_active_config_index` | `yuzukineko` 没有给 USB 口供电的开关（`PE2` 被 WiFi 的 SDIO 时钟占了），主机口接不上外设，根端口永远没有设备。示例函数能编译，没有在板上运行 |
+| 主机类驱动：串口（`usbh_serial_*`）、U 盘（`usbh_msc_*`）、HID（`usbh_hid_*`） | 同上，没有设备就没有类驱动实例 |
+| `usbd_send_remote_wakeup` 成功路径 | 声明（`USB_CONFIG_REMOTE_WAKEUP`）做了；主机允许和总线挂起没有得到。脚本尝试用 WMI 打开 `MSPower_DeviceEnable`、`MSPower_DeviceWakeEnable`，前者因为没有管理员权限被拒绝，后者没有匹配的实例；板子等了 40 秒，Windows 没有挂起设备（`the host did not suspend the device`）。要验证，需要在管理员权限下打开选择性暂停和“允许此设备唤醒计算机”，让设备空闲 |
+| 其他设备类：HID、音频、视频、RNDIS/ECM/NCM、DFU、vendor display | 没有写对应的演示。vendor display 在 `zephyr/samples/drivers/usb/cherryusb_display` 里有示例，本文没有运行它 |
+| 全速设备、挂起恢复事件 | PC 只协商到高速，没有触发 |
 
 ## 完整演示程序
 
-设备演示：CDC ACM 回显加 MSC RAM 盘。主机演示：EHCI/OHCI 初始化、枚举代码和各个类驱动接口的调用。上面所有示例都来自这两个程序。建目录，放进下面的文件，就可以像其他 Zephyr 应用一样编译。
+设备演示：CDC ACM 回显加 MSC RAM 盘。主机演示：EHCI/OHCI 初始化、枚举代码和各个类驱动接口的调用。上面的示例都来自这两个程序。建目录，放进下面的文件，就可以像其他 Zephyr 应用一样编译。
 
 ```text
 cherryusb_api/                  设备演示
@@ -2210,7 +2284,8 @@ CONFIG_LOG_PRINTK=n
 
 #define USBD_VID	0x1209	/* the vendor ID for test products */
 #define USBD_PID	0x0002
-#define USBD_MAX_POWER	100	/* in 2 mA units: 200 mA */
+#define USBD_MAX_POWER	100	/* in mA */
+#define USBD_ATTRIBUTES	(USB_CONFIG_BUS_POWERED | USB_CONFIG_REMOTE_WAKEUP)	/* bus powered, can wake the host */
 
 /* configuration descriptor: 3 interfaces (CDC control, CDC data, mass storage) */
 #define USB_CONFIG_SIZE	(9 + CDC_ACM_DESCRIPTOR_LEN + MSC_DESCRIPTOR_LEN)
@@ -2220,13 +2295,13 @@ static const uint8_t device_descriptor[] = {
 };
 
 static const uint8_t config_descriptor_hs[] = {
-	USB_CONFIG_DESCRIPTOR_INIT(USB_CONFIG_SIZE, 0x03, 0x01, USB_CONFIG_BUS_POWERED, USBD_MAX_POWER),
+	USB_CONFIG_DESCRIPTOR_INIT(USB_CONFIG_SIZE, 0x03, 0x01, USBD_ATTRIBUTES, USBD_MAX_POWER),
 	CDC_ACM_DESCRIPTOR_INIT(0x00, CDC_INT_EP, CDC_OUT_EP, CDC_IN_EP, USB_BULK_EP_MPS_HS, 0x02),
 	MSC_DESCRIPTOR_INIT(0x02, MSC_OUT_EP, MSC_IN_EP, USB_BULK_EP_MPS_HS, 0x00)
 };
 
 static const uint8_t config_descriptor_fs[] = {
-	USB_CONFIG_DESCRIPTOR_INIT(USB_CONFIG_SIZE, 0x03, 0x01, USB_CONFIG_BUS_POWERED, USBD_MAX_POWER),
+	USB_CONFIG_DESCRIPTOR_INIT(USB_CONFIG_SIZE, 0x03, 0x01, USBD_ATTRIBUTES, USBD_MAX_POWER),
 	CDC_ACM_DESCRIPTOR_INIT(0x00, CDC_INT_EP, CDC_OUT_EP, CDC_IN_EP, USB_BULK_EP_MPS_FS, 0x02),
 	MSC_DESCRIPTOR_INIT(0x02, MSC_OUT_EP, MSC_IN_EP, USB_BULK_EP_MPS_FS, 0x00)
 };
@@ -2236,13 +2311,13 @@ static const uint8_t device_quality_descriptor[] = {
 };
 
 static const uint8_t other_speed_config_descriptor_hs[] = {
-	USB_OTHER_SPEED_CONFIG_DESCRIPTOR_INIT(USB_CONFIG_SIZE, 0x03, 0x01, USB_CONFIG_BUS_POWERED, USBD_MAX_POWER),
+	USB_OTHER_SPEED_CONFIG_DESCRIPTOR_INIT(USB_CONFIG_SIZE, 0x03, 0x01, USBD_ATTRIBUTES, USBD_MAX_POWER),
 	CDC_ACM_DESCRIPTOR_INIT(0x00, CDC_INT_EP, CDC_OUT_EP, CDC_IN_EP, USB_BULK_EP_MPS_FS, 0x02),
 	MSC_DESCRIPTOR_INIT(0x02, MSC_OUT_EP, MSC_IN_EP, USB_BULK_EP_MPS_FS, 0x00)
 };
 
 static const uint8_t other_speed_config_descriptor_fs[] = {
-	USB_OTHER_SPEED_CONFIG_DESCRIPTOR_INIT(USB_CONFIG_SIZE, 0x03, 0x01, USB_CONFIG_BUS_POWERED, USBD_MAX_POWER),
+	USB_OTHER_SPEED_CONFIG_DESCRIPTOR_INIT(USB_CONFIG_SIZE, 0x03, 0x01, USBD_ATTRIBUTES, USBD_MAX_POWER),
 	CDC_ACM_DESCRIPTOR_INIT(0x00, CDC_INT_EP, CDC_OUT_EP, CDC_IN_EP, USB_BULK_EP_MPS_HS, 0x02),
 	MSC_DESCRIPTOR_INIT(0x02, MSC_OUT_EP, MSC_IN_EP, USB_BULK_EP_MPS_HS, 0x00)
 };
@@ -2625,7 +2700,9 @@ void usb_dev_report_endpoints(void)
 	}
 }
 
-/* usbd_send_remote_wakeup: only works while suspended with remote wakeup enabled by the host */
+/* usbd_send_remote_wakeup: only works while suspended, with remote wakeup declared in the
+ * configuration descriptor and enabled by the host
+ */
 void usb_dev_try_remote_wakeup(void)
 {
 	int ret = usbd_send_remote_wakeup(0);
@@ -2636,6 +2713,11 @@ void usb_dev_try_remote_wakeup(void)
 void usb_dev_set_readonly(bool readonly)
 {
 	msc_set_readonly(0, readonly);
+}
+
+bool usb_dev_suspended(void)
+{
+	return usb_device_is_suspend(0);
 }
 ```
 
@@ -2664,6 +2746,7 @@ extern void usb_dev_report_endpoints(void);
 extern void usb_dev_try_remote_wakeup(void);
 extern void usb_dev_set_readonly(bool readonly);
 extern void usb_dev_msc_report(void);
+extern bool usb_dev_suspended(void);
 
 int main(void)
 {
@@ -2702,6 +2785,18 @@ int main(void)
 	}
 
 	usb_dev_msc_report();
+
+	/* the host suspends an idle device; wake it from the device side when that happens */
+	for (int i = 0; i < 40 && !usb_dev_suspended(); i++) {
+		k_msleep(1000);
+	}
+	if (usb_dev_suspended()) {
+		printk("suspended by the host\n");
+		usb_dev_try_remote_wakeup();
+	} else {
+		printk("the host did not suspend the device\n");
+	}
+
 	ret = usb_dev_stop();
 	printk("usbd_deinitialize: %d\n", ret);
 	printk("cherryusb_api done\n");
@@ -2808,9 +2903,7 @@ int usb_host_start(uintptr_t reg_base)
 	return usbh_initialize(0, reg_base, usbh_event_handler);
 }
 
-/* usbh_deinitialize: stop the root hub and release the controller. Not called by main(): on this port it
- * faults, the thread of the root hub is freed while it is still waited for
- */
+/* usbh_deinitialize: stop the root hub thread and release the controller */
 int usb_host_stop(void)
 {
 	return usbh_deinitialize(0);
@@ -3124,6 +3217,7 @@ extern uintptr_t usb_sunxi_ehci_base(void);
 struct usbh_hubport;
 
 extern int usb_host_start(uintptr_t reg_base);
+extern int usb_host_stop(void);
 extern void usb_host_lsusb(void);
 extern struct usbh_hubport *usb_host_hubport(uint8_t port);
 extern void usb_host_report_port(uint8_t port);
@@ -3150,7 +3244,8 @@ int main(void)
 
 	usb_host_report_port(1);
 	usb_host_lsusb();
-	/* usb_host_stop() is not called: usbh_deinitialize() faults on this port, see the page */
+	ret = usb_host_stop();
+	printk("usbh_deinitialize: %d\n", ret);
 	printk("cherryusb_host_api done\n");
 	return 0;
 }
@@ -3169,7 +3264,7 @@ west build -b yuzukineko -d build/cherryusb-host-api examples/cherryusb_host_api
 
 上面的录屏是设备演示的编译。下载运行的方法见[编译与运行](../zephyr-build-run.md)。注意：用 xfel 下载到 RAM 时，板子是通过同一个 USB 口进入 FEL 的；设备演示一运行，这个口就变成了复合设备，FEL 设备消失。
 
-另外还有三个示例：`zephyr/samples/drivers/usb/cherryusb_cdc_acm`（CherryUSB 自带的 CDC ACM 演示）、`cherryusb_display`（vendor display 类，把屏幕投给主机上的程序）、`cherryusb_host`（主机模式，读 U 盘、串口回环；需要有 VBUS 开关的板子，如 `f101_evb`）。
+另外还有三个示例：`zephyr/samples/drivers/usb/cherryusb_cdc_acm`（CherryUSB 自带的 CDC ACM 演示）、`cherryusb_display`（vendor display 类，把屏幕投给主机上的程序）、`cherryusb_host`（主机模式，读 U 盘、串口回环；这个示例带 `yuzukineko` 的 overlay，能编译，但接设备需要有 VBUS 开关的硬件）。
 
 ## 板子日志
 
@@ -3182,9 +3277,6 @@ west build -b yuzukineko -d build/cherryusb-host-api examples/cherryusb_host_api
 [usb] event INIT
 usbd_initialize: 0
 [usb] event RESET
-[E/usbd_core] descriptor <type:3,index:ee> not found!
-[E/usbd_core] standard request error
-[E/usbd_core] Setup: bmRequestType 0x80, bRequest 0x06, wValue 0x03ee, wIndex 0x0000, wLength 0x0012
 [usb] event CONFIGURED
 [cdc] get_line_coding: 115200 baud
 [cdc] set_dtr: intf 0, DTR 0
@@ -3203,7 +3295,6 @@ usbd_initialize: 0
 [usb] ep 0x01: type 2, mps 512, interval 0
 [usb] ep 0x82: mps 512, mult 0
 [usb] ep 0x82: type 2, mps 512, interval 0
-[E/usbd_core] device does not support remote wakeup
 [E/usbd_core] device remote wakeup is not enabled
 [E/usbd_core] device is not in suspend state
 [usb] usbd_send_remote_wakeup: -1
@@ -3235,8 +3326,9 @@ usbd_initialize: 0
 [cdc] set_rts: intf 0, RTS 1
 [cdc] set_dtr: intf 0, DTR 0
 [cdc] set_rts: intf 0, RTS 1
-[msc] medium 256 blocks of 512 bytes, 54 reads (27648 bytes), 32 writes (16384 bytes)
+[msc] medium 256 blocks of 512 bytes, 53 reads (27136 bytes), 32 writes (16384 bytes)
 [msc] get_popup: 0
+the host did not suspend the device
 [usb] event DEINIT
 usbd_deinitialize: 0
 cherryusb_api done
@@ -3259,5 +3351,7 @@ usbh_initialize: 0
 [I/USB] OHCI n_ports:1
 [host] port 1: no device
 /:  Bus 00.Port 1: Dev 1, Class=root_hub, Driver=hcd, 480M
+[host] event DEINIT (bus 0, hub 0, port 0, interface 255)
+usbh_deinitialize: 0
 cherryusb_host_api done
 ```

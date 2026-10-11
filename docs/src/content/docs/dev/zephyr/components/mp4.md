@@ -4,30 +4,23 @@ title: "MP4 - MP4 解封装"
 
 MP4 解封装库把一个 MP4（ISO base media file）文件里的 <strong>H.264 视频轨</strong>和 <strong>AAC 音频轨</strong>的样本表读进内存，然后按解码顺序一个一个给出样本在文件中的位置、大小、时间戳和是否关键帧。它不解码，也不读样本内容：拿到位置和大小之后，调用者自己去文件里读，再交给视频引擎 [vdec](../drivers/vdec.md) 或 AAC 解码器。
 
-| 项目 | 内容 |
-| --- | --- |
-| 源码 | `zephyr/lib/mp4/mp4.c` |
-| 头文件 | `zephyr/include/zephyr/mp4.h`，应用里 `#include <zephyr/mp4.h>` |
-| Kconfig | `zephyr/lib/mp4/Kconfig`（`CONFIG_MP4_DEMUX`），由 `zephyr/lib/Kconfig` 引入，`zephyr/lib/CMakeLists.txt` 在选项打开时编译 |
-| 依赖 | 只用 `malloc()`/`free()` 和 `<zephyr/sys/byteorder.h>`，不依赖文件系统、设备或其他驱动 |
-| 文件访问 | 通过调用者给的读回调 `mp4_read_t`，可以是内存、SD 卡上的 FAT 文件或其他任何能按偏移读的东西 |
-| 支持的轨道 | 第一条 H.264（样本描述 `avc1` 或 `avc3`）和第一条 AAC（`mp4a`），其余轨道、其余编码一律忽略 |
-| 不支持 | 分片 MP4（`moof`/`mfra`，影片盒里没有样本表，`mp4_open()` 返回 `-EINVAL`）；`co64` 中超过 32 位的偏移（`-EFBIG`）；按时间 seek（只有按样本序号的 `mp4_seek_sync()`）；写 MP4 |
-| 内存 | 样本表整个读进堆里，约 `4×样本数 + 4×块数 + 8×(stsc + stts + ctts 项数) + 4×关键帧数` 字节；本页的 3 秒片段两条轨道加起来约 3 KB |
+库的源码是 `zephyr/lib/mp4/mp4.c`，头文件是 `zephyr/include/zephyr/mp4.h`，应用里 `#include <zephyr/mp4.h>`。Kconfig 在 `zephyr/lib/mp4/Kconfig`（选项 `CONFIG_MP4_DEMUX`），由 `zephyr/lib/Kconfig` 引入，`zephyr/lib/CMakeLists.txt` 在选项打开时编译它。库只用 `malloc()`/`free()` 和 `<zephyr/sys/byteorder.h>`，不依赖文件系统和任何设备。
 
-本页只讲这个库本身。用它做的完整播放器见 [MP4 播放器](../apps/mp4-player.md)。
+文件通过调用者给的读回调 `mp4_read_t` 访问，可以是内存数组、SD 卡上的 FAT 文件，或者其他能按偏移读的东西。库认识第一条 H.264 轨道（样本描述 `avc1` 或 `avc3`）和第一条 AAC 轨道（`mp4a`），其余轨道和编码忽略。样本表整个读进堆里，大小约 `4×样本数 + 4×块数 + 8×(stsc + stts + ctts 项数) + 4×关键帧数` 字节，下面用的 3 秒片段两条轨道加起来约 3 KB。
+
+本文只讲这个库本身。用它做的完整播放器见 [MP4 播放器](../apps/mp4-player.md)。
 
 ## 架构与数据流
 
 ### 架构
 
-库只有一个源文件、五个对外函数。上层把文件抽象成读回调，库内部是递归的盒（box）解析器，把解析结果放进 `struct mp4_track`；迭代器 `struct mp4_iter` 只是一个游标，不拥有任何内存。
+库只有一个源文件、六个对外函数。上层把文件抽象成读回调，库内部是递归的盒（box）解析器，把解析结果放进 `struct mp4_track`；迭代器 `struct mp4_iter` 只是一个游标，不拥有任何内存。
 
 ```mermaid
 flowchart TB
-    APP["应用<br/>mp4_open / mp4_next / mp4_seek_sync / mp4_close"] --> API["zephyr/mp4.h<br/>struct mp4、mp4_track、mp4_iter、mp4_sample"]
+    APP["应用<br/>mp4_open / mp4_next / mp4_seek_sync / mp4_seek_time / mp4_close"] --> API["zephyr/mp4.h<br/>struct mp4、mp4_track、mp4_iter、mp4_sample"]
     API --> PARSE["mp4.c 盒解析器<br/>box_at / parse_children<br/>递归：moov → trak → mdia → minf → stbl"]
-    API --> ITER["mp4.c 迭代器<br/>mp4_iter_init / mp4_next / mp4_seek_sync<br/>只读样本表，不碰文件"]
+    API --> ITER["mp4.c 迭代器<br/>mp4_iter_init / mp4_next<br/>mp4_seek_sync / mp4_seek_time<br/>只读样本表，不碰文件"]
     PARSE --> TABLES["堆里的样本表<br/>sizes · chunk_offset · stsc · stts · ctts · stss · extra"]
     ITER --> TABLES
     PARSE -->|mp4_read_t| FILE["文件<br/>内存数组 / FAT 文件 / 其他"]
@@ -52,7 +45,7 @@ flowchart LR
 
 ## 盒结构
 
-MP4 是一棵盒树，每个盒的头是 4 字节大小加 4 字节类型（大小为 1 时后面跟 8 字节的 64 位大小，为 0 时盒延伸到父盒结束）。库只关心下面这些盒，其余的盒读到头就跳过。图里的偏移和大小是本页演示用的 `clip.mp4`（301652 字节）的真实值：
+MP4 是一棵盒树，每个盒的头是 4 字节大小加 4 字节类型（大小为 1 时后面跟 8 字节的 64 位大小，为 0 时盒延伸到父盒结束）。库只关心下面这些盒，其余的盒读到头就跳过。图里的偏移和大小是本文演示用的 `clip.mp4`（301652 字节）的真实值：
 
 ```mermaid
 flowchart TB
@@ -377,18 +370,22 @@ closed twice without trouble
 ### mp4_iter_init
 
 ```c
-void mp4_iter_init(const struct mp4_track *t, struct mp4_iter *it);
+int mp4_iter_init(const struct mp4_track *t, struct mp4_iter *it);
 ```
 
-把迭代器放到轨道的第一个样本前。轨道必须是打开成功的、`codec` 不是 `MP4_CODEC_NONE` 的那条：函数直接读 `t->chunk_offset[0]` 和 `t->stts[0]`，对不存在的轨道调用会访问空指针，所以先检查 `t->codec`。
+把迭代器放到轨道的第一个样本前，成功返回 0。轨道不存在（`t` 为 `NULL`、`codec` 是 `MP4_CODEC_NONE`，包括已经 `mp4_close()` 的轨道）或样本表不完整时返回 `-EINVAL`，迭代器被清零，不能再交给 `mp4_next()`。所以文件里可能没有的那条轨道，用之前不必先查 `codec`，检查返回值就行。
 
 ```c
 /* mp4_iter_init(): an iterator starts at the first sample of a track */
 static void demo_iter_init(const struct mp4_track *t)
 {
 	struct mp4_iter it;
+	int ret = mp4_iter_init(t, &it);
 
-	mp4_iter_init(t, &it);
+	if (ret != 0) {
+		printk("mp4_iter_init: %d\n", ret);
+		return;
+	}
 	printk("next=%u chunk=%u in_chunk=%u chunk_pos=%u stts_left=%u dts=%d\n", it.next,
 	       it.chunk, it.in_chunk, (uint32_t)it.chunk_pos, it.stts_left, (int32_t)it.dts);
 }
@@ -398,7 +395,34 @@ static void demo_iter_init(const struct mp4_track *t)
 next=0 chunk=0 in_chunk=0 chunk_pos=4629 stts_left=90 dts=0
 ```
 
-第一个样本在文件偏移 4629，正好在 `mdat`（@4621）的数据区里；`stts_left=90` 是 `stts` 第一项的计数，这条轨道只有一项（每帧间隔相同，下一节里 `dts` 每次加 512）。
+第一个样本在文件偏移 4629，在 `mdat`（@4621）的数据区里；`stts_left=90` 是 `stts` 第一项的计数，这条轨道只有一项（每帧间隔相同，下一节里 `dts` 每次加 512）。
+
+#### 示例：不存在的轨道
+
+```c
+/* mp4_iter_init() on a track the file does not have */
+static void demo_iter_init_errors(void)
+{
+	struct mp4 m;
+	struct mp4_iter it;
+	struct mp4_track none = {0};
+
+	/* a track after mp4_close(), and one that was never filled in */
+	mp4_open(&m, mem_read, (void *)clip, sizeof(clip));
+	mp4_close(&m);
+	printk("track closed: ret=%d\n", mp4_iter_init(&m.audio, &it));
+	printk("empty track: ret=%d\n", mp4_iter_init(&none, &it));
+	printk("NULL track: ret=%d\n", mp4_iter_init(NULL, &it));
+}
+```
+
+```text
+track closed: ret=-22
+empty track: ret=-22
+NULL track: ret=-22
+```
+
+三种情况都是 `-EINVAL`（-22）。
 
 ### mp4_next
 
@@ -502,28 +526,17 @@ audio: ret=-61 samples=131 sync=131 bytes=48673 last dts=133120 pts=133120
 int mp4_seek_sync(const struct mp4_track *t, struct mp4_iter *it, uint32_t index);
 ```
 
-把迭代器放到“样本序号 `index` 或之前最近的一个关键帧”上，之后 `mp4_next()` 返回的第一个样本就是这个关键帧。解码器必须从关键帧开始，所以 seek 到某个画面时要从这里开始解码，把不要显示的帧丢掉。总是返回 0；`index` 超出范围就落在最后一个关键帧上。
-
-注意参数是样本序号而不是时间，函数内部从轨道开头往后扫（O(n)，只扫内存里的表，不读文件）。按时间 seek 要自己先把时间换成序号，下面的示例就是扫一遍找出第一个播放时间到达目标的样本。
+把迭代器放到“样本序号 `index` 或之前最近的一个关键帧”上，之后 `mp4_next()` 返回的第一个样本就是这个关键帧。解码器必须从关键帧开始，所以 seek 到某个画面时要从这里开始解码，把不要显示的帧丢掉。成功返回 0；`index` 超出范围就落在最后一个关键帧上；轨道不存在返回 `-EINVAL`。函数从轨道开头往后扫（O(n)，只扫内存里的表，不读文件）。
 
 ```c
-/* mp4_seek_sync(): key frame at or before a time, then read on from there */
-static void demo_seek_sync(const struct mp4_track *t, int32_t target_ms)
+/* mp4_seek_sync(): the key frame at or before a sample, then read on from there */
+static void demo_seek_sync(const struct mp4_track *t, uint32_t index)
 {
-	struct mp4_iter it, scan;
+	struct mp4_iter it;
 	struct mp4_sample s;
-	uint32_t index = 0;
+	int ret = mp4_seek_sync(t, &it, index);
 
-	/* sample index of the first frame whose presentation time reaches the target */
-	mp4_iter_init(t, &scan);
-	while (mp4_next(t, &scan, &s) == 0) {
-		if (to_ms(s.pts - t->media_start, t->timescale) >= target_ms) {
-			index = s.index;
-			break;
-		}
-	}
-	mp4_seek_sync(t, &it, index);
-	printk("seek %d ms: frame %u, restart from sample %u\n", target_ms, index, it.next);
+	printk("seek sample %u: ret=%d, restart from sample %u\n", index, ret, it.next);
 	for (int i = 0; i < 3 && mp4_next(t, &it, &s) == 0; i++) {
 		printk("  #%u off=%u size=%u pts=%d (%d ms) sync=%u\n", s.index,
 		       (uint32_t)s.offset, s.size, (int32_t)s.pts,
@@ -533,29 +546,121 @@ static void demo_seek_sync(const struct mp4_track *t, int32_t target_ms)
 ```
 
 ```text
-seek 0 ms: frame 0, restart from sample 0
+seek sample 0: ret=0, restart from sample 0
   #0 off=4629 size=7604 pts=1024 (0 ms) sync=1
   #1 off=12233 size=2733 pts=2560 (100 ms) sync=0
   #2 off=15304 size=1542 pts=1536 (33 ms) sync=0
-seek 1500 ms: frame 45, restart from sample 45
+seek sample 47: ret=0, restart from sample 45
   #45 off=134516 size=9763 pts=24064 (1500 ms) sync=1
   #46 off=145039 size=4830 pts=26112 (1633 ms) sync=0
   #47 off=150246 size=2400 pts=25088 (1566 ms) sync=0
-seek 2900 ms: frame 84, restart from sample 75
+seek sample 89: ret=0, restart from sample 75
   #75 off=245325 size=11636 pts=39424 (2500 ms) sync=1
   #76 off=257704 size=5481 pts=41472 (2633 ms) sync=0
   #77 off=263536 size=2140 pts=40448 (2566 ms) sync=0
-seek 1500 ms: frame 66, restart from sample 66
+seek sample 1000: ret=0, restart from sample 75
+  #75 off=245325 size=11636 pts=39424 (2500 ms) sync=1
+  #76 off=257704 size=5481 pts=41472 (2633 ms) sync=0
+  #77 off=263536 size=2140 pts=40448 (2566 ms) sync=0
+seek sample 66: ret=0, restart from sample 66
   #66 off=152646 size=372 pts=67584 (1509 ms) sync=1
   #67 off=153018 size=376 pts=68608 (1532 ms) sync=1
   #68 off=155115 size=376 pts=69632 (1555 ms) sync=1
 ```
 
-视频的关键帧在样本 0、15、30、45、60、75，所以 1500 ms 对应样本 45，刚好是关键帧；2900 ms 对应样本 84，往回退到 75（2500 ms），从那里解码 9 帧才到目标画面。音频每个样本都是关键帧，不用回退，seek 到哪就从哪开始。
+视频的关键帧在样本 0、15、30、45、60、75。样本 47 往回退到 45，样本 89 退到 75，1000 超出范围也落在 75。音频每个样本都是关键帧，样本 66 就停在 66。
 
-## 和主机 ffprobe 对比
+### mp4_seek_time
 
-同一个 `clip.mp4`，在主机上用 ffprobe 读出的结果：
+```c
+int mp4_seek_time(const struct mp4_track *t, struct mp4_iter *it, int64_t time);
+```
+
+按播放时间 seek。`time` 的单位是轨道的 `timescale`，0 是播放开始（函数内部加上 `media_start`，调用者不用管编辑列表）。函数找出 `pts` 不早于目标的样本里 `pts` 最小的那个，也就是要显示的那一帧，再像 `mp4_seek_sync()` 一样退到它前面最近的关键帧。有 B 帧时解码顺序和显示顺序不同，所以是按 `pts` 的最小值找，不是解码顺序里第一个超过目标的样本。
+
+- 成功返回 0，迭代器在要开始解码的关键帧上；解码后 `pts - media_start` 小于 `time` 的帧要丢掉，不显示。
+- `time` 超过最后一个样本返回 `-ERANGE`，迭代器在最后一个关键帧上。
+- 轨道不存在返回 `-EINVAL`。
+- 函数扫一遍全部样本，O(n)，不读文件。
+
+```c
+/* mp4_seek_time(): the key frame to start from to show the frame at a playback time */
+static void demo_seek_time(const struct mp4_track *t, int32_t target_ms)
+{
+	struct mp4_iter it;
+	struct mp4_sample s;
+	int64_t ticks = (int64_t)target_ms * t->timescale / 1000;
+	int ret = mp4_seek_time(t, &it, ticks);
+
+	printk("seek %d ms (%d ticks): ret=%d, restart from sample %u\n", target_ms,
+	       (int32_t)ticks, ret, it.next);
+	for (int i = 0; i < 2 && mp4_next(t, &it, &s) == 0; i++) {
+		printk("  #%u off=%u size=%u pts=%d (%d ms, ffprobe pts %d) sync=%u\n", s.index,
+		       (uint32_t)s.offset, s.size, (int32_t)s.pts,
+		       to_ms(s.pts - t->media_start, t->timescale),
+		       (int32_t)(s.pts - t->media_start), s.sync);
+	}
+}
+```
+
+```text
+seek 0 ms (0 ticks): ret=0, restart from sample 0
+  #0 off=4629 size=7604 pts=1024 (0 ms, ffprobe pts 0) sync=1
+  #1 off=12233 size=2733 pts=2560 (100 ms, ffprobe pts 1536) sync=0
+seek 1500 ms (23040 ticks): ret=0, restart from sample 45
+  #45 off=134516 size=9763 pts=24064 (1500 ms, ffprobe pts 23040) sync=1
+  #46 off=145039 size=4830 pts=26112 (1633 ms, ffprobe pts 25088) sync=0
+seek 2000 ms (30720 ticks): ret=0, restart from sample 60
+  #60 off=188864 size=11184 pts=31744 (2000 ms, ffprobe pts 30720) sync=1
+  #61 off=200418 size=5786 pts=33792 (2133 ms, ffprobe pts 32768) sync=0
+seek 2900 ms (44544 ticks): ret=0, restart from sample 75
+  #75 off=245325 size=11636 pts=39424 (2500 ms, ffprobe pts 38400) sync=1
+  #76 off=257704 size=5481 pts=41472 (2633 ms, ffprobe pts 40448) sync=0
+seek 5000 ms (76800 ticks): ret=-34, restart from sample 75
+  #75 off=245325 size=11636 pts=39424 (2500 ms, ffprobe pts 38400) sync=1
+  #76 off=257704 size=5481 pts=41472 (2633 ms, ffprobe pts 40448) sync=0
+seek 1500 ms (66150 ticks): ret=0, restart from sample 66
+  #66 off=152646 size=372 pts=67584 (1509 ms, ffprobe pts 66560) sync=1
+  #67 off=153018 size=376 pts=68608 (1532 ms, ffprobe pts 67584) sync=1
+```
+
+`ret=-34` 是 `-ERANGE`。每一条的“ffprobe pts”是 `pts - media_start`，用来和主机的 ffprobe 对，见下面的验证。
+
+## 关于编辑列表
+
+库不改 `dts`、`pts`，原样给出 `mdhd`/`ctts` 里的值，同时把第一个非空编辑项的 `media_start` 单独放在轨道里。原因有两个：解码器和 B 帧重排需要原始的 `dts`/`pts` 顺序，改了反而要再还原；而减掉 `media_start` 只是一行 `pts - t->media_start`。需要“从 0 开始的播放时间”的地方（比如 `mp4_seek_time()`）库自己处理，其余由调用者减。库只用编辑列表的第一个非空项，多段编辑（拼接、静音段）不处理。
+
+## 验证
+
+下面每一项写验证了什么、怎么验证、板子上看到什么。数据是上面的 `clip.mp4`，主机侧的参照是 ffprobe（`ffprobe -show_entries stream=...`、`-show_entries packet=...`，以及一个脚本 `mp4-seekcheck.py` 从 ffprobe 的包表算出 seek 应该落在哪个关键帧），输出在最后给出。
+
+### 轨道信息
+
+验证 `mp4_open()` 读出的编码、分辨率、时长、样本数和 ffprobe 一致。板子上 `demo_open` 打印：视频 H264、960x540、timescale 15360、duration 46080（3000 ms）、90 个样本、profile_idc 77（Main）、level_idc 31；音频 AAC、2 声道、44100 Hz、131 个样本、AudioSpecificConfig `12 10`。ffprobe 给出 h264 Main level 31、960x540、time_base 1/15360、duration_ts 46080、nb_frames 90，以及 aac LC、44100 Hz、2 声道、nb_frames 131。一致。
+
+音频时长不同：库给的是 `mdhd` 里的 134144（3041 ms），ffprobe 的 `duration_ts` 是 133094，它按编辑列表算实际呈现的时长。这不是错，`mp4_track.duration` 就是 `mdhd` 的值。
+
+### 样本位置和大小
+
+验证 `mp4_next()` 算出的 `offset`、`size`。板子上视频 #0..#7 是 4629/7604、12233/2733、15304/1542、17587/1138、19087/2503、22308/1294、23961/1109、25811/2641；音频 #0..#3 是 14966/338、16846/408、17254/333、18725/362。ffprobe 的 `pos`/`size` 完全相同。另外 `demo_next` 用读回调读出视频 #0 的前 8 字节：`00 00 02 bc 06 ...`，是 4 字节长度加一个 SEI NAL，符合 MP4 里 H.264 的长度前缀格式。
+
+### 样本总数、字节数、关键帧
+
+验证走完整条轨道（`demo_next_all`）。板子上视频 90 个样本、6 个关键帧、248350 字节，音频 131 个样本、48673 字节，最后都返回 `-ENODATA`。ffprobe 的合计一样：视频 90/6/248350，音频 131/48673；关键帧在包序号 0 15 30 45 60 75。
+
+### 时间戳和编辑列表
+
+验证 `dts`、`pts`、`media_start`。板子上视频 #0 `dts=0 pts=1024`，#1 `pts=2560`，#2 `pts=1536`，`media_start=1024`；ffprobe 的是 `dts=-1024 pts=0`、`pts=1536`、`pts=512`。差都是 1024，也就是 `media_start`。视频 `dts` 每帧加 512，`pts` 不单调，是 B 帧。音频 #0 板子 `pts=0`，ffprobe 是 -1024，同样差 1024，换算成 -23 ms，是编码器延迟。
+
+### 错误路径
+
+验证 `mp4_open()` 和 `mp4_iter_init()` 的返回值，用 `demo_open_errors` 和 `demo_iter_init_errors`。板子上：长度 4 返回 `-2`，长度 16 返回 `-22`，读回调失败返回 `-5`，全零数据返回 `-2`；已关闭的轨道、全零的轨道、`NULL` 轨道调用 `mp4_iter_init()` 都返回 `-22`。这些是库代码的预期返回值，没有 ffprobe 可比的部分。`mp4_close()` 关闭两次也没有问题（`demo_close`）。
+
+### seek
+
+验证 `mp4_seek_sync()` 和 `mp4_seek_time()` 落在 ffprobe 算出的关键帧上。`mp4-seekcheck.py` 对每个目标时间，在 ffprobe 的包表里找 `pts` 不早于目标的最小者，再往前找最近的关键帧。板子上 `mp4_seek_time()` 的结果：0 ms 到样本 0、1500 ms 到 45、2000 ms 到 60、2900 ms 到 75、5000 ms 返回 `-ERANGE` 并停在 75；音频 1500 ms 到 66。脚本给出的：0、45、60、75、越界、音频 66。完全一致，找到的关键帧的 `pts - media_start` 也和 ffprobe 的 `pts` 相同（23040、30720、……）。`mp4_seek_sync()` 的样本 47、89、1000、音频 66 分别落在 45、75、75、66，和关键帧列表 0 15 30 45 60 75 一致。
+
+### ffprobe 输出
 
 ```text
 $ ffprobe -hide_banner clip.mp4  (streams)
@@ -594,27 +699,30 @@ samples=131 bytes=48673
 
 $ ffprobe -show_entries format=size,duration
 format|duration=3.018005|size=301652
+
+$ python3 seekcheck.py clip.mp4  (ffprobe 的包表：目标时间之后 pts 最小的帧，以及它所属的关键帧；序号按解码顺序从 0 起)
+video 0 ms (0 ticks): frame 0 pts 0, key frame 0
+video 1500 ms (23040 ticks): frame 45 pts 23040, key frame 45
+video 2000 ms (30720 ticks): frame 60 pts 30720, key frame 60
+video 2900 ms (44544 ticks): frame 84 pts 44544, key frame 75
+video 5000 ms (76800 ticks): past the end
+audio 1500 ms (66150 ticks): frame 66 pts 66560, key frame 66
 ```
 
-逐项对照：
+### 没有验证的
 
-| 项 | `mp4` 库（板子） | ffprobe（主机） |
-| --- | --- | --- |
-| 视频编码、规格 | H264，profile_idc 77，level_idc 31 | h264 Main，level 31 |
-| 视频分辨率 | 960x540 | 960x540 |
-| 视频时间基、时长 | timescale 15360，duration 46080（3000 ms） | time_base 1/15360，duration_ts 46080 |
-| 视频样本数 | 90 | nb_frames 90 |
-| 视频关键帧 | 6 个，序号 0、15、30、45、60、75（由 seek 输出推得） | 6 个，序号 0 15 30 45 60 75 |
-| 视频总字节数 | 248350 | 248350 |
-| 视频样本 #0..#7 的偏移和大小 | 4629/7604、12233/2733、15304/1542、17587/1138、19087/2503、22308/1294、23961/1109、25811/2641 | pos/size 完全相同 |
-| 音频编码 | AAC，2 ch，44100 Hz | aac LC，44100 Hz，2 声道 |
-| 音频样本数、总字节数 | 131，48673 | nb_frames 131，总字节 48673 |
-| 音频样本 #0..#3 的偏移和大小 | 14966/338、16846/408、17254/333、18725/362 | pos/size 完全相同 |
-| 文件大小 | 301652 | 301652 |
+这些项没有对应的测试文件，或者本文的演示没有覆盖，所以没有验证，库代码里有对应的分支：
 
-时间戳的差别是编辑列表造成的：ffprobe 给出的 `pts`、`dts` 已经减去了 `media_start`（1024 tick）。板子上的视频 #0 `dts=0 pts=1024`，ffprobe 的是 `dts=-1024 pts=0`，差正好是 1024；视频 #1 板子 `pts=2560`，ffprobe 是 1536，同样差 1024；音频 #0 板子 `pts=0`，ffprobe 是 -1024。所以 `pts - media_start` 就是 ffprobe 的 `pts`，也是播放时间。
-
-音频的 `duration` 也不同：库给的是 `mdhd` 里的媒体时长 134144（3041 ms），ffprobe 的 `duration_ts` 是 133094，它按编辑列表算出实际呈现的时长。要精确知道播放时长，用 `duration - media_start` 作近似，或者看最后一个样本的时间戳。
+| 项 | 没有验证的原因 |
+| --- | --- |
+| 分片 MP4（`moof`） | 库不支持：影片盒里没有样本表，`mp4_open()` 返回 `-EINVAL`。没有用分片文件试过 |
+| `co64`，偏移超过 32 位 | 库只存 32 位块偏移，高 32 位非 0 返回 `-EFBIG`；演示片段用的是 `stco`，没有 `co64` 文件 |
+| `avc3`、`mdhd`/`elst` 版本 1、`stsd` 超过 1024 字节 | 演示片段是 `avc1`、版本 0、`stsd` 185 字节 |
+| 多条同类轨道、其他编码的轨道 | 演示片段只有一条视频一条音频；“忽略其余轨道”没有用多轨道文件试过 |
+| 只有视频或只有音频的文件 | 同上，没有这样的片段 |
+| 从 SD 卡的文件读 | 演示的读回调读内存数组，没有接 `fs_read()`；播放器用 SD 卡文件，见 [MP4 播放器](../apps/mp4-player.md) |
+| 样本内容的解码 | 库不解码，板子上只核对了 NAL 长度前缀 |
+| 多段编辑列表 | 库只用第一个非空编辑项，没有多段编辑的文件 |
 
 ## 完整演示程序
 
@@ -809,10 +917,29 @@ static void demo_close(void)
 static void demo_iter_init(const struct mp4_track *t)
 {
 	struct mp4_iter it;
+	int ret = mp4_iter_init(t, &it);
 
-	mp4_iter_init(t, &it);
+	if (ret != 0) {
+		printk("mp4_iter_init: %d\n", ret);
+		return;
+	}
 	printk("next=%u chunk=%u in_chunk=%u chunk_pos=%u stts_left=%u dts=%d\n", it.next,
 	       it.chunk, it.in_chunk, (uint32_t)it.chunk_pos, it.stts_left, (int32_t)it.dts);
+}
+
+/* mp4_iter_init() on a track the file does not have */
+static void demo_iter_init_errors(void)
+{
+	struct mp4 m;
+	struct mp4_iter it;
+	struct mp4_track none = {0};
+
+	/* a track after mp4_close(), and one that was never filled in */
+	mp4_open(&m, mem_read, (void *)clip, sizeof(clip));
+	mp4_close(&m);
+	printk("track closed: ret=%d\n", mp4_iter_init(&m.audio, &it));
+	printk("empty track: ret=%d\n", mp4_iter_init(&none, &it));
+	printk("NULL track: ret=%d\n", mp4_iter_init(NULL, &it));
 }
 
 /* mp4_next(): list the first samples of a track and read the first one */
@@ -864,27 +991,36 @@ static void demo_next_all(const struct mp4_track *t, const char *name)
 	       (uint32_t)bytes, (int32_t)s.dts, (int32_t)s.pts);
 }
 
-/* mp4_seek_sync(): key frame at or before a time, then read on from there */
-static void demo_seek_sync(const struct mp4_track *t, int32_t target_ms)
+/* mp4_seek_sync(): the key frame at or before a sample, then read on from there */
+static void demo_seek_sync(const struct mp4_track *t, uint32_t index)
 {
-	struct mp4_iter it, scan;
+	struct mp4_iter it;
 	struct mp4_sample s;
-	uint32_t index = 0;
+	int ret = mp4_seek_sync(t, &it, index);
 
-	/* sample index of the first frame whose presentation time reaches the target */
-	mp4_iter_init(t, &scan);
-	while (mp4_next(t, &scan, &s) == 0) {
-		if (to_ms(s.pts - t->media_start, t->timescale) >= target_ms) {
-			index = s.index;
-			break;
-		}
-	}
-	mp4_seek_sync(t, &it, index);
-	printk("seek %d ms: frame %u, restart from sample %u\n", target_ms, index, it.next);
+	printk("seek sample %u: ret=%d, restart from sample %u\n", index, ret, it.next);
 	for (int i = 0; i < 3 && mp4_next(t, &it, &s) == 0; i++) {
 		printk("  #%u off=%u size=%u pts=%d (%d ms) sync=%u\n", s.index,
 		       (uint32_t)s.offset, s.size, (int32_t)s.pts,
 		       to_ms(s.pts - t->media_start, t->timescale), s.sync);
+	}
+}
+
+/* mp4_seek_time(): the key frame to start from to show the frame at a playback time */
+static void demo_seek_time(const struct mp4_track *t, int32_t target_ms)
+{
+	struct mp4_iter it;
+	struct mp4_sample s;
+	int64_t ticks = (int64_t)target_ms * t->timescale / 1000;
+	int ret = mp4_seek_time(t, &it, ticks);
+
+	printk("seek %d ms (%d ticks): ret=%d, restart from sample %u\n", target_ms,
+	       (int32_t)ticks, ret, it.next);
+	for (int i = 0; i < 2 && mp4_next(t, &it, &s) == 0; i++) {
+		printk("  #%u off=%u size=%u pts=%d (%d ms, ffprobe pts %d) sync=%u\n", s.index,
+		       (uint32_t)s.offset, s.size, (int32_t)s.pts,
+		       to_ms(s.pts - t->media_start, t->timescale),
+		       (int32_t)(s.pts - t->media_start), s.sync);
 	}
 }
 
@@ -900,6 +1036,7 @@ int main(void)
 	demo_close();
 	printk("\n== mp4_iter_init ==\n");
 	demo_iter_init(&mp4.video);
+	demo_iter_init_errors();
 	printk("\n== mp4_next ==\n");
 	demo_next(&mp4.video, "video", 8);
 	demo_next(&mp4.audio, "audio", 4);
@@ -907,9 +1044,17 @@ int main(void)
 	demo_next_all(&mp4.audio, "audio");
 	printk("\n== mp4_seek_sync ==\n");
 	demo_seek_sync(&mp4.video, 0);
-	demo_seek_sync(&mp4.video, 1500);
-	demo_seek_sync(&mp4.video, 2900);
-	demo_seek_sync(&mp4.audio, 1500);
+	demo_seek_sync(&mp4.video, 47);
+	demo_seek_sync(&mp4.video, 89);
+	demo_seek_sync(&mp4.video, 1000);
+	demo_seek_sync(&mp4.audio, 66);
+	printk("\n== mp4_seek_time ==\n");
+	demo_seek_time(&mp4.video, 0);
+	demo_seek_time(&mp4.video, 1500);
+	demo_seek_time(&mp4.video, 2000);
+	demo_seek_time(&mp4.video, 2900);
+	demo_seek_time(&mp4.video, 5000);
+	demo_seek_time(&mp4.audio, 1500);
 	mp4_close(&mp4);
 	printk("\nmp4_api done\n");
 
@@ -954,6 +1099,9 @@ closed twice without trouble
 
 == mp4_iter_init ==
 next=0 chunk=0 in_chunk=0 chunk_pos=4629 stts_left=90 dts=0
+track closed: ret=-22
+empty track: ret=-22
+NULL track: ret=-22
 
 == mp4_next ==
 video #0 off=4629 size=7604 dts=0 pts=1024 (0 ms) sync=1
@@ -974,22 +1122,46 @@ video: ret=-61 samples=90 sync=6 bytes=248350 last dts=45568 pts=46080
 audio: ret=-61 samples=131 sync=131 bytes=48673 last dts=133120 pts=133120
 
 == mp4_seek_sync ==
-seek 0 ms: frame 0, restart from sample 0
+seek sample 0: ret=0, restart from sample 0
   #0 off=4629 size=7604 pts=1024 (0 ms) sync=1
   #1 off=12233 size=2733 pts=2560 (100 ms) sync=0
   #2 off=15304 size=1542 pts=1536 (33 ms) sync=0
-seek 1500 ms: frame 45, restart from sample 45
+seek sample 47: ret=0, restart from sample 45
   #45 off=134516 size=9763 pts=24064 (1500 ms) sync=1
   #46 off=145039 size=4830 pts=26112 (1633 ms) sync=0
   #47 off=150246 size=2400 pts=25088 (1566 ms) sync=0
-seek 2900 ms: frame 84, restart from sample 75
+seek sample 89: ret=0, restart from sample 75
   #75 off=245325 size=11636 pts=39424 (2500 ms) sync=1
   #76 off=257704 size=5481 pts=41472 (2633 ms) sync=0
   #77 off=263536 size=2140 pts=40448 (2566 ms) sync=0
-seek 1500 ms: frame 66, restart from sample 66
+seek sample 1000: ret=0, restart from sample 75
+  #75 off=245325 size=11636 pts=39424 (2500 ms) sync=1
+  #76 off=257704 size=5481 pts=41472 (2633 ms) sync=0
+  #77 off=263536 size=2140 pts=40448 (2566 ms) sync=0
+seek sample 66: ret=0, restart from sample 66
   #66 off=152646 size=372 pts=67584 (1509 ms) sync=1
   #67 off=153018 size=376 pts=68608 (1532 ms) sync=1
   #68 off=155115 size=376 pts=69632 (1555 ms) sync=1
+
+== mp4_seek_time ==
+seek 0 ms (0 ticks): ret=0, restart from sample 0
+  #0 off=4629 size=7604 pts=1024 (0 ms, ffprobe pts 0) sync=1
+  #1 off=12233 size=2733 pts=2560 (100 ms, ffprobe pts 1536) sync=0
+seek 1500 ms (23040 ticks): ret=0, restart from sample 45
+  #45 off=134516 size=9763 pts=24064 (1500 ms, ffprobe pts 23040) sync=1
+  #46 off=145039 size=4830 pts=26112 (1633 ms, ffprobe pts 25088) sync=0
+seek 2000 ms (30720 ticks): ret=0, restart from sample 60
+  #60 off=188864 size=11184 pts=31744 (2000 ms, ffprobe pts 30720) sync=1
+  #61 off=200418 size=5786 pts=33792 (2133 ms, ffprobe pts 32768) sync=0
+seek 2900 ms (44544 ticks): ret=0, restart from sample 75
+  #75 off=245325 size=11636 pts=39424 (2500 ms, ffprobe pts 38400) sync=1
+  #76 off=257704 size=5481 pts=41472 (2633 ms, ffprobe pts 40448) sync=0
+seek 5000 ms (76800 ticks): ret=-34, restart from sample 75
+  #75 off=245325 size=11636 pts=39424 (2500 ms, ffprobe pts 38400) sync=1
+  #76 off=257704 size=5481 pts=41472 (2633 ms, ffprobe pts 40448) sync=0
+seek 1500 ms (66150 ticks): ret=0, restart from sample 66
+  #66 off=152646 size=372 pts=67584 (1509 ms, ffprobe pts 66560) sync=1
+  #67 off=153018 size=376 pts=68608 (1532 ms, ffprobe pts 67584) sync=1
 
 mp4_api done
 ```

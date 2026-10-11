@@ -1134,7 +1134,7 @@ static void demo_stream_close(void)
 | `cedarc <JpegMallocFrmBuffer:320>: n_memory_usage=2, nFrameNum=…` | 在失败的 JPEG 解码附近出现 |
 | `cedarc <JpegMallocFrmBuffer:385>: memory not enough` | 同上 |
 
-这些日志是延迟输出的，会和演示程序的 `printk` 交错，我没有逐条核对它们各自对应演示程序里的哪一次调用，所以只列现象，不下结论。
+这些日志是延迟输出的，会和演示程序的 `printk` 交错，没有逐条对应到演示程序里的具体调用，这里只列出现的现象。
 
 ## 示例
 

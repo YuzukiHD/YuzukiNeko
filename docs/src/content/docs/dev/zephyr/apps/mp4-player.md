@@ -58,7 +58,7 @@ ffprobe -v error -show_entries stream=codec_name,profile,width,height,r_frame_ra
 
 ### 示例视频
 
-本页的照片和日志用的是 Pixabay 上的一段风景视频：[旅行、自然、景观](https://pixabay.com/zh/videos/travel-nature-landscape-vacation-363550/)，作者 Hoangbuifilms。该页面标明“在 Pixabay 内容许可下免费使用”，是否需要署名、能否商用等具体条款以页面链接的 [Pixabay 许可摘要](https://pixabay.com/service/license-summary/) 为准。视频文件本身不随文档分发，请自行从 Pixabay 下载。
+本文的照片和日志用的是 Pixabay 上的一段风景视频：[旅行、自然、景观](https://pixabay.com/zh/videos/travel-nature-landscape-vacation-363550/)，作者 Hoangbuifilms。该页面标明“在 Pixabay 内容许可下免费使用”，是否需要署名、能否商用等具体条款以页面链接的 [Pixabay 许可摘要](https://pixabay.com/service/license-summary/) 为准。视频文件本身不随文档分发，请自行从 Pixabay 下载。
 
 原片是 3840×2160、24 fps、HEVC Main 10（10 位）、AAC 48 kHz，约 10.7 秒、208 MiB，播放器不能直接播。用下面的命令转成 960×540、H.264 Main、AAC 44.1 kHz：
 
@@ -105,13 +105,13 @@ west build -b yuzukineko -d build/mp4 zephyr/samples/drivers/mp4_player
 
 ## 功能与修改位置
 
-先看总表，再看每一项的细节。`main.c` 的行号以加了 `#include <zephyr/kernel.h>`（放在 AAC 头文件之前，解决 picolibc 的编译冲突）之后的版本为准，没有加的话每行少 1。
+下表列出各项功能在 `main.c` 里的位置，每一项的细节在后面各小节。`main.c` 的行号对应 fork 里现在的版本，它在 AAC 头文件之前带有 `#include <zephyr/kernel.h>`（解决 picolibc 的编译冲突）。
 
 | 功能 | 位置 | 怎么改 |
 | --- | --- | --- |
 | 打开文件 | `main.c` 404–426 行，路径来自 `CONFIG_SAMPLE_MP4_FILE` | 编译时改路径，见下 |
 | 音量 | `main.c` 的 `audio_main()`，174–179 行 | 改 `.vol` 的值（0–255） |
-| seek | <strong>示例没有实现</strong>；库里有 `mp4_seek_sync()` | 需要自己在 `main()` 里加，见下 |
+| seek | <strong>示例没有实现</strong>；库里有 `mp4_seek_sync()` 和 `mp4_seek_time()` | 需要自己在 `main()` 里加，见下 |
 | 叠加层 | 启动在 `main.c` 467 行；实现在 `h264_player/src/overlay.c` | 删掉启动那一行，或改 `overlay.c` 里的常量 |
 | 音视频同步阈值 | `main.c` 开头的 `DROP_US`、`LEAD_US` | 改宏的值 |
 | 统计打印间隔 | `main.c` 开头的 `REPORT_MS` | 改宏的值 |
@@ -195,22 +195,24 @@ audio_codec_set_property(codec_ctl, AUDIO_PROPERTY_OUTPUT_MUTE, AUDIO_CHANNEL_AL
 
 ### seek：示例里没有，库里有什么
 
-<strong>示例没有 seek。</strong>视频和音频都是从头顺序读到尾，`main.c` 里没有任何跳转的代码。能用的只有解封装库的一个函数，在 `lib/mp4/mp4.c` 的 621 行：
+<strong>示例没有 seek。</strong>视频和音频都是从头顺序读到尾，`main.c` 里没有任何跳转的代码。解封装库里有两个定位函数，在 `lib/mp4/mp4.c` 的 628 行和 652 行：
 
 ```c
 int mp4_seek_sync(const struct mp4_track *t, struct mp4_iter *it, uint32_t index);
+int mp4_seek_time(const struct mp4_track *t, struct mp4_iter *it, int64_t time);
 ```
 
-它把迭代器放到 `index` 之前（含）最近的一个关键帧上。注意：
+`mp4_seek_sync()` 把迭代器放到 `index` 之前（含）最近的一个关键帧上；`mp4_seek_time()` 按播放时间（轨道 timescale 的刻度，0 是开头，内部会加上 `media_start`）找到要显示的那一帧，再定位到它之前的关键帧。注意：
 
-- 它是从轨道开头一个样本一个样本扫过去的，所以 `index` 越大越慢。
-- 它只认<strong>样本序号</strong>。库里没有“时间 → 样本序号”的函数，要自己用轨道的样本表（`mp4_track` 里的 `stts`、`timescale`）换算，或者按帧率估算。
-- 它总是返回 0。
+- 两个函数都是从轨道开头一个样本一个样本扫过去的，所以目标越靠后越慢。
+- `mp4_seek_sync()` 只认<strong>样本序号</strong>；`index` 超过末尾时定位到最后一个关键帧。
+- `mp4_seek_time()` 的时间超过最后一个样本时，迭代器放在最后一个关键帧上，返回 `-ERANGE`。
+- 轨道不存在（`codec` 是 `MP4_CODEC_NONE`）或没有样本表时，两个函数都返回 `-EINVAL`；其余情况返回 0。
 
 要给播放器加 seek，`main()` 里至少要改这几处。下面是设计思路，示例里没有这些代码：
 
-1. 选定目标时间，换算成视频的样本序号。
-2. 对视频轨道调 `mp4_seek_sync(v, &it, index)`，之后的 `mp4_next()` 就从关键帧开始读。视频循环里已经有 `first || s.sync` 的判断，会在关键帧前补上 SPS/PPS。
+1. 选定目标时间。
+2. 对视频轨道调 `mp4_seek_time(v, &it, time)`（已经知道样本序号时用 `mp4_seek_sync(v, &it, index)`），之后的 `mp4_next()` 就从关键帧开始读。视频循环里已经有 `first || s.sync` 的判断，会在关键帧前补上 SPS/PPS。
 3. 解码器里还有跳转之前的数据和参考帧，要让它丢掉。比较稳妥的做法是释放所有帧、关闭解码流再重新打开。
 4. 音频轨道也要跳到对应的时间，并把 I2S 重新启动。
 5. 音频时钟 `audio_clock_us()` 是从流开始算的，跳转后会从 0 重新计时，而视频的时间戳是文件里的绝对时间，所以 `wait_for()` 比较前要加上跳转的偏移。
@@ -241,13 +243,14 @@ int mp4_seek_sync(const struct mp4_track *t, struct mp4_iter *it, uint32_t index
 
 要改面板的位置或大小，同时检查帧缓冲窗口 `CONFIG_DISPLAY_SUNXI_FB_WINDOW_WIDTH/HEIGHT`（现在是 400×400）是否还罩得住它，罩不住的部分不会显示。
 
-不想要叠加层：把 `overlay_start();` 这一行删掉，叠加层线程就不会启动。要彻底去掉，还要从 `CMakeLists.txt` 里删掉 `overlay.c`，并去掉 `prj.conf` 里的 LVGL 相关选项。这样改我没有编译验证过。
+不想要叠加层：把 `overlay_start();` 这一行删掉，叠加层线程就不会启动。要彻底去掉，还要从 `CMakeLists.txt` 里删掉 `overlay.c`，并去掉 `prj.conf` 里的 LVGL 相关选项。这样改没有编译验证过。
 
 ## 配置选项
 
 | 选项 | 默认 | 说明 |
 | --- | --- | --- |
 | `CONFIG_SAMPLE_MP4_FILE` | `"/SD:/video540p.mp4"` | 要播放的文件。TF 卡挂载在 `/SD:` |
+| `CONFIG_SAMPLE_MP4_INFO_ONLY` | 否 | 只列出轨道并检查样本表，不播放 |
 
 改法有两种，任选一种。编译时覆盖：
 
@@ -806,9 +809,10 @@ mp4_close(&m);
 | --- | --- |
 | `int mp4_open(struct mp4 *m, mp4_read_t read, void *ctx, uint64_t file_size)` | 解析 movie box。不是 H.264/AAC 的轨道会被忽略。成功返回 0，失败返回负的 errno |
 | `void mp4_close(struct mp4 *m)` | 释放样本表 |
-| `void mp4_iter_init(const struct mp4_track *t, struct mp4_iter *it)` | 把迭代器放到轨道开头 |
+| `int mp4_iter_init(const struct mp4_track *t, struct mp4_iter *it)` | 把迭代器放到轨道开头。轨道不存在或没有样本表返回 `-EINVAL` |
 | `int mp4_next(const struct mp4_track *t, struct mp4_iter *it, struct mp4_sample *s)` | 取下一个样本，到末尾返回 `-ENODATA` |
 | `int mp4_seek_sync(const struct mp4_track *t, struct mp4_iter *it, uint32_t index)` | 把迭代器定位到 `index` 之前（含）最近的关键帧 |
+| `int mp4_seek_time(const struct mp4_track *t, struct mp4_iter *it, int64_t time)` | 按播放时间定位到要开始解码的关键帧，时间超出末尾返回 `-ERANGE` |
 
 回调 `mp4_read_t` 的签名是 `int (*)(void *ctx, uint64_t offset, void *buf, size_t len)`，读到 `len` 字节返回 0，出错返回负的 errno。
 

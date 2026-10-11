@@ -128,8 +128,12 @@ gpiob: gpio@2000030 {
 ### 绑定：allwinner,sunxi-gpio.yaml
 
 ```yaml
+# Copyright (c) 2026 Yuzuki Tsuru
+# SPDX-License-Identifier: Apache-2.0
+
 description: |
   Allwinner sunxi PIO GPIO controller.
+
   Each DT gpio node covers one PIO bank (PA..PF), identified by the
   'allwinner,bank' property. The 'allwinner,pio-hw-type' property selects
   the PIO register layout used by the driver (see
@@ -143,14 +147,24 @@ include: [gpio-controller.yaml, base.yaml]
 properties:
   reg:
     required: true
+
   interrupts:
     required: true
+
   allwinner,pio-hw-type:
     required: true
     type: int
+    description: |
+      PIO hardware layout type. See
+      include/zephyr/drivers/pinctrl/pinctrl_sunxi.h for the register
+      layout description of each type.
+
   allwinner,bank:
     required: true
     type: int
+    description: |
+      PIO bank number of this controller (PA = 0, PB = 1, ...).
+
   "#gpio-cells":
     const: 2
 
@@ -548,10 +562,10 @@ int gpio_pin_interrupt_configure_dt(const struct gpio_dt_spec *spec, gpio_flags_
 | --- | --- |
 | `GPIO_INT_EDGE_RISING`、`GPIO_INT_EDGE_FALLING`、`GPIO_INT_EDGE_BOTH` | 边沿触发 |
 | `GPIO_INT_LEVEL_HIGH`、`GPIO_INT_LEVEL_LOW` | 电平触发 |
-| `GPIO_INT_DISABLE` | 关掉这个引脚的中断，并把复用功能恢复为打开中断前的值 |
+| `GPIO_INT_DISABLE` | 关掉这个引脚的中断；如果引脚还在中断功能上，把复用功能恢复为打开中断前的值 |
 
 :::caution
-打开引脚中断时驱动把这个引脚切到外部中断功能（复用功能 14），原来的功能存下来。之后再对同一个引脚调用 `gpio_pin_configure`，复用功能会被写成“输入”或“输出”，中断就收不到了。所以改过引脚配置以后，要再调用一次 `gpio_pin_interrupt_configure_dt`。
+打开引脚中断时驱动把这个引脚切到外部中断功能（复用功能 14），原来的功能存下来；已经打开中断的引脚再次打开时不会覆盖存下来的功能。之后再对同一个引脚调用 `gpio_pin_configure`，复用功能会被写成“输入”或“输出”，中断就收不到了。所以改过引脚配置以后，要再调用一次 `gpio_pin_interrupt_configure_dt`。
 :::
 
 演示：PB3 先下拉，装载上升沿；改成上拉制造一个上升沿，回调触发 1 次；改回下拉是下降沿，不是装载的上升沿，回调次数是 0。

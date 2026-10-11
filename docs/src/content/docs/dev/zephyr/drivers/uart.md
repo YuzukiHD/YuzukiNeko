@@ -8,9 +8,9 @@ F101 有 6 个 UART（`uart0`…`uart5`）。Zephyr 里用的是上游的 NS1655
 | --- | --- |
 | 设备 | `uart0`…`uart5` |
 | 数据位 | 5、6、7、8 |
-| 停止位 | 1、1.5、2 |
+| 停止位 | 1、2（1.5 位返回 `-ENOTSUP`） |
 | 校验 | 无、偶校验（奇校验返回 `-ENOTSUP`） |
-| 流控 | 无、RTS/CTS、DTR/DSR |
+| 流控 | `uart_configure` 接受无、RTS/CTS、DTR/DSR 并记录；硬件自动流控见下面的说明 |
 | 接口 | 轮询（`uart_poll_in`/`uart_poll_out`）、中断（`uart_irq_*`、`uart_fifo_*`） |
 
 ## 设备树
@@ -139,7 +139,7 @@ uart1: serial@2500400 {
 | `interrupts` | 是 | 中断 |
 | `clocks`、`resets` | 是 | 总线时钟和复位 |
 | `current-speed` | 是 | 波特率 |
-| `hw-flow-control` | 否 | 打开 RTS/CTS 硬件流控 |
+| `hw-flow-control` | 否 | 把初始流控记为 RTS/CTS；是否真的打开硬件自动流控见下面 |
 | `parity` | 否 | 0 无、1 奇、2 偶；这个移植里奇校验不能用 |
 | `stop-bits`、`data-bits` | 否 | 停止位、数据位 |
 | `pinctrl-0`、`pinctrl-names` | 否 | 引脚，见 [GPIO 页的 pinctrl 一节](gpio.md#引脚复用pinctrl) |
@@ -215,6 +215,8 @@ static void demo_configure(void)
 		  .data_bits = UART_CFG_DATA_BITS_8, .flow_ctrl = UART_CFG_FLOW_CTRL_NONE },
 		{ .baudrate = 115200, .parity = UART_CFG_PARITY_NONE, .stop_bits = UART_CFG_STOP_BITS_2,
 		  .data_bits = UART_CFG_DATA_BITS_8, .flow_ctrl = UART_CFG_FLOW_CTRL_NONE },
+		{ .baudrate = 115200, .parity = UART_CFG_PARITY_NONE, .stop_bits = UART_CFG_STOP_BITS_1_5,
+		  .data_bits = UART_CFG_DATA_BITS_8, .flow_ctrl = UART_CFG_FLOW_CTRL_NONE },
 		{ .baudrate = 115200, .parity = UART_CFG_PARITY_NONE, .stop_bits = UART_CFG_STOP_BITS_1,
 		  .data_bits = UART_CFG_DATA_BITS_7, .flow_ctrl = UART_CFG_FLOW_CTRL_NONE },
 		{ .baudrate = 115200, .parity = UART_CFG_PARITY_NONE, .stop_bits = UART_CFG_STOP_BITS_1,
@@ -258,7 +260,7 @@ static void demo_configure(void)
 [config] 115200 baud, parity 0, stop bits 1, data bits 3, flow 2 = 0; read back 115200, 0, 1, 3, 2
 ```
 
-第 4 行是奇校验，返回 `-ENOTSUP`，读回的还是上一次成功的偶校验。
+第 4 行是奇校验，返回 `-ENOTSUP`，读回的还是上一次成功的偶校验。第 6 行是 1.5 位停止位，驱动只接受 1 位和 2 位，同样返回 `-ENOTSUP`，配置保持不变。最后两行流控读回 1、2，只说明设置被记下了：`uart_ns16550.c` 只在选了 `UART_NS16550_VARIANT_NS16750` 或 `UART_NS16550_VARIANT_NS16950` 时才会置 MCR 的自动流控位（AFCE），F101 用的是默认的 NS16550 变体，所以 `hw-flow-control` 和 `UART_CFG_FLOW_CTRL_RTS_CTS` 现在不会打开硬件流控。这一点来自驱动源码，没有在板上用示波器或对端设备验证。
 
 ### uart_poll_out
 
@@ -643,6 +645,8 @@ static void demo_configure(void)
 		  .data_bits = UART_CFG_DATA_BITS_8, .flow_ctrl = UART_CFG_FLOW_CTRL_NONE },
 		{ .baudrate = 115200, .parity = UART_CFG_PARITY_NONE, .stop_bits = UART_CFG_STOP_BITS_2,
 		  .data_bits = UART_CFG_DATA_BITS_8, .flow_ctrl = UART_CFG_FLOW_CTRL_NONE },
+		{ .baudrate = 115200, .parity = UART_CFG_PARITY_NONE, .stop_bits = UART_CFG_STOP_BITS_1_5,
+		  .data_bits = UART_CFG_DATA_BITS_8, .flow_ctrl = UART_CFG_FLOW_CTRL_NONE },
 		{ .baudrate = 115200, .parity = UART_CFG_PARITY_NONE, .stop_bits = UART_CFG_STOP_BITS_1,
 		  .data_bits = UART_CFG_DATA_BITS_7, .flow_ctrl = UART_CFG_FLOW_CTRL_NONE },
 		{ .baudrate = 115200, .parity = UART_CFG_PARITY_NONE, .stop_bits = UART_CFG_STOP_BITS_1,
@@ -871,6 +875,7 @@ west build -b yuzukineko -d build/uart-api uart_api
 [config] 115200 baud, parity 2, stop bits 1, data bits 3, flow 0 = 0; read back 115200, 2, 1, 3, 0
 [config] 115200 baud, parity 1, stop bits 1, data bits 3, flow 0 = -ENOTSUP; read back 115200, 2, 1, 3, 0
 [config] 115200 baud, parity 0, stop bits 3, data bits 3, flow 0 = 0; read back 115200, 0, 3, 3, 0
+[config] 115200 baud, parity 0, stop bits 2, data bits 3, flow 0 = -ENOTSUP; read back 115200, 0, 3, 3, 0
 [config] 115200 baud, parity 0, stop bits 1, data bits 2, flow 0 = 0; read back 115200, 0, 1, 2, 0
 [config] 115200 baud, parity 0, stop bits 1, data bits 3, flow 1 = 0; read back 115200, 0, 1, 3, 1
 [config] 115200 baud, parity 0, stop bits 1, data bits 3, flow 2 = 0; read back 115200, 0, 1, 3, 2

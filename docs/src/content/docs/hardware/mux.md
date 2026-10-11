@@ -10,7 +10,7 @@ title: "引脚复用 (MUX)"
 - Function11–13 保留；<strong>外部中断 EINT 是 Function14</strong>。
 - 表中 `F<n>` 即 pinmux 的 Function 编号，同一行里的功能互斥。
 - 在软件中通常用 `port + 引脚号 + mux` 三元组选择，例如 Zephyr 设备树里的 `ALLWINNER_PINMUX(port, num, mux)`。
-- 本页使用的是<strong>实际 SoC GPIO 名</strong>。V1.3 板的丝印请先按[勘误](errata.md)换算。
+- 本文使用的是<strong>实际 SoC GPIO 名</strong>。V1.3 板的丝印请先按[勘误](errata.md)换算。
 
 ## 左侧排针
 

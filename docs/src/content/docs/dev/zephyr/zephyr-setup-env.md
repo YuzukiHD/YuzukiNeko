@@ -5,7 +5,7 @@ title: "配置开发环境"
 这一页在 Linux 主机上准备好编译 YuzukiNeko 的 Zephyr 程序所需的一切：系统依赖、Python 虚拟环境、west、玄铁（XuanTie）工具链，以及下载用的 xfel。做完之后，下一篇 [获取 Zephyr 代码](zephyr-get-source.md) 才有地方放代码。
 
 :::caution
-本页以 <strong>Ubuntu 24.04（x86_64）</strong> 为准。其他发行版请把 `apt` 包换成对应名字；Windows 建议用 WSL2，macOS 未验证。
+本文以 <strong>Ubuntu 24.04（x86_64）</strong> 为准。其他发行版请把 `apt` 包换成对应名字；Windows 建议用 WSL2，macOS 未验证。
 :::
 
 ## 工作区目录
@@ -14,9 +14,9 @@ title: "配置开发环境"
 
 ```text
 ~/f101-zephyr/
-├── .venv/          Python 虚拟环境（本页创建）
-├── toolchains/     玄铁工具链（本页创建）
-├── env.sh          每次开终端都要 source 的环境脚本（本页创建）
+├── .venv/          Python 虚拟环境（本文创建）
+├── toolchains/     玄铁工具链（本文创建）
+├── env.sh          每次开终端都要 source 的环境脚本（本文创建）
 ├── .west/          west 工作区标记（下一篇创建）
 ├── zephyr/         F101 版 Zephyr 内核（下一篇创建）
 └── modules/        Zephyr 依赖的第三方模块（下一篇创建）

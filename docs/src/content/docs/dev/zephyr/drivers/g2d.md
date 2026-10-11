@@ -13,7 +13,7 @@ G2D 是 F101 的 2D 图形加速器：不经过 CPU，在内存缓冲区之间�
 | 像素格式（只读） | 上面所有，加 NV12、NV21、I420、YUYV |
 | 最大尺寸 | 8192×8192 |
 | 队列深度 | 设备树 `queue-depth`，默认 8 |
-| 缓存 | 驱动在操作前清（clean）源缓冲区的数据缓存、操作后使目的缓冲区的缓存失效（invalidate），除非带 `G2D_FLAG_NO_CACHE_OPS` |
+| 缓存 | 驱动在操作前清并失效（clean and invalidate）目的区域，清（clean）源区域和混合的背景区域；操作后使目的区域失效（invalidate）。带 `G2D_FLAG_NO_CACHE_OPS` 则都不做 |
 | 限制 | 目的格式不能是 YUV；旋转要求源和目的同格式、同尺寸（转后）、地址 4 字节对齐、目的行距 8 字节对齐；混合的背景必须是 RGB 且和目的区域一样大 |
 
 ## 设备树
@@ -78,9 +78,9 @@ g2d: g2d@5410000 {
 
 | 选项 | 默认 | 含义 |
 | --- | --- | --- |
-| `CONFIG_G2D` | 应用里设为 `y` | 打开 G2D 接口和驱动 |
+| `CONFIG_G2D` | 板级 defconfig 里是 `y` | 打开 G2D 接口和驱动 |
 | `CONFIG_G2D_INIT_PRIORITY` | 41 | 驱动的初始化优先级（POST_KERNEL） |
-| `CONFIG_G2D_SHELL` | `y`（依赖 `SHELL`） | shell 命令 `g2d info|fill|blit|blend|bench`，用来试加速器并和 CPU 比较 |
+| `CONFIG_G2D_SHELL` | `y`（依赖 `SHELL`，且不是 minimal libc） | shell 命令 `g2d info|fill|blit|blend|bench`，用来试加速器并和 CPU 比较 |
 | `CONFIG_G2D_SUNXI` | `y`（依赖 `DT_HAS_ALLWINNER_SUNXI_G2D_ENABLED`） | 编译这个驱动，并选中 `CACHE_MANAGEMENT`。驱动的许可证是 GPL-2.0-or-later |
 | `CONFIG_G2D_SUNXI_THREAD_STACK_SIZE` | 2048 | 驱动工作线程的栈大小 |
 | `CONFIG_G2D_SUNXI_THREAD_PRIORITY` | 5 | 驱动工作线程的优先级 |
@@ -88,7 +88,7 @@ g2d: g2d@5410000 {
 
 ## 接口详解
 
-演示在 `yuzukineko` 上运行。每个结果都和 CPU 对同样像素的计算结果比较，对了打印 `ok`。先看几个公共的写法：
+演示在 `yuzukineko` 上运行。每个结果都和 CPU 对同样像素的计算结果比较，对了打印 `ok`。公共的写法如下：
 
 ```c
 static const struct device *const g2d = DEVICE_DT_GET(DT_NODELABEL(g2d));

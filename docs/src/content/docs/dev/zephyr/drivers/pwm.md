@@ -82,6 +82,9 @@ pwm: pwm@2000c00 {
 `allwinner,sunxi-pwm.yaml`：
 
 ```yaml
+# Copyright (c) 2026 Yuzuki Tsuru
+# SPDX-License-Identifier: Apache-2.0
+
 description: Allwinner sunxi PWM-ng controller
 
 compatible: "allwinner,sunxi-pwm"
@@ -91,13 +94,17 @@ include: [pwm-controller.yaml, base.yaml, reset-device.yaml, pinctrl-device.yaml
 properties:
   reg:
     required: true
+
   clocks:
     required: true
+
   resets:
     required: true
+
   channels:
     type: int
     const: 4
+
   "#pwm-cells":
     const: 3
 

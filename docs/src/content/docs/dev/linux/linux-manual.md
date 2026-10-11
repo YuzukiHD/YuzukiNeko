@@ -65,7 +65,7 @@ tar -xjf busybox-1.38.0.tar.bz2
 
 BusyBox 从 [busybox.net](https://busybox.net/downloads/) 下载，解压后是 `busybox-1.38.0/`。`buildroot-external-yuzukihd` 只用来取内核配置片段和根文件系统里的几个文件，不会构建 Buildroot。
 
-本页构建时的版本：SyterKit `main`（`6ef3f27ab`）、OpenSBI `08cbbe0b`、Linux `95cd7466c`、BusyBox 1.38.0。
+本文构建时的版本：SyterKit `main`（`6ef3f27ab`）、OpenSBI `08cbbe0b`、Linux `95cd7466c`、BusyBox 1.38.0。
 
 ## 构建 SyterKit
 

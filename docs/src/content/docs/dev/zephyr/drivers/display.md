@@ -22,7 +22,7 @@ flowchart LR
     P2 --> BL
 ```
 
-三种输出同一时间只开一种。`yuzukineko` 板接的是 MIPI DSI 屏（载板上的 1024×768 IPS 屏），`f101_evb` 接的是 RGB 屏（1024×600）。本页先讲设备树里这条流水线的各个节点，再分别讲怎么适配一块新的 RGB 屏和 MIPI DSI 屏，最后是显示接口。
+三种输出同一时间只开一种。`yuzukineko` 板接的是 MIPI DSI 屏（载板上的 1024×768 IPS 屏），`f101_evb` 接的是 RGB 屏（1024×600）。本文先讲设备树里这条流水线的各个节点，再分别讲怎么适配一块新的 RGB 屏和 MIPI DSI 屏，最后是显示接口。
 
 | 项目 | 内容 |
 | --- | --- |
@@ -1658,7 +1658,7 @@ west build -b yuzukineko -d build/display-api display_api
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/drivers-display/build.cast" data-speed="6"></div>
 
-同一个程序也可以为接 RGB 屏的 `f101_evb` 编译：`west build -b f101_evb -d build/display-api-evb display_api`，显示的写法完全一样，只是设备树不同。本页的 RGB 屏适配部分来自 `f101_evb.dts`，没有在 `yuzukineko` 上运行（`yuzukineko` 没有接 RGB 屏）。
+同一个程序也可以为接 RGB 屏的 `f101_evb` 编译：`west build -b f101_evb -d build/display-api-evb display_api`，显示的写法完全一样，只是设备树不同。本文的 RGB 屏适配部分来自 `f101_evb.dts`，没有在 `yuzukineko` 上运行（`yuzukineko` 没有接 RGB 屏）。
 
 下载运行的方法见[编译与运行](../zephyr-build-run.md)。控制台 UART1 上的完整输出（运行期间屏幕依次出现彩条、白块、黑屏、亮度变化、四色图片、灰度渐变）：
 

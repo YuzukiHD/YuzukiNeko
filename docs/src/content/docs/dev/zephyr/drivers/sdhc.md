@@ -4,7 +4,7 @@ title: "SDHC 主机控制器"
 
 F101 有两个 SD/MMC 主机控制器（SMHC）：`smhc0` 接板上的 TF 卡槽，`smhc2` 接 WiFi 模块的 SDIO。Zephyr 里的驱动是 `drivers/sdhc/sdhc_sunxi.c`，实现的是 SD 主机控制器接口 `<zephyr/drivers/sdhc.h>`。
 
-这一层只管“控制器”：发命令、收响应、搬数据块、设时钟和总线宽度、检测卡。卡的识别流程、磁盘接口和文件系统是在它上面的另一层，不属于这个驱动（后面由单独的 Zephyr 组件提供）。所以本页的演示不用磁盘和文件系统，而是直接用 SD 规范里的命令把卡一步步初始化起来。
+这一层只管“控制器”：发命令、收响应、搬数据块、设时钟和总线宽度、检测卡。卡的识别流程、磁盘接口和文件系统是在它上面的另一层，不属于这个驱动（后面由单独的 Zephyr 组件提供）。所以本文的演示不用磁盘和文件系统，而是直接用 SD 规范里的命令把卡一步步初始化起来。
 
 | 项目 | 内容 |
 | --- | --- |
@@ -14,7 +14,7 @@ F101 有两个 SD/MMC 主机控制器（SMHC）：`smhc0` 接板上的 TF 卡槽
 | 电压 | 3.3 V；不支持 1.8 V 的 UHS 模式（SDR50、DDR50 都是 0） |
 | 卡检测 | `cd-gpios`，`yuzukineko` 用 PF6，低电平表示有卡 |
 | 传输 | DMA（内部描述符），不对齐的缓冲区经过驱动里的弹跳缓冲区 |
-| 卡类型 | SD 卡（本页演示）；`smhc2` 接 SDIO 的 WiFi 芯片；不支持 SPI 模式 |
+| 卡类型 | SD 卡（本文演示）；`smhc2` 接 SDIO 的 WiFi 芯片；不支持 SPI 模式 |
 
 ## 设备树
 
@@ -92,7 +92,7 @@ smhc0: mmc@4020000 {
 	status = "okay";
 
 	/* 磁盘：这个子节点是上层磁盘接口用的，让 Zephyr 的磁盘子系统出现一个名叫 "SD" 的磁盘。
-	 * 本页的演示不用它，直接操作控制器 */
+	 * 本文的演示不用它，直接操作控制器 */
 	sdmmc {
 		compatible = "zephyr,sdmmc-disk";
 		disk-name = "SD";
@@ -158,7 +158,7 @@ properties:
 | --- | --- | --- |
 | `CONFIG_SDHC` | 应用里设为 `y` | 打开 SD 主机控制器子系统 |
 | `CONFIG_SDHC_SUNXI` | `y`（依赖 `DT_HAS_ALLWINNER_SUNXI_SMHC_ENABLED`） | 编译这个驱动，并选中 `PINCTRL`、`GPIO`、`CACHE_MANAGEMENT` |
-| `CONFIG_SDHC_SUNXI_MAX_DESC` | 64 | DMA 描述符个数，每个描述符搬运最多 8 KiB，所以这个值限制一次 DMA 传输的大小；更大的请求被拒绝 |
+| `CONFIG_SDHC_SUNXI_MAX_DESC` | 128 | DMA 描述符个数，每个描述符搬运最多 8 KiB，所以这个值限制一次 DMA 传输的大小（128 个是 1 MiB）；更大的请求由 CPU 传输 |
 | `CONFIG_SDHC_SUNXI_BOUNCE_KB` | 64 | 弹跳缓冲区大小（KiB）。DMA 要缓存行对齐的内存，其他内存经过这块缓冲区，由 CPU 拷贝，第一次用时从内核堆里分配；更大的请求只用 CPU 传输。0 关闭弹跳缓冲区 |
 
 ## 接口详解

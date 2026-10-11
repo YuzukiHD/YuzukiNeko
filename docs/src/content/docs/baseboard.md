@@ -9,7 +9,7 @@ title: "YuzukiCube-M 底板"
 :::
 
 :::caution
-本页的引脚对应是从底板原理图 `04_BaseBoard/V1.0/01_SCH/SCH_Schematic2_2026-10-10.pdf` 的网表读出的，接线前请以该原理图为准。网络名用的是<strong>模块的实际 GPIO 名</strong>；如果你插的是 V1.3 模块，丝印要按[勘误](hardware/errata.md#v13pd-丝印编号错误)换算。
+本文的引脚对应是从底板原理图 `04_BaseBoard/V1.0/01_SCH/SCH_Schematic2_2026-10-10.pdf` 的网表读出的，接线前请以该原理图为准。网络名用的是<strong>模块的实际 GPIO 名</strong>；如果你插的是 V1.3 模块，丝印要按[勘误](hardware/errata.md#v13pd-丝印编号错误)换算。
 :::
 
 ## 板载器件

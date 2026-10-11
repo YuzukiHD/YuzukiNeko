@@ -7,14 +7,14 @@ PWM_BL 是 F101 上专门驱动 LCD 背光的模块，和通用的 [PWM](pwm.md)
 | 项目 | 内容 |
 | --- | --- |
 | 端口 | 两个：端口 0（BOOST0，PWM 脚 PB2，反馈脚 PB3）数字加模拟比较调光；端口 1（BOOST1，PWM 脚 PB0，反馈脚 PB1）纯模拟，750 kHz |
-| 通道 | 对 API 只有一个通道，通道 0；设置时两个端口一起开关，亮度（灌电流）只写端口 0 |
+| 通道 | 对 API 只有一个通道，通道 0，别的通道返回 `-EINVAL`；设置时两个端口一起开关，亮度（灌电流）只写端口 0 |
 | 亮度 | `脉宽 × 256 ÷ 周期` 得到灌电流级别，最大 200，0 关闭 |
 | 计时单位 | `pwm_get_cycles_per_sec` 返回 1 GHz，一个周期是 1 ns，比例精确 |
 | 极性 | 没有。模拟级没有极性，`flags` 被忽略 |
 | 周期 | 周期的长短不改变输出，只有脉宽和周期的比值有用 |
 | 板子 | `f101_evb` 的 RGB 屏背光接在这里；`yuzukineko` 的背光在通用 PWM 的通道 2，不用 PWM_BL |
 
-本页的演示在 `yuzukineko` 上运行：用 overlay 把 `pwm_bl` 打开（只用 PB2、PB3，不动 PB0、PB1 的控制台），这块板上没有接 PWM_BL 的背光，所以演示读回模块的寄存器来看驱动写进去的亮度，没有测输出。
+本文的演示在 `yuzukineko` 上运行：用 overlay 把 `pwm_bl` 打开（只用 PB2、PB3，不动 PB0、PB1 的控制台），这块板上没有接 PWM_BL 的背光，所以演示读回模块的寄存器来看驱动写进去的亮度，没有测输出。
 
 ## 设备树
 
@@ -22,7 +22,7 @@ PWM_BL 是 F101 上专门驱动 LCD 背光的模块，和通用的 [PWM](pwm.md)
 | --- | --- |
 | `dts/bindings/pwm/allwinner,sunxi-pwm-bl.yaml` | 绑定 |
 | `dts/riscv/allwinner/sun252i_f101.dtsi` | SoC 设备树：`pwm_bl` 节点，默认 `disabled` |
-| `boards/yuzukihd/f101_evb/f101_evb.dts` | 板级设备树：引脚组，打开 `pwm_bl`，背光节点引用它 |
+| `examples/pwm_bl_api/app.overlay` | 应用的 overlay：引脚组，打开 `pwm_bl`，用 `zephyr,user` 节点引用它 |
 
 ### SoC 设备树：sun252i_f101.dtsi
 
@@ -46,16 +46,20 @@ pwm_bl: pwm@200a000 {
 };
 ```
 
-### 板级设备树：f101_evb.dts
+### 打开 PWM_BL：app.overlay
+
+`yuzukineko` 的板级文件没有打开 `pwm_bl`，演示用应用的 overlay 打开它。PB0、PB1 是 UART1 控制台，不能给 PWM_BL，所以只给 PB2、PB3（BOOST0 的 PWM 和反馈，复用功能 2），再用 `zephyr,user` 节点放一个 `pwms` 属性：
 
 ```c
+/*
+ * The PWM_BL block is not used by the yuzukineko board (its panel backlight is on PWM channel 2).
+ * It is switched on here for the demonstration, on PB2 (PWM) and PB3 (FB) of the first boost
+ * converter, and not on PB0/PB1, which carry the console.
+ */
 &pio {
-	/* PWM_BL 在 PB0…PB3，复用功能 2：PB0/PB1 是 BOOST1 的 PWM 和反馈，PB2/PB3 是 BOOST0 的 */
-	pwm_bl_pins: pwm_bl_pins {
+	pwm_bl_pins_app: pwm_bl_pins_app {
 		pwm_bl_group {
-			pinmux = <ALLWINNER_PINMUX(ALLWINNER_PIO_PB, 0, 2)
-				  ALLWINNER_PINMUX(ALLWINNER_PIO_PB, 1, 2)
-				  ALLWINNER_PINMUX(ALLWINNER_PIO_PB, 2, 2)
+			pinmux = <ALLWINNER_PINMUX(ALLWINNER_PIO_PB, 2, 2)
 				  ALLWINNER_PINMUX(ALLWINNER_PIO_PB, 3, 2)>;
 		};
 	};
@@ -63,28 +67,26 @@ pwm_bl: pwm@200a000 {
 
 &pwm_bl {
 	status = "okay";
-	pinctrl-0 = <&pwm_bl_pins>;
+	pinctrl-0 = <&pwm_bl_pins_app>;
 	pinctrl-names = "default";
 };
 
 / {
-	/* 背光：通道 0，周期 20 us，启动亮度 250（满量程 255） */
-	backlight0: backlight {
-		compatible = "pwm-backlight";
+	zephyr,user {
+		/* channel 0, period 20 us, like the backlight node of the f101_evb board */
 		pwms = <&pwm_bl 0 20000 PWM_POLARITY_INVERTED>;
-		max-level = <255>;
-		default-level = <250>;
 	};
 };
 ```
 
-`pwm-backlight` 节点是显示流水线用的背光（`panel-simple` 的 `backlight` 属性指向它），它的属性见 [显示](display.md) 和 [PWM](pwm.md)。`PWM_POLARITY_INVERTED` 写在这里只是和别的背光节点保持一致，对 PWM_BL 没有影响。
-
-`yuzukineko` 上 PB0、PB1 是 UART1 控制台，不能给 PWM_BL。用 PWM_BL 做演示时只用 PB2、PB3，写在应用的 overlay 里（见后面的完整演示程序）。
+`PWM_POLARITY_INVERTED` 写在这里只是和别的背光节点保持一致，对 PWM_BL 没有影响。显示流水线用的 `pwm-backlight` 节点的属性见 [显示](display.md) 和 [PWM](pwm.md)。
 
 ### 绑定：allwinner,sunxi-pwm-bl.yaml
 
 ```yaml
+# Copyright (c) 2026 Yuzuki Tsuru
+# SPDX-License-Identifier: Apache-2.0
+
 description: |
   Allwinner PWM_BL backlight controller (digital dimming + analog current
   sink). Single logical channel 0; the duty is mapped to a load current
@@ -97,17 +99,24 @@ include: [pwm-controller.yaml, pinctrl-device.yaml, base.yaml]
 properties:
   reg:
     required: true
+
   "#pwm-cells":
     const: 3
+
   ccu-base:
     type: int
     required: true
+    description: Base address of the CCU holding the module clock registers.
+
   mod-clk-reg:
     type: int
     required: true
+    description: CCU offset of the PWM_BL module clock register.
+
   bus-clk-reg:
     type: int
     required: true
+    description: CCU offset of the PWM_BL bus gate / reset register.
 
 pwm-cells:
   - channel
@@ -134,7 +143,7 @@ pwm-cells:
 
 ## 驱动怎么工作
 
-初始化时驱动做这些事：打开总线时钟、释放复位，把模块时钟设成 PLL_PERI_2X 分频后接近 400 MHz；应用 `pinctrl`；PB0 和 PB2 的驱动能力设为 3；按固定的参数配置两个端口：
+初始化时驱动做这些事：打开总线时钟、释放复位，把模块时钟设成 PLL_PERI_2X 分频后接近 400 MHz；应用 `pinctrl`；PB0 和 PB2 的驱动能力设为 3（`yuzukineko` 上 PB0 是控制台 TX，它的驱动能力也被改成 3，不影响通信）；按固定的参数配置两个端口：
 
 | 端口 | 配置 |
 | --- | --- |
@@ -205,11 +214,11 @@ static void demo_cycles_per_sec(void)
 int pwm_set_cycles(const struct device *dev, uint32_t channel, uint32_t period, uint32_t pulse, pwm_flags_t flags);
 ```
 
-亮度由 `pulse / period` 决定。100% 得到 256，被限制到 200；50% 是 128；5% 是 12；0.5% 是 1。通道号和标志都被忽略。
+亮度由 `pulse / period` 决定。100% 得到 256，被限制到 200；50% 是 128；5% 是 12；0.5% 是 1。标志被忽略。
 
 | 参数 | 返回 |
 | --- | --- |
-| 周期 0，或脉宽大于周期 | `-EINVAL` |
+| 通道不是 0，周期 0，或脉宽大于周期 | `-EINVAL` |
 | 其他 | 0 |
 
 ```c
@@ -334,10 +343,10 @@ static void demo_set_pulse_dt(void)
 
 ### 驱动拒绝的参数
 
-驱动只检查周期和脉宽两项；通道号不检查，通道 5 也一样当通道 0 处理。
+驱动检查通道号、周期和脉宽三项：只有通道 0，别的通道返回 `-EINVAL`，寄存器不动。
 
 ```c
-/* the only arguments the driver refuses */
+/* the arguments the driver refuses */
 static void demo_errors(void)
 {
 	int ret;
@@ -349,7 +358,7 @@ static void demo_errors(void)
 	printk("[error] pulse longer than the period            = %s\n", err(ret));
 
 	ret = pwm_set_cycles(pwm_bl, 5, 20000, 10000, 0);
-	printk("[error] channel 5 (the channel is not checked)  = %s\n", err(ret));
+	printk("[error] channel 5 (only channel 0 exists)       = %s\n", err(ret));
 	show_regs();
 }
 ```
@@ -537,7 +546,7 @@ static void demo_set_pulse_dt(void)
 	show_regs();
 }
 
-/* the only arguments the driver refuses */
+/* the arguments the driver refuses */
 static void demo_errors(void)
 {
 	int ret;
@@ -549,7 +558,7 @@ static void demo_errors(void)
 	printk("[error] pulse longer than the period            = %s\n", err(ret));
 
 	ret = pwm_set_cycles(pwm_bl, 5, 20000, 10000, 0);
-	printk("[error] channel 5 (the channel is not checked)  = %s\n", err(ret));
+	printk("[error] channel 5 (only channel 0 exists)       = %s\n", err(ret));
 	show_regs();
 }
 
@@ -611,7 +620,7 @@ west build -b yuzukineko -d build/pwm-bl-api pwm_bl_api
          port 0 enabled 0, port 1 enabled 0, load current level 0 (maximum brightness code 3)
 [error] period 0                                = -EINVAL
 [error] pulse longer than the period            = -EINVAL
-[error] channel 5 (the channel is not checked)  = 0
-         port 0 enabled 1, port 1 enabled 1, load current level 128 (maximum brightness code 3)
+[error] channel 5 (only channel 0 exists)       = -EINVAL
+         port 0 enabled 0, port 1 enabled 0, load current level 0 (maximum brightness code 3)
 pwm_bl_api done
 ```

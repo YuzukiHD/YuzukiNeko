@@ -4,19 +4,13 @@ title: "AIC8800 蓝牙 - 蓝牙驱动"
 
 AIC8800 是爱科微（AICSemi）的 WiFi + 蓝牙二合一芯片。这一篇讲它的蓝牙部分：芯片里的蓝牙控制器通过 UART 说 HCI（H:4，带硬件流控），Zephyr 自带的蓝牙主机（Host）跑在 SoC 上，应用用 `<zephyr/bluetooth/bluetooth.h>` 里的标准接口，不需要关心芯片。F101 这边要做的只有两件事：把控制器的固件送进芯片，以及在 HCI 传输打开时放开控制器的复位。这两件事由组件的 `src/aic_bt.c` 完成。
 
-WiFi 部分在另一篇：[AIC8800 WIFI](aic8800-wifi.md)。芯片的 SDIO 总线、REG_ON 上电、固件放在哪里、固件怎么下载、芯片识别，WiFi 篇的[总线与固件加载](aic8800-wifi.md#总线与固件加载)一节已经写了，本页不重复；蓝牙的固件、补丁和配置在同一次 SDIO 下载里一起送进芯片。
+WiFi 部分在另一篇：[AIC8800 WIFI](aic8800-wifi.md)。芯片的 SDIO 总线、REG_ON 上电、固件放在哪里、固件怎么下载、芯片识别，WiFi 篇的[总线与固件加载](aic8800-wifi.md#总线与固件加载)一节已经写了，本文不重复；蓝牙的固件、补丁和配置在同一次 SDIO 下载里一起送进芯片。
 
-| 项目 | 内容 |
-| --- | --- |
-| 源码 | `~/f101-zephyr/zephyr-components/aic8800`（Zephyr 模块）；蓝牙专用的部分是 `src/aic_bt.c`，以及 `host/drv/aic_bsp/` 里 `CONFIG_BT_SUPPORT` 下的蓝牙固件和补丁下载 |
-| HCI 传输 | UART，H:4，115200，硬件流控（RTS/CTS）；Zephyr 的 `drivers/bluetooth/hci/h4.c` 加上 `src/aic_bt.c` 里的 `bt_hci_transport_setup()` |
-| 板上接线 | `yuzukineko`：UART2，TX PE6、RX PE7、RTS PE8、CTS PE9；蓝牙复位 BT_RSTN 接 PD8（低电平有效） |
-| 蓝牙版本 | 控制器自报 HCI/LMP 版本 5.4（0x0d），厂商 0x0b3b |
-| 本地地址 | 公共地址，由控制器提供，板上是 `C0:E3:50:B5:3B:23`；WiFi 的 MAC 是另一个地址（`cc:4e:6e:6c:47:9d`） |
-| 支持的角色 | 经典蓝牙（BR/EDR）：不支持，Zephyr 主机里没有打开 `BT_CLASSIC`。低功耗（LE）：广播者、观察者、外设、中心，由主机的 Kconfig 打开 |
-| 连接数 | 演示配成 1（`CONFIG_BT_MAX_CONN=1`）；控制器自报 14 个 ACL 缓冲，见后面日志里的警告 |
-| 与 WiFi 的关系 | 同一颗芯片、同一条 SDIO。`bt_enable()` 打开 HCI 传输时，如果芯片还没启动，会先启动芯片（`aicz_wifi_start()`），已经启动就立刻返回，所以应用不必先用 WiFi |
-| 本页验证的范围 | `bt_enable`、本地地址、广播、扫描在板上运行。连接需要一个可连接的对端，演示没有指定对端，连接部分只编译、不运行，见后面“连接”一节 |
+蓝牙控制器的 HCI 走 UART2，H:4，115200，带硬件流控：TX 接 PE6、RX 接 PE7、RTS 接 PE8、CTS 接 PE9；蓝牙复位 BT_RSTN 接 PD8，低电平有效。HCI 传输用 Zephyr 的 `drivers/bluetooth/hci/h4.c`，加上组件 `src/aic_bt.c` 里的 `bt_hci_transport_setup()`。蓝牙专用的源码是 `~/f101-zephyr/zephyr-components/aic8800/src/aic_bt.c`，以及 `host/drv/aic_bsp/` 里 `CONFIG_BT_SUPPORT` 下的蓝牙补丁和配置下载。
+
+`bt_enable()` 打开 HCI 传输时，如果芯片还没启动，会先调用 `aicz_wifi_start()` 启动它，已经启动就立刻返回，所以应用不必先用 WiFi。反过来，蓝牙固件和 WiFi 固件在同一次 SDIO 下载里，不能只拉起蓝牙而不启动 WiFi 固件。
+
+控制器自报 HCI 和 LMP 版本 5.4，厂商号 0x0b3b，本地地址是控制器提供的公共地址，WiFi 的 MAC 是另一个地址。Zephyr 主机里没有打开 `BT_CLASSIC`，所以只有低功耗（LE）；LE 的广播者、观察者、外设、中心角色由主机的 Kconfig 选择。
 
 ## 架构
 
@@ -698,17 +692,34 @@ static int connect_to(const char *want)
 }
 ```
 
-## 不支持和没有验证的部分
+## 验证项
 
-| 项目 | 状态 |
-| --- | --- |
-| 经典蓝牙（BR/EDR） | 不支持，主机没有打开 `BT_CLASSIC` |
-| 连接、GATT 发现 | 编译通过，没有在板上运行（没有指定对端） |
-| 广播被空中接收 | 没有验证（没有第二个设备做扫描） |
-| 扩展广播、周期广播、ISO | 没有验证，演示没有打开 |
-| 配对、绑定（SMP） | 没有验证 |
-| 低功耗模式 | 固件配置里 `lpm_enable` 是 0，不使用 |
-| 单独使用蓝牙而不拉起 WiFi 固件 | 不支持：蓝牙固件和 WiFi 固件在同一次 SDIO 下载里，`bt_enable()` 一定会启动整个芯片 |
+每一项写清楚验证了什么、怎么验证的、板上看到了什么。板上输出的原文都在文末的[完整日志](#板子上的完整日志)里。
+
+### 芯片启动和 HCI 传输
+
+验证 `bt_enable()` 能把芯片拉起来并打开 H:4 传输。方法是应用启动后直接调用 `bt_enable(NULL)`，不先使用 WiFi。日志里先是 SDIO 枚举、`Upload firmware`、`Start app`，然后是 `bt_hci_core` 的 `HCI transport: H:4` 和控制器的版本，最后 `bt_enable ok`。应用启动到 `bt_enable` 返回约 3.2 秒。
+
+### 本地地址
+
+验证主机读到了控制器的地址。方法是 `bt_id_get()` 取地址，`bt_addr_le_to_str()` 格式化。输出 `identity 0: C0:E3:50:B5:3B:23 (public)`，和 `bt_hci_core` 打印的 `Identity` 一致。
+
+### 广播
+
+验证控制器接受广播参数、广播数据和扫描响应数据，并能启动、停止广播。方法是 `bt_le_adv_start()` 返回 0，等 5 秒后 `bt_le_adv_stop()` 返回 0。这只能证明 HCI 命令都被控制器接受。广播包有没有被空中收到，这次没有验证，见下面。
+
+### 扫描
+
+验证接收路径：控制器的 LE 广播报告经 UART 到主机，再到扫描回调。方法是主动扫描 10 秒，回调里按地址去重、解析广播数据里的名字。收到 165 个报告、8 个不同的地址，其中一个带完整名字，名字由 `bt_data_parse()` 解出。这一项同时证明 UART2 的接收方向和硬件流控工作正常。
+
+## 没有验证的项
+
+* 广播被空中收到：板子自己收不到自己的广播，演示时旁边也没有第二个扫描设备。要验证，需要一部手机，装一个 BLE 扫描类的应用，在广播的 5 秒内打开扫描，看是否出现名为 `F101-AIC8800` 的设备。这需要有人配合，这次没有做。
+* 连接和 GATT 发现：`connect_to()` 编译通过，但没有运行。需要一个自己的、可连接的 LE 设备，把它的地址填进 `CONNECT_ADDR`。扫描里出现的可连接设备都是周围别人的，没有去连。
+* 扩展广播、周期广播、ISO：演示没有打开这些选项，没有验证。
+* 配对、绑定（SMP）：没有验证。
+* 低功耗模式：固件配置里 `lpm_enable` 为 0，没有使用。
+* 经典蓝牙（BR/EDR）：不支持。
 
 ## 完整 demo 程序
 
