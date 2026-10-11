@@ -4,23 +4,58 @@ title: "常用外设引脚组合"
 
 下表给出用排针上的引脚凑出的<strong>完整、典型</strong>的外设组合。它不是板子的默认连接，选用前请先检查是否与已启用的显示、调试、电源管理或板载外设冲突。
 
-| 用途 | 一组可用引脚 | 备注 |
-| --- | --- | --- |
-| UART0 | `PE0` F6 TX、`PE1` F6 RX | 基本串口对 |
-| UART1 | `PB0` F4 TX、`PB1` F4 RX、`PB2` F4 RTS、`PB3` F4 CTS | UART1 信号也可选其他 MUX 组 |
-| UART2 | `PD2` F4 TX、`PD3` F4 RX、`PD4` F4 RTS、`PD5` F4 CTS | `PE6` F3 / `PE7` F3 也能提供 TX / RX |
-| UART3 | `PD0` F5 TX、`PD1` F5 RX、`PD3` F5 RTS、`PD4` F5 CTS | `PE8` F6 / `PE9` F6 等引脚提供备选映射 |
-| UART4 | `PD6` F5 TX、`PD7` F5 RX、`PD8` F5 RTS、`PD9` F5 CTS | `PE2`–`PE5` F6 提供对应的备选信号 |
-| UART5 | `PD17` F5 TX、`PD18` F5 RX、`PD19` F5 RTS、`PD20` F5 CTS | 避开编号较小的 PD 脚 |
-| I²C / TWI0 | `PE2` F4 SCK、`PE3` F4 SDA | 也可用 `PD0` F6 SCK + `PD2` F5 SDA 等映射 |
-| I²C / TWI1 | `PD8` F3 SCK、`PD9` F3 SDA | TWI1 也可选 `PE0` F4 / `PE1` F4 |
-| I²C / TWI2 | `PB2` F3 SCK、`PB3` F3 SDA | `PE4` F4 / `PE5` F4 是备选 TWI2 引脚 |
-| SPI1 | `PD0` F3 CS0、`PD1` F3 CLK、`PD2` F3 MOSI、`PD3` F3 MISO、`PD4` F3 HOLD、`PD5` F3 WP、`PD6` F3 CS1 | 可作 SPI 或 DBI；另有一组 PE 脚的备选方案 |
-| I2S0 | `PD6` F4 MCLK、`PD7` F4 BCLK、`PD8` F4 LRCK、`PD9` F4 DOUT0；`PE4` F5 DIN0 | 按录音/放音需要选用信号 |
-| CAN0 | `PE0` F7 TX、`PE1` F7 RX | 备选：`PB2` F6 / `PB3` F6，`PE6` F5 / `PE7` F5；需要外置收发器 |
-| CAN1 | `PE2` F7 TX、`PE3` F7 RX | 备选：`PB0` F6 / `PB1` F6，`PE8` F5 / `PE9` F5；需要外置收发器 |
-| PWM0 | CH0：`PB0` F7 / `PD1` F6 / `PD6` F6 / `PE2` F10 / `PE8` F7；CH1：`PB1` F7 / `PD7` F6 / `PE3` F10 / `PE9` F7；CH2：`PB2` F7 / `PD8` F6 / `PE4` F10 / `PE10` F7；CH3：`PB3` F7 / `PD9` F6 / `PE5` F10 | 每个通道选一个合适的 MUX 引脚 |
-| RGB / LVDS / DSI | 主要是 `PD0`–`PD9`、`PD12`–`PD22`，外加部分 `PE` 脚 | 具体 F2–F7 的选择见[引脚复用](mux.md)。高速显示信号需要短走线、阻抗控制和合适的参考设计 |
+表中每个格子是「引脚（功能编号）」，例如 `PE0`（F6）表示把 `PE0` 切到 Function6。每个外设一行，各信号在同一行里并排给出。
+
+### UART
+
+| 外设 | TX | RX | RTS | CTS | 备注 |
+| --- | --- | --- | --- | --- | --- |
+| UART0 | `PE0`（F6） | `PE1`（F6） |  |  | 基本串口对 |
+| UART1 | `PB0`（F4） | `PB1`（F4） | `PB2`（F4） | `PB3`（F4） | UART1 信号也可选其他 MUX 组 |
+| UART2 | `PD2`（F4） | `PD3`（F4） | `PD4`（F4） | `PD5`（F4） | `PE6` F3 / `PE7` F3 也能提供 TX / RX |
+| UART3 | `PD0`（F5） | `PD1`（F5） | `PD3`（F5） | `PD4`（F5） | `PE8` F6 / `PE9` F6 等引脚提供备选映射 |
+| UART4 | `PD6`（F5） | `PD7`（F5） | `PD8`（F5） | `PD9`（F5） | `PE2`–`PE5` F6 提供对应的备选信号 |
+| UART5 | `PD17`（F5） | `PD18`（F5） | `PD19`（F5） | `PD20`（F5） | 避开编号较小的 PD 脚 |
+
+### I²C（TWI）
+
+| 外设 | SCK | SDA | 备注 |
+| --- | --- | --- | --- |
+| TWI0 | `PE2`（F4） | `PE3`（F4） | 也可用 `PD0` F6 SCK + `PD2` F5 SDA 等映射 |
+| TWI1 | `PD8`（F3） | `PD9`（F3） | TWI1 也可选 `PE0` F4 / `PE1` F4 |
+| TWI2 | `PB2`（F3） | `PB3`（F3） | `PE4` F4 / `PE5` F4 是备选 TWI2 引脚 |
+
+### SPI
+
+| 外设 | CS0 | CLK | MOSI | MISO | HOLD | WP | CS1 | 备注 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| SPI1 | `PD0`（F3） | `PD1`（F3） | `PD2`（F3） | `PD3`（F3） | `PD4`（F3） | `PD5`（F3） | `PD6`（F3） | 可作 SPI 或 DBI；另有一组 PE 脚的备选方案 |
+
+### I2S
+
+| 外设 | MCLK | BCLK | LRCK | DOUT0 | DIN0 | 备注 |
+| --- | --- | --- | --- | --- | --- | --- |
+| I2S0 | `PD6`（F4） | `PD7`（F4） | `PD8`（F4） | `PD9`（F4） | `PE4`（F5） | 按录音/放音需要选用信号 |
+
+### CAN
+
+| 外设 | TX | RX | 备注 |
+| --- | --- | --- | --- |
+| CAN0 | `PE0`（F7） | `PE1`（F7） | 备选：`PB2` F6 / `PB3` F6，`PE6` F5 / `PE7` F5；需要外置收发器 |
+| CAN1 | `PE2`（F7） | `PE3`（F7） | 备选：`PB0` F6 / `PB1` F6，`PE8` F5 / `PE9` F5；需要外置收发器 |
+
+### PWM
+
+| 外设 | 通道 | 可选引脚（功能） | 备注 |
+| --- | --- | --- | --- |
+| PWM0 | CH0 | `PB0`（F7）、`PD1`（F6）、`PD6`（F6）、`PE2`（F10）、`PE8`（F7） | 每个通道选一个合适的 MUX 引脚 |
+| PWM0 | CH1 | `PB1`（F7）、`PD7`（F6）、`PE3`（F10）、`PE9`（F7） |  |
+| PWM0 | CH2 | `PB2`（F7）、`PD8`（F6）、`PE4`（F10）、`PE10`（F7） |  |
+| PWM0 | CH3 | `PB3`（F7）、`PD9`（F6）、`PE5`（F10） |  |
+
+### RGB / LVDS / DSI
+
+主要是 `PD0`–`PD9`、`PD12`–`PD22`，外加部分 `PE` 脚。具体 F2–F7 的选择见[引脚复用](mux.md)。高速显示信号需要短走线、阻抗控制和合适的参考设计。
 
 ## 选择组合时的检查清单
 
