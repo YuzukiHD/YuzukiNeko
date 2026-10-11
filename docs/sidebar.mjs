@@ -102,6 +102,10 @@ export const sidebar = [
         "slug": "dev/zephyr/zephyr-uf2"
       },
       {
+        "label": "RISC-V 向量扩展",
+        "slug": "dev/zephyr/zephyr-riscv-vector"
+      },
+      {
         "label": "Zephyr 应用",
         "collapsed": true,
         "items": [
@@ -116,7 +120,51 @@ export const sidebar = [
         "collapsed": true,
         "items": [
           {
-            "label": "视频引擎 vdec",
+            "label": "GPIO - 通用输入输出",
+            "slug": "dev/zephyr/drivers/gpio"
+          },
+          {
+            "label": "I2C - I²C 总线",
+            "slug": "dev/zephyr/drivers/i2c"
+          },
+          {
+            "label": "SPI - 串行外设接口",
+            "slug": "dev/zephyr/drivers/spi"
+          },
+          {
+            "label": "PWM - 脉宽调制",
+            "slug": "dev/zephyr/drivers/pwm"
+          },
+          {
+            "label": "PWM-BL - 模拟背光",
+            "slug": "dev/zephyr/drivers/pwm-bl"
+          },
+          {
+            "label": "DISPLAY - 显示控制器",
+            "slug": "dev/zephyr/drivers/display"
+          },
+          {
+            "label": "SDHC - 多媒体卡控制器",
+            "slug": "dev/zephyr/drivers/sdhc"
+          },
+          {
+            "label": "AUDIO - 音频",
+            "slug": "dev/zephyr/drivers/audio"
+          },
+          {
+            "label": "UART - 串行通信",
+            "slug": "dev/zephyr/drivers/uart"
+          },
+          {
+            "label": "USB - 通用串行总线",
+            "slug": "dev/zephyr/drivers/usb"
+          },
+          {
+            "label": "G2D - 图形加速",
+            "slug": "dev/zephyr/drivers/g2d"
+          },
+          {
+            "label": "VDEC - 视频解码",
             "slug": "dev/zephyr/drivers/vdec"
           }
         ]

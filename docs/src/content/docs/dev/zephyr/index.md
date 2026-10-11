@@ -29,6 +29,24 @@ Zephyr 的板级和驱动代码在上面这个 fork 里，不在 YuzukiNeko 硬�
 | --- | --- |
 | [MP4 播放器](apps/mp4-player.md) | 从 TF 卡播放 MP4：H.264 硬解 + AAC 软解 |
 | [UF2 拖放烧录](zephyr-uf2.md) | 制作 `.uf2` 与 Flash 布局 |
+| [RVV - RISC-V 向量扩展](zephyr-riscv-vector.md) | 向量扩展的配置、接口和示例 |
+
+驱动页（每页都有设备树、Kconfig、每个接口一个完整示例、上板输出和完整演示程序）：
+
+| 页面 | 说明 |
+| --- | --- |
+| [GPIO](drivers/gpio.md) | 输入输出、整组操作、中断 |
+| [I2C](drivers/i2c.md) | 读写、重复起始、扫描总线 |
+| [SPI](drivers/spi.md) | 命令加数据、全双工、DMA、模式 |
+| [PWM](drivers/pwm.md) | 周期和占空比、极性、设备树引用 |
+| [PWM-BL - 模拟背光](drivers/pwm-bl.md) | 背光专用模块，用灌电流调亮度 |
+| [显示](drivers/display.md) | 流水线、RGB 屏和 MIPI DSI 屏的适配、显示接口 |
+| [SDHC 主机控制器](drivers/sdhc.md) | 直接用 SD 命令操作控制器 |
+| [AUDIO - 音频](drivers/audio.md) | 片上 codec、I2S0、S/PDIF |
+| [UART](drivers/uart.md) | 轮询、中断、配置 |
+| [USB](drivers/usb.md) | CherryUSB 设备模式，CDC ACM 回显 |
+| [G2D 2D 加速器](drivers/g2d.md) | 填充、搬运、旋转、YUV、混合 |
+| [视频引擎 vdec](drivers/vdec.md) | JPEG、PNG、MJPEG、H.264 解码 |
 
 ## 驱动支持情况
 

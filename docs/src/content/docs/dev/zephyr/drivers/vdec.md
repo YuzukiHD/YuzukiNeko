@@ -230,10 +230,6 @@ int vdec_decode_image(const struct device *dev, enum vdec_codec codec,
 - JPEG 帧的 `pts` 是 `-1`（没有时间戳）；PNG 帧的 `pts` 是 `0`。
 - PNG 是 `RGBA8888`：`plane[0]` 是像素，`stride[0]` 是每行字节数（320×4=1280），`plane[1]` 是 NULL，`stride[1]` 为 0。内存里的字节顺序是 A、B、G、R。
 
-:::caution
-<strong>JPEG 不支持 NV21</strong>。请求 `VDEC_FORMAT_NV21` 会返回 `-EIO`，JPEG 请使用 `VDEC_FORMAT_NV12`。头文件注释里写的“JPEG: NV12 or NV21”对 JPEG 并不成立。
-:::
-
 #### 示例：JPEG
 
 演示程序依次请求 NV21、NV12、NV21，把每个调用的返回值打印出来。成功时再打印帧信息和亮度平面的 CRC，最后释放。
