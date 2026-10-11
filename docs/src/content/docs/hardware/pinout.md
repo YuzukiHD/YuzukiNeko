@@ -1,18 +1,18 @@
 ---
-title: "引脚排布"
+title: "Pinout"
 ---
 
-下表视角为<strong>元件面朝上，USB-C 接口在顶部</strong>，行号从 USB-C 一端向 microSD 一端递增。
+The view in the table below is <strong>component side up, with the USB-C connector at the top</strong>; row numbers increase from the USB-C end towards the microSD end.
 
 :::caution
-本文的“实际 SoC GPIO”列适用于所有版本。如果你用的是 <strong>V1.3</strong>，丝印从 `PD10` 起比真实 GPIO 小 2，务必先看[勘误](errata.md#v13pd-丝印编号错误)再配置引脚复用。
+The "actual SoC GPIO" column in this document applies to every revision. If you have a <strong>V1.3</strong> board, the silkscreen is two lower than the real GPIO from `PD10` onwards; always read the [errata](errata.md#v13-pd-silkscreen-numbering-error) before configuring pin multiplexing.
 :::
 
-## 排针总表
+## Header pinout table
 
-下表中 <strong>V1.3 丝印</strong> 是 V1.3 板子上印的名字；<strong>实际 GPIO / V1.4 丝印</strong> 才是 SoC 的真实引脚名，pinmux、软件和原理图都用这一列。加粗的是与 V1.3 丝印不同的项。
+In the table below, <strong>V1.3 silkscreen</strong> is the name printed on a V1.3 board, while <strong>Actual SoC GPIO / V1.4 silkscreen</strong> is the real SoC pin name — pinmux, software and schematics all use that column. Entries in bold differ from the V1.3 silkscreen.
 
-| 行 | 左：V1.3 丝印 | 左：实际 GPIO / V1.4 丝印 | 右：V1.3 丝印 | 右：实际 GPIO / V1.4 丝印 |
+| Row | Left: V1.3 silkscreen | Left: actual SoC GPIO / V1.4 silkscreen | Right: V1.3 silkscreen | Right: actual SoC GPIO / V1.4 silkscreen |
 | ---: | --- | --- | --- | --- |
 | 1 | `3V3` | `3V3` | `5V` | `5V` |
 | 2 | `PD6` | `PD6` | `GND` | `GND` |
@@ -35,24 +35,24 @@ title: "引脚排布"
 | 19 | `PE3` | `PE3` | `PE9` | `PE9` |
 | 20 | `PE4` | `PE4` | `PE10` | `PE10` |
 
-`3V3`、`5V`、`GND` 是电源脚，不是 GPIO。`GPADC` 是模拟输入脚，其通道、输入范围和基准电压请以原理图和 SoC 文档为准。
+`3V3`, `5V` and `GND` are power pins, not GPIO. `GPADC` is the analog input pin; its channel, input range and reference voltage must be confirmed from the schematic and the SoC documentation.
 
-## 速查：按功能找引脚
+## Quick reference: find a pin by function
 
-| 我要… | 可用引脚 |
+| I want… | Usable pins |
 | --- | --- |
-| 普通 GPIO | 任何带 `P` 前缀的脚（Function0 输入，Function1 输出） |
-| 外部中断 | 所有 GPIO 的 Function14（`PD-EINTn` / `PE-EINTn` / `PB-EINTn`） |
-| 模拟输入 | `GPADC` |
-| 控制台串口 | 视软件而定，见[板卡概览](overview.md#软件常见的引脚约定) |
-| 显示输出 | `PD0`–`PD9`、`PD12`–`PD22` 及部分 `PE` 脚 |
-| 红外接收 | `PD5` / `PD7` / `PD22` / `PE5` / `PE6` / `PB1` / `PB3`（IR-RX） |
+| Plain GPIO | Any pin with a `P` prefix (Function0 input, Function1 output) |
+| External interrupt | Function14 on every GPIO (`PD-EINTn` / `PE-EINTn` / `PB-EINTn`) |
+| Analog input | `GPADC` |
+| Console serial port | Depends on the software, see [Board overview](overview.md#common-software-pin-conventions) |
+| Display output | `PD0`–`PD9`, `PD12`–`PD22` and some `PE` pins |
+| Infrared receive | `PD5` / `PD7` / `PD22` / `PE5` / `PE6` / `PB1` / `PB3` (IR-RX) |
 
-每个脚的全部复用功能见[引脚复用 (MUX)](mux.md)。
+For every alternate function of each pin, see [Pin multiplexing (MUX)](mux.md).
 
-## 注意
+## Notes
 
-- 同一时刻一个脚只能选择一种功能；同一行里列出的功能互斥。
-- 显示、LVDS、MIPI DSI、USB 和 XIP Flash 属于高速或启动关键资源，接扩展硬件前请先核对你所用 BSP 的 pinctrl 设置、设备树和启动日志。
-- CAN 控制器只引出逻辑电平信号，接真实 CAN 总线需要外置收发器和正确的终端电阻。
-- 所有排针引脚均为 3.3 V 逻辑。
+- A pin can select only one function at a time; functions listed in the same row are mutually exclusive.
+- Display, LVDS, MIPI DSI, USB and XIP Flash are high-speed or boot-critical resources; before attaching expansion hardware, check the pinctrl settings, device tree and boot log of the BSP you are using.
+- The CAN controllers expose logic-level signals only; a real CAN bus needs an external transceiver and correct bus termination.
+- All header pins are 3.3 V logic.

@@ -1,70 +1,70 @@
 ---
-title: "安卓投屏"
+title: "Android screen mirroring"
 ---
 
-把安卓手机的屏幕投到板子的屏幕上，并把触摸和导航键传回手机。板子通过 WiFi 连到手机的 adbd（ADB over TCP），在手机上启动 [scrcpy](https://github.com/Genymobile/scrcpy) 的服务端，服务端把屏幕编码成 H.264 流发回来，板子用片上视频引擎解码，送到显示的视频层。示例是 `zephyr-components/android-screen-mirror/samples/mirror_player`，组件本身（ADB 客户端、配对、scrcpy 客户端）在同一个目录的 `src/` 里。
+Mirror an Android phone's screen onto the board's screen and send touch and navigation keys back to the phone. The board connects to the phone's adbd over WiFi (ADB over TCP), starts the [scrcpy](https://github.com/Genymobile/scrcpy) server on the phone, the server encodes the screen into an H.264 stream and sends it back, and the board decodes it with the on-chip video engine and sends it to the display video plane. The example is `zephyr-components/android-screen-mirror/samples/mirror_player`; the component itself (ADB client, pairing, scrcpy client) is in the `src/` of the same directory.
 
 ```mermaid
 flowchart TB
-    PHONE["安卓手机<br/>scrcpy-server · MediaCodec H.264"] -->|"ADB over TCP 视频流"| ADB["AIC8800 WiFi<br/>adb.c 流复用 + 环形缓冲"]
-    TOUCH["GT967 触摸屏"] --> RELAY["ui.c<br/>触摸中继线程"]
-    ADB --> SC["scrcpy.c<br/>H.264 包"]
-    RELAY -->|"触摸 / 按键消息"| SC
-    SC -->|"Annex B"| VDEC["vdec 视频引擎<br/>NV12 帧 → 显示视频层"]
-    SC -->|"控制流"| ADB
-    ADB -->|"ADB over TCP 控制流"| PHONE
+    PHONE["Android phone<br/>scrcpy-server · MediaCodec H.264"] -->|"ADB over TCP video stream"| ADB["AIC8800 WiFi<br/>adb.c stream multiplexing + ring buffer"]
+    TOUCH["GT967 touchscreen"] --> RELAY["ui.c<br/>touch relay thread"]
+    ADB --> SC["scrcpy.c<br/>H.264 packets"]
+    RELAY -->|"touch / key messages"| SC
+    SC -->|"Annex B"| VDEC["vdec video engine<br/>NV12 frames → display video plane"]
+    SC -->|"control stream"| ADB
+    ADB -->|"ADB over TCP control stream"| PHONE
 ```
 
-开始前请先完成 [配置开发环境](../zephyr-setup-env.md) 和 [获取 Zephyr 代码](../zephyr-get-source.md)。WiFi 部分用的是 [AIC8800 WIFI](../components/aic8800-wifi.md) 驱动，扫描、连接、DHCP 的细节看那一篇。
+Before you start, complete [Setting up the development environment](../zephyr-setup-env.md) and [Getting the Zephyr source](../zephyr-get-source.md). The WiFi part uses the [AIC8800 WIFI](../components/aic8800-wifi.md) driver; for the details of scanning, connecting and DHCP see that page.
 
-## 准备
+## Preparation
 
-### 需要什么
+### What you need
 
-- 板子：`yuzukineko`，用到 AIC8800 WiFi、1024×768 MIPI-DSI 屏、GT967 触摸屏（最多 5 点）、TF 卡槽。
-- 手机：安卓手机。连接方式二选一：用 USB 线执行一次 `adb tcpip`（任意安卓版本），或用“无线调试”（安卓 11 及以上）。
-- TF 卡：FAT 或 exFAT。放 `scrcpy-server.jar`；板子还会在卡上写 `wifi.cfg`（WiFi 名称和密码）和 `adbkey`（ADB 私钥）。
-- 网络：板子和手机在同一个 WiFi 里，路由器不能开“客户端隔离”；用无线调试时路由器还要转发 mDNS 组播。
-- 电脑：下载 scrcpy 服务端；用 `adb tcpip` 方式时需要 `adb`。
+- Board: `yuzukineko`, using AIC8800 WiFi, the 1024×768 MIPI-DSI panel, the GT967 touchscreen (up to 5 points) and the TF card slot.
+- Phone: an Android phone. Choose one of two connection methods: run `adb tcpip` once over a USB cable (any Android version), or use "Wireless debugging" (Android 11 and above).
+- TF card: FAT or exFAT. Put `scrcpy-server.jar` on it; the board also writes `wifi.cfg` (WiFi name and password) and `adbkey` (the ADB private key) to the card.
+- Network: the board and the phone are in the same WiFi, and the router must not have client isolation enabled; when using wireless debugging the router must also forward mDNS multicast.
+- Computer: to download the scrcpy server; the `adb tcpip` method also needs `adb`.
 
-### 手机端准备
+### Preparing the phone
 
-#### 打开开发者选项
+#### Turning on developer options
 
-1. 设置 → 关于手机 → 连续点“版本号”7 次，进入开发者模式。
-2. 设置 → 系统 → 开发者选项（各厂商菜单位置不同）。
-3. 打开“USB 调试”。
-4. 部分厂商（例如小米系的系统）还有一个“USB 调试（安全设置）”，不打开的话触摸和按键注入会被系统拒绝。画面不受影响，所以现象是“能看不能点”。
+1. Settings → About phone → tap "Build number" 7 times to enter developer mode.
+2. Settings → System → Developer options (the menu location differs between vendors).
+3. Turn on "USB debugging".
+4. Some vendors (MIUI-based systems, for example) also have a "USB debugging (Security settings)"; if it is not turned on, the system rejects touch and key injection. The picture is unaffected, so the symptom is "you can watch but not tap".
 
-#### 方式一：adb tcpip（固定地址）
+#### Method one: adb tcpip (fixed address)
 
-手机用 USB 接到电脑，执行一次：
+Connect the phone to the computer over USB and run once:
 
 ```sh
 adb tcpip 5555
 adb shell ip route
 ```
 
-第二条命令的输出里 `src` 后面是手机的 WiFi 地址。之后可以拔掉 USB。手机重启后这个设置会失效，需要重新执行。
+In the output of the second command the address after `src` is the phone's WiFi address. The USB cable can then be unplugged. This setting is lost when the phone reboots and has to be run again.
 
-把手机地址写进板子的配置 `CONFIG_SAMPLE_MIRROR_PHONE_IP`（见 [编译前设置手机地址](#编译前设置手机地址)），板子启动后直接连这个地址的 5555 端口。第一次连接时手机弹出“允许 USB 调试吗？”，勾选“一律允许”后点允许；板子最多等 60 秒（`adb_connect()` 的 `accept_timeout_ms`，由 `scrcpy_start()` 传入）。
+Write the phone address into the board's configuration `CONFIG_SAMPLE_MIRROR_PHONE_IP` (see [Setting the phone address before building](#setting-the-phone-address-before-building)); once the board has started it connects directly to port 5555 of this address. On the first connection the phone pops up "Allow USB debugging?", where you tick "Always allow" and then tap allow; the board waits up to 60 seconds (`accept_timeout_ms` of `adb_connect()`, passed in by `scrcpy_start()`).
 
-#### 方式二：无线调试（不用地址，不用 USB）
+#### Method two: wireless debugging (no address, no USB)
 
-要求安卓 11 及以上，手机和板子在同一个 WiFi。
+Requires Android 11 or above, with the phone and the board in the same WiFi.
 
-1. 开发者选项 → 打开“无线调试”。手机用 mDNS 广播 `_adb-tls-connect._tcp` 服务。
-2. 板子启动后会找这个服务；找不到就在屏幕上显示一个二维码（内容是 `WIFI:T:ADB;S:mirror-xxxxxx;P:<密码>;;`，名称和密码每次随机）。
-3. 手机上：开发者选项 → 无线调试 → “使用二维码配对设备”，扫板子屏幕上的二维码。
-4. 配对成功后板子保存的密钥被手机接受，之后重新找服务并连接。
+1. Developer options → turn on "Wireless debugging". The phone advertises the `_adb-tls-connect._tcp` service over mDNS.
+2. After it starts, the board looks for this service; if it cannot find it, it shows a QR code on the screen (whose content is `WIFI:T:ADB;S:mirror-xxxxxx;P:<password>;;`, with the name and password randomised each time).
+3. On the phone: Developer options → Wireless debugging → "Pair device with QR code", and scan the QR code on the board's screen.
+4. Once pairing succeeds, the key the board saved is accepted by the phone, which then finds the service again and connects.
 
-`CONFIG_SAMPLE_MIRROR_PHONE_IP` 留空就是这种方式（默认）。配对只在密钥第一次被手机接受之前需要；密钥换了或手机里删掉了配对记录，连接会返回 `-EACCES`，板子重新显示二维码。
+Leaving `CONFIG_SAMPLE_MIRROR_PHONE_IP` empty selects this method (the default). Pairing is needed only before the key is first accepted by the phone; if the key is changed or the pairing record is deleted on the phone, the connection returns `-EACCES` and the board shows the QR code again.
 
-### scrcpy 服务端
+### The scrcpy server
 
-scrcpy 的服务端是一个 jar（实际是装着 `classes.dex` 的 zip），由板子推到手机的 `/data/local/tmp/scrcpy-server.jar`，再用 `app_process` 启动。**版本必须和板子配置的版本一致**：`CONFIG_SAMPLE_MIRROR_SERVER_VERSION` 默认 `3.3.1`，服务端启动时会比对命令行里的版本号，不一致就退出（板子会把服务端的输出打印成 `server: …`）。
+The scrcpy server is a jar (in fact a zip containing `classes.dex`) which the board pushes to `/data/local/tmp/scrcpy-server.jar` on the phone and then starts with `app_process`. **The version must match the one configured on the board**: `CONFIG_SAMPLE_MIRROR_SERVER_VERSION` defaults to `3.3.1`, and when it starts the server compares the version number in the command line and exits if it does not match (the board prints the server's output as `server: …`).
 
-在电脑上下载 3.3.1 版，改名为 `scrcpy-server.jar`，放到 TF 卡根目录：
+Download version 3.3.1 on the computer, rename it to `scrcpy-server.jar` and put it in the root directory of the TF card:
 
 ```sh
 curl -L -o scrcpy-server.jar \
@@ -72,37 +72,37 @@ curl -L -o scrcpy-server.jar \
 sha256sum scrcpy-server.jar
 ```
 
-文件大小 90788 字节，SHA-256 为 `a0f70b20aa4998fbf658c94118cd6c8dab6abbb0647a3bdab344d70bc1ebcbb8`，以 [scrcpy 发布页](https://github.com/Genymobile/scrcpy/releases/tag/v3.3.1) 上公布的校验值为准。
+The file size is 90788 bytes and the SHA-256 is `a0f70b20aa4998fbf658c94118cd6c8dab6abbb0647a3bdab344d70bc1ebcbb8`; take the checksum published on the [scrcpy release page](https://github.com/Genymobile/scrcpy/releases/tag/v3.3.1) as authoritative.
 
-不需要手动 `adb push`：每次连接，`adb_push_file()` 先用 sync 服务的 `STAT` 查手机上这个文件的大小，和卡上的文件大小一样就跳过，不一样才推送（只比大小，不比内容；换了同样大小的另一个版本不会重推，要先在手机上删掉旧文件）。卡上没有这个文件，`fs_stat()` 失败，屏幕显示 `cannot copy the server`。
+There is no need for a manual `adb push`: on every connection `adb_push_file()` first queries the size of this file on the phone with the `STAT` of the sync service and skips the push if it matches the file size on the card, pushing only when it differs (only the size is compared, not the content; swapping in another version of the same size will not be re-pushed, so delete the old file on the phone first). If the file is not on the card, `fs_stat()` fails and the screen shows `cannot copy the server`.
 
-想换版本：同时改卡上的 jar 和 `CONFIG_SAMPLE_MIRROR_SERVER_VERSION`。服务端的控制消息格式随版本变，`scrcpy.c` 里的消息布局对应 3.x，换到别的大版本需要对照 scrcpy 的 `doc/develop.md` 检查。
+To change version: change both the jar on the card and `CONFIG_SAMPLE_MIRROR_SERVER_VERSION`. The server's control-message format changes with the version; the message layout in `scrcpy.c` corresponds to 3.x, and moving to another major version requires checking it against scrcpy's `doc/develop.md`.
 
-### 配置 WiFi
+### Configuring WiFi
 
-WiFi 驱动、固件加载、`net_mgmt` 接口见 [AIC8800 WIFI](../components/aic8800-wifi.md)。本示例用到的部分：
+For the WiFi driver, firmware loading and the `net_mgmt` interface see [AIC8800 WIFI](../components/aic8800-wifi.md). The parts this example uses:
 
-- `CONFIG_AIC8800=y` 打开驱动，固件编进镜像，不用放在卡上。
-- 只有 STA 模式；支持 2.4 GHz 和 5 GHz，WPA2-PSK 和开放网络；<strong>不支持 WPA3</strong>。
-- 板子用 DHCPv4 取地址，不支持 IPv6（`CONFIG_NET_IPV6=n`）。
+- `CONFIG_AIC8800=y` enables the driver; the firmware is compiled into the image and does not have to be on the card.
+- STA mode only; 2.4 GHz and 5 GHz, WPA2-PSK and open networks are supported; <strong>WPA3 is not supported</strong>.
+- The board gets its address with DHCPv4; IPv6 is not supported (`CONFIG_NET_IPV6=n`).
 
-示例怎么拿到网络名称和密码，依次尝试：
+How the example obtains the network name and password, trying in turn:
 
-1. TF 卡上的 `/SD:/wifi.cfg`：两行文本，第一行名称，第二行密码，明文保存。
-2. 编译时给的 `CONFIG_SAMPLE_MIRROR_WIFI_SSID` 和 `CONFIG_SAMPLE_MIRROR_WIFI_PSK`（只有卡上没有保存的网络时才用）。
-3. 都没有，或者连不上：屏幕显示 WiFi 设置表单——“Scan”按钮扫描，下拉框选网络（列表末尾的“其他”项可手动输入名称），用屏幕键盘输入密码，点连接。连上以后写回 `wifi.cfg`。
+1. `/SD:/wifi.cfg` on the TF card: two lines of text, the first the name and the second the password, stored in plaintext.
+2. `CONFIG_SAMPLE_MIRROR_WIFI_SSID` and `CONFIG_SAMPLE_MIRROR_WIFI_PSK` given at build time (used only when there is no saved network on the card).
+3. If there is neither, or the connection fails: the screen shows the WiFi settings form — the "Scan" button scans, the dropdown selects a network (the "other" entry at the end of the list allows the name to be typed in manually), the password is entered with the on-screen keyboard, and connect is tapped. Once connected it is written back to `wifi.cfg`.
 
-连接成功才写 `wifi.cfg`，下次启动直接用。连着投屏时点右上角的齿轮，菜单里“Change WiFi network”可以换网络。
+`wifi.cfg` is written only after a successful connection and is used directly on the next start-up. While mirroring, tap the gear in the top right corner, and "Change WiFi network" in the menu switches networks.
 
-`wifi_join()` 等连接结果最多 30 秒，再等 DHCP 地址最多 30 秒；`main()` 里 `wifi_setup(false)` 失败（驱动里没有 WiFi 接口）才显示 `no WiFi` 并退出，连不上网络则一直回到表单。
+`wifi_join()` waits up to 30 seconds for the connection result and up to another 30 seconds for a DHCP address; in `main()` only a failure of `wifi_setup(false)` (no WiFi interface in the driver) shows `no WiFi` and exits, while a failure to reach the network keeps returning to the form.
 
 :::note
-AIC8800 驱动在加入网络时会把 SSID 和密码用 `aic8800` 的日志明文打在串口上（`Connect Wi-Fi: …`、`SET_NETWORK 0 psk "…"`）。串口日志贴给别人之前先把这几行抹掉。本文贴的日志已经用 `<SSID>`、`<PSK>` 占位符替换。
+When joining a network the AIC8800 driver prints the SSID and password in plaintext on the serial port in its `aic8800` log (`Connect Wi-Fi: …`, `SET_NETWORK 0 psk "…"`). Blank out these lines before pasting the serial log to anyone. The log pasted in this document has already had them replaced with the `<SSID>` and `<PSK>` placeholders.
 :::
 
-## 编译
+## Building
 
-组件和 WiFi 驱动都是 `zephyr-components` 下的 Zephyr 模块。示例的 `CMakeLists.txt` 自己把它们加进 `ZEPHYR_EXTRA_MODULES`：
+The component and the WiFi driver are both Zephyr modules under `zephyr-components`. The example's `CMakeLists.txt` adds them to `ZEPHYR_EXTRA_MODULES` itself:
 
 ```cmake
 # the screen mirror module is two directories up, the WiFi module is a sibling
@@ -110,7 +110,7 @@ list(APPEND ZEPHYR_EXTRA_MODULES ${CMAKE_CURRENT_SOURCE_DIR}/../..
      ${CMAKE_CURRENT_SOURCE_DIR}/../../../aic8800)
 ```
 
-所以不需要在命令行指定模块路径。在工作区里执行：
+So the module paths do not have to be given on the command line. Run this in the workspace:
 
 ```sh
 . ~/f101-zephyr/env.sh
@@ -120,23 +120,23 @@ west build -b yuzukineko -d build/android-mirror zephyr-components/android-scree
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/apps-android-mirror/build.cast" data-speed="6"></div>
 
-产物是 `build/android-mirror/zephyr/zephyr.bin`，7567584 字节（约 7.2 MiB，包含 AIC8800 固件），链接地址 `0x40010000`，RAM 占用 7567584 字节，占 16320 KB 的 45.28%。
+The artifact is `build/android-mirror/zephyr/zephyr.bin`, 7567584 bytes (about 7.2 MiB, including the AIC8800 firmware), linked at `0x40010000`, using 7567584 bytes of RAM, 45.28% of 16320 KB.
 
-示例的 `prj.conf` 里设了 `CONFIG_MINIMAL_LIBC=y`：AIC8800 驱动的 `compat/` 头文件按最小 C 库写，用板子默认的 picolibc 会在 `getchar` 的声明上冲突，见 [AIC8800 WIFI](../components/aic8800-wifi.md)。自己的应用用这个驱动时也要设。
+The example's `prj.conf` sets `CONFIG_MINIMAL_LIBC=y`: the `compat/` headers of the AIC8800 driver are written for the minimal C library, and with the board's default picolibc they clash over the declaration of `getchar`, see [AIC8800 WIFI](../components/aic8800-wifi.md). Your own application must set this too when it uses the driver.
 
-### 编译前设置手机地址
+### Setting the phone address before building
 
-用 adb tcpip 方式时，把手机地址写进示例目录的 `prj.conf`（字符串要带引号）：
+When using the adb tcpip method, write the phone address into the example directory's `prj.conf` (the string must be quoted):
 
 ```ini
 CONFIG_SAMPLE_MIRROR_PHONE_IP="192.168.1.23"
 ```
 
-初始的 WiFi 也可以这样给：`CONFIG_SAMPLE_MIRROR_WIFI_SSID="…"` 和 `CONFIG_SAMPLE_MIRROR_WIFI_PSK="…"`，省得在屏幕上输入。改了 `prj.conf` 以后，要换一个新的构建目录或给 `west build` 加 `-p`，否则 CMake 缓存里的旧值会生效。
+The initial WiFi can be given the same way: `CONFIG_SAMPLE_MIRROR_WIFI_SSID="…"` and `CONFIG_SAMPLE_MIRROR_WIFI_PSK="…"`, saving you from typing them on the screen. After changing `prj.conf`, switch to a new build directory or add `-p` to `west build`, otherwise the old values in the CMake cache take effect.
 
-## 运行
+## Running
 
-下载方式见 [编译与运行](../zephyr-build-run.md)，控制台是 UART1（PB00/PB01，115200 8N1）。镜像有 7.2 MiB，调试时用方式一：
+For the download procedure see [Building and running](../zephyr-build-run.md); the console is UART1 (PB00/PB01, 115200 8N1). The image is 7.2 MiB; use method one while debugging:
 
 ```sh
 xfel ddr f101-s3
@@ -145,24 +145,24 @@ xfel exec 0x40010000
 ```
 
 :::caution
-板子只有一个 USB-C 口，既是 xfel 下载口，也是 UF2 盘的口。先下载，再接别的设备。
+The board has only one USB-C port, which is both the xfel download port and the UF2 drive port. Download first, then connect other devices.
 :::
 
-### 下载并启动
+### Downloading and starting
 
-TF 卡根目录放好 `scrcpy-server.jar`，插进板子，上电或下载。
+Put `scrcpy-server.jar` in the root directory of the TF card, insert it into the board, and power on or download.
 
-串口先输出启动横幅，接着显示驱动打印 `1024x768 @ 60 Hz`，GT967 报告固件版本，配置更新为 `1024x768, 5 point(s)`，触摸屏和显示就绪。
+The serial port first prints the boot banner, then the display driver prints `1024x768 @ 60 Hz`, GT967 reports its firmware version, the configuration updates to `1024x768, 5 point(s)`, and the touchscreen and display are ready.
 
-### 连上 WiFi
+### Connecting to WiFi
 
-屏幕左上角的状态框显示 `joining the WiFi`。TF 卡里已有保存的 `wifi.cfg` 时，板子读它直接连网，不经过设置表单；第一次用或连不上，屏幕出现 WiFi 设置表单，选网络、输入密码、连接。
+The status box in the top left corner of the screen shows `joining the WiFi`. When there is already a saved `wifi.cfg` on the TF card, the board reads it and connects directly without going through the settings form; on first use, or when it cannot connect, the WiFi settings form appears on the screen, where you select a network, enter the password and connect.
 
-![WiFi 设置表单：网络下拉框、Scan 按钮、密码输入框和屏幕键盘](figures/android-mirror-wifi-form.png)
+![The WiFi settings form: network dropdown, Scan button, password field and on-screen keyboard](figures/android-mirror-wifi-form.webp)
 
-上图是 WiFi 设置表单：网络从下拉框里选（Scan 重新扫描），密码输入框右边的 Show 开关切换是否明文显示，下面是屏幕键盘。
+The picture above is the WiFi settings form: the network is chosen from the dropdown (Scan rescans), the Show switch to the right of the password field toggles plaintext display, and the on-screen keyboard is below.
 
-串口打印 `wifi: connecting to <SSID>`。AIC8800 完成 SDIO 枚举（`sdio card up: 2 functions`）、芯片识别（`chip_id=c3`）、固件下载（`### Upload firmware`、`Start app`），wpa_supplicant 启动后打印 `wifi: connect ok (0)`，DHCP 给出 `wifi: address 192.168.1.55`。驱动细节见 [AIC8800 WIFI](../components/aic8800-wifi.md)。驱动把 SSID 和密码明文打在了串口上，下面的日志已把它们替换成 `<SSID>`、`<PSK>`。完整日志：
+The serial port prints `wifi: connecting to <SSID>`. AIC8800 completes SDIO enumeration (`sdio card up: 2 functions`), chip identification (`chip_id=c3`) and firmware download (`### Upload firmware`, `Start app`); after wpa_supplicant starts it prints `wifi: connect ok (0)`, and DHCP gives `wifi: address 192.168.1.55`. For driver details see [AIC8800 WIFI](../components/aic8800-wifi.md). The driver printed the SSID and password in plaintext on the serial port; the log below has had them replaced with `<SSID>` and `<PSK>`. The complete log:
 
 ```text
 *** Booting Zephyr OS build 55f8a211e870 ***
@@ -231,156 +231,156 @@ wifi: connect ok (0)
 wifi: address 192.168.1.55
 ```
 
-### 连接手机
+### Connecting to the phone
 
-方式一：手机已执行 `adb tcpip 5555`，屏幕状态栏依次显示 `connecting to the phone`、`copying the server`、`starting the server`、`waiting for the first picture`。第一次连接要在手机上点允许。
+Method one: the phone has already run `adb tcpip 5555`, and the status bar on the screen shows `connecting to the phone`, `copying the server`, `starting the server` and `waiting for the first picture` in turn. The first connection needs an allow tap on the phone.
 
-方式二：手机打开无线调试后，屏幕显示 `looking for the phone (turn on Wireless debugging)`，找到就连；没有配对过就显示二维码，按上面的步骤扫码。
+Method two: after wireless debugging is turned on on the phone, the screen shows `looking for the phone (turn on Wireless debugging)` and connects once it is found; if it has never been paired, the QR code is shown, and you scan it as described above.
 
-![配对二维码界面，右侧是三个导航键，右上角是设置键](figures/android-mirror-pair-qr.png)
+![The pairing QR code screen, with the three navigation keys on the right and the settings key in the top right corner](figures/android-mirror-pair-qr.webp)
 
-上图是没有配对过时显示的二维码，下面一行小字是手机上的操作路径，最下面是 `Waiting for the phone to scan`。
+The picture above is the QR code shown when it has never been paired; the small line of text below it is the path to follow on the phone, and at the very bottom is `Waiting for the phone to scan`.
 
-### 操作镜像画面
+### Operating the mirrored picture
 
-出现手机画面后，画面里点哪里就等于在手机对应位置点哪里。屏幕右侧一列三个圆键是返回、主屏幕、最近任务，右上角是设置。
+Once the phone's picture appears, tapping anywhere in the picture is the same as tapping the corresponding place on the phone. The column of three round keys on the right of the screen is back, home and recent tasks, and the top right corner is settings.
 
-![手机主屏幕和板子屏幕上的镜像画面并排](figures/android-mirror-screen.png)
+![The phone's home screen and the mirrored picture on the board's screen side by side](figures/android-mirror-screen.webp)
 
-左边是手机，右边是板子的屏幕：手机竖屏，画面按比例缩放后居中，两侧留黑。右侧一列圆键从上到下是返回、主屏幕、最近任务，右上角圆键是设置。
+The phone is on the left and the board's screen on the right: the phone is in portrait, and the picture is scaled proportionally and centred, with black bars on both sides. The column of round keys on the right is, from top to bottom, back, home and recent tasks, and the round key in the top right corner is settings.
 
-![设置菜单：Change WiFi network、Pair a new phone、Close](figures/android-mirror-keys.png)
+![The settings menu: Change WiFi network, Pair a new phone, Close](figures/android-mirror-keys.webp)
 
-点右上角的设置键弹出这个菜单：`Change WiFi network` 重新打开 WiFi 设置表单，`Pair a new phone` 重新配对，`Close` 关闭菜单。
+Tapping the settings key in the top right corner brings up this menu: `Change WiFi network` reopens the WiFi settings form, `Pair a new phone` pairs again, and `Close` closes the menu.
 
-### 屏幕上的状态文字
+### Status text on the screen
 
-状态栏的文字来自 `ui_set_status()`，`main.c` 和 `scrcpy.c` 里写的是英文原文：
+The text in the status bar comes from `ui_set_status()`; what `main.c` and `scrcpy.c` write is the original English:
 
-| 文字 | 含义 |
+| Text | Meaning |
 | --- | --- |
-| `joining the WiFi` | 正在连 WiFi |
-| `no SD card` | `fs_mount()` 重试 5 次仍失败，程序到这里结束 |
-| `no WiFi` | 没有 WiFi 接口，程序结束 |
-| `looking for the phone (turn on Wireless debugging)` | 在找 `_adb-tls-connect` 服务 |
-| `Waiting for the phone to scan` | 显示二维码，等手机扫码 |
-| `Pairing...` | 手机已扫码，正在配对 |
-| `connecting to the phone` | 连 adbd |
-| `key refused by the phone` | 手机拒绝密钥（`-EACCES`） |
-| `cannot connect to adb` | 连接或 TLS 失败 |
-| `copying the server` | 推送服务端 |
-| `cannot copy the server` | 推送失败，多半是卡上没有 `scrcpy-server.jar` |
-| `starting the server` | 启动服务端 |
-| `the server did not start` | 15 秒内连不上服务端的套接字 |
-| `waiting for the first picture` | 两条流已打开，等第一帧 |
-| `connection lost, retrying` | 流断了，3 秒后重试 |
+| `joining the WiFi` | connecting to WiFi |
+| `no SD card` | `fs_mount()` still failed after 5 retries; the program ends here |
+| `no WiFi` | no WiFi interface; the program ends |
+| `looking for the phone (turn on Wireless debugging)` | looking for the `_adb-tls-connect` service |
+| `Waiting for the phone to scan` | showing the QR code, waiting for the phone to scan it |
+| `Pairing...` | the phone has scanned it and pairing is under way |
+| `connecting to the phone` | connecting to adbd |
+| `key refused by the phone` | the phone refused the key (`-EACCES`) |
+| `cannot connect to adb` | connection or TLS failed |
+| `copying the server` | pushing the server |
+| `cannot copy the server` | push failed, usually because `scrcpy-server.jar` is not on the card |
+| `starting the server` | starting the server |
+| `the server did not start` | could not connect to the server's socket within 15 seconds |
+| `waiting for the first picture` | both streams are open, waiting for the first frame |
+| `connection lost, retrying` | the stream dropped, retrying after 3 seconds |
 
-## 功能与修改位置
+## Features and where to change them
 
-| 功能 | 位置 | 怎么改 |
+| Feature | Location | How to change |
 | --- | --- | --- |
-| 手机地址、端口、连接方式 | `Kconfig` 的 `SAMPLE_MIRROR_PHONE_IP`、`SAMPLE_MIRROR_PHONE_PORT`；`main.c` 的 `connect_round()`（531–560 行） | 改配置；要同时支持两种方式需改 `connect_round()` |
-| scrcpy 参数（分辨率、帧率、码率） | `Kconfig` 的 `SAMPLE_MIRROR_MAX_SIZE`、`SAMPLE_MIRROR_MAX_FPS`、`SAMPLE_MIRROR_BIT_RATE`；命令行拼接在 `scrcpy.c` 84–90 行 | 改配置；要加别的服务端参数改那段字符串 |
-| 丢帧阈值 | `main.c` 35 行 `BACKLOG_DROP` | 改宏 |
-| 视频包最大长度 | `main.c` 33 行 `PACKET_MAX`（1 MiB） | 改宏；超过的包被丢掉并打印 `packet too large` |
-| 解码器缓冲 | `main.c` 的 `stream_open()`，`.buffer_size = 512 * 1024` | 改 `buffer_size` |
-| 导航键位置和数量 | `ui.c` 25–26 行 `KEY_SIZE`、`KEY_GAP`，`key_rect()`；键值表在 603 行 | 改常量，或改 `key_codes[]` 换成别的安卓键值 |
-| 触摸映射 | `ui.c` 的 `picture_rect()`（584–597 行）和 `relay_main()`（608 行起） | 见 [触摸映射](#触摸映射) |
-| 触摸松开保持时间 | `ui.c` 28 行 `RELEASE_HOLD_MS`（50 ms） | 改宏 |
-| 设置菜单项 | `ui.c` 的 `menu_build()`，492–493 行 | 改 `items[]`，在 `main()` 的循环里处理新增的 `enum ui_action` |
-| WiFi 配置文件位置 | `main.c` 153 行 `WIFI_CFG` | 改宏 |
+| Phone address, port, connection method | `SAMPLE_MIRROR_PHONE_IP`, `SAMPLE_MIRROR_PHONE_PORT` in `Kconfig`; `connect_round()` in `main.c` (lines 531–560) | Change the configuration; supporting both methods at once requires changing `connect_round()` |
+| scrcpy parameters (resolution, frame rate, bit rate) | `SAMPLE_MIRROR_MAX_SIZE`, `SAMPLE_MIRROR_MAX_FPS`, `SAMPLE_MIRROR_BIT_RATE` in `Kconfig`; the command line is assembled at lines 84–90 of `scrcpy.c` | Change the configuration; to add other server parameters change that string |
+| Frame-drop threshold | `BACKLOG_DROP` at line 35 of `main.c` | Change the macro |
+| Maximum video packet length | `PACKET_MAX` at line 33 of `main.c` (1 MiB) | Change the macro; larger packets are dropped and print `packet too large` |
+| Decoder buffer | `stream_open()` in `main.c`, `.buffer_size = 512 * 1024` | Change `buffer_size` |
+| Navigation key positions and count | `KEY_SIZE`, `KEY_GAP` at lines 25–26 of `ui.c`, `key_rect()`; the key-value table is at line 603 | Change the constants, or change `key_codes[]` to other Android key values |
+| Touch mapping | `picture_rect()` (lines 584–597) and `relay_main()` (from line 608) in `ui.c` | See [Touch mapping](#touch-mapping) |
+| Touch release hold time | `RELEASE_HOLD_MS` at line 28 of `ui.c` (50 ms) | Change the macro |
+| Settings menu items | `menu_build()` in `ui.c`, lines 492–493 | Change `items[]`, and handle the new `enum ui_action` in the loop in `main()` |
+| WiFi configuration file location | `WIFI_CFG` at line 153 of `main.c` | Change the macro |
 
-## 配置选项
+## Configuration options
 
-### 组件（`android-screen-mirror/Kconfig`）
+### Component (`android-screen-mirror/Kconfig`)
 
-| 选项 | 默认 | 说明 |
+| Option | Default | Notes |
 | --- | --- | --- |
-| `CONFIG_MIRROR` | `n` | 打开组件。依赖 `NETWORKING`、`NET_TCP`、`FILE_SYSTEM`，并选中 mbed TLS 的 RSA、PKCS#1 v1.5、SHA-1/256/512、HKDF、GCM 和 `RING_BUFFER` |
-| `CONFIG_MIRROR_ADB_MAX_PAYLOAD` | 65536 | 板子接受的最大 ADB 数据包，范围 4096–262144；发送、接收缓冲各按这个大小分配一块 |
-| `CONFIG_MIRROR_ADB_RX_BUFFER` | 262144 | 每条流的接收环形缓冲（字节）。满了以后接收线程等读者取走，TCP 窗口随之收紧 |
-| `CONFIG_MIRROR_ADB_TRACE` | 0 | 设为 1，每收到一个 ADB 包打印一行包头 |
+| `CONFIG_MIRROR` | `n` | Enables the component. Depends on `NETWORKING`, `NET_TCP`, `FILE_SYSTEM`, and selects mbed TLS RSA, PKCS#1 v1.5, SHA-1/256/512, HKDF, GCM and `RING_BUFFER` |
+| `CONFIG_MIRROR_ADB_MAX_PAYLOAD` | 65536 | Maximum ADB packet the board accepts, range 4096–262144; one buffer each for sending and receiving is allocated at this size |
+| `CONFIG_MIRROR_ADB_RX_BUFFER` | 262144 | Receive ring buffer per stream (bytes). Once it is full the receive thread waits for the reader to take data, and the TCP window tightens accordingly |
+| `CONFIG_MIRROR_ADB_TRACE` | 0 | Set to 1 to print one packet-header line per ADB packet received |
 
-使用组件的应用还必须设 `CONFIG_MBEDTLS_USER_CONFIG_FILE="mirror_mbedtls.h"`，头文件在 `android-screen-mirror/include/`，用来打开 PEM、X.509 生成和 TLS 密钥导出等 mbed TLS 功能。
+An application using the component must also set `CONFIG_MBEDTLS_USER_CONFIG_FILE="mirror_mbedtls.h"`; the header is in `android-screen-mirror/include/` and is used to enable mbed TLS features such as PEM, X.509 generation and TLS key export.
 
-### 示例（`samples/mirror_player/Kconfig`）
+### Example (`samples/mirror_player/Kconfig`)
 
-| 选项 | 默认 | 说明 |
+| Option | Default | Notes |
 | --- | --- | --- |
-| `CONFIG_SAMPLE_MIRROR_WIFI_SSID` | `""` | 卡上没有保存网络时使用的 WiFi 名称 |
-| `CONFIG_SAMPLE_MIRROR_WIFI_PSK` | `""` | 对应的 WPA2 密码 |
-| `CONFIG_SAMPLE_MIRROR_PHONE_IP` | `""` | 手机的 IPv4 地址。空：用无线调试找手机并配对；非空：连这个地址的 ADB 明文端口 |
-| `CONFIG_SAMPLE_MIRROR_PHONE_PORT` | 5555 | 上面这种方式的端口 |
-| `CONFIG_SAMPLE_MIRROR_KEY_FILE` | `"/SD:/adbkey"` | ADB 私钥文件，不存在就生成。可以直接放电脑上 `~/.android/adbkey`，这样手机认为是同一台电脑，不再弹窗 |
-| `CONFIG_SAMPLE_MIRROR_SERVER_FILE` | `"/SD:/scrcpy-server.jar"` | 卡上的 scrcpy 服务端文件 |
-| `CONFIG_SAMPLE_MIRROR_SERVER_VERSION` | `"3.3.1"` | 服务端版本，要和 jar 一致 |
-| `CONFIG_SAMPLE_MIRROR_MAX_SIZE` | 1024 | 画面长边最多多少像素，服务端会等比缩小 |
-| `CONFIG_SAMPLE_MIRROR_MAX_FPS` | 30 | 帧率上限 |
-| `CONFIG_SAMPLE_MIRROR_BIT_RATE` | 4000000 | 视频码率（比特每秒） |
+| `CONFIG_SAMPLE_MIRROR_WIFI_SSID` | `""` | WiFi name used when there is no saved network on the card |
+| `CONFIG_SAMPLE_MIRROR_WIFI_PSK` | `""` | The corresponding WPA2 password |
+| `CONFIG_SAMPLE_MIRROR_PHONE_IP` | `""` | The phone's IPv4 address. Empty: find and pair with the phone using wireless debugging; non-empty: connect to the ADB plaintext port of this address |
+| `CONFIG_SAMPLE_MIRROR_PHONE_PORT` | 5555 | Port for the method just above |
+| `CONFIG_SAMPLE_MIRROR_KEY_FILE` | `"/SD:/adbkey"` | ADB private key file, generated if it does not exist. The computer's `~/.android/adbkey` can be put here directly, so the phone treats it as the same computer and does not pop up again |
+| `CONFIG_SAMPLE_MIRROR_SERVER_FILE` | `"/SD:/scrcpy-server.jar"` | The scrcpy server file on the card |
+| `CONFIG_SAMPLE_MIRROR_SERVER_VERSION` | `"3.3.1"` | Server version, which must match the jar |
+| `CONFIG_SAMPLE_MIRROR_MAX_SIZE` | 1024 | Maximum pixels on the long side of the picture; the server scales down proportionally |
+| `CONFIG_SAMPLE_MIRROR_MAX_FPS` | 30 | Frame-rate ceiling |
+| `CONFIG_SAMPLE_MIRROR_BIT_RATE` | 4000000 | Video bit rate (bits per second) |
 
-### prj.conf 里和投屏有关的选项
+### Screen-mirroring options in prj.conf
 
-| 选项 | 作用 |
+| Option | Effect |
 | --- | --- |
-| `CONFIG_MIRROR=y` | 打开组件 |
-| `CONFIG_MINIMAL_LIBC=y` | AIC8800 驱动的 `compat/` 头文件按最小 C 库写，picolibc 下编译失败 |
-| `CONFIG_AIC8800=y` | 打开 WiFi 驱动 |
-| `CONFIG_VDEC=y` | 视频引擎，解码 H.264 |
-| `CONFIG_DISPLAY=y` | 显示驱动 |
-| `CONFIG_DISPLAY_SUNXI_ARGB8888=y` | ARGB 界面层，状态栏、按键、二维码画在这一层 |
-| `CONFIG_LVGL=y` | 界面库 |
-| `CONFIG_LV_USE_QRCODE=y` | 配对二维码 |
-| `CONFIG_LV_USE_KEYBOARD=y` | WiFi 表单的屏幕键盘 |
-| `CONFIG_LV_USE_TEXTAREA=y` | WiFi 表单的输入框 |
-| `CONFIG_LV_USE_SWITCH=y` | WiFi 表单里“Show”开关，切换密码是否明文显示 |
-| `CONFIG_SDHC=y` | SD 主机控制器 |
-| `CONFIG_FAT_FILESYSTEM_ELM=y` | FatFs，读服务端、读写 `wifi.cfg` 和 `adbkey` |
-| `CONFIG_FS_FATFS_EXFAT=y` | 支持 exFAT 卡 |
-| `CONFIG_FS_FATFS_LFN=y` | 长文件名 |
-| `CONFIG_NET_TCP_MAX_RECV_WINDOW_SIZE=32768` | TCP 接收窗口 32 KB |
-| `CONFIG_NET_TCP_MAX_SEND_WINDOW_SIZE=32768` | TCP 发送窗口 32 KB |
-| `CONFIG_NET_PKT_RX_COUNT=64` | 视频流需要比默认多的包缓冲（另有 `NET_PKT_TX_COUNT`、`NET_BUF_RX_COUNT=256`、`NET_BUF_TX_COUNT=256`） |
-| `CONFIG_NET_BUF_DATA_SIZE=1536` | 每个网络缓冲的数据区 |
-| `CONFIG_NET_IPV4_IGMP=y` | 加入 mDNS 组播组 |
-| `CONFIG_NET_CONTEXT_REUSEADDR=y`、`CONFIG_NET_CONTEXT_REUSEPORT=y` | mDNS 的 5353 端口复用 |
-| `CONFIG_MBEDTLS_TLS_VERSION_1_3=y` | 无线调试的 TLS 1.3 |
-| `CONFIG_MBEDTLS_HEAP_SIZE=131072` | mbed TLS 专用堆，生成 RSA 密钥和 TLS 握手要用 |
-| `CONFIG_TEST_RANDOM_GENERATOR=y` | SoC 的随机数发生器还没有驱动，用伪随机源。ADB 密钥、TLS 和配对都用它，不能用于正式产品 |
-| `CONFIG_HEAP_MEM_POOL_SIZE=262144` | 内核堆，AIC8800 驱动从这里分配；ADB 收发缓冲和 1 MiB 的视频包缓冲用 `malloc()` |
-| `CONFIG_COMMON_LIBC_MALLOC_ARENA_SIZE=-1` | `malloc()` 使用剩余内存 |
-| `CONFIG_MAIN_STACK_SIZE=16384` | 主线程栈，TLS 握手栈用量大 |
-| `CONFIG_SYSTEM_WORKQUEUE_STACK_SIZE=4096` | WiFi 扫描在系统工作队列里运行 |
-| `CONFIG_NET_MGMT_EVENT_STACK_SIZE=4096` | WiFi 事件线程栈 |
-| `CONFIG_INPUT_THREAD_PRIORITY=4` | 输入线程优先级，在 `boards/yuzukineko.conf` |
-| `CONFIG_INPUT_GT967_MAX_TOUCH_POINTS=5` | 触摸屏最多上报 5 点，在 `boards/yuzukineko.conf` |
+| `CONFIG_MIRROR=y` | Enables the component |
+| `CONFIG_MINIMAL_LIBC=y` | The `compat/` headers of the AIC8800 driver are written for the minimal C library and fail to compile under picolibc |
+| `CONFIG_AIC8800=y` | Enables the WiFi driver |
+| `CONFIG_VDEC=y` | Video engine, decodes H.264 |
+| `CONFIG_DISPLAY=y` | Display driver |
+| `CONFIG_DISPLAY_SUNXI_ARGB8888=y` | ARGB interface plane, where the status bar, keys and QR code are drawn |
+| `CONFIG_LVGL=y` | Interface library |
+| `CONFIG_LV_USE_QRCODE=y` | Pairing QR code |
+| `CONFIG_LV_USE_KEYBOARD=y` | On-screen keyboard of the WiFi form |
+| `CONFIG_LV_USE_TEXTAREA=y` | Input field of the WiFi form |
+| `CONFIG_LV_USE_SWITCH=y` | The "Show" switch in the WiFi form, toggling plaintext display of the password |
+| `CONFIG_SDHC=y` | SD host controller |
+| `CONFIG_FAT_FILESYSTEM_ELM=y` | FatFs, to read the server and read/write `wifi.cfg` and `adbkey` |
+| `CONFIG_FS_FATFS_EXFAT=y` | Support for exFAT cards |
+| `CONFIG_FS_FATFS_LFN=y` | Long file names |
+| `CONFIG_NET_TCP_MAX_RECV_WINDOW_SIZE=32768` | TCP receive window 32 KB |
+| `CONFIG_NET_TCP_MAX_SEND_WINDOW_SIZE=32768` | TCP send window 32 KB |
+| `CONFIG_NET_PKT_RX_COUNT=64` | The video stream needs more packet buffers than the default (there are also `NET_PKT_TX_COUNT`, `NET_BUF_RX_COUNT=256`, `NET_BUF_TX_COUNT=256`) |
+| `CONFIG_NET_BUF_DATA_SIZE=1536` | Data area of each network buffer |
+| `CONFIG_NET_IPV4_IGMP=y` | Joining the mDNS multicast group |
+| `CONFIG_NET_CONTEXT_REUSEADDR=y`, `CONFIG_NET_CONTEXT_REUSEPORT=y` | Port 5353 multiplexing for mDNS |
+| `CONFIG_MBEDTLS_TLS_VERSION_1_3=y` | TLS 1.3 for wireless debugging |
+| `CONFIG_MBEDTLS_HEAP_SIZE=131072` | Dedicated mbed TLS heap, needed to generate the RSA key and do the TLS handshake |
+| `CONFIG_TEST_RANDOM_GENERATOR=y` | The SoC's random-number generator has no driver yet, so a pseudo-random source is used. The ADB key, TLS and pairing all use it, and it must not be used in a product |
+| `CONFIG_HEAP_MEM_POOL_SIZE=262144` | Kernel heap, from which the AIC8800 driver allocates; the ADB send/receive buffers and the 1 MiB video packet buffer use `malloc()` |
+| `CONFIG_COMMON_LIBC_MALLOC_ARENA_SIZE=-1` | `malloc()` uses the remaining memory |
+| `CONFIG_MAIN_STACK_SIZE=16384` | Main thread stack; the TLS handshake uses a lot of stack |
+| `CONFIG_SYSTEM_WORKQUEUE_STACK_SIZE=4096` | WiFi scanning runs in the system work queue |
+| `CONFIG_NET_MGMT_EVENT_STACK_SIZE=4096` | WiFi event thread stack |
+| `CONFIG_INPUT_THREAD_PRIORITY=4` | Input thread priority, in `boards/yuzukineko.conf` |
+| `CONFIG_INPUT_GT967_MAX_TOUCH_POINTS=5` | The touchscreen reports at most 5 points, in `boards/yuzukineko.conf` |
 
-## 代码结构
+## Code structure
 
-| 文件 | 内容 |
+| File | Contents |
 | --- | --- |
-| `android-screen-mirror/src/adb.c` | ADB 客户端：连接与认证、`STLS` 升级、流复用、`sync:` 推送文件 |
-| `android-screen-mirror/src/adb_auth.c` | ADB 密钥：生成或读取 RSA 2048 密钥（PEM），签名、导出 ADB 公钥格式、生成自签名证书 |
-| `android-screen-mirror/src/tls_io.c` | mbed TLS 的套接字适配，TLS 1.3，不校验对方证书 |
-| `android-screen-mirror/src/pairing.c`、`ed25519_ops.c` | 无线调试配对：SPAKE2（edwards25519）+ HKDF + AES-128-GCM |
-| `android-screen-mirror/src/mdns.c` | 最小的 mDNS 查询（PTR、SRV、A 记录） |
-| `android-screen-mirror/src/scrcpy.c` | scrcpy 客户端：推送并启动服务端、读视频包、发触摸和按键 |
-| `android-screen-mirror/include/mirror_zephyr/*.h` | 对外接口 |
-| `samples/mirror_player/src/main.c` | WiFi、会话循环、解码和显示、找手机与配对 |
-| `samples/mirror_player/src/ui.c` | LVGL 界面（状态、二维码、WiFi 表单、设置菜单）和触摸中继 |
+| `android-screen-mirror/src/adb.c` | ADB client: connection and authentication, `STLS` upgrade, stream multiplexing, `sync:` file push |
+| `android-screen-mirror/src/adb_auth.c` | ADB key: generate or read an RSA 2048 key (PEM), sign, export the ADB public-key format, generate a self-signed certificate |
+| `android-screen-mirror/src/tls_io.c` | mbed TLS socket adaptation, TLS 1.3, no peer certificate verification |
+| `android-screen-mirror/src/pairing.c`, `ed25519_ops.c` | Wireless debugging pairing: SPAKE2 (edwards25519) + HKDF + AES-128-GCM |
+| `android-screen-mirror/src/mdns.c` | Minimal mDNS queries (PTR, SRV, A records) |
+| `android-screen-mirror/src/scrcpy.c` | scrcpy client: push and start the server, read video packets, send touch and keys |
+| `android-screen-mirror/include/mirror_zephyr/*.h` | Public interfaces |
+| `samples/mirror_player/src/main.c` | WiFi, the session loop, decoding and display, finding the phone and pairing |
+| `samples/mirror_player/src/ui.c` | LVGL interface (status, QR code, WiFi form, settings menu) and the touch relay |
 
-线程：
+Threads:
 
-| 线程 | 优先级 | 作用 |
+| Thread | Priority | Role |
 | --- | --- | --- |
-| `main` | 6 | 读视频包、喂解码器、取帧显示 |
-| `adb_rx` | 5 | 每个 ADB 连接一个，收包并把数据放进流的环形缓冲 |
-| `touch_relay` | 5 | 触摸中继 |
+| `main` | 6 | reads video packets, feeds the decoder, takes frames for display |
+| `adb_rx` | 5 | one per ADB connection; receives packets and puts the data into the stream's ring buffer |
+| `touch_relay` | 5 | touch relay |
 | `ui` | 7 | LVGL |
-| 输入线程 | 4（`CONFIG_INPUT_THREAD_PRIORITY`） | 触摸驱动的事件，优先级放在主线程之上，防止解码时丢手指 |
+| input thread | 4 (`CONFIG_INPUT_THREAD_PRIORITY`) | events from the touch driver; its priority is above the main thread's so fingers are not lost while decoding |
 
-### scrcpy 会话
+### The scrcpy session
 
-`scrcpy_start()` 的主要步骤，命令行字符串是 scrcpy 3.x 服务端的 key=value 参数：
+The main steps of `scrcpy_start()`; the command-line string is the key=value parameters of the scrcpy 3.x server:
 
 ```c
 	snprintk(sock, sizeof(sock), "localabstract:scrcpy_%08x", scid);
@@ -415,17 +415,17 @@ wifi: address 192.168.1.55
 	}
 ```
 
-几点说明：
+A few notes:
 
-- `tunnel_forward=true`：服务端监听，板子通过 ADB 去连（`localabstract:scrcpy_xxxxxxxx`），而不是服务端反连。`scid` 是随机的 31 位数，避免和手机上别的 scrcpy 会话冲突。
-- `audio=false`：不传音频。`control=true`：打开控制流。`clipboard_autosync=false`：不同步剪贴板。
-- `send_dummy_byte`、`send_device_meta`、`send_codec_meta`、`send_frame_meta`：服务端先发 1 个字节，64 字节设备名，12 字节编码信息（4 字符编码名加宽高各 4 字节），之后每个包有 12 字节包头（高 2 位是 config 和关键帧标志，其余 62 位是 pts，微秒；后 4 字节是长度）。
-- 服务端启动要时间，所以视频流最多重试 60 次，每次间隔 250 ms，共 15 秒。
-- 控制流上服务端发来的消息（剪贴板）直接丢掉（`drop_sink`）。
+- `tunnel_forward=true`: the server listens and the board connects through ADB (`localabstract:scrcpy_xxxxxxxx`), rather than the server connecting back. `scid` is a random 31-bit number, avoiding a conflict with other scrcpy sessions on the phone.
+- `audio=false`: no audio is sent. `control=true`: the control stream is enabled. `clipboard_autosync=false`: the clipboard is not synchronised.
+- `send_dummy_byte`, `send_device_meta`, `send_codec_meta`, `send_frame_meta`: the server first sends 1 byte, a 64-byte device name and 12 bytes of codec information (a 4-character codec name plus 4 bytes each for width and height), after which every packet has a 12-byte header (the top 2 bits are the config and keyframe flags, the remaining 62 bits are the pts in microseconds; the last 4 bytes are the length).
+- The server takes time to start, so the video stream is retried up to 60 times at 250 ms intervals, 15 seconds in total.
+- Messages from the server on the control stream (clipboard) are dropped directly (`drop_sink`).
 
-### 解码与显示
+### Decoding and display
 
-会话循环读包、喂解码器、取帧：
+The session loop reads packets, feeds the decoder and takes frames:
 
 ```c
 while (true) {
@@ -478,7 +478,7 @@ while (true) {
     t_decode_us += (uint32_t)k_cyc_to_us_floor64(k_cycle_get_32() - c0);
 ```
 
-`SCRCPY_PACKET_CONFIG` 包是 SPS/PPS，内容变了（分辨率变了，例如手机旋转）就关闭旧解码流重开。显示函数在积压时直接丢帧：
+A `SCRCPY_PACKET_CONFIG` packet is SPS/PPS; when its content changes (the resolution changed, for example because the phone was rotated) the old decode stream is closed and reopened. The display function drops frames when there is a backlog:
 
 ```c
 static void put_up(struct scrcpy *s, struct vdec_frame *f)
@@ -512,9 +512,9 @@ static void put_up(struct scrcpy *s, struct vdec_frame *f)
 }
 ```
 
-`scrcpy_video_backlog()` 是视频流环形缓冲里还没读走的字节数。积压超过 96 KB 说明解码或显示跟不上，这一帧不显示，用丢帧换低延迟。
+`scrcpy_video_backlog()` is the number of bytes not yet read from the video stream's ring buffer. A backlog of more than 96 KB means decoding or display cannot keep up; that frame is not shown, trading a dropped frame for low latency.
 
-### 找手机和配对
+### Finding the phone and pairing
 
 ```c
 static void connect_round(uint8_t *pkt)
@@ -549,122 +549,122 @@ static void connect_round(uint8_t *pkt)
 }
 ```
 
-## 协议流程
+## Protocol flow
 
-### 总体
+### Overview
 
 ```mermaid
 flowchart TD
-    A["main: 挂载 TF 卡<br/>wifi_setup"] --> B{"CONFIG_SAMPLE_MIRROR_PHONE_IP<br/>是否为空?"}
-    B -->|"不空"| C["adb_connect<br/>明文 TCP + RSA 认证"]
-    B -->|"空"| D["mdns_find<br/>_adb-tls-connect._tcp<br/>最多 6 秒"]
-    D -->|"没找到"| P["pair_with_phone<br/>显示二维码, 最多 180 秒"]
-    P --> A2["回到循环重新找"]
-    D -->|"找到"| E["adb_connect_tls<br/>STLS + TLS 1.3"]
+    A["main: mount the TF card<br/>wifi_setup"] --> B{"CONFIG_SAMPLE_MIRROR_PHONE_IP<br/>is it empty?"}
+    B -->|"not empty"| C["adb_connect<br/>plain TCP + RSA authentication"]
+    B -->|"empty"| D["mdns_find<br/>_adb-tls-connect._tcp<br/>up to 6 seconds"]
+    D -->|"not found"| P["pair_with_phone<br/>show the QR code, up to 180 seconds"]
+    P --> A2["back to the loop and search again"]
+    D -->|"found"| E["adb_connect_tls<br/>STLS + TLS 1.3"]
     E -->|"-EACCES"| P
-    C --> F["scrcpy_start<br/>推送服务端, 启动, 打开两条流"]
+    C --> F["scrcpy_start<br/>push the server, start it, open the two streams"]
     E --> F
-    F --> G["读 H.264 包 → 解码 → 显示<br/>触摸中继线程同时运行"]
-    G -->|"流结束"| H["提示 connection lost<br/>3 秒后重试"]
+    F --> G["read H.264 packets → decode → display<br/>the touch relay thread runs at the same time"]
+    G -->|"stream ends"| H["show connection lost<br/>retry after 3 seconds"]
     H --> A2
 ```
 
-### 时序：方式一，adb tcpip
+### Sequence: method one, adb tcpip
 
 ```mermaid
 sequenceDiagram
-    participant B as 板子
-    participant A as 手机 adbd
-    participant S as scrcpy 服务端
-    B->>A: TCP 连接 5555
+    participant B as board
+    participant A as phone adbd
+    participant S as scrcpy server
+    B->>A: TCP connect 5555
     B->>A: CNXN host::
-    A-->>B: AUTH TOKEN (20 字节随机数)
-    B->>A: AUTH SIGNATURE (用 adbkey 签名)
-    A-->>B: AUTH TOKEN (手机不认识这个密钥)
+    A-->>B: AUTH TOKEN (20-byte random number)
+    B->>A: AUTH SIGNATURE (signed with adbkey)
+    A-->>B: AUTH TOKEN (the phone does not know this key)
     B->>A: AUTH RSAPUBLICKEY
-    Note over A: 弹出"允许 USB 调试吗", 用户点允许
+    Note over A: "Allow USB debugging?" pops up, the user taps allow
     A-->>B: CNXN
     B->>A: OPEN sync:
     B->>A: STAT /data/local/tmp/scrcpy-server.jar
-    A-->>B: 文件大小
-    B->>A: SEND, DATA..., DONE (大小不同才推送)
+    A-->>B: file size
+    B->>A: SEND, DATA..., DONE (pushed only when the size differs)
     A-->>B: OKAY
     B->>A: OPEN shell:CLASSPATH=... app_process / com.genymobile.scrcpy.Server 3.3.1 ...
-    A->>S: 启动进程
-    S->>S: 监听抽象套接字 scrcpy_xxxxxxxx
-    loop 每 250 ms, 最多 60 次
+    A->>S: start the process
+    S->>S: listen on the abstract socket scrcpy_xxxxxxxx
+    loop every 250 ms, up to 60 times
         B->>A: OPEN localabstract:scrcpy_xxxxxxxx
     end
-    A-->>B: OKAY (视频流)
+    A-->>B: OKAY (video stream)
     B->>A: OPEN localabstract:scrcpy_xxxxxxxx
-    A-->>B: OKAY (控制流)
-    S-->>B: 1 字节 dummy, 64 字节设备名, 12 字节编码信息
-    loop 每个画面
-        S-->>B: 12 字节包头 + H.264 数据
+    A-->>B: OKAY (control stream)
+    S-->>B: 1 dummy byte, 64-byte device name, 12-byte codec info
+    loop each picture
+        S-->>B: 12-byte packet header + H.264 data
     end
-    B->>S: 触摸 / 按键消息 (控制流)
+    B->>S: touch / key messages (control stream)
 ```
 
-### 时序：方式二，无线调试
+### Sequence: method two, wireless debugging
 
 ```mermaid
 sequenceDiagram
-    participant B as 板子
-    participant M as 局域网 mDNS
-    participant A as 手机 adbd
-    B->>M: 查询 _adb-tls-connect._tcp.local
-    alt 手机已开无线调试并已配对
-        M-->>B: 实例名, 端口, 地址
-        B->>A: TCP 连接
+    participant B as board
+    participant M as local mDNS
+    participant A as phone adbd
+    B->>M: query _adb-tls-connect._tcp.local
+    alt the phone has wireless debugging on and is already paired
+        M-->>B: instance name, port, address
+        B->>A: TCP connect
         B->>A: CNXN
         A-->>B: STLS
         B->>A: STLS
-        B->>A: TLS 1.3 握手 (客户端证书由 adbkey 生成)
+        B->>A: TLS 1.3 handshake (the client certificate is generated from adbkey)
         A-->>B: CNXN
-        Note over B,A: 之后和方式一相同, 只是数据包在 TLS 里
-    else 没找到
-        Note over B: 屏幕显示二维码，内容 WIFI:T:ADB 加名称 mirror-xxxxxx 和随机密码
-        Note over A: 手机扫码, 在配对端口上以 mirror-xxxxxx 注册
-        B->>M: 查询 _adb-tls-pairing._tcp.local 的实例 mirror-xxxxxx
-        M-->>B: 配对端口, 地址
-        B->>A: TLS 1.3 到配对端口
-        B->>A: SPAKE2 消息 (密码是二维码里的 P, 再加 TLS 导出值)
-        A-->>B: SPAKE2 消息
-        B->>A: 用 AES-128-GCM 加密的 PeerInfo (ADB 公钥)
+        Note over B,A: from here it is the same as method one, only the packets are inside TLS
+    else not found
+        Note over B: the screen shows the QR code, whose content is WIFI:T:ADB plus the name mirror-xxxxxx and a random password
+        Note over A: the phone scans it and registers as mirror-xxxxxx on the pairing port
+        B->>M: query the instance mirror-xxxxxx of _adb-tls-pairing._tcp.local
+        M-->>B: pairing port, address
+        B->>A: TLS 1.3 to the pairing port
+        B->>A: SPAKE2 message (the password is the P from the QR code, plus the TLS exporter value)
+        A-->>B: SPAKE2 message
+        B->>A: PeerInfo encrypted with AES-128-GCM (the ADB public key)
         A-->>B: PeerInfo
-        Note over B: 配对完成, 等 1 秒, 重新走上面"已配对"的分支
+        Note over B: pairing done, wait 1 second, then take the "already paired" branch above again
     end
 ```
 
-ADB 数据包头是 24 字节：命令、`arg0`、`arg1`、长度、校验、命令取反。`adb.c` 里实现了 `CNXN`、`AUTH`、`STLS`、`OPEN`、`OKAY`、`WRTE`、`CLSE`。一个连接最多同时 4 条流（`MAX_STREAMS`）：shell、视频、控制各一条，推送服务端时的 sync 流是第四条，所以推送完要先关。
+The ADB packet header is 24 bytes: command, `arg0`, `arg1`, length, checksum, command complement. `adb.c` implements `CNXN`, `AUTH`, `STLS`, `OPEN`, `OKAY`, `WRTE` and `CLSE`. One connection has at most 4 streams at once (`MAX_STREAMS`): one each for shell, video and control, and the sync stream used while pushing the server is the fourth, so it must be closed once the push is done.
 
-### 数据流
+### Data flow
 
 ```mermaid
 flowchart TB
-    subgraph PH["手机"]
-        FB["屏幕"] --> ENC["MediaCodec H.264"] --> SRV["scrcpy-server"]
-        INJ["输入注入"]
+    subgraph PH["phone"]
+        FB["screen"] --> ENC["MediaCodec H.264"] --> SRV["scrcpy-server"]
+        INJ["input injection"]
     end
-    SRV -->|"视频包: 8 字节 pts+标志, 4 字节长度, Annex B 数据"| ADBD["adbd"]
-    ADBD -->|"WiFi / TCP"| NET["Zephyr 网络栈<br/>接收窗口 32 KB"]
-    NET --> RX["adb_rx 线程<br/>拆 ADB 包"]
-    RX -->|"ring_buf<br/>CONFIG_MIRROR_ADB_RX_BUFFER = 256 KB"| MAIN["主线程<br/>scrcpy_read_packet"]
-    MAIN -->|"vdec_stream_feed"| VE["视频引擎"]
-    VE -->|"NV12"| PUT["put_up<br/>积压超过 96 KB 就丢帧"]
-    PUT -->|"display_sunxi_show_yuv"| LCD["视频层, 1024×768"]
-    GT["GT967"] -->|"input 事件"| CB["touch_event<br/>fingers[5]"]
-    CB --> REL["touch_relay 线程<br/>8 ms 轮询"]
-    REL -->|"scrcpy_send_touch / scrcpy_send_key"| W["adb_write 控制流"]
+    SRV -->|"video packets: 8-byte pts+flags, 4-byte length, Annex B data"| ADBD["adbd"]
+    ADBD -->|"WiFi / TCP"| NET["Zephyr network stack<br/>32 KB receive window"]
+    NET --> RX["adb_rx thread<br/>splits ADB packets"]
+    RX -->|"ring_buf<br/>CONFIG_MIRROR_ADB_RX_BUFFER = 256 KB"| MAIN["main thread<br/>scrcpy_read_packet"]
+    MAIN -->|"vdec_stream_feed"| VE["video engine"]
+    VE -->|"NV12"| PUT["put_up<br/>drops a frame when the backlog exceeds 96 KB"]
+    PUT -->|"display_sunxi_show_yuv"| LCD["video plane, 1024×768"]
+    GT["GT967"] -->|"input events"| CB["touch_event<br/>fingers[5]"]
+    CB --> REL["touch_relay thread<br/>8 ms polling"]
+    REL -->|"scrcpy_send_touch / scrcpy_send_key"| W["adb_write control stream"]
     W --> ADBD
     ADBD --> INJ
 ```
 
-## 触摸映射
+## Touch mapping
 
-触摸屏是 GT967，板子分辨率 1024×768。输入事件在 `touch_event()` 里按槽位记到 `fingers[]`（最多 5 个槽），唤醒 `touch_relay` 线程；线程在有手指按着时每 8 ms 轮询一次，没有手指就睡到下一次事件。
+The touchscreen is the GT967 and the board's resolution is 1024×768. Input events are recorded by slot into `fingers[]` in `touch_event()` (at most 5 slots), waking the `touch_relay` thread; the thread polls every 8 ms while a finger is down and sleeps until the next event when there is none.
 
-显示驱动把手机的画面按比例缩放到面板里居中，`picture_rect()` 用同样的算法算出画面在面板上的位置，使触摸坐标能反算回手机画面坐标：
+The display driver scales the phone's picture proportionally and centres it in the panel, and `picture_rect()` computes the picture's position on the panel with the same algorithm, so that touch coordinates can be converted back to phone-picture coordinates:
 
 ```c
 /* the same fit as the display driver: the largest size inside the panel with the aspect kept */
@@ -684,7 +684,7 @@ static void picture_rect(struct geom *g, uint16_t vw, uint16_t vh)
 }
 ```
 
-手指落下时（`OWNER_NONE` 状态）：
+When a finger lands (the `OWNER_NONE` state):
 
 ```c
 case OWNER_NONE:
@@ -710,16 +710,16 @@ case OWNER_NONE:
     break;
 ```
 
-规则：
+Rules:
 
-- 落点在右侧三个圆键或右上角齿轮上：这根手指归“按键”，不作为触摸发给手机。圆键发 `scrcpy_send_key()`，按下时发 down，松开时发 up；齿轮由 LVGL 处理。
-- 落点在画面范围内：这根手指归“触摸”，坐标换算成手机画面的像素，`(fx - g.x) * vw / g.w`，其中 `vw`、`vh` 是当前视频帧的宽高。之后位置变化发 `MOVE`，松开发 `UP`。
-- 落点在画面外（比如竖屏手机两边的黑边）：忽略。
-- 设置菜单打开时（`menu_open`），所有触摸都不发给手机。
-- 手指松开要连续 50 ms 没有报点才算（`RELEASE_HOLD_MS`），因为触摸控制器有时在手指没抬起时漏一帧。
-- 一个槽位对应一个 scrcpy 触摸指针 ID（`i`），多点触摸最多 5 点，一次循环里的所有事件合成一次 `adb_write()`。
+- A touch landing on the three round keys on the right or the gear in the top right corner: this finger counts as a "key" and is not sent to the phone as a touch. The round keys call `scrcpy_send_key()`, sending down on press and up on release; the gear is handled by LVGL.
+- A touch landing inside the picture: this finger counts as a "touch" and the coordinates are converted to phone-picture pixels, `(fx - g.x) * vw / g.w`, where `vw` and `vh` are the width and height of the current video frame. A later change of position sends `MOVE` and a release sends `UP`.
+- A touch landing outside the picture (the black bars on both sides of a portrait phone, for example): ignored.
+- While the settings menu is open (`menu_open`), no touch is sent to the phone.
+- A release counts only after 50 ms with no reported point (`RELEASE_HOLD_MS`), because the touch controller sometimes misses a frame while the finger is not actually lifted.
+- One slot corresponds to one scrcpy touch pointer ID (`i`), multi-touch is at most 5 points, and all events in one loop are combined into a single `adb_write()`.
 
-发到手机的消息是 scrcpy 控制协议的 `INJECT_TOUCH_EVENT`，32 字节，全是大端：
+The message sent to the phone is the scrcpy control protocol's `INJECT_TOUCH_EVENT`, 32 bytes, all big-endian:
 
 ```c
 int scrcpy_send_touch(struct scrcpy *s, const struct scrcpy_touch *t, unsigned int count,
@@ -747,90 +747,90 @@ int scrcpy_send_touch(struct scrcpy *s, const struct scrcpy_touch *t, unsigned i
 }
 ```
 
-| 偏移 | 长度 | 内容 |
+| Offset | Length | Contents |
 | --- | --- | --- |
-| 0 | 1 | 消息类型 2（`CTRL_INJECT_TOUCH`） |
-| 1 | 1 | 动作：0 按下、1 抬起、2 移动 |
-| 2 | 8 | 指针 ID |
-| 10 | 4 | x，手机画面像素 |
+| 0 | 1 | message type 2 (`CTRL_INJECT_TOUCH`) |
+| 1 | 1 | action: 0 down, 1 up, 2 move |
+| 2 | 8 | pointer ID |
+| 10 | 4 | x, in phone-picture pixels |
 | 14 | 4 | y |
-| 18 | 2 | 画面宽（告诉服务端这个坐标基于多大的画面） |
-| 20 | 2 | 画面高 |
-| 22 | 2 | 压力：抬起为 0，其余 0xffff |
-| 24 | 4 | action button，固定 0 |
-| 28 | 4 | buttons，固定 0 |
+| 18 | 2 | picture width (tells the server what picture size this coordinate is based on) |
+| 20 | 2 | picture height |
+| 22 | 2 | pressure: 0 for up, 0xffff otherwise |
+| 24 | 4 | action button, fixed 0 |
+| 28 | 4 | buttons, fixed 0 |
 
-按键是 `INJECT_KEYCODE`（类型 0，14 字节）：动作 0/1 表示按下/抬起，后面是安卓键值、重复次数 0、meta 状态 0。示例用三个键值：
+Keys are `INJECT_KEYCODE` (type 0, 14 bytes): action 0/1 means press/release, followed by the Android key value, a repeat count of 0 and a meta state of 0. The example uses three key values:
 
-| 圆键 | 键值 | 宏 |
+| Round key | Key value | Macro |
 | --- | --- | --- |
-| 左（返回） | 4 | `SCRCPY_KEY_BACK` |
-| 中（主屏幕） | 3 | `SCRCPY_KEY_HOME` |
-| 右（最近任务） | 187 | `SCRCPY_KEY_APP_SWITCH` |
+| left (back) | 4 | `SCRCPY_KEY_BACK` |
+| middle (home) | 3 | `SCRCPY_KEY_HOME` |
+| right (recent tasks) | 187 | `SCRCPY_KEY_APP_SWITCH` |
 
-## 功能范围
+## Scope
 
-### 延迟
+### Latency
 
-端到端延迟（从手机上发生变化到板子画面变化）由这些环节组成：
+The end-to-end latency (from a change on the phone to a change on the board's picture) is made up of these parts:
 
-| 环节 | 说明 |
+| Part | Notes |
 | --- | --- |
-| 手机编码 | 手机上 MediaCodec 的编码延迟，随手机和编码器而异 |
-| WiFi 与 TCP | 局域网往返时间；发送方在网络差时会堆积数据 |
-| 板子接收缓冲 | 环形缓冲 256 KB，但 `put_up()` 在积压超过 96 KB 时丢帧，用来限制排队长度 |
-| 解码 | 视频引擎，`main.c` 每 5 秒打印一次累计解码耗时 |
-| 显示 | 异步提交到视频层（`.nonblock = true`），等下一次刷新 |
-| 触摸回传 | 8 ms 轮询 + 一次 TCP 小包 + 手机注入 |
+| phone encoding | the encoding latency of MediaCodec on the phone, which varies with the phone and the encoder |
+| WiFi and TCP | the LAN round-trip time; the sender piles up data when the network is poor |
+| board's receive buffer | a 256 KB ring buffer, but `put_up()` drops frames when the backlog exceeds 96 KB, which limits the queue length |
+| decoding | the video engine; `main.c` prints the cumulative decode time every 5 seconds |
+| display | submitted asynchronously to the video plane (`.nonblock = true`), waiting for the next refresh |
+| touch return | 8 ms polling + one small TCP packet + injection on the phone |
 
-在默认码率 4 Mbit/s（每秒约 500000 字节）时，96 KB（98304 字节）的积压对应约 0.2 秒的数据，这是排队延迟的上限，不是测量值。
+At the default bit rate of 4 Mbit/s (about 500000 bytes per second), a backlog of 96 KB (98304 bytes) corresponds to about 0.2 seconds of data; this is the upper bound on the queueing delay, not a measured value.
 
-画面不做音视频同步：解码出来的帧马上提交，不看 pts。
+The picture is not audio/video synchronised: decoded frames are submitted immediately, without looking at the pts.
 
-### 不支持的功能
+### Unsupported features
 
-| 项 | 情况 |
+| Item | Situation |
 | --- | --- |
-| 声音 | 不支持，服务端以 `audio=false` 启动 |
-| 剪贴板 | 不支持，两个方向都不同步 |
-| 键盘输入 | 不支持把板子侧的键盘按键发给手机；输入文字要点手机屏幕上的输入法 |
-| 导航键 | 只有返回、主屏幕、最近任务三个；没有电源键、音量键 |
-| 滚轮、鼠标 | 不支持，只有触摸 |
-| 触摸点数 | 最多 5 点（`SLOTS`），一次最多发 5 个事件 |
-| 压力、触摸面积 | 不支持，压力只有“按着”（0xffff）和“抬起”（0） |
-| 屏幕方向 | 手机旋转后服务端会发新的 SPS/PPS，示例会重开解码流并用新尺寸换算触摸 |
-| 多台手机 | 不支持，一次连一台；`MAX_STREAMS` 为 4 |
-| 视频编码 | 只请求 H.264（`video_codec=h264`），由视频引擎解码 |
-| WiFi | 只有 STA，不支持 WPA3；路由器开了客户端隔离就连不上手机 |
-| 手机证书 | 不校验，原因见下面的“证书不校验” |
-| 随机数 | 来自伪随机源，不能换成硬件随机数，原因见下面的“随机数” |
-| 密钥存放 | `adbkey` 以明文 PEM 存在卡上，`wifi.cfg` 也是明文 |
-| 版本 | 服务端和客户端版本必须一致，`scrcpy.c` 的消息布局对应 scrcpy 3.x |
-| 手机重启 | `adb tcpip` 方式的 5555 端口在手机重启后消失，需要重新执行 |
+| sound | not supported; the server is started with `audio=false` |
+| clipboard | not supported; neither direction is synchronised |
+| keyboard input | sending keypresses from the board side to the phone is not supported; entering text requires tapping the input method on the phone's screen |
+| navigation keys | only back, home and recent tasks; there is no power key or volume key |
+| scroll wheel, mouse | not supported; touch only |
+| number of touch points | at most 5 (`SLOTS`), sending at most 5 events at once |
+| pressure, touch area | not supported; pressure is only "down" (0xffff) and "up" (0) |
+| screen orientation | after the phone rotates the server sends a new SPS/PPS; the example reopens the decode stream and converts touches with the new size |
+| multiple phones | not supported; one phone at a time, with `MAX_STREAMS` of 4 |
+| video codec | only H.264 is requested (`video_codec=h264`), decoded by the video engine |
+| WiFi | STA only, no WPA3; if the router has client isolation enabled it cannot connect to the phone |
+| phone certificate | not verified, for the reason in "No certificate verification" below |
+| random numbers | from a pseudo-random source, and cannot be replaced with a hardware random number, for the reason in "Random numbers" below |
+| key storage | `adbkey` is stored on the card as plaintext PEM, and `wifi.cfg` is plaintext too |
+| version | the server and client versions must match; the message layout in `scrcpy.c` corresponds to scrcpy 3.x |
+| phone reboot | the port 5555 of the `adb tcpip` method disappears after a phone reboot and has to be run again |
 
-### 证书不校验
+### No certificate verification
 
-`tls_io.c` 把 mbed TLS 设成 `MBEDTLS_SSL_VERIFY_NONE`，不检查手机出示的证书。这是 ADB 协议决定的：adbd 和配对服务用的是手机自己生成的自签名证书，没有 CA 签发，也没有板子能事先拿到的指纹；ADB 认证的方向是手机认客户端：手机用配对时记下的客户端密钥校验板子出示的客户端证书。板子没有办法认手机。配对时的保护靠二维码里的一次性密码（SPAKE2），没有这个密码的人完成不了配对。
+`tls_io.c` sets mbed TLS to `MBEDTLS_SSL_VERIFY_NONE` and does not check the certificate the phone presents. This is dictated by the ADB protocol: adbd and the pairing service use a self-signed certificate generated by the phone itself, issued by no CA, and there is no fingerprint the board could have in advance; the direction of ADB authentication is the phone recognising the client: the phone verifies the client certificate the board presents against the client key it recorded at pairing time. The board has no way to recognise the phone. The protection during pairing rests on the one-time password in the QR code (SPAKE2); someone without this password cannot complete pairing.
 
-需要校验时，在 `tls_io.c` 里记住第一次连接的手机证书指纹，之后比对（类似 SSH 的首次信任）；示例不做这个检查。
+To verify it, remember the phone certificate's fingerprint from the first connection in `tls_io.c` and compare against it afterwards (similar to SSH's trust on first use); the example does not do this check.
 
-### 随机数
+### Random numbers
 
-ADB 的 RSA 密钥、TLS 握手和配对用的随机数都经 `adb_rng()` 调 `sys_rand_get()`。在这块板上它的来源是 `CONFIG_TEST_RANDOM_GENERATOR=y`，一个测试用的伪随机发生器，输出可以预测。
+The random numbers used by the ADB RSA key, the TLS handshake and pairing all go through `adb_rng()`, which calls `sys_rand_get()`. On this board its source is `CONFIG_TEST_RANDOM_GENERATOR=y`, a pseudo-random generator for testing whose output is predictable.
 
-F101 的 SoC 上有硬件随机数发生器（TRNG），示例没有使用它：Zephyr 里没有 Allwinner 的 `entropy` 驱动，设备树里也没有 TRNG 节点。需要时加一个 `entropy` 驱动并选 `CONFIG_ENTROPY_GENERATOR`，把 `CONFIG_TEST_RANDOM_GENERATOR` 去掉，应用代码不用改。在此之前，生成的 ADB 私钥不要当作安全的密钥使用。
+The F101 SoC has a hardware random-number generator (TRNG) that the example does not use: Zephyr has no Allwinner `entropy` driver, and the devicetree has no TRNG node. When you need it, add an `entropy` driver and select `CONFIG_ENTROPY_GENERATOR`, remove `CONFIG_TEST_RANDOM_GENERATOR`, and the application code does not change. Until then, do not use the generated ADB private key as a secure key.
 
-## 排错
+## Troubleshooting
 
-| 现象 | 原因与处理 |
+| Symptom | Cause and handling |
 | --- | --- |
-| `no SD card` | 卡没插好，或不是 FAT/exFAT |
-| 一直停在 WiFi 表单 | 名称或密码错，或路由器是 WPA3 only；驱动不支持 WPA3 |
-| `looking for the phone` 之后马上出二维码 | 手机没开无线调试，或路由器不转发 mDNS，或开了客户端隔离。改用 `adb tcpip` 方式，设 `CONFIG_SAMPLE_MIRROR_PHONE_IP` |
-| `key refused by the phone` | 手机里没有这个密钥的配对记录。方式一在手机弹窗里点允许；方式二重新扫码配对 |
-| `cannot connect to adb` | 地址或端口错，手机没执行 `adb tcpip`，或手机和板子不在同一网络 |
-| `cannot copy the server` | 卡上没有 `scrcpy-server.jar`，或文件名不对 |
-| `the server did not start` | 服务端启动失败，看串口里的 `server: …` 输出；常见原因是服务端版本和 `CONFIG_SAMPLE_MIRROR_SERVER_VERSION` 不一致 |
-| 有画面不能点 | 部分厂商需要打开“USB 调试（安全设置）” |
-| 画面卡顿、丢帧多 | 降低 `CONFIG_SAMPLE_MIRROR_MAX_SIZE` 或 `CONFIG_SAMPLE_MIRROR_BIT_RATE`，换一个信号好的网络，用 5 GHz |
-| `mirror: cannot open the decoder` | 视频引擎打不开解码流，关掉别的占用视频引擎的程序 |
+| `no SD card` | the card is not seated properly, or is not FAT/exFAT |
+| stuck on the WiFi form | the name or password is wrong, or the router is WPA3 only; the driver does not support WPA3 |
+| the QR code appears right after `looking for the phone` | wireless debugging is not on on the phone, or the router does not forward mDNS, or client isolation is enabled. Switch to the `adb tcpip` method and set `CONFIG_SAMPLE_MIRROR_PHONE_IP` |
+| `key refused by the phone` | there is no pairing record for this key on the phone. For method one tap allow in the popup on the phone; for method two scan the code again to pair |
+| `cannot connect to adb` | wrong address or port, `adb tcpip` has not been run on the phone, or the phone and the board are not on the same network |
+| `cannot copy the server` | `scrcpy-server.jar` is not on the card, or the file name is wrong |
+| `the server did not start` | the server failed to start; look at the `server: …` output on the serial port; a common cause is the server version not matching `CONFIG_SAMPLE_MIRROR_SERVER_VERSION` |
+| picture but no tapping | some vendors require "USB debugging (Security settings)" to be turned on |
+| stuttering picture, many dropped frames | lower `CONFIG_SAMPLE_MIRROR_MAX_SIZE` or `CONFIG_SAMPLE_MIRROR_BIT_RATE`, switch to a network with a better signal, use 5 GHz |
+| `mirror: cannot open the decoder` | the video engine cannot open a decode stream; close other programs using the video engine |

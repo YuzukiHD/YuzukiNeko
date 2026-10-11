@@ -1,26 +1,26 @@
 ---
-title: "手动构建 RV64I 镜像"
+title: "Manually Building the RV64I Image"
 ---
 
-[手动构建 Linux 镜像](linux-manual.md) 默认构建 <strong>RV32</strong>。F101 的 C907 内核同时支持 RV32 和 RV64I 两种模式，这一页只写构建 RV64I 要改的地方。工具链、源码、工作目录 `~/f101-linux`、Flash 布局都和那一页相同，请先照那一页准备好，并在同一个工作目录里继续。
+[Manually Building the Linux Image](linux-manual.md) builds <strong>RV32</strong> by default. The C907 core of the F101 supports both RV32 and RV64I modes; this page only covers the changes needed to build RV64I. The toolchain, sources, working directory `~/f101-linux` and Flash layout are the same as on that page, so prepare according to it first and continue in the same working directory.
 
-RV64I 要换的是整套组件，不是只换内核：
+RV64I requires replacing the whole set of components, not just the kernel:
 
-| 组件 | RV32 | RV64I |
+| Component | RV32 | RV64I |
 | --- | --- | --- |
-| SyterKit 目标 | `spinor-boot` | `spinor-boot-rv64i` |
-| OpenSBI `--arch` | `rv32`（`ilp32`） | `rv64`（`lp64`） |
-| 内核 defconfig | `sun252i_f101_yuzukineko_defconfig` | `sun252i_f101_rv64_yuzukineko_defconfig` |
-| 设备树 | `sun252i-f101-yuzukineko.dtb` | `sun252i-f101-yuzukineko-rv64i.dtb` |
-| BusyBox 编译选项 | `-march=rv32imafdc -mabi=ilp32d` | `-march=rv64imafdc -mabi=lp64d` |
+| SyterKit target | `spinor-boot` | `spinor-boot-rv64i` |
+| OpenSBI `--arch` | `rv32` (`ilp32`) | `rv64` (`lp64`) |
+| Kernel defconfig | `sun252i_f101_yuzukineko_defconfig` | `sun252i_f101_rv64_yuzukineko_defconfig` |
+| Devicetree | `sun252i-f101-yuzukineko.dtb` | `sun252i-f101-yuzukineko-rv64i.dtb` |
+| BusyBox compile options | `-march=rv32imafdc -mabi=ilp32d` | `-march=rv64imafdc -mabi=lp64d` |
 
 :::caution
-<strong>RV32 与 RV64I 的组件不能混用。</strong>把另一个架构的引导加载器、设备树或 `fw_jump` 写进去，板子会无法启动。从 RV32 切到 RV64I，要换整套组件或整个镜像，不要只换内核。
+<strong>RV32 and RV64I components cannot be mixed.</strong> Writing the bootloader, devicetree or `fw_jump` of the other architecture makes the board fail to boot. When switching from RV32 to RV64I, replace the whole set of components or the whole image, not just the kernel.
 :::
 
-## 构建 SyterKit
+## Building SyterKit
 
-SyterKit 本身始终用 RV32 配置（`yuzukineko_rv32_sram_defconfig`）构建，RV64I 只是多一个目标 `spinor-boot-rv64i`。如果已经按 RV32 那页做过配置，直接构建这个目标：
+SyterKit itself is always built with the RV32 configuration (`yuzukineko_rv32_sram_defconfig`); RV64I just adds one more target, `spinor-boot-rv64i`. If the configuration was already done according to the RV32 page, build this target directly:
 
 ```sh
 cd SyterKit
@@ -30,13 +30,13 @@ cd ..
 
 <div class="asciinema-cast" data-src="assets/casts/linux/linux-manual-rv64/syterkit.cast"></div>
 
-还没配置过的话，先执行 RV32 页「构建 SyterKit」里的 `defconfig` 那条命令。
+If it has not been configured yet, first run the `defconfig` command from "Building SyterKit" on the RV32 page.
 
-产物是 `build/syterkit/build/yuzukineko/app_sram/spinor-boot-rv64i/spinor-boot-rv64i_spi.bin`，49,152 字节，预留区 64 KiB。
+The artifact is `build/syterkit/build/yuzukineko/app_sram/spinor-boot-rv64i/spinor-boot-rv64i_spi.bin`, 49,152 bytes; the reserved area is 64 KiB.
 
-### 启动代码
+### Boot code
 
-SyterKit 把设备树、`fw_jump` 和内核读进 RAM 后，用下面的代码让核心以 RV64 重新启动。源码在 `SyterKit/boards/yuzukineko/app_sram/spinor-boot-rv64i/main.c`：
+After SyterKit has read the devicetree, `fw_jump` and the kernel into RAM, the code below restarts the core in RV64. The source is in `SyterKit/boards/yuzukineko/app_sram/spinor-boot-rv64i/main.c`:
 
 ```c
 static const uint32_t f101_rv64_entry[] __attribute__((section(".text.rv64_entry"), aligned(4), used)) = {
@@ -86,51 +86,51 @@ static __attribute__((noreturn, noinline)) void f101_boot_sbi_firmware(void)
 }
 ```
 
-### 原理
+### How it works
 
-C907 上电后总是以 <strong>RV32</strong> 模式运行：BROM 把 SyterKit 载入 SRAM 执行，所以 SyterKit 自己必须按 RV32 链接。而 C907 的 ISA 模式是<strong>在复位时锁存</strong>的，运行中不能直接从 RV32 切到 RV64。上面的代码就是为此设计的：先把一切准备好，再让核心复位，复位后以 RV64 模式重新启动。
+On power-up the C907 always runs in <strong>RV32</strong> mode: BROM loads SyterKit into SRAM to execute, so SyterKit itself must be linked as RV32. The ISA mode of the C907 is <strong>latched at reset</strong>, and cannot be switched directly from RV32 to RV64 while running. The code above is designed for this: prepare everything first, then reset the core, which restarts in RV64 mode after the reset.
 
-在这之前，SyterKit 已经完成了和 `spinor-boot` 相同的步骤：初始化串口、时钟和 RAM，识别 SPI NOR，把三个区域读进 RAM，并检查设备树：
+Before that, SyterKit has already done the same steps as `spinor-boot`: initialize the serial port, clocks and RAM, identify the SPI NOR, read the three areas into RAM, and check the devicetree:
 
-| 内容 | NOR 偏移 | 读取长度 | RAM 地址 |
+| Content | NOR offset | Read length | RAM address |
 | --- | --- | --- | --- |
-| 设备树 | `0x010000` | 256 KiB | `0x40f40000` |
+| Devicetree | `0x010000` | 256 KiB | `0x40f40000` |
 | OpenSBI `fw_jump` | `0x050000` | 512 KiB | `0x40f80000` |
 | Linux `Image` | `0x0d0000` | 6 MiB | `0x40000000` |
 
-`f101_boot_sbi_firmware()` 随后做的事，按代码顺序是：
+What `f101_boot_sbi_firmware()` does afterwards, in code order, is:
 
-1. `flush_dcache_all()` 加 `fence rw, rw` 和 `fence.i`：把刚读进 RAM 的内容刷出缓存，保证复位之后看到的是完整的数据和指令。
-2. 往 `0x02001d0c` 写 `1`：按源码注释，这一步把核心的 ISA 模式强制设为 RV64。
-3. 往 `0x06010100` 写入 `f101_rv64_entry` 的地址：这是复位向量，核心复位后从这里取第一条指令。紧接着对同一块寄存器区域的几次写入（偏移 `+4`、`+8`、`+0x6c`）是其余配置。
-4. 对 `0x06011000` 处的 RISC-V 看门狗写入配置，并在偏移 `+0x14`、`+0x18` 写入 `0x16aa0000`、`0x16aa0011`，触发看门狗复位。之后核心在 `wfi` 里等待复位发生。
-5. 复位后核心以 RV64 模式从 `f101_rv64_entry` 开始执行。这段入口代码必须是裸机器指令，因为 SyterKit 本身是按 RV32 编译的，编译器不会为它生成 RV64 代码。五个字依次是：
+1. `flush_dcache_all()` plus `fence rw, rw` and `fence.i`: flush what was just read into RAM out of the caches, ensuring that complete data and instructions are visible after the reset.
+2. Write `1` to `0x02001d0c`: according to the source comment, this forces the ISA mode of the core to RV64.
+3. Write the address of `f101_rv64_entry` to `0x06010100`: this is the reset vector, and the core fetches its first instruction from here after reset. The writes that follow to the same register block (offsets `+4`, `+8`, `+0x6c`) are the remaining configuration.
+4. Write the configuration to the RISC-V watchdog at `0x06011000`, and write `0x16aa0000` and `0x16aa0011` at offsets `+0x14` and `+0x18`, triggering a watchdog reset. The core then waits in `wfi` for the reset to happen.
+5. After the reset the core begins executing at `f101_rv64_entry` in RV64 mode. This entry code must be raw machine instructions, because SyterKit itself is compiled as RV32 and the compiler will not generate RV64 code for it. The five words are, in order:
 
-   | 指令字 | 汇编 | 作用 |
+   | Instruction word | Assembly | Effect |
    | --- | --- | --- |
-   | `0x00000513` | `addi a0, zero, 0` | `a0 = 0`，hart ID |
-   | `0x40f405b7` | `lui a1, 0x40f40` | `a1 = 0x40f40000`，设备树地址 |
-   | `0x40f802b7` | `lui t0, 0x40f80` | `t0 = 0x40f80000`，OpenSBI 地址 |
-   | `0x0000100f` | `fence.i` | 同步指令流 |
-   | `0x00028067` | `jr t0` | 跳到 OpenSBI |
+   | `0x00000513` | `addi a0, zero, 0` | `a0 = 0`, hart ID |
+   | `0x40f405b7` | `lui a1, 0x40f40` | `a1 = 0x40f40000`, devicetree address |
+   | `0x40f802b7` | `lui t0, 0x40f80` | `t0 = 0x40f80000`, OpenSBI address |
+   | `0x0000100f` | `fence.i` | synchronize the instruction stream |
+   | `0x00028067` | `jr t0` | jump to OpenSBI |
 
-6. OpenSBI（`fw_jump`）按构建时写死的 `FW_JUMP_ADDR=0x40000000`，把控制权交给 RAM 起始处的 Linux `Image`，内核拿到的设备树就是 `a1` 里的那份。
+6. OpenSBI (`fw_jump`) transfers control to the Linux `Image` at the start of RAM, per the `FW_JUMP_ADDR=0x40000000` hard-coded at build time, and the devicetree the kernel receives is the one in `a1`.
 
-所以 RV32 版和 RV64I 版的差别只在最后一步：`spinor-boot` 直接跳到 OpenSBI，`spinor-boot-rv64i` 则先经过一次复位再跳。入口代码里的设备树和 OpenSBI 地址是写死的，所以 OpenSBI 必须放在 `0x40f80000`，并且要用 RV64I 版本。
+So the difference between the RV32 and RV64I versions is only in the last step: `spinor-boot` jumps directly to OpenSBI, while `spinor-boot-rv64i` goes through a reset first and then jumps. The devicetree and OpenSBI addresses in the entry code are hard-coded, so OpenSBI must be placed at `0x40f80000` and must be the RV64I version.
 
-### 启动方法
+### Boot method
 
-1. 按本文下面各节构建 RV64I 的 `fw_jump`、内核、设备树和根文件系统。
-2. 按 [打包与烧录](#打包与烧录) 拼成 `yuzukineko-manual-rv64.img` 并整片烧录，或按分段烧录写入各组件。
-3. 复位板子，用 115200 8N1 连接 UART1。SyterKit 会自动从 NOR 读出各组件并启动，不需要在串口上输入命令。
+1. Build the RV64I `fw_jump`, kernel, devicetree and root filesystem as described in the sections below.
+2. Assemble `yuzukineko-manual-rv64.img` and flash the whole flash as described in [Packaging and flashing](#packaging-and-flashing), or write each component as in flashing in sections.
+3. Reset the board and connect to UART1 at 115200 8N1. SyterKit reads the components from the NOR automatically and boots; no command needs to be typed on the serial port.
 
-### 载入失败时
+### When loading fails
 
-如果串口上出现 `SPI NOR boot failed; load images and run 'boot'`，说明 SyterKit 没能从 NOR 读出或校验各组件，它会停在串口命令行。把三个文件放进 RAM 的下列地址，再在命令行输入 `boot`：
+If `SPI NOR boot failed; load images and run 'boot'` appears on the serial port, SyterKit could not read or verify the components from the NOR and has stopped at the serial command line. Put the three files at the following RAM addresses, then type `boot` at the command line:
 
-| 内容 | RAM 地址 |
+| Content | RAM address |
 | --- | --- |
-| 设备树 | `0x40f40000` |
+| Devicetree | `0x40f40000` |
 | OpenSBI `fw_jump` | `0x40f80000` |
 | Linux `Image` | `0x40000000` |
 
@@ -138,9 +138,9 @@ C907 上电后总是以 <strong>RV32</strong> 模式运行：BROM 把 SyterKit �
 boot
 ```
 
-## 构建 OpenSBI
+## Building OpenSBI
 
-把 `--arch` 换成 `rv64`，输出在 `opensbi/build/sun252i-f101-rv64/`：
+Change `--arch` to `rv64`; the output is in `opensbi/build/sun252i-f101-rv64/`:
 
 ```sh
 cd opensbi
@@ -151,17 +151,17 @@ cd ..
 
 <div class="asciinema-cast" data-src="assets/casts/linux/linux-manual-rv64/opensbi.cast" data-speed="0.3"></div>
 
-产物是 `opensbi/build/sun252i-f101-rv64/platform/generic/firmware/fw_jump.bin`，268,728 字节，预留区 512 KiB。`build.sh` 传给 OpenSBI 的三个参数分别是：
+The artifact is `opensbi/build/sun252i-f101-rv64/platform/generic/firmware/fw_jump.bin`, 268,728 bytes; the reserved area is 512 KiB. The three parameters `build.sh` passes to OpenSBI are:
 
-| 参数 | 值 |
+| Parameter | Value |
 | --- | --- |
 | `PLATFORM_RISCV_XLEN` | `64` |
 | `PLATFORM_RISCV_ABI` | `lp64` |
 | `PLATFORM_RISCV_ISA` | `rv64imafdcv_zicsr_zifencei_xtheadcmo_xtheadsync` |
 
-## 构建内核
+## Building the kernel
 
-换成 RV64 的 defconfig 和设备树，输出到 `build/kernel-rv64`：
+Switch to the RV64 defconfig and devicetree, with output in `build/kernel-rv64`:
 
 ```sh
 cd linux-mainline
@@ -174,16 +174,16 @@ cd ..
 
 <div class="asciinema-cast" data-src="assets/casts/linux/linux-manual-rv64/kernel.cast" data-speed="3"></div>
 
-产物在 `build/kernel-rv64/arch/riscv/boot/`：
+The artifacts are in `build/kernel-rv64/arch/riscv/boot/`:
 
-| 文件 | 大小（字节） | 预留区 |
+| File | Size (bytes) | Reserved area |
 | --- | ---: | --- |
 | `Image` | 5,791,000 | 6 MiB |
 | `dts/allwinner/sun252i-f101-yuzukineko-rv64i.dtb` | 10,472 | 256 KiB |
 
-## 构建根文件系统
+## Building the root filesystem
 
-BusyBox 要重新编成 64 位。步骤和 RV32 页一样，把 `rv32` 换成 `rv64`，编译选项换成 `-march=rv64imafdc -mabi=lp64d`：
+BusyBox must be recompiled as 64-bit. The steps are the same as on the RV32 page, replacing `rv32` with `rv64` and the compile options with `-march=rv64imafdc -mabi=lp64d`:
 
 ```sh
 cd busybox-1.38.0
@@ -200,9 +200,9 @@ cd ..
 
 <div class="asciinema-cast" data-src="assets/casts/linux/linux-manual-rv64/busybox.cast"></div>
 
-`file build/busybox-rv64/busybox` 应显示 64-bit、statically linked。
+`file build/busybox-rv64/busybox` should report 64-bit, statically linked.
 
-根文件系统里除了 `bin/busybox` 这个二进制，其余目录和配置文件与 RV32 完全一样，不用再做一遍。直接复制 RV32 的目录，只替换二进制，再打包：
+Apart from the `bin/busybox` binary, the rest of the directories and configuration files in the root filesystem are exactly the same as RV32, so there is no need to do it again. Copy the RV32 directory directly, replace only the binary, and repack:
 
 ```sh
 cp -a build/rootfs-rv32 build/rootfs-rv64
@@ -213,13 +213,13 @@ ls -l build/rootfs-rv64.squashfs
 
 <div class="asciinema-cast" data-src="assets/casts/linux/linux-manual-rv64/squashfs.cast"></div>
 
-这一步要求已经按 RV32 页做完根文件系统。不要对 RV64 重新执行 `make ... install`：它会把自定义的 `/sbin/init` 换回指向 BusyBox 的符号链接。
+This step requires the root filesystem to have been built already according to the RV32 page. Do not run `make ... install` again for RV64: it will replace the custom `/sbin/init` with the symbolic link pointing at BusyBox.
 
-产物是 1,081,344 字节，预留区 8,585,216 字节。
+The artifact is 1,081,344 bytes; the reserved area is 8,585,216 bytes.
 
-## 打包与烧录
+## Packaging and flashing
 
-偏移和 RV32 完全一样，只是文件换成 RV64 的：
+The offsets are exactly the same as RV32; only the files are the RV64 ones:
 
 ```sh
 head -c 16777216 /dev/zero | tr '\000' '\377' > build/yuzukineko-manual-rv64.img
@@ -234,10 +234,10 @@ sha256sum build/yuzukineko-manual-rv64.img
 
 <div class="asciinema-cast" data-src="assets/casts/linux/linux-manual-rv64/image.cast" data-speed="0.35"></div>
 
-整片烧录和 RV32 页相同，把镜像文件名换成 `build/yuzukineko-manual-rv64.img`。分段烧录时，每个文件换成上面 `dd` 用的 RV64 文件，偏移不变。
+Flashing the whole flash is the same as on the RV32 page, with the image filename changed to `build/yuzukineko-manual-rv64.img`. For flashing in sections, replace each file with the RV64 file used in the `dd` commands above; the offsets do not change.
 
-板子上已经是 RV64I 镜像时，可以只替换某个组件；但要从 RV32 换成 RV64I，请整片烧录。
+When the board already has an RV64I image, a single component can be replaced on its own; but to switch from RV32 to RV64I, flash the whole flash.
 
-## 启动
+## Boot
 
-烧录完成并复位后，用 115200 8N1 连接 UART1。串口参数、登录方式和首次启动的说明与 RV32 相同，见 [预编译镜像](linux-prebuilt.md#连接串口)。
+After flashing completes and the board is reset, connect to UART1 at 115200 8N1. The serial parameters, login method and first-boot notes are the same as RV32; see [Prebuilt image](linux-prebuilt.md#connecting-the-serial-port).

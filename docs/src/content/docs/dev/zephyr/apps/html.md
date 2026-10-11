@@ -1,35 +1,35 @@
 ---
-title: "HTML 渲染器 - litehtml"
+title: "HTML renderer - litehtml"
 ---
 
-把 TF 卡上的 HTML 页面画到屏幕上。[litehtml](https://github.com/litehtml/litehtml)（v0.9）负责解析 HTML、套 CSS、排版，板子上的渲染层（`lh_render.cpp`）把排好的盒子画进一块 RGB565 缓冲，再交给显示引擎。组件是 `zephyr-components/litehtml`，示例是 `samples/html_viewer`。
+Draws HTML pages from the TF card onto the screen. [litehtml](https://github.com/litehtml/litehtml) (v0.9) parses the HTML, applies the CSS, and lays it out; the rendering layer on the board (`lh_render.cpp`) draws the laid-out boxes into an RGB565 buffer and hands it to the display engine. The component is `zephyr-components/litehtml`, and the sample is `samples/html_viewer`.
 
-没有浏览器内核：<strong>不跑 JavaScript，不联网，没有触摸或按键输入</strong>。页面太长时自己往下滚，滚到头再回来。
+There is no browser engine: <strong>no JavaScript runs, there is no network access, and there is no touch or button input</strong>. When the page is too long it scrolls down on its own and comes back when it reaches the end.
 
 ```mermaid
 flowchart TB
-    SD["TF 卡<br/>page.html / img / font.lhf"] -->|"fs_read"| MAIN["html_viewer<br/>main.c / chunked.c / assets.c"]
-    MAIN -->|"HTML 文本"| LH["litehtml<br/>解析 + CSS + 排版"]
-    FONT["cfb_font_1016<br/>10×16 点阵字体"] --> CT["lh_render.cpp<br/>盒子、文字、图片绘制"]
-    LH -->|"盒子、文字、背景"| CT
-    MAIN -->|"图片 / 汉字字形"| CT
-    CT -->|"lh_draw"| FB["RGB565 缓冲 1024×600<br/>两块轮换"]
-    FB -->|"display_sunxi_show_rgb"| PANEL["屏幕"]
+    SD["TF card<br/>page.html / img / font.lhf"] -->|"fs_read"| MAIN["html_viewer<br/>main.c / chunked.c / assets.c"]
+    MAIN -->|"HTML text"| LH["litehtml<br/>parsing + CSS + layout"]
+    FONT["cfb_font_1016<br/>10×16 bitmap font"] --> CT["lh_render.cpp<br/>box, text, image drawing"]
+    LH -->|"boxes, text, background"| CT
+    MAIN -->|"images / CJK glyphs"| CT
+    CT -->|"lh_draw"| FB["RGB565 buffer 1024×600<br/>two in rotation"]
+    FB -->|"display_sunxi_show_rgb"| PANEL["screen"]
 ```
 
-开始前请先完成 [配置开发环境](../zephyr-setup-env.md) 和 [获取 Zephyr 代码](../zephyr-get-source.md)。
+Before you start, first complete [Setting up the development environment](../zephyr-setup-env.md) and [Getting the Zephyr source](../zephyr-get-source.md).
 
-## 准备
+## Preparation
 
-页面、图片、字体都放在 TF 卡上，板子端不需要联网。
+The page, images, and font all live on the TF card; the board side needs no network access.
 
-### 页面
+### Page
 
-示例按下面的顺序找页面（`main.c` 的 `pick_file()`，77–100 行）：
+The sample looks for a page in the following order (`pick_file()` in `main.c`, lines 77–100):
 
-1. `CONFIG_SAMPLE_HTML_FILE`，默认 `/SD:/page.html`。
-2. 上一条的文件不存在，就取卡根目录里<strong>第一个</strong> `.html` 或 `.htm` 文件（不区分大小写，顺序是目录里的存放顺序，不一定是字母序；不进子目录）。
-3. 都没有，显示编译进固件的内置页面。
+1. `CONFIG_SAMPLE_HTML_FILE`, default `/SD:/page.html`.
+2. If the file above does not exist, it takes the <strong>first</strong> `.html` or `.htm` file in the card's root directory (case-insensitive; the order is the order in the directory, not necessarily alphabetical; subdirectories are not entered).
+3. If there is none, it shows the built-in page compiled into the firmware.
 
 ```c
 static bool pick_file(char *path, size_t size)
@@ -58,29 +58,29 @@ static bool pick_file(char *path, size_t size)
 }
 ```
 
-组件自带一个测试页 `samples/html_viewer/page.html`（4.4 KB，覆盖文字样式、颜色块、列表、表格、嵌套盒子、长文本）。TF 卡是 FAT 或 exFAT，支持长文件名。最简单的试法：
+The component ships with a test page, `samples/html_viewer/page.html` (4.4 KB, covering text styles, color blocks, lists, tables, nested boxes, and long text). The TF card is FAT or exFAT and supports long file names. The simplest way to try it:
 
 ```sh
 cp ~/f101-zephyr/zephyr-components/litehtml/samples/html_viewer/page.html /path/to/SD/page.html
 ```
 
-页面按 UTF-8 读。编码、`<meta charset>` 之类声明不影响这里：读进来的字节直接交给 litehtml。
+The page is read as UTF-8. Encoding and declarations such as `<meta charset>` make no difference here: the bytes that are read are handed straight to litehtml.
 
-### 图片
+### Images
 
-`<img>` 和 CSS 的 `background-image` 都走同一个加载回调，但<strong>只认自定义的 `.lhi` 文件</strong>，不支持 PNG、JPEG、GIF、WebP、SVG 直接引用。
+`<img>` and the CSS `background-image` both go through the same loading callback, but <strong>only the custom `.lhi` file is recognized</strong>; PNG, JPEG, GIF, WebP, and SVG are not supported for direct reference.
 
-- 页面里写相对路径，例如 `<img src="img/a.lhi">`。路径相对<strong>页面所在目录</strong>解析（`assets.c` 的 `image_cb()` 把 `dir + "/" + src` 拼起来读文件），没有 URL、`data:` 之类的处理。
-- `.lhi` 文件格式：`"LHI1"`，16 位宽，16 位高（小端），后面是宽×高个 RGB565 像素（小端）。没有透明通道。
-- 找不到文件、魔数不对、长度不够，都当作“没有这张图”：元素没有尺寸，不画。失败的结果也会缓存，不会反复读卡。
-- 缓存最多 40 个条目、合计 6 MiB（`CACHE_ENTRIES`、`CACHE_LIMIT`），超出时丢掉最久没用的。
+- Write a relative path in the page, for example `<img src="img/a.lhi">`. The path is resolved relative to <strong>the directory the page is in</strong> (`image_cb()` in `assets.c` concatenates `dir + "/" + src` and reads the file); there is no handling of URLs or `data:`.
+- The `.lhi` file format: `"LHI1"`, 16-bit width, 16-bit height (little-endian), followed by width×height RGB565 pixels (little-endian). There is no alpha channel.
+- A missing file, a wrong magic number, or a short length all count as "no such image": the element has no size and is not drawn. Failures are cached too, so the card is not read over and over.
+- The cache holds at most 40 entries totalling 6 MiB (`CACHE_ENTRIES`, `CACHE_LIMIT`); when it overflows the least recently used are dropped.
 
-没有现成的转换命令行工具，下面的脚本，逻辑和 `tools/scrape_page.py` 里的 `to_lhi()`、`make_font()` 一致（需要 Pillow，Zephyr 的 venv 里有）：
+There is no ready-made command-line conversion tool; the script below follows the same logic as `to_lhi()` and `make_font()` in `tools/scrape_page.py` (it needs Pillow, which is in Zephyr's venv):
 
 ```python
 #!/usr/bin/env python3
 """用法：
-  mk-lh-assets.py img  输入图片 输出.lhi [最大宽 最大高]
+  mk-lh-assets.py img  input image output.lhi [max width max height]
   mk-lh-assets.py font 字体文件 输出.lhf 页面.html
 """
 import html, struct, sys
@@ -89,13 +89,13 @@ from PIL import Image, ImageDraw, ImageFont
 
 def to_lhi(src, dst, max_w=640, max_h=360):
     img = Image.open(src)
-    if img.mode in ("RGBA", "LA", "P"):          # 透明部分垫白底
+    if img.mode in ("RGBA", "LA", "P"):          # pad transparent areas with a white background
         img = img.convert("RGBA")
         bg = Image.new("RGBA", img.size, (255, 255, 255, 255))
         bg.alpha_composite(img)
         img = bg
     img = img.convert("RGB")
-    img.thumbnail((max_w, max_h), Image.LANCZOS)  # 只缩小，不放大
+    img.thumbnail((max_w, max_h), Image.LANCZOS)  # shrink only, never enlarge
     w, h = img.size
     out = bytearray(struct.pack("<4sHH", b"LHI1", w, h))
     px = img.tobytes()
@@ -136,37 +136,37 @@ else:
 python3 mk-lh-assets.py img photo.png SD/img/photo.lhi
 ```
 
-页面里写 `<img src="img/photo.lhi" width="320">`，图片会缩放到元素的尺寸（最近邻）。图片是原样放进内存的 RGB565，一张 640×360 的图占 450 KiB，注意缓存上限。
+Write `<img src="img/photo.lhi" width="320">` in the page and the image is scaled to the element's size (nearest neighbour). The image is put into memory as raw RGB565; a 640×360 image takes 450 KiB, so mind the cache limit.
 
-### 字体和汉字
+### Fonts and CJK characters
 
-屏幕上的字来自两处：
+The text on the screen comes from two places:
 
-| 来源 | 范围 | 说明 |
+| Source | Range | Description |
 | --- | --- | --- |
-| `cfb_font_1016` | ASCII 32–126 | Zephyr 字符帧缓冲自带的 10×16 点阵字体，编进固件 |
-| `font.lhf` | 你指定的字符 | 放在页面同一目录，16×16 的 8 位透明度字形，启动时一次读进内存 |
+| `cfb_font_1016` | ASCII 32–126 | the 10×16 bitmap font that comes with the Zephyr character framebuffer, compiled into the firmware |
+| `font.lhf` | the characters you specify | placed in the same directory as the page; 16×16 8-bit alpha glyphs, read into memory once at startup |
 
-`font.lhf` 格式：`"LHF1"`，32 位字形个数，32 位字格大小（16），32 位保留，后面是按码点升序排列的 32 位码点表，最后是每个字形 16×16 字节的透明度（从上到下的行）。上面脚本的 `font` 子命令会扫描页面里出现的所有非 ASCII 字符，按给定字体渲染：
+The `font.lhf` format: `"LHF1"`, a 32-bit glyph count, a 32-bit cell size (16), 32 bits reserved, then a table of 32-bit code points in ascending order, and finally 16×16 bytes of alpha per glyph (rows from top to bottom). The `font` subcommand of the script above scans the page for every non-ASCII character it contains and renders them with the given font:
 
 ```sh
 python3 mk-lh-assets.py font /usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc SD/font.lhf SD/page.html
 ```
 
-（字体路径换成你机器上有的；`.ttc` 集合文件 Pillow 默认取第一个字体。）
+(Replace the font path with one that exists on your machine; for a `.ttc` collection file Pillow uses the first font by default.)
 
-没有 `font.lhf`，或者页面里的字不在里面，非 ASCII 字符画成 `?`。<strong>字体是固定的</strong>：`font-family` 不起作用，不能加载 TTF/OTF/WOFF，也不支持 `@font-face`。
+Without `font.lhf`, or when a character on the page is not in it, non-ASCII characters are drawn as `?`. <strong>The font is fixed</strong>: `font-family` has no effect, TTF/OTF/WOFF cannot be loaded, and `@font-face` is not supported.
 
-## 编译
+## Building
 
-以下命令都在工作区里执行。组件依赖 litehtml 子模块，第一次要拉：
+All the commands below are run in the workspace. The component depends on the litehtml submodule, which you must fetch the first time:
 
 ```sh
 cd ~/f101-zephyr/zephyr-components
 git submodule update --init litehtml/litehtml
 ```
 
-不拉的话 `litehtml/litehtml` 是空目录，CMake 会报 `litehtml sources missing, run: git submodule update --init`。然后编译示例：
+Without it `litehtml/litehtml` is an empty directory and CMake reports `litehtml sources missing, run: git submodule update --init`. Then build the sample:
 
 ```sh
 . ~/f101-zephyr/env.sh
@@ -176,9 +176,9 @@ west build -b yuzukineko -d build/html zephyr-components/litehtml/samples/html_v
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/apps-html/build.cast" data-speed="6"></div>
 
-产物是 `build/html/zephyr/zephyr.bin`，链接地址 `0x40010000`。`prj.conf` 里已经有 `CONFIG_CPP`、`CONFIG_STD_CPP17`、`CONFIG_LITEHTML`，不需要加 `-D`。
+The output is `build/html/zephyr/zephyr.bin`, linked at `0x40010000`. `prj.conf` already has `CONFIG_CPP`, `CONFIG_STD_CPP17`, and `CONFIG_LITEHTML`, so no `-D` is needed.
 
-示例的 `CMakeLists.txt` 自己把组件加进模块路径，不用另外设 `ZEPHYR_EXTRA_MODULES`：
+The sample's own `CMakeLists.txt` adds the component to the module path, so `ZEPHYR_EXTRA_MODULES` does not have to be set separately:
 
 ```cmake
 list(APPEND ZEPHYR_EXTRA_MODULES ${CMAKE_CURRENT_SOURCE_DIR}/../..)
@@ -189,26 +189,26 @@ project(html_viewer)
 target_sources(app PRIVATE src/main.c src/chunked.c src/assets.c)
 ```
 
-litehtml 是 C++ 库，而镜像用的是精简 C 库，所以组件的 `CMakeLists.txt` 用 `ExternalProject` 单独编一遍（`ext/`），只用 libstdc++ 里纯头文件的部分，关闭异常，标准流（`iostream` 等）用空壳头文件顶替，编成静态库再链进镜像。缺的几个 C 库函数在 `src/litehtml_libc.c`。在自己的应用里用：把模块加进 `ZEPHYR_EXTRA_MODULES`，`prj.conf` 里写 `CONFIG_CPP=y`、`CONFIG_STD_CPP17=y`、`CONFIG_LITEHTML=y`。
+litehtml is a C++ library while the image uses a minimal C library, so the component's `CMakeLists.txt` builds it separately with `ExternalProject` (`ext/`), using only the header-only parts of libstdc++, with exceptions disabled and the standard streams (`iostream` and the like) replaced by empty stub headers; it is built into a static library and linked into the image. The few missing C library functions are in `src/litehtml_libc.c`. To use it in your own application: add the module to `ZEPHYR_EXTRA_MODULES` and write `CONFIG_CPP=y`, `CONFIG_STD_CPP17=y`, and `CONFIG_LITEHTML=y` in `prj.conf`.
 
-## 运行
+## Running
 
-### 下载并启动
+### Downloading and starting
 
-1. 第一次运行先不放页面：TF 卡根目录里没有 `.html` 文件，板子显示内置页面。要显示自己的页面时，把 `page.html`（以及 `img/`、`font.lhf`）拷到 TF 卡根目录，插进板子。
-2. 用 [编译与运行](../zephyr-build-run.md) 里的任一种方式下载，控制台是 UART1（PB00/PB01，115200 8N1）。调试用<strong>方式一</strong>：`xfel ddr f101-s3`、`xfel write 0x40010000 build/html/zephyr/zephyr.bin`、`xfel exec 0x40010000`。每次先给板子断电再上电。
+1. For the first run, leave the page out: with no `.html` file in the TF card's root directory the board shows the built-in page. To show your own page, copy `page.html` (along with `img/` and `font.lhf`) to the TF card's root directory and insert it into the board.
+2. Download it with either method in [Building and running](../zephyr-build-run.md); the console is UART1 (PB00/PB01, 115200 8N1). For debugging use <strong>method one</strong>: `xfel ddr f101-s3`, `xfel write 0x40010000 build/html/zephyr/zephyr.bin`, `xfel exec 0x40010000`. Power-cycle the board before each run.
 
 :::caution
-板子只有一个 USB-C 口，既是 xfel 下载口，也是 UF2 盘的口。先下载，再接别的设备。
+The board has only one USB-C port, which is both the xfel download port and the UF2 drive port. Download first, then connect other devices.
 :::
 
-画面是 1024×600 的 RGB565 帧，用 `display_sunxi_show_rgb()` 送到显示引擎的视频层，缩放规则与视频帧相同：保持长宽比，铺满宽度。屏幕是 1024×768，所以上下有黑边。
+The picture is a 1024×600 RGB565 frame sent to the display engine's video plane with `display_sunxi_show_rgb()`; the scaling rule is the same as for a video frame: keep the aspect ratio and fill the width. The screen is 1024×768, so there are black bars at the top and bottom.
 
-### 运行后的输出
+### Output after running
 
-#### 卡上没有 .html：显示内置页面
+#### No .html on the card: the built-in page is shown
 
-卡已挂载、根目录里没有 `.html` 文件时，串口输出：
+When the card is mounted and there is no `.html` file in the root directory, the serial output is:
 
 ```text
 *** Booting Zephyr OS build b6f3dfe1a1f4 ***
@@ -221,15 +221,15 @@ assets: 0 KiB of images cached, 0 loaded, 0 dropped
 page: drawn in 11 ms
 ```
 
-屏幕显示内置页面。它 177 px 高，不比屏幕高，所以不滚动，每秒重画一次。挂载失败时打印的是 `cannot mount the SD card: <错误码>`，见 [排错](#排错)。
+The screen shows the built-in page. It is 177 px high, no taller than the screen, so it does not scroll and is redrawn once a second. If the mount fails, the line printed is `cannot mount the SD card: <error code>`; see [Troubleshooting](#troubleshooting).
 
-![板子屏幕上的 litehtml 内置页面](figures/html-builtin.png)
+![The litehtml built-in page on the board screen](figures/html-builtin.webp)
 
-照片里是内置页面：标题 `litehtml on the F101`，下面一个带边框的框，写着 `No page found on the SD card. Put a page.html in the root of the card.`。画面在面板中间，上下是黑边。
+The photo shows the built-in page: the title `litehtml on the F101`, and below it a bordered box reading `No page found on the SD card. Put a page.html in the root of the card.`. The picture is in the middle of the panel, with black bars above and below.
 
-#### 卡上有页面：加载页面、图片、汉字
+#### A page on the card: loading the page, images, CJK characters
 
-要显示自己的页面时，卡根目录放好 `page.html`、`font.lhf` 和 `img/a.lhi` 后启动，串口输出：
+To show your own page, put `page.html`, `font.lhf`, and `img/a.lhi` in the card's root directory and boot; the serial output is:
 
 ```text
 *** Booting Zephyr OS build b6f3dfe1a1f4 ***
@@ -241,11 +241,11 @@ chunk 0/3: 12643 bytes, 8431 px high, loaded in 410 ms
 chunked: piece 0 y 0 drawn in 37 ms
 ```
 
-这几行依次表示：`font.lhf` 读入、图片目录登记、页面被分成 3 片（每片约 12 KiB）、第 0 片加载完成，之后每帧约 37 ms。屏幕上显示页面的第一屏。
+These lines mean, in order: `font.lhf` is read in, the image directory is registered, the page is split into 3 pieces (about 12 KiB each), and piece 0 has loaded; after that each frame takes about 37 ms. The screen shows the first screenful of the page.
 
-#### 自动滚动与分片切换
+#### Automatic scrolling and piece switching
 
-页面比屏幕高时自动往下滚。每 60 帧打印一次 `y`，相邻两行差 120 px，即每帧 2 px，等于 `CONFIG_SAMPLE_HTML_SCROLL_PX=2`。滚到片尾附近时，输出如下：
+When the page is taller than the screen it scrolls down automatically. `y` is printed every 60 frames, and adjacent lines differ by 120 px, that is 2 px per frame, equal to `CONFIG_SAMPLE_HTML_SCROLL_PX=2`. When the scroll nears the end of a piece, the output is:
 
 ```text
 chunked: piece 0 y 7200 drawn in 39 ms
@@ -260,33 +260,33 @@ chunked: piece 0 y 8400 drawn in 61 ms
 chunked: piece 1 y 89 drawn in 37 ms
 ```
 
-- 第 0 片滚过 `y=7231`（离片尾 8431 不到两屏）时提前加载第 1 片，用了 392 ms。加载是同步的，那一帧会停顿约 0.4 秒。
-- 越过 `y=7831`，也就是片尾前一屏，开始同时画两片（`lh_draw_over()`），每帧涨到约 61 ms。
-- 越过 8431 后切到第 1 片，`piece 1 y 89`，帧时间回到 37 ms。
+- When piece 0 scrolls past `y=7231` (less than two screens from the piece end at 8431) piece 1 is loaded in advance, taking 392 ms. The load is synchronous, so that frame stalls for about 0.4 seconds.
+- Past `y=7831`, one screen before the piece end, both pieces start being drawn at once (`lh_draw_over()`) and each frame grows to about 61 ms.
+- Past 8431 it switches to piece 1, `piece 1 y 89`, and the frame time returns to 37 ms.
 
-## 渲染流程
+## Rendering flow
 
 ```mermaid
 flowchart TD
-    A["main(): 分配两块 1024×600 帧<br/>fs_mount，最多重试 10 次"] --> B{"挂载成功且<br/>pick_file 找到页面?"}
-    B -->|"否"| BI["内置页面<br/>printk: cannot mount… 或<br/>no .html file on the SD card"]
-    B -->|"是"| C["assets_init<br/>注册图片回调，读 font.lhf"]
+    A["main(): allocate two 1024×600 frames<br/>fs_mount, up to 10 retries"] --> B{"mount succeeded and<br/>pick_file found a page?"}
+    B -->|"no"| BI["built-in page<br/>printk: cannot mount… or<br/>no .html file on the SD card"]
+    B -->|"yes"| C["assets_init<br/>register the image callback, read font.lhf"]
     C --> D{"CHUNK_KB > 0 ?"}
-    D -->|"是"| E["chunked_run<br/>分片加载并滚动，只在出错时返回"]
-    D -->|"否"| F["read_file 整页读进内存"]
-    E -->|"出错"| F
-    F --> G["lh_load<br/>解析 + 排版"]
+    D -->|"yes"| E["chunked_run<br/>load piece by piece and scroll, returns only on error"]
+    D -->|"no"| F["read_file reads the whole page into memory"]
+    E -->|"error"| F
+    F --> G["lh_load<br/>parsing + layout"]
     BI --> G
-    G --> H["循环: lh_draw 画一帧<br/>cache flush<br/>display_sunxi_show_rgb<br/>滚动位置 += SCROLL_PX"]
+    G --> H["loop: lh_draw draws a frame<br/>cache flush<br/>display_sunxi_show_rgb<br/>scroll position += SCROLL_PX"]
 ```
 
-### 主程序
+### Main program
 
-`main()` 在 `samples/html_viewer/src/main.c` 的 350–472 行。要点：
+`main()` is at lines 350–472 of `samples/html_viewer/src/main.c`. The key points:
 
-- 两块帧缓冲 `fbs[2]` 各 1024×600×2 字节，用 `aligned_alloc(64, …)` 从普通堆分配（373–379 行）。屏幕上显示的那一块永远不被写，画下一帧画到另一块，不然扫描输出会看到画到一半的帧。
-- 卡上电后要等一会儿，挂载最多试 10 次、每次间隔 300 ms（381–388 行）。
-- 成功后调 `assets_init(path)`，再按 `CONFIG_SAMPLE_HTML_CHUNK_KB` 决定走分片显示（397–413 行）：
+- The two framebuffers `fbs[2]` are 1024×600×2 bytes each, allocated from the normal heap with `aligned_alloc(64, …)` (lines 373–379). The buffer being shown on the screen is never written; the next frame is drawn into the other one, otherwise the scan-out would see a half-drawn frame.
+- The card needs a moment after power-up, so the mount is tried up to 10 times, 300 ms apart (lines 381–388).
+- On success it calls `assets_init(path)` and then decides whether to use piece-by-piece display based on `CONFIG_SAMPLE_HTML_CHUNK_KB` (lines 397–413):
 
 ```c
 	if (mounted != 0) {
@@ -307,7 +307,7 @@ flowchart TD
 	}
 ```
 
-- 整页模式：`read_file()` 读文件，`lh_load()` 解析排版，然后无限循环画帧（436–471 行）。页面不比屏幕高、或者 `SCROLL_PX` 为 0，每秒重画一次；否则每帧滚动 `CONFIG_SAMPLE_HTML_SCROLL_PX` 像素，到底后停 2 秒掉头往回滚，到顶再停 2 秒。
+- Whole-page mode: `read_file()` reads the file, `lh_load()` parses and lays it out, and then frames are drawn in an endless loop (lines 436–471). If the page is no taller than the screen, or `SCROLL_PX` is 0, it is redrawn once a second; otherwise it scrolls `CONFIG_SAMPLE_HTML_SCROLL_PX` pixels per frame, stops for 2 seconds at the bottom and scrolls back up, and stops for 2 seconds again at the top.
 
 ```c
 	while (true) {
@@ -328,40 +328,40 @@ flowchart TD
 		ret = display_sunxi_show_rgb(disp, &img);
 ```
 
-### 分片显示（默认走这条）
+### Piece-by-piece display (the default path)
 
-默认 `CONFIG_SAMPLE_HTML_CHUNK_KB=12`，所以<strong>只要卡上有页面，就走 `chunked.c`</strong>，哪怕页面只有 4 KB。它的做法：
+The default is `CONFIG_SAMPLE_HTML_CHUNK_KB=12`, so <strong>as long as there is a page on the card, `chunked.c` is used</strong>, even if the page is only 4 KB. What it does:
 
-1. `lh_index_scan()` 把文件从头到尾读一遍，找到 `<body>` 每个子元素的结尾，以及 `<head>` 里的 `<style>` 文本位置。
-2. 把相邻子元素合成大约 12 KiB 一片；只有屏幕上的那一片和下一片在内存里，每一片是一个独立的页面：`<html><head><meta charset="utf-8"><style>` + 全部 CSS + `</style></head>` + 原来的 `<body …>` 标签 + 这一片的文本 + `</body></html>`。
-3. 滚动越过一片的末尾时，丢掉当前片、换下一片，同时提前加载再下一片。接缝处用 `lh_draw_over()` 把下一片画在同一帧的下半部分。
-4. 滚到最后一片的末尾，等 2 秒，从第一片重新开始（不会往回滚）。
+1. `lh_index_scan()` reads the file from start to end and finds the end of every child element of `<body>` as well as the positions of the `<style>` text in `<head>`.
+2. Adjacent child elements are combined into a piece of about 12 KiB; only the piece on screen and the next piece are in memory, and each piece is an independent page: `<html><head><meta charset="utf-8"><style>` + all the CSS + `</style></head>` + the original `<body …>` tag + this piece's text + `</body></html>`.
+3. When the scroll passes the end of a piece, the current piece is dropped and the next one is taken, while the one after that is loaded in advance. At the seam, `lh_draw_over()` draws the next piece into the lower part of the same frame.
+4. At the end of the last piece it waits 2 seconds and starts again from the first piece (it does not scroll back up).
 
-分片的限制：
+The limits of the pieces:
 
-- 标记必须写规整，所有非空元素都要有结束标签。`<body>` 的一个直接子元素不会被切开，一个子元素本身特别大，这一片就特别大。
-- 跨片的兄弟选择器（`+`、`~`、`:nth-child` 之类）不生效，因为每一片是独立的页面。
-- 样式表只从 `<head>` 里的 `<style>` 收集（`struct lh_index` 的 `css[]`，最多 16 个）。外部样式表本来就不支持。
+- The markup must be well formed, with a closing tag for every non-empty element. A direct child element of `<body>` is never split; if one child is very large, that piece is very large.
+- Sibling selectors that span pieces (`+`, `~`, `:nth-child` and the like) do not take effect, because each piece is an independent page.
+- Style sheets are collected only from `<style>` in `<head>` (`css[]` in `struct lh_index`, at most 16). External style sheets are not supported to begin with.
 
-只想按整页渲染：编译时把 `CONFIG_SAMPLE_HTML_CHUNK_KB` 设成 0。整页模式要把整个文档树放进堆里，页面大了会失败。组件还提供 `LITEHTML_PAGED_HEAP`（按需换页、以 TF 卡上的 `swap.bin` 做后备存储，配置见 `samples/html_viewer/paged.conf`）。
+To render as a whole page only: set `CONFIG_SAMPLE_HTML_CHUNK_KB` to 0 at build time. Whole-page mode puts the entire document tree in the heap, and fails with a large page. The component also offers `LITEHTML_PAGED_HEAP` (paging on demand, with `swap.bin` on the TF card as backing store; see `samples/html_viewer/paged.conf` for the configuration).
 
-### 渲染层
+### Rendering layer
 
-`ext/src/lh_render.cpp` 里的 `canvas_container` 实现 litehtml 的 `document_container` 接口。对外接口在 `include/litehtml_zephyr/lh.h`：
+`canvas_container` in `ext/src/lh_render.cpp` implements litehtml's `document_container` interface. The public interface is in `include/litehtml_zephyr/lh.h`:
 
-| 函数 | 作用 |
+| Function | Purpose |
 | --- | --- |
-| `lh_load(font, html, width, height)` | 解析并按视口宽度排版，返回页面对象。`height` 只用于 `vh` 单位和媒体查询 |
-| `lh_content_height(page)` | 排版后页面的总高度（像素） |
-| `lh_title(page)` | `<title>` 的文字 |
-| `lh_draw(page, fb, stride, w, h, scroll_y, bg)` | 先用 `bg` 清空，再把从 `scroll_y` 行开始的一屏画进 RGB565 缓冲 |
-| `lh_draw_over(…)` | 不清空，叠画（分片接缝用） |
-| `lh_set_image_loader(fn, user)` | 注册图片回调，返回 RGB565 像素 |
-| `lh_set_cjk_font(data, size)` | 注册 `font.lhf` 的内容，数据要一直有效 |
-| `lh_free(page)` | 释放 |
-| `lh_index_scan(read, user, size, target, out)` | 分片扫描 |
+| `lh_load(font, html, width, height)` | parses and lays out for the viewport width, returning a page object. `height` is used only for `vh` units and media queries |
+| `lh_content_height(page)` | total height of the laid-out page (in pixels) |
+| `lh_title(page)` | the text of `<title>` |
+| `lh_draw(page, fb, stride, w, h, scroll_y, bg)` | clears with `bg` first, then draws one screen starting at row `scroll_y` into the RGB565 buffer |
+| `lh_draw_over(…)` | does not clear; draws over (used at the piece seams) |
+| `lh_set_image_loader(fn, user)` | registers the image callback, which returns RGB565 pixels |
+| `lh_set_cjk_font(data, size)` | registers the contents of `font.lhf`; the data must stay valid |
+| `lh_free(page)` | frees |
+| `lh_index_scan(read, user, size, target, out)` | piece scanning |
 
-`lh_load()` 和 `lh_draw()` 就这么几行（`lh_render.cpp` 567–601 行）：
+`lh_load()` and `lh_draw()` are just these few lines (`lh_render.cpp` lines 567–601):
 
 ```cpp
 struct lh_page *lh_load(const struct lh_font *font, const char *html, int width, int height)
@@ -393,7 +393,7 @@ void lh_draw(struct lh_page *page, uint16_t *fb, int stride, int w, int h, int s
 }
 ```
 
-文字怎么画：`create_font()` 把 CSS 字号当作字高，字宽按 10:16 的比例缩放（`cell_w = size * 10 / 16`，至少 1），粗体（权重 ≥ 600）宽度加 1 并往右多涂一列；`draw_glyph()` 用最近邻把 10×16 点阵缩放到目标尺寸，斜体按行错位。下划线、删除线、上划线直接画线。
+How text is drawn: `create_font()` takes the CSS font size as the glyph height and scales the glyph width by the 10:16 ratio (`cell_w = size * 10 / 16`, at least 1); bold (weight ≥ 600) adds 1 to the width and paints one extra column to the right; `draw_glyph()` scales the 10×16 bitmap to the target size with nearest neighbour, and italics are offset row by row. Underline, strikethrough, and overline are drawn as plain lines.
 
 ```cpp
 f->size = std::max(size, 6);
@@ -406,59 +406,59 @@ if (weight >= 600) {
 }
 ```
 
-`font.lhf` 里的汉字按字号缩成 `size × size`，字间距就是字号。
+A CJK character in `font.lhf` is scaled to `size × size`, and the letter spacing is the font size.
 
-## 支持的 HTML / CSS 范围
+## Supported HTML / CSS scope
 
-分两层看：litehtml 能排版什么，和这块渲染层能画什么。下面只写能从源码确认的。
+Look at it at two levels: what litehtml can lay out, and what this rendering layer can draw. Only what can be confirmed from the source is listed below.
 
-### 能用
+### Supported
 
-| 类别 | 内容 |
+| Category | Details |
 | --- | --- |
-| HTML | gumbo 解析（HTML5 容错解析器）；标题、段落、`div`、`span`、`b`、`i`、`u`、`s`、`code`、`a`、`ul`/`ol`/`li`、`table`、`img`、`br` 等常见标签 |
-| 盒模型 | `margin`、`padding`、`border`（宽度、颜色，<strong>只画实线</strong>）、`width`/`height`、`box-sizing` |
-| 布局 | 块、行内、`inline-block`、`float`、`position`（`relative`/`absolute`/`fixed`）、`display: table` 和 `<table>`、`display: flex`/`inline-flex` |
-| 文字 | `font-size`、`font-weight`、`font-style`、`text-align`、`text-decoration`、`text-transform`（仅 ASCII 字母）、`white-space`、`vertical-align`、`line-height` |
-| 单位 | `px`、`%`、`em`、`rem`、`pt` 等、`vw`/`vh`/`vmin`/`vmax` |
-| 颜色 | 十六进制、`rgb()`、`rgba()`、颜色名；`rgba` 的透明度会和已有像素混合 |
-| 背景 | `background-color`；`background-image` 取 `.lhi`，支持 `repeat`/`repeat-x`/`repeat-y`、位置、尺寸 |
-| 列表标记 | 圆点、空心方块（`circle`）、实心方块，数字编号（`1.` 样式） |
-| 其他 | `overflow` 裁剪（矩形）；`<style>` 内联样式表；选择器；`@media` 里 `width`、`height`、`screen` 等基本条件（视口固定为 1024×600）；CSS 变量 `var()`（litehtml 的 `style.cpp` 里处理了 `var(`） |
+| HTML | gumbo parsing (an HTML5 error-tolerant parser); common tags such as headings, paragraphs, `div`, `span`, `b`, `i`, `u`, `s`, `code`, `a`, `ul`/`ol`/`li`, `table`, `img`, `br` |
+| Box model | `margin`, `padding`, `border` (width and color, <strong>solid lines only</strong>), `width`/`height`, `box-sizing` |
+| Layout | block, inline, `inline-block`, `float`, `position` (`relative`/`absolute`/`fixed`), `display: table` and `<table>`, `display: flex`/`inline-flex` |
+| Text | `font-size`, `font-weight`, `font-style`, `text-align`, `text-decoration`, `text-transform` (ASCII letters only), `white-space`, `vertical-align`, `line-height` |
+| Units | `px`, `%`, `em`, `rem`, `pt` and so on, `vw`/`vh`/`vmin`/`vmax` |
+| Color | hexadecimal, `rgb()`, `rgba()`, color names; `rgba` alpha blends with the existing pixels |
+| Background | `background-color`; `background-image` takes a `.lhi` and supports `repeat`/`repeat-x`/`repeat-y`, position, and size |
+| List markers | bullets, hollow squares (`circle`), filled squares, and numeric numbering (`1.` style) |
+| Other | `overflow` clipping (rectangular); `<style>` inline style sheets; selectors; basic conditions in `@media` such as `width`, `height`, `screen` (the viewport is fixed at 1024×600); CSS variables `var()` (litehtml handles `var(` in its `style.cpp`) |
 
-### 不支持
+### Not supported
 
-| 内容 | 实际情况 |
+| Item | Actual situation |
 | --- | --- |
-| JavaScript | <strong>不支持</strong>，`<script>` 不执行 |
-| 链接点击、表单、输入 | <strong>不支持</strong>。`on_anchor_click()`、`set_cursor()` 是空函数，板子上没有输入设备 |
-| 外部样式表 | <strong>不支持</strong>。`import_css()` 是空函数，`<link rel="stylesheet">` 和 `@import` 都不会加载，样式要写进 `<style>` |
-| 图片格式 | 只有 `.lhi`；PNG/JPEG/GIF/WebP/SVG、`data:` 地址<strong>不支持</strong> |
-| 字体 | 只有 ASCII 10×16 点阵（缩放）和 `font.lhf` 里的字形；`font-family`、`@font-face`、TTF/WOFF <strong>不支持</strong>，也没有抗锯齿 |
-| 渐变 | <strong>不支持</strong>，渲染层只画纯色填充 |
-| 圆角 | <strong>不支持</strong>，`border-radius` 被忽略 |
-| 边框样式 | 虚线、点线、双线、凹凸等都画成实线（`draw_borders()` 只判断是不是 `none`/`hidden`） |
-| `calc()` | <strong>不支持</strong>，litehtml 的 `css_length.cpp` 里是 `TODO: Make support for calc`，遇到 `calc(…)` 按默认值处理 |
-| CSS Grid | <strong>不支持</strong>。组件说明里明确写了 litehtml 没有 grid |
-| 阴影、透明度属性、变换、动画、过渡 | <strong>不支持</strong>：渲染层没有对应的绘制，litehtml 也没有解析这些属性 |
-| 滚动交互 | <strong>不支持</strong>：只有自动滚动，不能手动滚；`overflow: scroll` 的元素不能滚 |
+| JavaScript | <strong>Not supported</strong>; `<script>` is not executed |
+| Link clicks, forms, input | <strong>Not supported</strong>. `on_anchor_click()` and `set_cursor()` are empty functions, and there is no input device on the board |
+| External style sheets | <strong>Not supported</strong>. `import_css()` is an empty function, neither `<link rel="stylesheet">` nor `@import` is loaded, and styles must be written into `<style>` |
+| Image formats | Only `.lhi`; PNG/JPEG/GIF/WebP/SVG and `data:` addresses are <strong>not supported</strong> |
+| Fonts | Only the ASCII 10×16 bitmap (scaled) and the glyphs in `font.lhf`; `font-family`, `@font-face`, and TTF/WOFF are <strong>not supported</strong>, and there is no anti-aliasing |
+| Gradients | <strong>Not supported</strong>; the rendering layer draws solid fills only |
+| Rounded corners | <strong>Not supported</strong>; `border-radius` is ignored |
+| Border styles | Dashed, dotted, double, groove and the rest are all drawn as solid lines (`draw_borders()` only tests for `none`/`hidden`) |
+| `calc()` | <strong>Not supported</strong>; litehtml's `css_length.cpp` has `TODO: Make support for calc`, and a `calc(…)` is handled as the default value |
+| CSS Grid | <strong>Not supported</strong>. The component's documentation states clearly that litehtml has no grid |
+| Shadows, opacity properties, transforms, animations, transitions | <strong>Not supported</strong>: the rendering layer has no matching drawing and litehtml does not parse these properties either |
+| Scrolling interaction | <strong>Not supported</strong>: only automatic scrolling, no manual scrolling; an element with `overflow: scroll` cannot scroll |
 
-页面如果来自网页，需要经过 `tools/scrape_page.py` 重写，见下一节。
+If the page comes from a web page it must be rewritten with `tools/scrape_page.py`; see the next section.
 
-### 把网页转成能显示的页面
+### Turning a web page into a page you can display
 
-`tools/scrape_page.py URL OUTDIR [--font FONT]` 会抓一个网页：去掉脚本和事件属性，把样式表内联（`@media` 先按视口宽度求值，`display:grid` 改成 flex 换行），图片转 `.lhi`，页面里出现的汉字渲染成 `font.lhf`。`OUTDIR` 整个拷到 TF 卡，显示里面的 `index.html`。它依赖 Pillow，也需要联网。排版仍然只是近似。`tools/host_preview/host_main.cpp` 是同一个渲染层的 PC 版，用来不接板子看结果。
+`tools/scrape_page.py URL OUTDIR [--font FONT]` fetches a web page: it strips scripts and event attributes, inlines the style sheets (`@media` is evaluated for the viewport width first, and `display:grid` becomes flex wrapping), converts images to `.lhi`, and renders the CJK characters that appear on the page into `font.lhf`. Copy all of `OUTDIR` to the TF card and display the `index.html` in it. It needs Pillow and network access. The layout is still only approximate. `tools/host_preview/host_main.cpp` is a PC build of the same rendering layer, for looking at the result without the board.
 
-## 怎么改页面内容
+## How to change the page content
 
-不需要重新编译：
+No rebuild is needed:
 
-1. 改 TF 卡上的 `page.html`，重新上电。
-2. 页面里加图片：转成 `.lhi`，放进 `img/`，用 `<img src="img/x.lhi">`。
-3. 页面里有汉字：重新生成 `font.lhf`，放在页面同一目录。
-4. 页面比较大：保持标记规整（见分片的限制）。
+1. Change `page.html` on the TF card and power-cycle.
+2. To add an image to the page: convert it to `.lhi`, put it in `img/`, and use `<img src="img/x.lhi">`.
+3. For CJK characters on the page: regenerate `font.lhf` and put it in the same directory as the page.
+4. For a larger page: keep the markup well formed (see the limits of the pieces).
 
-最小的页面：
+The smallest page:
 
 ```html
 <!DOCTYPE html>
@@ -479,27 +479,27 @@ if (weight >= 600) {
 </html>
 ```
 
-## 功能与修改位置
+## Features and where to change them
 
-| 功能 | 位置 | 怎么改 |
+| Feature | Location | How to change |
 | --- | --- | --- |
-| 页面路径 | `main.c` 的 `pick_file()`，`CONFIG_SAMPLE_HTML_FILE` | 编译时改，见 [配置选项](#配置选项) |
-| 滚动速度 | `CONFIG_SAMPLE_HTML_SCROLL_PX` | 每帧像素数，0 关闭滚动 |
-| 视口大小 | `main.c` 和 `chunked.c` 开头各有一份 `#define W 1024`、`#define H 600` | 两个文件要一起改；`lh_load()` 的宽度、帧缓冲大小、`display_sunxi_show_rgb()` 都用它 |
-| 背景色 | 两个文件里的 `#define BG 0xffff` | RGB565，页面没盖到的地方是这个颜色 |
-| 内置页面 | `main.c` 的 `builtin_page[]`（43–49 行） | 改字符串，找不到页面时显示它 |
-| 字体 | `main.c` 的 `font` 结构（`cfb_font_1016`，10×16） | 换成别的同格式点阵（`struct lh_font`，每个字形 20 字节） |
-| 图片缓存 | `assets.c` 的 `CACHE_ENTRIES`、`CACHE_LIMIT` | 改宏 |
-| 分片大小 | `CONFIG_SAMPLE_HTML_CHUNK_KB` | 0 关闭分片 |
-| 手动滚动、翻页 | <strong>示例没有实现</strong> | 需要自己在 `main()` 的循环里接输入，改 `scroll` 变量 |
+| Page path | `pick_file()` in `main.c`, `CONFIG_SAMPLE_HTML_FILE` | change at build time, see [Configuration options](#configuration-options) |
+| Scroll speed | `CONFIG_SAMPLE_HTML_SCROLL_PX` | pixels per frame; 0 turns scrolling off |
+| Viewport size | there is one `#define W 1024` and `#define H 600` at the top of each of `main.c` and `chunked.c` | both files must be changed together; the width passed to `lh_load()`, the framebuffer size, and `display_sunxi_show_rgb()` all use it |
+| Background color | `#define BG 0xffff` in both files | RGB565; where the page does not cover, this is the color |
+| Built-in page | `builtin_page[]` in `main.c` (lines 43–49) | change the string; it is shown when no page is found |
+| Font | the `font` structure in `main.c` (`cfb_font_1016`, 10×16) | replace it with another bitmap of the same format (`struct lh_font`, 20 bytes per glyph) |
+| Image cache | `CACHE_ENTRIES` and `CACHE_LIMIT` in `assets.c` | change the macros |
+| Piece size | `CONFIG_SAMPLE_HTML_CHUNK_KB` | 0 turns pieces off |
+| Manual scrolling, paging | <strong>not implemented in the sample</strong> | you must wire up input yourself in the `main()` loop and change the `scroll` variable |
 
-### 加手动滚动
+### Adding manual scrolling
 
-示例里的 `scroll` 只由 `SCROLL_PX` 驱动。要接输入设备，思路是改 `main.c` 末尾的循环：去掉自动增减，改成由按键或触摸事件改 `scroll`，范围限制在 `0` 到 `max_scroll`。这只适用于整页模式（`CHUNK_KB=0`）；分片模式的滚动在 `chunked.c` 的 `y += CONFIG_SAMPLE_HTML_SCROLL_PX` 那一行。示例没有实现。
+The `scroll` in the sample is driven only by `SCROLL_PX`. To wire up an input device, the idea is to change the loop at the end of `main.c`: remove the automatic increment and decrement and instead change `scroll` from button or touch events, clamped to the range `0` to `max_scroll`. This applies only to whole-page mode (`CHUNK_KB=0`); in piece mode the scrolling is in the `y += CONFIG_SAMPLE_HTML_SCROLL_PX` line in `chunked.c`. It is not implemented in the sample.
 
-### 在自己的程序里用
+### Using it in your own program
 
-渲染层不依赖示例的文件读取，只要有 HTML 字符串和一块 RGB565 缓冲：
+The rendering layer does not depend on the sample's file reading; all it needs is an HTML string and an RGB565 buffer:
 
 ```c
 #include <litehtml_zephyr/lh.h>
@@ -513,104 +513,103 @@ static const struct lh_font font = {
 struct lh_page *page = lh_load(&font, "<h1>hi</h1>", 1024, 600);
 
 lh_draw(page, fb, 1024, 1024, 600, 0, 0xffff);
-/* fb 是 1024*600 个 uint16_t 的 RGB565 缓冲；画完要 sys_cache_data_flush_range() */
+/* fb is a buffer of 1024*600 uint16_t RGB565 values; call sys_cache_data_flush_range() when drawing is done */
 lh_free(page);
 ```
 
-## 配置选项
+## Configuration options
 
-示例（`samples/html_viewer/Kconfig`）：
+The sample (`samples/html_viewer/Kconfig`):
 
-| 选项 | 默认 | 说明 |
+| Option | Default | Description |
 | --- | --- | --- |
-| `CONFIG_SAMPLE_HTML_FILE` | `"/SD:/page.html"` | 要显示的页面；不存在时取卡根目录第一个 `.html`/`.htm` |
-| `CONFIG_SAMPLE_HTML_SCROLL_PX` | `2` | 每帧滚动的像素数，0 为不滚动 |
-| `CONFIG_SAMPLE_HTML_CHUNK_KB` | `12` | 分片大小（KiB），0 为整页排版 |
-| `CONFIG_SAMPLE_HTML_BENCH` | 关 | 依次加载卡上所有 `page_*.html`（从小到大），打印耗时和内存，之后再进正常显示 |
-| `CONFIG_SAMPLE_HTML_PAGED_MB` | `200` | 换页堆的虚拟大小（MiB），仅在 `LITEHTML_PAGED_HEAP` 时有效 |
+| `CONFIG_SAMPLE_HTML_FILE` | `"/SD:/page.html"` | the page to show; if it does not exist, the first `.html`/`.htm` in the card's root directory is used |
+| `CONFIG_SAMPLE_HTML_SCROLL_PX` | `2` | pixels scrolled per frame; 0 means no scrolling |
+| `CONFIG_SAMPLE_HTML_CHUNK_KB` | `12` | piece size (KiB); 0 means whole-page layout |
+| `CONFIG_SAMPLE_HTML_BENCH` | off | loads every `page_*.html` on the card in turn (smallest to largest), prints the time and memory, and then goes into normal display |
+| `CONFIG_SAMPLE_HTML_PAGED_MB` | `200` | virtual size of the paged heap (MiB), effective only with `LITEHTML_PAGED_HEAP` |
 
-覆盖的写法：
+How to override:
 
 ```sh
 west build -b yuzukineko -d build/html zephyr-components/litehtml/samples/html_viewer -- \
   -DCONFIG_SAMPLE_HTML_FILE='"/SD:/web/index.html"' -DCONFIG_SAMPLE_HTML_SCROLL_PX=4
 ```
 
-组件（`zephyr-components/litehtml/Kconfig`）：
+The component (`zephyr-components/litehtml/Kconfig`):
 
-| 选项 | 说明 |
+| Option | Description |
 | --- | --- |
-| `CONFIG_LITEHTML` | 编译 litehtml 并链进镜像；依赖 `CPP` 和 `RISCV` |
-| `CONFIG_LITEHTML_PAGED_HEAP` | `malloc` 系列改由按需换页的区域提供，换出页写到 TF 卡的文件；依赖 `DEMAND_PAGING`、`BACKING_STORE_SWAP`、`FILE_SYSTEM`。用法见 `samples/html_viewer/paged.conf`：`-DEXTRA_CONF_FILE=paged.conf` |
+| `CONFIG_LITEHTML` | builds litehtml and links it into the image; depends on `CPP` and `RISCV` |
+| `CONFIG_LITEHTML_PAGED_HEAP` | the `malloc` family is served from an on-demand paged region, and swapped-out pages are written to a file on the TF card; depends on `DEMAND_PAGING`, `BACKING_STORE_SWAP`, `FILE_SYSTEM`. For usage see `samples/html_viewer/paged.conf`: `-DEXTRA_CONF_FILE=paged.conf` |
 
-示例 `prj.conf` 里和渲染相关的选项：
+The rendering-related options in the sample's `prj.conf`:
 
-| 选项 | 作用 |
+| Option | Purpose |
 | --- | --- |
-| `CONFIG_CPP` | 启用 C++ 支持 |
+| `CONFIG_CPP` | enables C++ support |
 | `CONFIG_STD_CPP17` | C++17 |
-| `CONFIG_LITEHTML` | 启用组件 |
-| `CONFIG_STATIC_INIT_GNU` | 运行 C++ 全局对象的构造函数 |
-| `CONFIG_SDHC` | SD 主机控制器驱动 |
-| `CONFIG_DISK_ACCESS` | 磁盘访问层 |
-| `CONFIG_DISK_DRIVER_SDMMC` | 把 SD/MMC 卡作为磁盘 |
-| `CONFIG_FILE_SYSTEM` | 文件系统框架 |
+| `CONFIG_LITEHTML` | enables the component |
+| `CONFIG_STATIC_INIT_GNU` | runs the constructors of C++ global objects |
+| `CONFIG_SDHC` | SD host controller driver |
+| `CONFIG_DISK_ACCESS` | disk access layer |
+| `CONFIG_DISK_DRIVER_SDMMC` | treats the SD/MMC card as a disk |
+| `CONFIG_FILE_SYSTEM` | filesystem framework |
 | `CONFIG_FAT_FILESYSTEM_ELM` | FatFs |
-| `CONFIG_FS_FATFS_EXFAT` | 支持 exFAT 卡 |
-| `CONFIG_FS_FATFS_LFN` | 支持长文件名 |
-| `CONFIG_FS_FATFS_LFN_MODE_STACK` | 长文件名缓冲放栈上 |
-| `CONFIG_DISPLAY` | 显示驱动 |
-| `CONFIG_CHARACTER_FRAMEBUFFER` | 字符帧缓冲，只为了拿到 `cfb_font_1016` |
-| `CONFIG_CHARACTER_FRAMEBUFFER_USE_DEFAULT_FONTS` | 编入默认字体 |
-| `CONFIG_FPU` | 硬件浮点 |
-| `CONFIG_FPU_SHARING` | 多线程共用浮点 |
-| `CONFIG_MAIN_STACK_SIZE=65536` | 主线程栈 64 KiB，litehtml 递归排版需要较深的栈 |
-| `CONFIG_COMMON_LIBC_MALLOC_ARENA_SIZE=-1` | `malloc` 区域用剩余的全部内存 |
-| `CONFIG_HEAP_MEM_POOL_SIZE=262144` | 内核堆 256 KiB |
+| `CONFIG_FS_FATFS_EXFAT` | supports exFAT cards |
+| `CONFIG_FS_FATFS_LFN` | supports long file names |
+| `CONFIG_FS_FATFS_LFN_MODE_STACK` | long file name buffers on the stack |
+| `CONFIG_DISPLAY` | display driver |
+| `CONFIG_CHARACTER_FRAMEBUFFER` | character framebuffer, only to get `cfb_font_1016` |
+| `CONFIG_CHARACTER_FRAMEBUFFER_USE_DEFAULT_FONTS` | compiles in the default fonts |
+| `CONFIG_FPU` | hardware floating point |
+| `CONFIG_FPU_SHARING` | floating point shared between threads |
+| `CONFIG_MAIN_STACK_SIZE=65536` | main thread stack 64 KiB; litehtml's recursive layout needs a fairly deep stack |
+| `CONFIG_COMMON_LIBC_MALLOC_ARENA_SIZE=-1` | the `malloc` arena uses all the remaining memory |
+| `CONFIG_HEAP_MEM_POOL_SIZE=262144` | kernel heap 256 KiB |
 
-## 代码结构
+## Code structure
 
-| 文件 | 内容 |
+| File | Contents |
 | --- | --- |
-| `samples/html_viewer/src/main.c` | 选页面、读文件、整页显示循环、内置页面、基准模式 |
-| `samples/html_viewer/src/chunked.c` | 分片显示 |
-| `samples/html_viewer/src/assets.c` | 图片缓存与 `font.lhf` 读取 |
-| `ext/src/lh_render.cpp` | 渲染层：字体、背景、边框、图片、裁剪 |
-| `ext/src/lh_index.c` | 分片扫描器 |
-| `ext/src/lh_stubs.cpp`、`ext/shim/` | 标准库适配（无异常、无流） |
-| `src/litehtml_libc.c` | 补缺的 C 库函数 |
-| `src/litehtml_paged_heap.c` | 换页堆 |
-| `include/litehtml_zephyr/lh.h` | 对外接口 |
-| `tools/scrape_page.py` | 抓网页并转换 |
-| `tools/host_preview/` | PC 版预览 |
-| `litehtml/litehtml/` | litehtml 子模块 |
+| `samples/html_viewer/src/main.c` | picks the page, reads the file, whole-page display loop, built-in page, benchmark mode |
+| `samples/html_viewer/src/chunked.c` | piece-by-piece display |
+| `samples/html_viewer/src/assets.c` | image cache and `font.lhf` reading |
+| `ext/src/lh_render.cpp` | rendering layer: font, background, border, image, clipping |
+| `ext/src/lh_index.c` | piece scanner |
+| `ext/src/lh_stubs.cpp`, `ext/shim/` | standard library adaptation (no exceptions, no streams) |
+| `src/litehtml_libc.c` | the missing C library functions |
+| `src/litehtml_paged_heap.c` | paged heap |
+| `include/litehtml_zephyr/lh.h` | public interface |
+| `tools/scrape_page.py` | fetches and converts a web page |
+| `tools/host_preview/` | PC preview |
+| `litehtml/litehtml/` | litehtml submodule |
 
-## 功能范围
+## Scope
 
-- 文字是固定的 10×16 点阵缩放，没有字体选择和抗锯齿；非 ASCII 字符需要 `font.lhf`，否则显示 `?`。
-- 不支持渐变、圆角、阴影，边框只画实线；不支持 CSS Grid、`calc()`。
-- 图片只认 `.lhi`，没有透明通道。
-- 不支持 JavaScript、链接跳转、表单、动画、外部样式表。
-- 没有输入设备，只能自动滚动；需要手动滚动时见 [加手动滚动](#加手动滚动)。页面不比屏幕高时不滚动（`max_scroll` 为 0，循环里每秒重画一次）。
-- 分片模式下滚动速度约 33 px/s：每帧画 37 ms，再加等显示和打印的时间。想快就加大 `CONFIG_SAMPLE_HTML_SCROLL_PX`。
-- 屏幕画面固定 1024×600，屏幕是 1024×768，上下有黑边。
-- 页面大到放不进内存时必须分片；分片模式下跨片的选择器和需要看整页的规则不起作用，翻到新的一片有停顿。
-- 网页需要先用 `tools/scrape_page.py` 转换，转换后的版式是近似的。
+- Text is the fixed 10×16 bitmap scaled, with no font selection and no anti-aliasing; non-ASCII characters need `font.lhf`, otherwise they show as `?`.
+- Gradients, rounded corners, and shadows are not supported and borders are drawn as solid lines only; CSS Grid and `calc()` are not supported.
+- Only `.lhi` images are recognized, and they have no alpha channel.
+- JavaScript, link navigation, forms, animations, and external style sheets are not supported.
+- There is no input device, so only automatic scrolling is possible; for manual scrolling see [Adding manual scrolling](#adding-manual-scrolling). When the page is no taller than the screen it does not scroll (`max_scroll` is 0, and the loop redraws once a second).
+- In piece mode the scroll speed is about 33 px/s: each frame draws for 37 ms, plus the time waiting for the display and for printing. To go faster, raise `CONFIG_SAMPLE_HTML_SCROLL_PX`.
+- The on-screen picture is a fixed 1024×600, and the screen is 1024×768, so there are black bars at the top and bottom.
+- When the page is too large to fit in memory, pieces are required; in piece mode selectors that span pieces and rules that need the whole page do not take effect, and moving to a new piece stalls.
+- A web page must first be converted with `tools/scrape_page.py`, and the converted layout is approximate.
 
 
-## 排错
+## Troubleshooting
 
-| 现象 | 原因与处理 |
+| Symptom | Cause and handling |
 | --- | --- |
-| 编译时报 `litehtml sources missing, run: git submodule update --init` | 子模块没拉：`cd zephyr-components && git submodule update --init litehtml/litehtml` |
-| `display not ready` | 显示设备没起来，确认编译的是 `yuzukineko` 板级 |
-| `cannot mount the SD card: <错误码>` | 10 次挂载都失败：卡没插好，或者不是 FAT/exFAT |
-| `no .html file on the SD card` | 卡已经挂载上了，但根目录里没有 `page.html`，也没有别的 `.html`/`.htm`，显示内置页面。把页面拷到根目录 |
-| 显示的是别的页面 | 没有 `page.html` 时取的是根目录第一个 `.html`，顺序是目录顺序，不是字母序。把想看的页面命名成 `page.html` |
-| 图片不显示 | 文件不在 `<页面目录>/<src>`，或者不是 `.lhi` |
-| 汉字显示成 `?` | 没有 `font.lhf`，或者页面里这个字没有生成进去 |
-| `chunked viewer failed, trying the page as a whole` | 分片扫描或加载失败（标记不规整、内存不够等），改走整页模式 |
-| `lh_load failed` | 内存不够；把页面拆小，或使用分片 |
-| `no memory for the frames` | 两块帧缓冲分配失败，堆太小 |
-| `show_rgb failed: <错误码>` | 显示驱动不接受这帧 |
-
+| The build reports `litehtml sources missing, run: git submodule update --init` | the submodule was not fetched: `cd zephyr-components && git submodule update --init litehtml/litehtml` |
+| `display not ready` | the display device did not come up; confirm that you built for the `yuzukineko` board |
+| `cannot mount the SD card: <error code>` | all 10 mount attempts failed: the card is not seated properly, or it is not FAT/exFAT |
+| `no .html file on the SD card` | the card is mounted but there is no `page.html` and no other `.html`/`.htm` in the root directory, so the built-in page is shown. Copy the page to the root directory |
+| A different page is shown | When there is no `page.html`, the first `.html` in the root directory is taken, in directory order, not alphabetical order. Name the page you want `page.html` |
+| An image is not shown | the file is not at `<page directory>/<src>`, or it is not a `.lhi` |
+| CJK characters show as `?` | there is no `font.lhf`, or this character on the page was not generated into it |
+| `chunked viewer failed, trying the page as a whole` | piece scanning or loading failed (malformed markup, not enough memory, etc.), so it falls back to whole-page mode |
+| `lh_load failed` | not enough memory; split the page up or use pieces |
+| `no memory for the frames` | allocating the two framebuffers failed; the heap is too small |
+| `show_rgb failed: <error code>` | the display driver did not accept this frame |

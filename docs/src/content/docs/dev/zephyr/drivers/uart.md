@@ -2,45 +2,45 @@
 title: "UART"
 ---
 
-F101 有 6 个 UART（`uart0`…`uart5`）。Zephyr 里用的是上游的 NS16550 驱动（`drivers/serial/uart_ns16550.c`），因为 F101 的 UART 是 Synopsys DesignWare APB UART（16550 兼容）。F101 的移植只做了三件事：设备树节点、时钟/复位、让 SoC 默认选中 `UART_NS16550_DW8250_DW_APB`。接口是标准的 `<zephyr/drivers/uart.h>`。
+The F101 has 6 UARTs (`uart0`…`uart5`). Zephyr uses the upstream NS16550 driver (`drivers/serial/uart_ns16550.c`), because the UART of the F101 is a Synopsys DesignWare APB UART (16550-compatible). The F101 port does only three things: the devicetree nodes, the clock/reset, and having the SoC select `UART_NS16550_DW8250_DW_APB` by default. The interface is the standard `<zephyr/drivers/uart.h>`.
 
-| 项目 | 内容 |
+| Item | Content |
 | --- | --- |
-| 设备 | `uart0`…`uart5` |
-| 数据位 | 5、6、7、8 |
-| 停止位 | 1、2（1.5 位返回 `-ENOTSUP`） |
-| 校验 | 无、偶校验（奇校验返回 `-ENOTSUP`） |
-| 流控 | `uart_configure` 接受无、RTS/CTS、DTR/DSR 并记录；硬件自动流控见下面的说明 |
-| 接口 | 轮询（`uart_poll_in`/`uart_poll_out`）、中断（`uart_irq_*`、`uart_fifo_*`） |
+| Devices | `uart0`…`uart5` |
+| Data bits | 5, 6, 7, 8 |
+| Stop bits | 1, 2 (1.5 bits returns `-ENOTSUP`) |
+| Parity | None, even (odd returns `-ENOTSUP`) |
+| Flow control | `uart_configure` accepts none, RTS/CTS and DTR/DSR and records them; for hardware automatic flow control see the note below |
+| Interface | Polling (`uart_poll_in`/`uart_poll_out`), interrupts (`uart_irq_*`, `uart_fifo_*`) |
 
-## 设备树
+## Devicetree
 
-| 文件 | 作用 |
+| File | Purpose |
 | --- | --- |
-| `dts/bindings/serial/ns16550.yaml` | 绑定（上游），`uart-controller.yaml` 提供 `current-speed` 等通用属性 |
-| `dts/riscv/allwinner/sun252i_f101.dtsi` | SoC 设备树：`uart0`…`uart5`，默认 `disabled` |
-| `boards/yuzukihd/yuzukineko/yuzukineko.dts` | 板级设备树：引脚组，打开 `uart1`、`uart2`、`uart4`，选控制台 |
+| `dts/bindings/serial/ns16550.yaml` | Binding (upstream), `uart-controller.yaml` provides common properties such as `current-speed` |
+| `dts/riscv/allwinner/sun252i_f101.dtsi` | SoC devicetree: `uart0`…`uart5`, `disabled` by default |
+| `boards/yuzukihd/yuzukineko/yuzukineko.dts` | Board devicetree: the pin groups, enables `uart1`, `uart2` and `uart4`, chooses the console |
 
-### SoC 设备树：sun252i_f101.dtsi
+### SoC devicetree: sun252i_f101.dtsi
 
-六个节点的差别是寄存器地址、中断号、时钟和复位位。下面是 `uart1`：
+The six nodes differ in their register address, interrupt number, clock and reset bit. `uart1` is below:
 
 ```c
 uart1: serial@2500400 {
-	/* 两个 compatible：先匹配 ns16550 驱动，snps,dw-apb-uart 告诉它这是 DW APB 变种 */
+	/* Two compatibles: the ns16550 driver matches first, snps,dw-apb-uart tells it this is the DW APB variant */
 	compatible = "ns16550", "snps,dw-apb-uart";
 
-	/* 寄存器窗口：基址 0x02500400，长度 0x400 */
+	/* Register window: base address 0x02500400, length 0x400 */
 	reg = <0x02500400 0x400>;
 
-	/* 寄存器按 4 字节排布，偏移要左移 2 位 */
+	/* Registers are laid out in 4-byte units, so offsets are shifted left by 2 */
 	reg-shift = <2>;
 
-	/* 中断：PLIC 的 3 号，优先级 1 */
+	/* Interrupt: PLIC number 3, priority 1 */
 	interrupts = <3 1>;
 	interrupt-parent = <&plic>;
 
-	/* 总线时钟的开关和总线复位。波特率的参考时钟由 CCU 驱动给出 */
+	/* The bus clock gate and the bus reset. The reference clock for the baud rate comes from the CCU driver */
 	clocks = <&cctl CLK_BUS_UART1>;
 	resets = <&rctl RST_BUS_UART1>;
 
@@ -48,7 +48,7 @@ uart1: serial@2500400 {
 };
 ```
 
-| 节点 | 标签 | 寄存器 | PLIC 中断号 | 时钟宏 |
+| Node | Label | Register | PLIC interrupt number | Clock macro |
 | --- | --- | --- | --- | --- |
 | `serial@2500000` | `uart0` | `0x02500000` | 2 | `CLK_BUS_UART0` |
 | `serial@2500400` | `uart1` | `0x02500400` | 3 | `CLK_BUS_UART1` |
@@ -57,19 +57,19 @@ uart1: serial@2500400 {
 | `serial@2501000` | `uart4` | `0x02501000` | 6 | `CLK_BUS_UART4` |
 | `serial@2501400` | `uart5` | `0x02501400` | 7 | `CLK_BUS_UART5` |
 
-### 板级设备树：yuzukineko.dts
+### Board devicetree: yuzukineko.dts
 
 ```c
 / {
 	chosen {
-		/* 控制台和 shell 用 UART1 */
+		/* Console and shell use UART1 */
 		zephyr,console = &uart1;
 		zephyr,shell-uart = &uart1;
 	};
 };
 
 &pio {
-	/* UART1 控制台：PB00 是 TX，PB01 是 RX，复用功能 4 */
+	/* UART1 console: PB00 is TX, PB01 is RX, multiplexing function 4 */
 	uart1_pins: uart1_pins {
 		uart1_tx_rx {
 			pinmux = <ALLWINNER_PINMUX(ALLWINNER_PIO_PB, 0, 4)
@@ -77,7 +77,7 @@ uart1: serial@2500400 {
 		};
 	};
 
-	/* UART2 蓝牙 HCI：TX PE6、RX PE7、RTS PE8、CTS PE9，复用功能 3，带上拉 */
+	/* UART2 Bluetooth HCI: TX PE6, RX PE7, RTS PE8, CTS PE9, multiplexing function 3, with pull-up */
 	uart2_pins: uart2_pins {
 		uart2_group {
 			pinmux = <ALLWINNER_PINMUX(ALLWINNER_PIO_PE, 6, 3)
@@ -88,7 +88,7 @@ uart1: serial@2500400 {
 		};
 	};
 
-	/* UART4 通用串口：PD6 是 TX，PD7 是 RX，复用功能 5，带上拉 */
+	/* UART4 general-purpose serial: PD6 is TX, PD7 is RX, multiplexing function 5, with pull-up */
 	uart4_pins: uart4_pins {
 		uart4_group {
 			pinmux = <ALLWINNER_PINMUX(ALLWINNER_PIO_PD, 6, 5)
@@ -100,13 +100,13 @@ uart1: serial@2500400 {
 
 &uart1 {
 	status = "okay";
-	/* 波特率 */
+	/* Baud rate */
 	current-speed = <115200>;
 	pinctrl-0 = <&uart1_pins>;
 	pinctrl-names = "default";
 };
 
-/* AIC8800D40 的蓝牙 HCI：带硬件流控 */
+/* AIC8800D40 Bluetooth HCI: with hardware flow control */
 &uart2 {
 	status = "okay";
 	current-speed = <115200>;
@@ -128,42 +128,42 @@ uart1: serial@2500400 {
 };
 ```
 
-引脚的详细复用关系见[引脚复用表](../../../hardware/mux.md)，各 UART 可选的引脚组见[外设引脚分组](../../../hardware/groups.md)。
+The detailed multiplexing of the pins is in the [pin multiplexing table](../../../hardware/mux.md), and the pin groups available to each UART are in [Peripheral pin groups](../../../hardware/groups.md).
 
-### 绑定的属性
+### Binding properties
 
-| 属性 | 必填 | 含义 |
+| Property | Required | Meaning |
 | --- | --- | --- |
-| `reg` | 是 | 寄存器窗口 |
-| `reg-shift` | 是 | 寄存器偏移左移位数，F101 是 2 |
-| `interrupts` | 是 | 中断 |
-| `clocks`、`resets` | 是 | 总线时钟和复位 |
-| `current-speed` | 是 | 波特率 |
-| `hw-flow-control` | 否 | 把初始流控记为 RTS/CTS；是否真的打开硬件自动流控见下面 |
-| `parity` | 否 | 0 无、1 奇、2 偶；这个移植里奇校验不能用 |
-| `stop-bits`、`data-bits` | 否 | 停止位、数据位 |
-| `pinctrl-0`、`pinctrl-names` | 否 | 引脚，见 [GPIO 页的 pinctrl 一节](gpio.md#引脚复用pinctrl) |
+| `reg` | Yes | Register window |
+| `reg-shift` | Yes | Number of bits the register offset is shifted left by, 2 on the F101 |
+| `interrupts` | Yes | Interrupt |
+| `clocks`, `resets` | Yes | Bus clock and reset |
+| `current-speed` | Yes | Baud rate |
+| `hw-flow-control` | No | Records the initial flow control as RTS/CTS; whether hardware automatic flow control is really turned on is below |
+| `parity` | No | 0 none, 1 odd, 2 even; odd parity does not work in this port |
+| `stop-bits`, `data-bits` | No | Stop bits, data bits |
+| `pinctrl-0`, `pinctrl-names` | No | Pins, see [the pinctrl section of the GPIO page](gpio.md#pin-multiplexing-pinctrl) |
 
 ## Kconfig
 
-| 选项 | 默认 | 含义 |
+| Option | Default | Meaning |
 | --- | --- | --- |
-| `CONFIG_SERIAL` | 板级 defconfig 里是 `y` | 打开串口子系统 |
-| `CONFIG_UART_NS16550` | SoC 默认 `y` | NS16550 驱动 |
-| `CONFIG_UART_NS16550_DW8250_DW_APB` | SoC 默认 `y` | Synopsys DesignWare 8250 UART 控制器的支持 |
-| `CONFIG_UART_INTERRUPT_DRIVEN` | 板级 defconfig 里是 `y` | 中断接口 `uart_irq_*`、`uart_fifo_*` |
-| `CONFIG_UART_CONSOLE` | 板级 defconfig 里是 `y` | `printk` 从 `zephyr,console` 输出 |
+| `CONFIG_SERIAL` | `y` in the board defconfig | Enables the serial subsystem |
+| `CONFIG_UART_NS16550` | `y` by SoC default | The NS16550 driver |
+| `CONFIG_UART_NS16550_DW8250_DW_APB` | `y` by SoC default | Support for the Synopsys DesignWare 8250 UART controller |
+| `CONFIG_UART_INTERRUPT_DRIVEN` | `y` in the board defconfig | The interrupt interface `uart_irq_*`, `uart_fifo_*` |
+| `CONFIG_UART_CONSOLE` | `y` in the board defconfig | `printk` output through `zephyr,console` |
 
-## 接口详解
+## API reference
 
-下面每个接口一个小标题：原型、驱动的行为、示例函数和它在板子上的输出。示例来自文末的[完整演示程序](#完整演示程序)，里面的 `err()` 把返回值转成名字。演示用到两个串口：
+Each interface below has a subheading of its own: the prototype, what the driver does, the example function and its output on the board. The examples come from the [complete demo program](#complete-demo-program) at the end, whose `err()` turns the return value into a name. The demos use two serial ports:
 
-| 串口 | 位置 | 用途 |
+| Serial port | Position | Purpose |
 | --- | --- | --- |
-| UART1 | PB00/PB01，板子的控制台 | 主机在另一头，可以真的发字符进来 |
-| UART4 | PD6/PD7 | 板子上没有接任何东西，只演示发送 |
+| UART1 | PB00/PB01, the console of the board | The host is at the other end and can really send characters in |
+| UART4 | PD6/PD7 | Nothing is connected to it on the board, so only transmit is demonstrated |
 
-UART1 也是 `printk` 的输出口，所以演示里改波特率要小心：改配置期间不输出，先把发送器里还没发完的字符等完，改完恢复再打印，否则最后几个字符会按错的波特率发出去。
+UART1 is also the output port of `printk`, so changing the baud rate in the demos needs care: nothing is printed while a different setting is active, so let the transmitter finish sending what is still in it first and print again after the original setting is restored, otherwise the last few characters go out at the wrong baud rate.
 
 ### uart_config_get
 
@@ -171,7 +171,7 @@ UART1 也是 `printk` 的输出口，所以演示里改波特率要小心：改�
 int uart_config_get(const struct device *dev, struct uart_config *cfg);
 ```
 
-读当前的波特率、校验、停止位、数据位和流控。枚举取值：校验 0 无、1 奇、2 偶；停止位 0 半位、1 一位、2 一位半、3 两位；数据位 0…3 对应 5…8 位；流控 0 无、1 RTS/CTS、2 DTR/DSR。
+Reads the current baud rate, parity, stop bits, data bits and flow control. Enum values: parity 0 none, 1 odd, 2 even; stop bits 0 half, 1 one, 2 one and a half, 3 two; data bits 0…3 are 5…8; flow control 0 none, 1 RTS/CTS, 2 DTR/DSR.
 
 ```c
 /* uart_config_get: the current baud rate, parity, stop bits, data bits and flow control.
@@ -198,7 +198,7 @@ static void demo_config_get(void)
 int uart_configure(const struct device *dev, const struct uart_config *cfg);
 ```
 
-应用新的设置。成功后 `uart_config_get` 读回新的配置，失败时配置保持不变。
+Applies a new setting. On success `uart_config_get` reads the new configuration back; on failure the configuration is left unchanged.
 
 ```c
 /* uart_configure: apply a new setting, and read it back with uart_config_get */
@@ -260,7 +260,7 @@ static void demo_configure(void)
 [config] 115200 baud, parity 0, stop bits 1, data bits 3, flow 2 = 0; read back 115200, 0, 1, 3, 2
 ```
 
-第 4 行是奇校验，返回 `-ENOTSUP`，读回的还是上一次成功的偶校验。第 6 行是 1.5 位停止位，驱动只接受 1 位和 2 位，同样返回 `-ENOTSUP`，配置保持不变。最后两行流控读回 1、2，只说明设置被记下了：`uart_ns16550.c` 只在选了 `UART_NS16550_VARIANT_NS16750` 或 `UART_NS16550_VARIANT_NS16950` 时才会置 MCR 的自动流控位（AFCE），F101 用的是默认的 NS16550 变体，所以 `hw-flow-control` 和 `UART_CFG_FLOW_CTRL_RTS_CTS` 现在不会打开硬件流控。这一点来自驱动源码，没有在板上用示波器或对端设备验证。
+Line 4 is odd parity, which returns `-ENOTSUP` and reads back the even parity of the previous success. Line 6 is 1.5 stop bits, and the driver accepts only 1 and 2 stop bits, so it too returns `-ENOTSUP` and the configuration is left unchanged. The last two lines read flow control back as 1 and 2, which only shows that the settings were recorded: `uart_ns16550.c` sets the automatic flow control bit (AFCE) of the MCR only when `UART_NS16550_VARIANT_NS16750` or `UART_NS16550_VARIANT_NS16950` is selected, and the F101 uses the default NS16550 variant, so `hw-flow-control` and `UART_CFG_FLOW_CTRL_RTS_CTS` do not turn hardware flow control on today. This comes from the driver source and was not verified on the board with an oscilloscope or a peer device.
 
 ### uart_poll_out
 
@@ -268,7 +268,7 @@ static void demo_configure(void)
 void uart_poll_out(const struct device *dev, unsigned char out_char);
 ```
 
-发一个字符，发送器没有空位就等。
+Sends one character and waits while the transmitter has no room.
 
 ```c
 /* uart_poll_out: one character, waits until the transmitter has room */
@@ -292,7 +292,7 @@ static void demo_poll_out(void)
 int uart_poll_in(const struct device *dev, unsigned char *p_char);
 ```
 
-收到字符返回 0 并把字符放进 `p_char`，没有字符返回 -1，不会等。演示里先调一次（还没有人发，返回 -1），然后在 20 秒内等主机发来 5 个字符。
+Returns 0 with the character placed in `p_char` when one has arrived, and -1 when there is nothing, without waiting. The demo calls it once first (nobody has sent yet, so it returns -1) and then waits up to 20 seconds for the host to send 5 characters.
 
 ```c
 /* uart_poll_in: returns 0 with the character, or -1 when nothing has arrived */
@@ -317,7 +317,7 @@ static void demo_poll_in(void)
 }
 ```
 
-主机用 `write_serial` 发 `hello`：
+The host sends `hello` with `write_serial`:
 
 ```text
 [poll_in] nothing sent yet: uart_poll_in = -1
@@ -325,11 +325,11 @@ static void demo_poll_in(void)
 hello[poll_in] got 5 characters: "hello"
 ```
 
-`hello` 是主机发出的 5 个字符，也会出现在串口记录里，不是板子打印的。
+`hello` is the 5 characters sent by the host; they also appear in the serial capture, but the board did not print them.
 
-### 中断方式用到的变量
+### Variables used by the interrupt-driven examples
 
-中断方式的几个示例共用下面的变量：接收的数据放进环形缓冲区，发送的数据放在全局变量里。
+The interrupt-driven examples share the variables below: received data goes into a ring buffer, data to be sent is held in a global variable.
 
 ```c
 RING_BUF_DECLARE(rx_ring, 64);
@@ -347,7 +347,7 @@ static volatile int rx_irqs, tx_irqs;
 int uart_irq_callback_user_data_set(const struct device *dev, uart_irq_callback_user_data_t cb, void *user_data);
 ```
 
-设置 UART 中断调用的处理函数。处理函数的固定写法是 `uart_irq_update()` 之后循环处理 `uart_irq_is_pending()`：`uart_irq_rx_ready()` 为真就收，`uart_irq_tx_ready()` 为真就发。
+Sets the handler that the UART interrupt calls. The handler is always written the same way: `uart_irq_update()` and then a loop on `uart_irq_is_pending()`: receive when `uart_irq_rx_ready()` is true, transmit when `uart_irq_tx_ready()` is true.
 
 ```c
 /* the interrupt handler: uart_irq_update latches the interrupt state, uart_irq_is_pending says
@@ -386,7 +386,7 @@ static void demo_irq_callback_set(void)
 int uart_fifo_read(const struct device *dev, uint8_t *rx_data, const int size);
 ```
 
-从接收 FIFO 里最多取 `size` 个字节，返回实际取到的个数。接收就绪时调用，演示把数据放进环形缓冲区。
+Takes at most `size` bytes out of the receive FIFO and returns how many were actually taken. Called when the receiver is ready; the demo puts the data into the ring buffer.
 
 ```c
 /* uart_fifo_read: take what the receiver has out of its FIFO */
@@ -406,7 +406,7 @@ static void rx_ready(const struct device *dev)
 int uart_fifo_fill(const struct device *dev, const uint8_t *tx_data, int size);
 ```
 
-往发送 FIFO 里填最多 `size` 个字节，返回实际填进去的个数；填不下的等下一次发送中断。发完以后调用 `uart_irq_tx_disable()`，否则发送中断会一直来。
+Fills at most `size` bytes into the transmit FIFO and returns how many were actually put in; what does not fit waits for the next transmit interrupt. Call `uart_irq_tx_disable()` once it is all sent, otherwise the transmit interrupt keeps coming.
 
 ```c
 /* uart_fifo_fill: put as much as fits into the transmit FIFO; the rest waits for the next interrupt */
@@ -431,7 +431,7 @@ static void tx_ready(const struct device *dev)
 void uart_irq_tx_enable(const struct device *dev);
 ```
 
-打开发送中断，处理函数里的 `uart_fifo_fill` 开始工作。
+Enables the transmit interrupt, and `uart_fifo_fill` in the handler starts working.
 
 ```c
 /* uart_irq_tx_enable: the handler fills the FIFO whenever it has room */
@@ -452,7 +452,7 @@ static void demo_irq_tx_enable(void)
 [irq] transmit: 5 interrupt(s), 0 byte(s) left
 ```
 
-这个 77 个字节的字符串用了 5 次发送中断发完。
+This 77-byte string took 5 transmit interrupts to send.
 
 ### uart_irq_rx_enable
 
@@ -460,7 +460,7 @@ static void demo_irq_tx_enable(void)
 void uart_irq_rx_enable(const struct device *dev);
 ```
 
-打开接收中断（`uart_irq_rx_disable()` 关掉）。演示打开后等主机发 4 个字符，它们在 1 次接收中断里一起取走。
+Enables the receive interrupt (`uart_irq_rx_disable()` turns it off). The demo enables it and then waits for the host to send 4 characters, which are taken together in 1 receive interrupt.
 
 ```c
 /* uart_irq_rx_enable: the host sends 4 characters; the handler puts them in a ring buffer.
@@ -495,7 +495,7 @@ ping[irq] receive: 1 interrupt(s), got 4 characters: "ping"
 int uart_err_check(const struct device *dev);
 ```
 
-返回自上次调用以来遇到的错误位（溢出、校验、帧、break）；没有错误是 0。
+Returns the error bits seen since the last call (overrun, parity, framing, break); no error is 0.
 
 ```c
 /* uart_err_check: a bit mask of the errors seen since the last call */
@@ -511,9 +511,9 @@ static void demo_errors(void)
 [error] uart_err_check = 0x0 (0 = no overrun, parity, framing or break error)
 ```
 
-### 另一个串口：UART4
+### The other serial port: UART4
 
-UART4 在板级文件里是打开的，但 PD6/PD7 上没有接东西。演示发送 7 个字节，再读接收器：
+UART4 is enabled in the board file, but nothing is connected to PD6/PD7. The demo sends 7 bytes and then reads the receiver:
 
 ```c
 /* UART4 on PD6 (TX) and PD7 (RX): nothing is connected there on the board */
@@ -554,9 +554,9 @@ static void demo_uart4(void)
 [uart4] uart_err_check = 0x0
 ```
 
-## 完整演示程序
+## Complete demo program
 
-上面所有示例和日志都来自这一个程序。建一个目录，放进下面的文件，就可以像其他 Zephyr 应用一样编译。
+All the examples and logs above come from this one program. Create a directory, put the files below into it, and it builds like any other Zephyr application.
 
 ```text
 uart_api/
@@ -856,7 +856,7 @@ int main(void)
 }
 ```
 
-### 编译和运行
+### Build and run
 
 ```sh
 . ~/f101-zephyr/env.sh
@@ -866,7 +866,7 @@ west build -b yuzukineko -d build/uart-api uart_api
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/drivers-uart/build.cast" data-speed="6"></div>
 
-下载运行的方法见[编译与运行](../zephyr-build-run.md)。程序运行到 `[poll_in]` 和 `[irq]` 时会等主机从控制台串口发字符进来（各等 20 秒）：先发 5 个字符，再发 4 个字符。控制台 UART1 上的完整输出：
+See [Build and run](../zephyr-build-run.md) for how to download and run it. When the program reaches `[poll_in]` and `[irq]` it waits for the host to send characters in over the console serial port (20 seconds each): first 5 characters, then 4. The complete output on the console UART1:
 
 ```text
 [config] uart_config_get = 0: 115200 baud, parity 0, stop bits 1, data bits 3, flow control 0

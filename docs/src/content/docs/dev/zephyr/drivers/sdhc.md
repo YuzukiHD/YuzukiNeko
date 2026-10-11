@@ -1,69 +1,69 @@
 ---
-title: "SDHC 主机控制器"
+title: "SDHC host controller"
 ---
 
-F101 有两个 SD/MMC 主机控制器（SMHC）：`smhc0` 接板上的 TF 卡槽，`smhc2` 接 WiFi 模块的 SDIO。Zephyr 里的驱动是 `drivers/sdhc/sdhc_sunxi.c`，实现的是 SD 主机控制器接口 `<zephyr/drivers/sdhc.h>`。
+The F101 has two SD/MMC host controllers (SMHC): `smhc0` connects to the TF card slot on the board, `smhc2` connects to the SDIO of the WiFi module. The driver in Zephyr is `drivers/sdhc/sdhc_sunxi.c`, which implements the SD host controller interface `<zephyr/drivers/sdhc.h>`.
 
-这一层只管“控制器”：发命令、收响应、搬数据块、设时钟和总线宽度、检测卡。卡的识别流程、磁盘接口和文件系统是在它上面的另一层，不属于这个驱动（后面由单独的 Zephyr 组件提供）。所以本文的演示不用磁盘和文件系统，而是直接用 SD 规范里的命令把卡一步步初始化起来。
+This layer only deals with the "controller": issuing commands, receiving responses, moving data blocks, setting the clock and the bus width, detecting the card. The card identification flow, the disk interface and the filesystem are another layer above it and do not belong to this driver (they are provided later by a separate Zephyr component). So the demo in this page uses no disk and no filesystem, and instead brings the card up step by step with the commands of the SD specification.
 
-| 项目 | 内容 |
+| Item | Description |
 | --- | --- |
-| 设备 | `smhc0`（TF 卡槽）、`smhc2`（WiFi SDIO） |
-| 总线宽度 | 1 位、4 位、8 位由设备树 `bus-width` 决定；`yuzukineko` 的卡槽是 4 位 |
-| 时钟 | 400 kHz（识别）…50 MHz（高速模式） |
-| 电压 | 3.3 V；不支持 1.8 V 的 UHS 模式（SDR50、DDR50 都是 0） |
-| 卡检测 | `cd-gpios`，`yuzukineko` 用 PF6，低电平表示有卡 |
-| 传输 | DMA（内部描述符），不对齐的缓冲区经过驱动里的弹跳缓冲区 |
-| 卡类型 | SD 卡（本文演示）；`smhc2` 接 SDIO 的 WiFi 芯片；不支持 SPI 模式 |
+| Device | `smhc0` (TF card slot), `smhc2` (WiFi SDIO) |
+| Bus width | 1 bit, 4 bit and 8 bit are decided by the devicetree `bus-width`; the slot on `yuzukineko` is 4 bit |
+| Clock | 400 kHz (identification) … 50 MHz (high speed mode) |
+| Voltage | 3.3 V; the 1.8 V UHS modes are not supported (SDR50 and DDR50 are both 0) |
+| Card detection | `cd-gpios`; `yuzukineko` uses PF6, a low level means a card is present |
+| Transfer | DMA (internal descriptors); unaligned buffers go through the bounce buffer in the driver |
+| Card type | SD cards (the demo in this page); `smhc2` connects to an SDIO WiFi chip; SPI mode is not supported |
 
-## 设备树
+## Devicetree
 
-| 文件 | 作用 |
+| File | Role |
 | --- | --- |
-| `dts/bindings/sdhc/allwinner,sunxi-smhc.yaml` | 绑定 |
-| `dts/riscv/allwinner/sun252i_f101.dtsi` | SoC 设备树：`smhc0`、`smhc2`，默认 `disabled` |
-| `boards/yuzukihd/yuzukineko/yuzukineko.dts` | 板级设备树：引脚组、`bus-width`、`cd-gpios` |
+| `dts/bindings/sdhc/allwinner,sunxi-smhc.yaml` | Binding |
+| `dts/riscv/allwinner/sun252i_f101.dtsi` | SoC devicetree: `smhc0`, `smhc2`, `disabled` by default |
+| `boards/yuzukihd/yuzukineko/yuzukineko.dts` | Board devicetree: pin groups, `bus-width`, `cd-gpios` |
 
-### SoC 设备树：sun252i_f101.dtsi
+### SoC devicetree: sun252i_f101.dtsi
 
 ```c
 smhc0: mmc@4020000 {
-	/* 匹配驱动 sdhc_sunxi.c 里的 DT_DRV_COMPAT allwinner_sunxi_smhc */
+	/* Matches DT_DRV_COMPAT allwinner_sunxi_smhc in the driver sdhc_sunxi.c */
 	compatible = "allwinner,sunxi-smhc";
 
-	/* 寄存器窗口：基址 0x04020000，长度 0x1000 */
+	/* Register window: base address 0x04020000, length 0x1000 */
 	reg = <0x04020000 0x1000>;
 
-	/* 中断：PLIC 的 40 号，优先级 1 */
+	/* Interrupt: PLIC number 40, priority 1 */
 	interrupts = <40 1>;
 	interrupt-parent = <&plic>;
 
-	/* 模块时钟（产生卡时钟）和总线时钟，顺序和 clock-names 对应 */
+	/* The module clock (which produces the card clock) and the bus clock, in the order of clock-names */
 	clocks = <&cctl CLK_SMHC0>, <&cctl CLK_BUS_SMHC0>;
 	clock-names = "mod", "bus";
 	resets = <&rctl RST_BUS_SMHC0>;
 
-	/* 模块时钟寄存器在 CCU 里的偏移：时钟源、分频和门控 */
+	/* Offset of the module clock register in the CCU: clock source, divider and gate */
 	clock-reg = <0x830>;
 
-	/* 主机能跑的最高时钟 */
+	/* The highest clock the host can run at */
 	max-bus-freq = <50000000>;
 
 	status = "disabled";
 };
 ```
 
-| 节点 | 标签 | 寄存器 | PLIC 中断号 | `clock-reg` | 用途 |
+| Node | Label | Registers | PLIC interrupt number | `clock-reg` | Use |
 | --- | --- | --- | --- | --- | --- |
-| `mmc@4020000` | `smhc0` | `0x04020000` | 40 | `0x830` | TF 卡槽 |
-| `mmc@4022000` | `smhc2` | `0x04022000` | 42 | `0x838` | WiFi（AIC8800D40）SDIO |
+| `mmc@4020000` | `smhc0` | `0x04020000` | 40 | `0x830` | TF card slot |
+| `mmc@4022000` | `smhc2` | `0x04022000` | 42 | `0x838` | WiFi (AIC8800D40) SDIO |
 
-### 板级设备树：yuzukineko.dts
+### Board devicetree: yuzukineko.dts
 
 ```c
 &pio {
-	/* TF 卡槽在 PF0…PF5，复用功能 2：PF2 是 CLK，PF3 是 CMD，PF1/PF0/PF5/PF4 是 D0…D3。
-	 * 和 JTAG 共用这组脚。 */
+	/* The TF card slot is on PF0…PF5, multiplexing function 2: PF2 is CLK, PF3 is CMD, and PF1/PF0/PF5/PF4 are D0…D3.
+	 * It shares these pins with JTAG. */
 	smhc0_pins: smhc0_pins {
 		smhc0_clk {
 			pinmux = <ALLWINNER_PINMUX(ALLWINNER_PIO_PF, 2, 2)>;
@@ -84,15 +84,15 @@ smhc0: mmc@4020000 {
 	pinctrl-0 = <&smhc0_pins>;
 	pinctrl-names = "default";
 
-	/* 4 位数据线 */
+	/* 4 data lines */
 	bus-width = <4>;
 
-	/* 卡检测：PF6，有卡时为低电平 */
+	/* Card detection: PF6, a low level when a card is present */
 	cd-gpios = <&gpiof 6 GPIO_ACTIVE_LOW>;
 	status = "okay";
 
-	/* 磁盘：这个子节点是上层磁盘接口用的，让 Zephyr 的磁盘子系统出现一个名叫 "SD" 的磁盘。
-	 * 本文的演示不用它，直接操作控制器 */
+	/* Disk: this child node is used by the disk interface above and makes a disk named "SD" appear in the Zephyr disk subsystem.
+	 * The demo in this page does not use it and drives the controller directly */
 	sdmmc {
 		compatible = "zephyr,sdmmc-disk";
 		disk-name = "SD";
@@ -101,9 +101,9 @@ smhc0: mmc@4020000 {
 };
 ```
 
-`smhc2` 的写法一样，只是 `non-removable;` 代替 `cd-gpios`，下面不挂磁盘节点，挂的是 WiFi 芯片的节点。
+`smhc2` is written the same way, except that `non-removable;` takes the place of `cd-gpios`, and no disk node hangs below it — instead the node of the WiFi chip does.
 
-### 绑定：allwinner,sunxi-smhc.yaml
+### Binding: allwinner,sunxi-smhc.yaml
 
 ```yaml
 description: Allwinner sunxi SD/MMC host controller (SMHC)
@@ -139,41 +139,41 @@ properties:
     type: boolean
 ```
 
-| 属性 | 必填 | 含义 |
+| Property | Required | Meaning |
 | --- | --- | --- |
-| `reg`、`interrupts` | 是 | 寄存器窗口、中断 |
-| `clocks`、`clock-names` | 是 | 模块时钟 `mod` 和总线时钟 `bus` |
-| `resets` | 是 | 总线复位 |
-| `clock-reg` | 是 | 模块时钟寄存器在 CCU 里的偏移 |
-| `max-bus-freq` | 来自 `sdhc.yaml` | 主机支持的最高时钟 |
-| `bus-width` | 否，4 | 接线的数据线数：1、4 或 8 |
-| `cd-gpios` | 否 | 卡检测引脚；有卡时是低电平就写 `GPIO_ACTIVE_LOW` |
-| `pwr-gpios` | 否 | 开关卡供电的 GPIO |
-| `non-removable` | 否 | 卡焊死在板上（eMMC、SDIO 模块），始终存在 |
-| `pinctrl-0`、`pinctrl-names` | 否 | 引脚，见 [GPIO 页的 pinctrl 一节](gpio.md#引脚复用pinctrl) |
+| `reg`, `interrupts` | yes | Register window, interrupt |
+| `clocks`, `clock-names` | yes | The module clock `mod` and the bus clock `bus` |
+| `resets` | yes | Bus reset |
+| `clock-reg` | yes | Offset of the module clock register in the CCU |
+| `max-bus-freq` | from `sdhc.yaml` | The highest clock the host supports |
+| `bus-width` | no, 4 | Number of data lines wired: 1, 4 or 8 |
+| `cd-gpios` | no | Card detect pin; write `GPIO_ACTIVE_LOW` if it is low when a card is present |
+| `pwr-gpios` | no | GPIO that switches the power of the card |
+| `non-removable` | no | The card is soldered to the board (eMMC, SDIO module) and is always present |
+| `pinctrl-0`, `pinctrl-names` | no | Pins, see the [pinctrl section of the GPIO page](gpio.md#pin-multiplexing-pinctrl) |
 
 ## Kconfig
 
-| 选项 | 默认 | 含义 |
+| Option | Default | Meaning |
 | --- | --- | --- |
-| `CONFIG_SDHC` | 应用里设为 `y` | 打开 SD 主机控制器子系统 |
-| `CONFIG_SDHC_SUNXI` | `y`（依赖 `DT_HAS_ALLWINNER_SUNXI_SMHC_ENABLED`） | 编译这个驱动，并选中 `PINCTRL`、`GPIO`、`CACHE_MANAGEMENT` |
-| `CONFIG_SDHC_SUNXI_MAX_DESC` | 128 | DMA 描述符个数，每个描述符搬运最多 8 KiB，所以这个值限制一次 DMA 传输的大小（128 个是 1 MiB）；更大的请求由 CPU 传输 |
-| `CONFIG_SDHC_SUNXI_BOUNCE_KB` | 64 | 弹跳缓冲区大小（KiB）。DMA 要缓存行对齐的内存，其他内存经过这块缓冲区，由 CPU 拷贝，第一次用时从内核堆里分配；更大的请求只用 CPU 传输。0 关闭弹跳缓冲区 |
+| `CONFIG_SDHC` | set to `y` in the application | Enables the SD host controller subsystem |
+| `CONFIG_SDHC_SUNXI` | `y` (depends on `DT_HAS_ALLWINNER_SUNXI_SMHC_ENABLED`) | Builds this driver and selects `PINCTRL`, `GPIO`, `CACHE_MANAGEMENT` |
+| `CONFIG_SDHC_SUNXI_MAX_DESC` | 128 | Number of DMA descriptors; each descriptor moves at most 8 KiB, so this value limits the size of one DMA transfer (128 of them is 1 MiB); larger requests are transferred by the CPU |
+| `CONFIG_SDHC_SUNXI_BOUNCE_KB` | 64 | Bounce buffer size (KiB). DMA needs cache-line aligned memory, so other memory goes through this buffer and is copied by the CPU; it is allocated from the kernel heap on first use. Larger requests are transferred by the CPU only. 0 disables the bounce buffer |
 
-## 接口详解
+## Interface details
 
-演示在 `yuzukineko` 上，卡槽里有一张 SDHC 卡，直接用 `sdhc_*` 函数操作控制器。每个接口一个小标题，下面是它的原型、行为和一个完整的示例函数。
+The demo runs on `yuzukineko` with an SDHC card in the slot and drives the controller directly with the `sdhc_*` functions. Each interface gets its own heading, with its prototype, its behaviour and a complete example function below it.
 
-演示里重复用到的两个全局变量和辅助函数：
+The two global variables and the helper function used repeatedly in the demo:
 
 ```c
 static const struct device *const sdhc = DEVICE_DT_GET(DT_NODELABEL(smhc0));
 
-static uint32_t rca;		/* 卡的相对地址，来自 CMD3 */
-static bool block_addressed;	/* SDHC、SDXC 卡：读命令的参数是块号 */
+static uint32_t rca;		/* relative card address, from CMD3 */
+static bool block_addressed;	/* SDHC and SDXC cards: the argument of a read command is a block number */
 
-/* 发一条没有数据的命令 */
+/* issue one command without data */
 static int send(uint32_t opcode, uint32_t arg, uint32_t response_type, struct sdhc_command *cmd)
 {
 	memset(cmd, 0, sizeof(*cmd));
@@ -192,7 +192,7 @@ static int send(uint32_t opcode, uint32_t arg, uint32_t response_type, struct sd
 int sdhc_get_host_props(const struct device *dev, struct sdhc_host_props *props);
 ```
 
-读控制器的能力：时钟范围、总线宽度、电压、速度模式，以及上电延时。
+Reads the capabilities of the controller: clock range, bus width, voltage, speed modes, and the power-up delay.
 
 ```c
 /* sdhc_get_host_props: what the controller can do */
@@ -225,7 +225,7 @@ static void demo_get_host_props(void)
 int sdhc_card_present(const struct device *dev);
 ```
 
-读卡检测：有卡返回 1，没有返回 0。控制器节点有 `non-removable` 或没有 `cd-gpios` 时一直返回 1。
+Reads the card detection: returns 1 if a card is present, 0 if not. It always returns 1 when the controller node has `non-removable` or has no `cd-gpios`.
 
 ```c
 /* sdhc_card_present: the card detect line (cd-gpios) */
@@ -247,7 +247,7 @@ static void demo_card_present(void)
 int sdhc_hw_reset(const struct device *dev);
 ```
 
-复位控制器，卡本身的状态不变。
+Resets the controller; the state of the card itself is unchanged.
 
 ```c
 /* sdhc_hw_reset: reset the controller, the card keeps its state */
@@ -269,15 +269,15 @@ static void demo_hw_reset(void)
 int sdhc_set_io(const struct device *dev, struct sdhc_io *io);
 ```
 
-设置供电、时钟、总线宽度和时序。卡上电后是 1 位总线，时钟不能超过 400 kHz，识别完以后才提高。
+Sets the power, the clock, the bus width and the timing. After power-up a card is on a 1-bit bus and the clock must not exceed 400 kHz; it is raised only after identification.
 
-| `sdhc_io` 的字段 | 驱动的行为 |
+| Field of `sdhc_io` | Driver behaviour |
 | --- | --- |
-| `clock` | 0，或者在 `f_min`…`f_max`（400 kHz…50 MHz）之间；超出范围返回 `-EINVAL`，并在日志里打印 `unsupported clock` |
-| `power_mode` | `SDHC_POWER_ON` / `SDHC_POWER_OFF`；节点有 `pwr-gpios` 时同时切换这个 GPIO，关电源时时钟清零 |
-| `bus_width` | 1、4、8；别的值返回 `-EINVAL` |
-| `timing` | `SDHC_TIMING_DDR50`、`DDR52` 打开双沿采样，其余是单沿 |
-| `signal_voltage` | 3.3 V；1.8 V、1.2 V 返回 `-ENOTSUP` |
+| `clock` | 0, or between `f_min`…`f_max` (400 kHz…50 MHz); out of range returns `-EINVAL` and prints `unsupported clock` in the log |
+| `power_mode` | `SDHC_POWER_ON` / `SDHC_POWER_OFF`; when the node has `pwr-gpios` it also toggles this GPIO, and the clock is cleared when the power is switched off |
+| `bus_width` | 1, 4, 8; any other value returns `-EINVAL` |
+| `timing` | `SDHC_TIMING_DDR50` and `DDR52` enable sampling on both edges; the rest sample on a single edge |
+| `signal_voltage` | 3.3 V; 1.8 V and 1.2 V return `-ENOTSUP` |
 
 ```c
 /* sdhc_set_io: power, clock, bus width and timing. A card starts in 1 bit mode at 400 kHz or less. */
@@ -348,22 +348,22 @@ static void demo_set_io(void)
 int sdhc_request(const struct device *dev, struct sdhc_command *cmd, struct sdhc_data *data);
 ```
 
-发一条命令，需要数据的话带上 `data`。`struct sdhc_command` 填命令号、参数、期望的响应类型（`SD_RSP_TYPE_R1` 等，在 `<zephyr/sd/sd_spec.h>`）、重试次数和超时；响应在 `cmd->response[]` 里返回，R2 响应是 4 个字。`struct sdhc_data` 填起始块、块大小、块数、缓冲区和超时，传完后 `bytes_xfered` 是实际传输的字节数。
+Issues one command, with `data` if data is needed. `struct sdhc_command` is filled with the command number, the argument, the expected response type (`SD_RSP_TYPE_R1` and so on, in `<zephyr/sd/sd_spec.h>`), the retry count and the timeout; the response comes back in `cmd->response[]`, and an R2 response is 4 words. `struct sdhc_data` is filled with the start block, the block size, the number of blocks, the buffer and the timeout; after the transfer `bytes_xfered` is the number of bytes actually transferred.
 
-| 情况 | 返回 |
+| Case | Return |
 | --- | --- |
-| 成功 | 0 |
-| 带 `data` 但块大小、块数是 0 或缓冲区是 NULL | `-EINVAL` |
-| 命令超时、数据超时 | `-ETIMEDOUT` |
-| 响应或数据校验错误 | `-EIO`，驱动会按 `retries` 重试 |
+| Success | 0 |
+| `data` given but the block size or the block count is 0, or the buffer is NULL | `-EINVAL` |
+| Command timeout, data timeout | `-ETIMEDOUT` |
+| Response or data CRC error | `-EIO`, and the driver retries according to `retries` |
 
-读写数据用 DMA，缓冲区要对齐到缓存行（64 字节），否则经过驱动的弹跳缓冲区。多块读写（CMD18、CMD25）由控制器自己在最后发 CMD12，应用不要再发。
+Reading and writing data uses DMA; the buffer must be aligned to the cache line (64 bytes), otherwise it goes through the bounce buffer in the driver. For multi-block reads and writes (CMD18, CMD25) the controller issues the final CMD12 itself, so the application must not send one.
 
-下面分几个示例。
+A few examples follow.
 
-#### 示例：识别卡
+#### Example: identifying the card
 
-不带数据的命令。顺序是 SD 规范规定的：CMD0 复位，CMD8 检查电压，CMD55 加 ACMD41 反复询问直到卡上电完成，CMD2 读卡标识，CMD3 要相对地址，CMD9 读卡的特性数据，CMD7 选中卡。
+Commands without data. The order is prescribed by the SD specification: CMD0 resets, CMD8 checks the voltage, CMD55 plus ACMD41 ask repeatedly until the card has finished powering up, CMD2 reads the card identification, CMD3 asks for the relative address, CMD9 reads the characteristic data of the card, CMD7 selects the card.
 
 ```c
 /* sdhc_request without data: the identification of the card. Every step prints the response. */
@@ -428,11 +428,11 @@ static int bring_up_card(void)
 [card] CMD7  select the card               = 0
 ```
 
-`OCR c0ff8000`：最高位表示上电完成，第二位（CCS）表示是块寻址的 SDHC/SDXC 卡。
+`OCR c0ff8000`: the top bit means power-up is complete, and the second bit (CCS) means it is a block-addressed SDHC/SDXC card.
 
-#### 示例：切到 4 位总线
+#### Example: switching to a 4-bit bus
 
-ACMD6 通知卡，`sdhc_set_io` 通知控制器，同时把时钟提到 25 MHz。
+ACMD6 tells the card and `sdhc_set_io` tells the controller, while the clock is raised to 25 MHz.
 
 ```c
 /* switch to 4 data lines: ACMD6 tells the card, sdhc_set_io tells the controller */
@@ -463,9 +463,9 @@ static void bus_width_4(void)
 [card] ACMD6 4 bit bus, 25 MHz            = 0
 ```
 
-#### 示例：读一个块
+#### Example: reading one block
 
-CMD17，带 `sdhc_data`。块 0 的最后两个字节是启动签名 `55 aa`。
+CMD17, with `sdhc_data`. The last two bytes of block 0 are the boot signature `55 aa`.
 
 ```c
 static void demo_request_read_one(void)
@@ -487,9 +487,9 @@ static void demo_request_read_one(void)
 [read1] CMD17 block 0                      = 0: 512 bytes, R1 00000900, signature 55 aa
 ```
 
-#### 示例：读多个块
+#### Example: reading several blocks
 
-CMD18 一次读 8 块（4096 字节），不需要再发 CMD12。第一个块和 CMD17 读到的一样。
+CMD18 reads 8 blocks (4096 bytes) at once and no CMD12 needs to be sent. The first block is the same as the one CMD17 read.
 
 ```c
 /* CMD18 reads several blocks; the controller ends the transfer itself, no CMD12 is needed. */
@@ -515,9 +515,9 @@ static void demo_request_read_many(void)
 [readN] CMD18 8 blocks from 0               = 0: 4096 bytes, first block same as CMD17
 ```
 
-#### 示例：读卡状态
+#### Example: reading the card status
 
-CMD13 的响应是卡的状态寄存器，第 9…12 位是卡的状态，4 表示传输状态。
+The response to CMD13 is the status register of the card; bits 9…12 are the card state, and 4 means the transfer state.
 
 ```c
 /* the card state after all this: CMD13 returns the status register */
@@ -535,7 +535,7 @@ static void demo_request_status(void)
 [status] CMD13 card status                 = 0: R1 00000900, state 4 (4 = transfer)
 ```
 
-#### 示例：出错的请求
+#### Example: requests that fail
 
 ```c
 /* requests the controller or the card refuses */
@@ -582,7 +582,7 @@ static void demo_request_errors(void)
 int sdhc_card_busy(const struct device *dev);
 ```
 
-读 DAT0 线：卡正忙（写入或编程中，DAT0 被拉低）返回 1，空闲返回 0。
+Reads the DAT0 line: returns 1 while the card is busy (during a write or a programming step, DAT0 is held low) and 0 when it is idle.
 
 ```c
 /* sdhc_card_busy: 1 while the card holds DAT0 low (during a write or a programming step) */
@@ -604,7 +604,7 @@ static void demo_card_busy(void)
 int sdhc_execute_tuning(const struct device *dev);
 ```
 
-采样点调谐，只有 1.8 V 的 UHS 模式（SDR50、SDR104）需要。这个控制器不支持这些模式，所以返回 `-ENOTSUP`。
+Sampling-point tuning, needed only by the 1.8 V UHS modes (SDR50, SDR104). This controller does not support those modes, so it returns `-ENOTSUP`.
 
 ```c
 /* sdhc_execute_tuning: only the UHS modes at 1.8 V need it, which this controller does not do */
@@ -626,15 +626,15 @@ static void demo_execute_tuning(void)
 int sdhc_enable_interrupt(const struct device *dev, sdhc_interrupt_cb_t callback, int sources, void *user_data);
 ```
 
-注册回调。`sources` 可以是：
+Registers a callback. `sources` can be:
 
-| 取值 | 含义 |
+| Value | Meaning |
 | --- | --- |
-| `SDHC_INT_INSERTED` | 卡插入（卡检测引脚上的边沿，驱动用 GPIO 中断实现） |
-| `SDHC_INT_REMOVED` | 卡拔出 |
-| `SDHC_INT_SDIO` | SDIO 卡的中断（DAT1 线） |
+| `SDHC_INT_INSERTED` | Card inserted (an edge on the card detect pin; the driver implements it with a GPIO interrupt) |
+| `SDHC_INT_REMOVED` | Card removed |
+| `SDHC_INT_SDIO` | Interrupt of an SDIO card (the DAT1 line) |
 
-回调的 `reason` 是上面某个值。演示把卡留在槽里 100 毫秒，没有事件；拔出或插入卡时回调会被调用。
+The `reason` of the callback is one of the values above. The demo leaves the card in the slot for 100 milliseconds and no event occurs; the callback is called when the card is removed or inserted.
 
 ```c
 static volatile int events;
@@ -665,7 +665,7 @@ static void demo_enable_interrupt(void)
 int sdhc_disable_interrupt(const struct device *dev, int sources);
 ```
 
-关掉指定的事件；关掉最后一个卡检测事件时，同时关掉卡检测引脚的 GPIO 中断。
+Switches off the given events; when the last card detect event is switched off, the GPIO interrupt of the card detect pin is switched off as well.
 
 ```c
 /* sdhc_disable_interrupt: switch the events off again */
@@ -681,9 +681,9 @@ static void demo_disable_interrupt(void)
 [irq] sdhc_disable_interrupt                   = 0
 ```
 
-## 完整演示程序
+## Complete demo program
 
-上面所有示例和日志都来自这一个程序。建一个目录，放进下面的文件，就可以像其他 Zephyr 应用一样编译。
+All the examples and logs above come from this single program. Create a directory, put the files below in it, and it builds like any other Zephyr application.
 
 ```text
 sdhc_api/
@@ -1061,7 +1061,7 @@ int main(void)
 }
 ```
 
-### 编译和运行
+### Build and run
 
 ```sh
 . ~/f101-zephyr/env.sh
@@ -1071,7 +1071,7 @@ west build -b yuzukineko -d build/sdhc-api sdhc_api
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/drivers-sdhc/build.cast" data-speed="6"></div>
 
-下载运行的方法见[编译与运行](../zephyr-build-run.md)。运行前把 TF 卡插进卡槽。控制台 UART1 上的完整输出：
+For how to download and run it, see [Build and run](../zephyr-build-run.md). Insert the TF card into the slot before running. The complete output on the UART1 console:
 
 ```text
 [props] sdhc_get_host_props = 0: clock 400000..50000000 Hz, power-up delay 500 ms
@@ -1110,6 +1110,6 @@ west build -b yuzukineko -d build/sdhc-api sdhc_api
 sdhc_api done
 ```
 
-两行 `<err> sdhc_sunxi: unsupported clock ...` 是 `sdhc_set_io` 拒绝超范围时钟时驱动打的日志，延迟输出，排在程序输出后面。
+The two lines `<err> sdhc_sunxi: unsupported clock ...` are log messages the driver prints when `sdhc_set_io` rejects an out-of-range clock; they are emitted later and appear after the program output.
 
-驱动自己的压力测试示例是 `samples/drivers/sdhc_sunxi`：多种缓冲区对齐的原始读写，加一个 1 MiB 伪随机文件的写入、读回和比较。
+The driver's own stress test example is `samples/drivers/sdhc_sunxi`: raw reads and writes with various buffer alignments, plus the writing, reading back and comparison of a 1 MiB pseudo-random file.

@@ -1,35 +1,35 @@
 ---
-title: "手动构建 Linux 镜像"
+title: "Manually Building the Linux Image"
 ---
 
-这一页从源码一步步构建 YuzukiNeko <strong>F101-S3</strong> 的 SPI NOR 启动镜像（<strong>RV32</strong>）：SyterKit、OpenSBI、Linux 内核、BusyBox 根文件系统，然后按 Flash 布局拼成 16 MiB 的 `.img`，用 xfel 分段或整片烧录。64 位（RV64I）的改法见 [手动构建 RV64I 镜像](linux-manual-rv64.md)；想一条命令出镜像，请看 [Linux + Buildroot](linux-buildroot.md)。
+This page builds the YuzukiNeko <strong>F101-S3</strong> SPI NOR boot image (<strong>RV32</strong>) from source, step by step: SyterKit, OpenSBI, the Linux kernel and a BusyBox root filesystem, then assembles them into a 16 MiB `.img` following the Flash layout, and flashes it in sections or in full with xfel. For the 64-bit (RV64I) changes, see [Manually Building the RV64I Image](linux-manual-rv64.md); for a single command that produces an image, see [Linux + Buildroot](linux-buildroot.md).
 
-启动链和 Buildroot 版一致：
+The boot chain is the same as the Buildroot version:
 
 ```
 BROM → SyterKit → OpenSBI → Linux → BusyBox
 ```
 
-## 准备
+## Preparation
 
-主机需要 `gcc`、`make`、`bison`、`flex`、`bc`、`git`、`squashfs-tools`，以及内核和 SyterKit 常见的其他主机构建依赖。
+The host needs `gcc`, `make`, `bison`, `flex`, `bc`, `git`, `squashfs-tools`, and the other common host build dependencies for the kernel and SyterKit.
 
-下面所有命令都在同一个工作目录 `~/f101-linux` 里执行，需要进入源码目录的地方会写出 `cd`，用完后回到工作目录：
+All commands below run in the same working directory `~/f101-linux`; where a source directory must be entered, the `cd` is written out, and the working directory is returned to afterwards:
 
 ```sh
 mkdir -p ~/f101-linux/build && cd ~/f101-linux
 ```
 
-### 工具链
+### Toolchain
 
-需要两个玄铁（Xuantie）工具链：
+Two Xuantie toolchains are needed:
 
-| 工具链 | 用途 | 前缀 |
+| Toolchain | Purpose | Prefix |
 | --- | --- | --- |
 | `Xuantie-900-gcc-elf-newlib-x86_64-V3.2.0` | SyterKit | `riscv64-unknown-elf-` |
-| `Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0` | OpenSBI、内核、BusyBox | `riscv64-unknown-linux-gnu-` |
+| `Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0` | OpenSBI, kernel, BusyBox | `riscv64-unknown-linux-gnu-` |
 
-两个工具链都从平头哥 OCC 下载，版本都是 `V3.2.0-20250627`：elf-newlib 约 235 MB，glibc 约 510 MB。
+Both toolchains are downloaded from T-Head OCC, and both are version `V3.2.0-20250627`: elf-newlib is about 235 MB, glibc about 510 MB.
 
 ```sh
 curl -fLO 'https://occ-oss-prod.oss-cn-hangzhou.aliyuncs.com/resource//1751370399722/Xuantie-900-gcc-elf-newlib-x86_64-V3.2.0-20250627.tar.gz'
@@ -37,14 +37,14 @@ curl -fLO 'https://occ-oss-prod.oss-cn-hangzhou.aliyuncs.com/resource//175567970
 sha256sum Xuantie-900-gcc-*.tar.gz
 ```
 
-两个压缩包的 SHA-256 应为：
+The SHA-256 of the two archives should be:
 
 ```text
 80c174c6445f7565bc082d328045021862a63beddfad8c393c534e2d9523dc3b  Xuantie-900-gcc-elf-newlib-x86_64-V3.2.0-20250627.tar.gz
 a5a6a5e517a738baffed091efce984ffa215f78bb11e296d6175bf5896778fdd  Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0-20250627.tar.gz
 ```
 
-校验通过后解压到工作目录下的 `toolchain/`，不需要 root 权限，后面的命令直接引用这个路径（`$HOME` 是你的主目录）：
+Once the digests verify, extract them into `toolchain/` under the working directory; no root privileges are needed, and later commands refer to this path directly (`$HOME` is your home directory):
 
 ```sh
 mkdir -p toolchain
@@ -52,7 +52,7 @@ tar -xzf Xuantie-900-gcc-elf-newlib-x86_64-V3.2.0-20250627.tar.gz -C toolchain
 tar -xzf Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0-20250627.tar.gz -C toolchain
 ```
 
-### 源码
+### Sources
 
 ```sh
 git clone https://github.com/YuzukiHD/SyterKit.git
@@ -63,13 +63,13 @@ curl -fLO https://busybox.net/downloads/busybox-1.38.0.tar.bz2
 tar -xjf busybox-1.38.0.tar.bz2
 ```
 
-BusyBox 从 [busybox.net](https://busybox.net/downloads/) 下载，解压后是 `busybox-1.38.0/`。`buildroot-external-yuzukihd` 只用来取内核配置片段和根文件系统里的几个文件，不会构建 Buildroot。
+BusyBox is downloaded from [busybox.net](https://busybox.net/downloads/) and extracts to `busybox-1.38.0/`. `buildroot-external-yuzukihd` is used only to take the kernel config fragment and a few files for the root filesystem; Buildroot is not built.
 
-本文构建时的版本：SyterKit `main`（`6ef3f27ab`）、OpenSBI `08cbbe0b`、Linux `95cd7466c`、BusyBox 1.38.0。
+The versions used when this page was built: SyterKit `main` (`6ef3f27ab`), OpenSBI `08cbbe0b`, Linux `95cd7466c`, BusyBox 1.38.0.
 
-## 构建 SyterKit
+## Building SyterKit
 
-SyterKit 是 BROM 之后的第一级引导加载器，同时负责从 SPI NOR 读出设备树、OpenSBI 和内核。它用 elf-newlib 工具链，输出放在工作目录的 `build/` 里：
+SyterKit is the first-stage bootloader after BROM, and it also reads the devicetree, OpenSBI and the kernel from the SPI NOR. It uses the elf-newlib toolchain, and its output goes into `build/` under the working directory:
 
 ```sh
 cd SyterKit
@@ -80,11 +80,11 @@ cd ..
 
 <div class="asciinema-cast" data-src="assets/casts/linux/linux-manual/syterkit.cast" data-speed="0.35"></div>
 
-产物是 `build/syterkit/build/yuzukineko/app_sram/spinor-boot/spinor-boot_spi.bin`，49,152 字节，预留区是 64 KiB（65,536 字节），放得下。
+The artifact is `build/syterkit/build/yuzukineko/app_sram/spinor-boot/spinor-boot_spi.bin`, 49,152 bytes; the reserved area is 64 KiB (65,536 bytes), so it fits.
 
-## 构建 OpenSBI
+## Building OpenSBI
 
-OpenSBI 仓库自带 `build.sh`，已经写好 F101 的各项参数（`sun252i-f101.defconfig`、`FW_JUMP`、`FW_TEXT_START=0x40f80000`、`FW_JUMP_ADDR=0x40000000`）。`--arch rv32` 选择 32 位，输出在仓库里的 `build/` 下：
+The OpenSBI repository ships a `build.sh` with the F101 parameters already written in (`sun252i-f101.defconfig`, `FW_JUMP`, `FW_TEXT_START=0x40f80000`, `FW_JUMP_ADDR=0x40000000`). `--arch rv32` selects 32-bit, and the output goes under `build/` in the repository:
 
 ```sh
 cd opensbi
@@ -95,17 +95,17 @@ cd ..
 
 <div class="asciinema-cast" data-src="assets/casts/linux/linux-manual/opensbi.cast" data-speed="0.45"></div>
 
-`mkdir -p build` 不能省，`build.sh` 的默认输出目录要求上一级目录已经存在。
+`mkdir -p build` cannot be omitted; the default output directory of `build.sh` requires its parent directory to already exist.
 
-产物是 `opensbi/build/sun252i-f101/platform/generic/firmware/fw_jump.bin`，266,344 字节，预留区 512 KiB（524,288 字节）。用 `file` 查看同目录的 `fw_jump.elf`，应是 32-bit。
+The artifact is `opensbi/build/sun252i-f101/platform/generic/firmware/fw_jump.bin`, 266,344 bytes; the reserved area is 512 KiB (524,288 bytes). Run `file` on `fw_jump.elf` in the same directory; it should report 32-bit.
 
 :::caution
-不要直接 `make PLATFORM=generic ...` 而漏掉 `build.sh` 里传的 `PLATFORM_RISCV_XLEN` 等参数，否则工具链默认会编出 64 位的 `fw_jump.elf`，即使名字叫 RV32。
+Do not run `make PLATFORM=generic ...` directly and skip the `PLATFORM_RISCV_XLEN` and other parameters that `build.sh` passes, or the toolchain default will produce a 64-bit `fw_jump.elf` even though it is named RV32.
 :::
 
-## 构建内核
+## Building the kernel
 
-内核用 RV32 的 defconfig，再合并外部树里的 `linux-nor.fragment`。这个片段打开 MTD、OverlayFS 和 JFFS2，是 SquashFS 根文件系统叠 JFFS2 overlay 所需要的。
+The kernel uses the RV32 defconfig, then merges `linux-nor.fragment` from the external tree. This fragment enables MTD, OverlayFS and JFFS2, which are needed for a SquashFS root filesystem with a JFFS2 overlay on top.
 
 ```sh
 cd linux-mainline
@@ -118,22 +118,22 @@ cd ..
 
 <div class="asciinema-cast" data-src="assets/casts/linux/linux-manual/kernel.cast" data-speed="3"></div>
 
-产物在 `build/kernel-rv32/arch/riscv/boot/`：
+The artifacts are in `build/kernel-rv32/arch/riscv/boot/`:
 
-| 文件 | 大小（字节） | 预留区 |
+| File | Size (bytes) | Reserved area |
 | --- | ---: | --- |
 | `Image` | 5,178,200 | 6 MiB |
 | `dts/allwinner/sun252i-f101-yuzukineko.dtb` | 10,472 | 256 KiB |
 
-RV32 内核由内核配置里的 32 位选项决定，不需要换工具链，仍然用 `riscv64-unknown-linux-gnu-` 前缀。
+The RV32 kernel is determined by the 32-bit options in the kernel configuration; the toolchain does not need to change, and the `riscv64-unknown-linux-gnu-` prefix is still used.
 
-## 构建根文件系统
+## Building the root filesystem
 
-这里不用 Buildroot，直接编译 BusyBox，补上必要的目录和文件，打成 SquashFS。BusyBox 静态链接，根文件系统里不需要 C 库。
+Buildroot is not used here; BusyBox is compiled directly, the necessary directories and files are added, and the result is packed into a SquashFS. BusyBox is statically linked, so no C library is needed in the root filesystem.
 
 ### BusyBox
 
-在默认配置上改四处：静态链接、启用 `flash_eraseall`、指定架构的编译和链接选项。`pivot_root` 默认已经开启，`/sbin/init` 要用它切到 overlay 根。
+Four things are changed from the default config: static linking, enabling `flash_eraseall`, and the architecture-specific compile and link options. `pivot_root` is already enabled by default, and `/sbin/init` uses it to switch to the overlay root.
 
 ```sh
 cd busybox-1.38.0
@@ -152,11 +152,11 @@ cd ..
 
 <div class="asciinema-cast" data-src="assets/casts/linux/linux-manual/busybox.cast"></div>
 
-`file build/busybox-rv32/busybox` 应显示 32-bit、statically linked。最后一条 `install` 的 `CONFIG_PREFIX` 是相对输出目录的，所以写 `../rootfs-rv32`，装到 `build/rootfs-rv32/`。
+`file build/busybox-rv32/busybox` should report 32-bit, statically linked. The `CONFIG_PREFIX` of the final `install` is relative to the output directory, so it is written as `../rootfs-rv32` and installs into `build/rootfs-rv32/`.
 
-### 目录与配置文件
+### Directories and configuration files
 
-下面补 `build/rootfs-rv32/` 里缺的内容。`/sbin/init` 和 `S40network` 取自外部树的 overlay 目录。`install` 之后 `/sbin/init` 是指向 BusyBox 的符号链接，必须先删掉再复制，否则复制会覆盖 BusyBox 本体。
+The following fills in what is missing in `build/rootfs-rv32/`. `/sbin/init` and `S40network` come from the overlay directory of the external tree. After `install`, `/sbin/init` is a symbolic link to BusyBox, so it must be deleted before copying; otherwise the copy overwrites the BusyBox binary itself.
 
 ```sh
 mkdir -p build/rootfs-rv32/{proc,sys,dev,tmp,run,root,etc/init.d,mnt/root,mnt/overlay,var/log}
@@ -165,13 +165,13 @@ cp buildroot-external-yuzukihd/board/yuzukihd/yuzukineko/overlay/sbin/init build
 cp buildroot-external-yuzukihd/board/yuzukihd/yuzukineko/overlay/etc/init.d/S40network build/rootfs-rv32/etc/init.d/
 ```
 
-BusyBox 带的是 `flash_eraseall`，补一个 `flash_erase` 的简化替身：
+BusyBox ships `flash_eraseall`; a simplified stand-in for `flash_erase` is added:
 
 ```sh
 printf '#!/bin/sh\nexec /usr/sbin/flash_eraseall "$1"\n' > build/rootfs-rv32/usr/sbin/flash_erase
 ```
 
-创建 `build/rootfs-rv32/etc/inittab`：
+Create `build/rootfs-rv32/etc/inittab`:
 
 ```sh
 cat > build/rootfs-rv32/etc/inittab <<'EOF'
@@ -184,7 +184,7 @@ ttyS1::respawn:/sbin/getty -L ttyS1 115200 vt100
 EOF
 ```
 
-创建 `build/rootfs-rv32/etc/init.d/rcS`：
+Create `build/rootfs-rv32/etc/init.d/rcS`:
 
 ```sh
 cat > build/rootfs-rv32/etc/init.d/rcS <<'EOF'
@@ -193,7 +193,7 @@ for s in /etc/init.d/S[0-9][0-9]*; do [ -x "$s" ] && "$s" start; done
 EOF
 ```
 
-其余几个小文件，以及可执行权限：
+The remaining small files, and the executable permissions:
 
 ```sh
 echo 'root::0:0:root:/root:/bin/sh' > build/rootfs-rv32/etc/passwd
@@ -203,11 +203,11 @@ echo /dev/ttyS1 > build/rootfs-rv32/etc/securetty
 chmod 755 build/rootfs-rv32/usr/sbin/flash_erase build/rootfs-rv32/etc/init.d/rcS build/rootfs-rv32/etc/init.d/S40network
 ```
 
-`root` 的密码为空，和 Buildroot 版一样。控制台是 UART1（`ttyS1`），`getty` 用 115200 波特。
+The `root` password is empty, the same as the Buildroot version. The console is UART1 (`ttyS1`), and `getty` runs at 115200 baud.
 
-### 打包 SquashFS
+### Packaging SquashFS
 
-用 xz 压缩。设备节点 `/dev/console`、`/dev/null` 用 `-p` 直接写进镜像，不需要 root 权限：
+xz compression is used. The device nodes `/dev/console` and `/dev/null` are written into the image directly with `-p`, so no root privileges are needed:
 
 ```sh
 mksquashfs build/rootfs-rv32 build/rootfs-rv32.squashfs -comp xz -all-root -noappend -no-progress -p "dev/console c 600 0 0 5 1" -p "dev/null c 666 0 0 1 3"
@@ -216,28 +216,28 @@ ls -l build/rootfs-rv32.squashfs
 
 <div class="asciinema-cast" data-src="assets/casts/linux/linux-manual/squashfs.cast"></div>
 
-产物是 1,089,536 字节，预留区是 `0x6d0000` 到 `0xf00000`（8,585,216 字节）。
+The artifact is 1,089,536 bytes; the reserved area is `0x6d0000` to `0xf00000` (8,585,216 bytes).
 
-## Flash 布局
+## Flash layout
 
-各组件在 SPI NOR 上的位置是固定的，和 Buildroot 版镜像相同：
+The position of each component on the SPI NOR is fixed and the same as in the Buildroot image:
 
-| 组件 | NOR 偏移 | 预留大小 | RAM 载入地址 |
+| Component | NOR offset | Reserved size | RAM load address |
 | --- | --- | --- | --- |
-| SyterKit | `0x000000` | 64 KiB | `0x00020000`（BROM 载入 SRAM） |
-| 设备树 | `0x010000` | 256 KiB | `0x40f40000` |
+| SyterKit | `0x000000` | 64 KiB | `0x00020000` (loaded into SRAM by BROM) |
+| Devicetree | `0x010000` | 256 KiB | `0x40f40000` |
 | OpenSBI `fw_jump` | `0x050000` | 512 KiB | `0x40f80000` |
 | Linux Image | `0x0d0000` | 6 MiB | `0x40000000` |
-| SquashFS 根文件系统 | `0x6d0000` | 到 `0xf00000`（约 8.2 MiB） | 从 MTD 挂载 |
-| JFFS2 overlay | `0xf00000` | 1 MiB，保持擦除态 | 从 MTD 挂载 |
+| SquashFS root filesystem | `0x6d0000` | up to `0xf00000` (about 8.2 MiB) | mounted from MTD |
+| JFFS2 overlay | `0xf00000` | 1 MiB, kept erased | mounted from MTD |
 
 :::caution
-SyterKit 每次启动都按固定长度读取：256 KiB 设备树、512 KiB `fw_jump`、6 MiB 内核。组件必须放得进各自的预留区，不能挪到别的偏移。
+On every boot SyterKit reads fixed lengths: a 256 KiB devicetree, a 512 KiB `fw_jump`, and a 6 MiB kernel. Each component must fit inside its reserved area and cannot be moved to a different offset.
 :::
 
-## 分段烧录
+## Flashing in sections
 
-先按 [FEL 下载模式与工具](../../boot/fel.md) 装好 xfel，让板子进入 FEL，并按 [SPI NOR 布局与备份](../../boot/flash-layout.md) 备份整片 Flash。分段烧录只改动对应区域，不动 overlay 分区：
+First install xfel as described in [FEL download mode and tools](../../boot/fel.md), put the board into FEL, and back up the whole flash as described in [SPI NOR layout and backup](../../boot/flash-layout.md). Flashing in sections only changes the corresponding areas and leaves the overlay partition untouched:
 
 ```sh
 xfel version
@@ -249,22 +249,22 @@ xfel spinor write 0xd0000 build/kernel-rv32/arch/riscv/boot/Image
 xfel spinor write 0x6d0000 build/rootfs-rv32.squashfs
 ```
 
-写完后按文件大小回读并比对，例如内核（`5178200` 是 `Image` 的字节数，换了内核请按 `ls -l` 的实际大小改）：
+After writing, read back by the file size and compare, for example the kernel (`5178200` is the byte count of `Image`; if you replaced the kernel, change it to the actual size from `ls -l`):
 
 ```sh
 xfel spinor read 0xd0000 5178200 Image-readback.bin
 cmp Image-readback.bin build/kernel-rv32/arch/riscv/boot/Image
 ```
 
-最后复位：
+Finally, reset:
 
 ```sh
 xfel reset
 ```
 
-## 打包成完整镜像
+## Packaging into a full image
 
-分段烧录适合调试。要得到一个能一次写入的 16 MiB 文件，先确认每个组件都没有超过上面的预留区（用 `ls -l` 看大小），再在全 `0xFF` 的底子上按偏移写入：
+Flashing in sections is suitable for debugging. To get a single 16 MiB file that can be written in one go, first confirm that no component exceeds the reserved area above (use `ls -l` to check the sizes), then write each at its offset onto an all-`0xFF` base:
 
 ```sh
 head -c 16777216 /dev/zero | tr '\000' '\377' > build/yuzukineko-manual-rv32.img
@@ -279,11 +279,11 @@ sha256sum build/yuzukineko-manual-rv32.img
 
 <div class="asciinema-cast" data-src="assets/casts/linux/linux-manual/image.cast" data-speed="0.3"></div>
 
-文件应正好是 16,777,216 字节，`0xf00000` 之后全是 `0xFF`，也就是空的 overlay 分区。
+The file should be exactly 16,777,216 bytes, with everything after `0xf00000` set to `0xFF`, that is, an empty overlay partition.
 
-## 整片烧录
+## Flashing the whole flash
 
-整片写入会<strong>覆盖整片 Flash</strong>，包括 overlay 分区里板子上的改动，先备份。
+Writing the whole flash <strong>overwrites the entire flash</strong>, including the changes on the board in the overlay partition; back up first.
 
 ```sh
 xfel version
@@ -293,10 +293,10 @@ xfel spinor read 0x0 0x1000000 readback.img
 sha256sum build/yuzukineko-manual-rv32.img readback.img
 ```
 
-两个 SHA-256 一致后再复位：
+Once the two SHA-256 digests match, reset:
 
 ```sh
 xfel reset
 ```
 
-启动后的串口参数、登录方式和首次启动要格式化 overlay 的说明，见 [预编译镜像](linux-prebuilt.md#连接串口)。
+For the serial parameters after boot, the login method, and the note that the overlay must be formatted on first boot, see [Prebuilt image](linux-prebuilt.md#connecting-the-serial-port).

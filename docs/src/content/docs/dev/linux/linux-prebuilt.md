@@ -1,103 +1,103 @@
 ---
-title: "预编译镜像"
+title: "Prebuilt images"
 ---
 
-仓库 `02_Firmware/Linux-Buildroot/` 提供 YuzukiNeko <strong>F101-S3</strong> 用 Buildroot 构建的 SPI NOR 启动镜像。启动链为：
+The repository's `02_Firmware/Linux-Buildroot/` provides SPI NOR boot images built with Buildroot for the YuzukiNeko <strong>F101-S3</strong>. The boot chain is:
 
 ```
 BROM → SyterKit → OpenSBI → Linux → BusyBox
 ```
 
-按 CPU 模式提供两个镜像：<strong>RV32</strong>（C907，`ilp32d`）和 <strong>RV64I</strong>（`lp64`）。根文件系统是 SquashFS，上面叠一层可写的 JFFS2 overlay，所以在板子上做的改动重启后仍在。镜像针对 <strong>16 MiB RAM + 16 MiB SPI NOR</strong> 的板子构建。
+Two images are provided by CPU mode: <strong>RV32</strong> (C907, `ilp32d`) and <strong>RV64I</strong> (`lp64`). The root filesystem is SquashFS, with a writable JFFS2 overlay on top, so changes made on the board survive a reboot. The images are built for a board with <strong>16 MiB RAM + 16 MiB SPI NOR</strong>.
 
-想自己构建这些镜像，见 [Linux + Buildroot](linux-buildroot.md)（一条命令）和 [手动构建](linux-manual.md)（逐步构建）。
+To build these images yourself, see [Linux + Buildroot](linux-buildroot.md) (one command) and [Manual build](linux-manual.md) (step by step).
 
-## 文件清单
+## File list
 
-| 文件 | 架构 | ABI | 大小（字节） |
+| File | Architecture | ABI | Size (bytes) |
 | --- | --- | --- | ---: |
 | `linux-7.2-YuzukiNeko-sun252i-f101-buildroot-nor.img` | RV32 (C907) | ilp32d | 16,777,216 |
 | `linux-7.2-YuzukiNeko-sun252i-f101-buildroot-rv64i-nor.img` | RV64I | lp64 | 16,777,216 |
-| `SHA256SUMS` | 以上两个镜像的 SHA-256 | — | — |
-| `manifest.json` | 区域布局、各组件校验和、来源版本 | — | — |
-| `licenses/` | 许可证与第三方声明 | — | — |
+| `SHA256SUMS` | SHA-256 of the two images above | — | — |
+| `manifest.json` | Region layout, per-component checksums, source versions | — | — |
+| `licenses/` | Licenses and third-party notices | — | — |
 
-每个镜像都是完整的——引导加载器、设备树、SBI 固件、内核、根文件系统——并且正好是整片 Flash 的大小。不存放载荷的空隙和 overlay 分区都擦成 `0xFF`。
+Each image is complete — bootloader, devicetree, SBI firmware, kernel, root filesystem — and is exactly the size of the whole Flash. Gaps that hold no payload and the overlay partition are erased to `0xFF`.
 
-与 [RustSBI + Asterinas](../asterinas/rustsbi-asterinas.md) 不同：那个是 7 MiB 的部分镜像、启动到 initramfs；这里的镜像覆盖整片 16 MiB，并从 Flash 挂载可持久化的根文件系统。
+Unlike [RustSBI + Asterinas](../asterinas/rustsbi-asterinas.md): that one is a 7 MiB partial image that boots to initramfs; the images here cover the entire 16 MiB and mount a persistent root filesystem from Flash.
 
-`.img` 是按固定偏移拼好的<strong>原始 SPI NOR 数据</strong>，既不是 PhoenixSuit 容器，也不是带分区表的磁盘镜像。
+The `.img` is <strong>raw SPI NOR data</strong> assembled at fixed offsets; it is neither a PhoenixSuit container nor a disk image with a partition table.
 
-## 刷入完整镜像
+## Flashing the full image
 
-<strong>Windows、Linux、macOS 都可以做刷机主机。</strong> 先按 [FEL 下载模式与工具](../../boot/fel.md) 装好 xfel 或 rfel。下面假设工具在 `PATH` 里，终端位于镜像所在目录。
+<strong>Windows, Linux, and macOS can all act as the flashing host.</strong> First install xfel or rfel as described in [FEL download mode and tools](../../boot/fel.md). The following assumes the tool is in `PATH` and the terminal is in the directory containing the images.
 
-首次安装或从其他固件切换时用完整镜像。因为每个镜像都是整片 16 MiB，写入会<strong>覆盖整片 Flash</strong>，包括存放板子持久化改动的 overlay 分区。想保留板上的内容，请先[备份](../../boot/flash-layout.md#备份整片-flash)。
+Use the full image for a first install or when switching from other firmware. Because each image is the entire 16 MiB, writing it <strong>covers the whole Flash</strong>, including the overlay partition that holds the board's persisted changes. To keep what is on the board, [back up](../../boot/flash-layout.md#back-up-the-whole-flash) first.
 
-1. 按住 <strong>FEL</strong> 键，重新接上 USB 数据线，松开。
-2. 检查芯片和 Flash：
+1. Hold the <strong>FEL</strong> button, reconnect the USB data cable, and release it.
+2. Check the chip and Flash:
    ```sh
    xfel version
    xfel spinor
    ```
-   应识别出 chip ID `0x00193700` 的 F101 和 16 MiB Flash。这一步<strong>不需要</strong>执行 `ddr` 命令。
-3. 按需要的架构写入并回读。RV32：
+   It should recognise the F101 with chip ID `0x00193700` and the 16 MiB Flash. This step <strong>does not</strong> require the `ddr` command.
+3. Write and read back for the architecture you need. RV32:
    ```sh
    xfel spinor write 0x0 linux-7.2-YuzukiNeko-sun252i-f101-buildroot-nor.img
    xfel spinor read 0x0 0x1000000 readback-rv32.img
    ```
-   RV64I：
+   RV64I:
    ```sh
    xfel spinor write 0x0 linux-7.2-YuzukiNeko-sun252i-f101-buildroot-rv64i-nor.img
    xfel spinor read 0x0 0x1000000 readback-rv64i.img
    ```
-   rfel 同理，把 `xfel` 换成 `rfel`。
-4. 计算原始镜像和回读文件的 SHA-256，确认两者一致且与 `SHA256SUMS` 中记录相同。有报错或校验不一致时先解决，再启动。
-5. 松开 FEL 键，复位：
+   The same applies to rfel, replacing `xfel` with `rfel`.
+4. Compute the SHA-256 of the original image and of the read-back file, and confirm that they match each other and the values recorded in `SHA256SUMS`. If there is an error or a checksum mismatch, resolve it before booting.
+5. Release the FEL button and reset:
    ```sh
    xfel reset
    ```
 
-### 连接串口
+### Connecting the serial port
 
-用 <strong>115200 波特、8N1、无流控</strong>连接板子的 UART。内核命令行固化在设备树里：
+Connect the board's UART with <strong>115200 baud, 8N1, no flow control</strong>. The kernel command line is fixed in the devicetree:
 
 ```text
 console=ttyS1,115200n8 earlycon=uart8250,mmio32,0x02500400 loglevel=8 printk.time=1 root=/dev/mtdblock4 rootfstype=squashfs ro
 ```
 
-控制台是 UART1 / `ttyS1`。启动时先把 SquashFS 根挂载为只读，再由 `/sbin/init` 在上面搭好 overlayfs，然后出现登录提示。配置里没有设置 root 密码，因此适用 Buildroot 的默认值：用 `root` 登录，密码为空。
+The console is UART1 / `ttyS1`. At boot the SquashFS root is first mounted read-only, then `/sbin/init` sets up overlayfs on top of it, and the login prompt appears. No root password is set in the configuration, so Buildroot's default applies: log in as `root` with an empty password.
 
 :::tip
-本包的说明没有指明控制台接在哪一组排针引脚上。请对照[原理图](../../hardware/files.md)确认串口引脚。
+The documentation in this package does not specify which header pin group the console is wired to. Check the serial port pins against the [schematic](../../hardware/files.md).
 :::
 
 :::tip
-首次启动时 `/sbin/init` 需要擦除并格式化 JFFS2 overlay 分区，会花一点时间，所以第一次启动比之后慢。
+On the first boot, `/sbin/init` needs to erase and format the JFFS2 overlay partition, which takes a while, so the first boot is slower than later ones.
 :::
 
-## 单独替换某个组件
+## Replacing a single component
 
-前提：板子已经装有本目录中架构匹配的完整镜像。按住 FEL 重新接 USB，先用 `version` 和 `spinor` 检查设备。
+Prerequisite: the board already has the full image from this directory for the matching architecture. Hold FEL to reconnect USB, and first check the device with `version` and `spinor`.
 
-在这个布局里 Flash 偏移和 RAM 载入地址不同，请使用下面的 <strong>NOR 偏移</strong>：
+In this layout the Flash offsets and RAM load addresses differ, so use the <strong>NOR offsets</strong> below:
 
-| 组件 | NOR 偏移 | 本布局预留 | RAM 载入地址 |
+| Component | NOR offset | Reserved in this layout | RAM load address |
 | --- | --- | --- | --- |
-| SyterKit | `0x000000` | 64 KiB | `0x00020000`（由 BROM 载入 SRAM） |
-| 设备树 | `0x010000` | 256 KiB | `0x40f40000` |
+| SyterKit | `0x000000` | 64 KiB | `0x00020000` (loaded into SRAM by the BROM) |
+| Devicetree | `0x010000` | 256 KiB | `0x40f40000` |
 | OpenSBI `fw_jump` | `0x050000` | 512 KiB | `0x40f80000` |
 | Linux Image | `0x0d0000` | 6 MiB | `0x40000000` |
-| SquashFS 根文件系统 | `0x6d0000` | 到 `0xf00000`（约 8.2 MiB） | 从 MTD 挂载，不复制到 RAM |
-| JFFS2 overlay | `0xf00000` | 1 MiB，已擦除 | 从 MTD 挂载 |
+| SquashFS root filesystem | `0x6d0000` | up to `0xf00000` (about 8.2 MiB) | Mounted from MTD, not copied to RAM |
+| JFFS2 overlay | `0xf00000` | 1 MiB, erased | Mounted from MTD |
 
-这些区域就是设备树里声明的 MTD 固定分区，名字分别是 `bootloader`、`dtb`、`opensbi`、`kernel`、`rootfs`、`overlay`。
+These regions are the fixed MTD partitions declared in the devicetree, named `bootloader`, `dtb`, `opensbi`, `kernel`, `rootfs`, and `overlay`.
 
 :::caution
-<strong>SyterKit 读取的是固定长度，不是文件的实际大小。</strong> 每次启动它都固定从 Flash 取 256 KiB 设备树、512 KiB `fw_jump`、6 MiB 内核。替换的组件必须放得进本区域的预留容量；超出的部分不会被识别，只会被当成截断的镜像读进来。边界也是写死的，不能把组件挪到别的偏移。
+<strong>SyterKit reads a fixed length, not the file's actual size.</strong> On every boot it always takes a 256 KiB devicetree, 512 KiB `fw_jump`, and 6 MiB kernel from Flash. A replacement component must fit within the reserved capacity of its region; anything beyond it is not recognised and is simply read in as a truncated image. The boundaries are also hard-coded, so a component cannot be moved to a different offset.
 :::
 
-按需选择写入命令，替换一个组件不必重写其他组件：
+Choose the write commands you need; replacing one component does not require rewriting the others:
 
 ```sh
 xfel spinor write 0x0 spinor-boot_spi.bin
@@ -106,44 +106,44 @@ xfel spinor write 0x50000 fw_jump.bin
 xfel spinor write 0xd0000 Image
 ```
 
-RV64I 镜像使用 `spinor-boot-rv64i_spi.bin` 和 `sun252i-f101-yuzukineko-rv64i.dtb`，偏移相同。
+RV64I images use `spinor-boot-rv64i_spi.bin` and `sun252i-f101-yuzukineko-rv64i.dtb`, at the same offsets.
 
-写完后按实际文件大小回读相应范围并校验。例如用本包的 RV32 内核替换后：
+After writing, read back the corresponding range at the file's actual size and verify it. For example, after replacing with this package's RV32 kernel:
 
 ```sh
 xfel spinor read 0xd0000 0x4c3be8 Image-readback.bin
 ```
 
-`0x4c3be8` 是本包 RV32 内核 Image 的大小（4,996,072 字节），其他版本请按实际大小调整长度；各镜像的数值见 `manifest.json`。回读的 SHA-256 与写入文件一致后，执行 `xfel reset`。
+`0x4c3be8` is the size of this package's RV32 kernel Image (4,996,072 bytes); for other versions, adjust the length to the actual size; the values for each image are in `manifest.json`. Once the read-back SHA-256 matches the written file, run `xfel reset`.
 
 :::caution
-把<strong>另一个架构</strong>包里的引导加载器、设备树或 `fw_jump` 写进去会让板子无法启动。RV32 和 RV64I 镜像的组件不能互换使用；切换架构时要换整个镜像，而不是换部分组件。
+Writing a bootloader, devicetree, or `fw_jump` from a package of <strong>the other architecture</strong> will make the board fail to boot. Components from RV32 and RV64I images cannot be used interchangeably; to switch architectures, replace the whole image, not individual components.
 :::
 
-## 启动之后
+## After boot
 
-根文件系统可写：`/sbin/init` 会 pivot 到一层 overlayfs，其 upper 是 JFFS2 的 `overlay` 分区，所以新建和修改的文件会保留到下次刷机为止。`/etc/init.d/` 里是常规的 BusyBox 启动脚本。`reboot` 重启系统。`poweroff` 停止系统，但板子仍由 USB 供电，<strong>并不会切断电源</strong>。
+The root filesystem is writable: `/sbin/init` pivots to an overlayfs whose upper layer is the JFFS2 `overlay` partition, so newly created and modified files persist until the next reflash. `/etc/init.d/` holds the usual BusyBox startup scripts. `reboot` restarts the system. `poweroff` stops the system, but the board is still powered over USB, so it <strong>does not cut the power</strong>.
 
-想把板子的持久化状态恢复到镜像内容，可以在系统里擦除 overlay 分区（`flash_erase /dev/mtd5 0 0`），或者重新刷入镜像。
+To restore the board's persistent state to the image contents, you can erase the overlay partition inside the system (`flash_erase /dev/mtd5 0 0`), or reflash the image.
 
-## 组件版本
+## Component versions
 
-来自 `manifest.json`：
+From `manifest.json`:
 
-| 组件 | 版本 / 提交 | 备注 |
+| Component | Version / commit | Notes |
 | --- | --- | --- |
-| SyterKit | `f95d29d6` | 由外部树精确锁定，两个镜像相同 |
-| OpenSBI | 1.9，分支 `sun252i-f101` | defconfig 指定的是分支，不是提交 |
-| Linux | 7.2.0，分支 `sun252i_f101_7.2` | defconfig 指定的是分支，不是提交 |
-| BusyBox | 1.38.0 | 从镜像里的 BusyBox 横幅读出 |
+| SyterKit | `f95d29d6` | Pinned exactly by the external tree, identical in both images |
+| OpenSBI | 1.9, branch `sun252i-f101` | The defconfig specifies the branch, not a commit |
+| Linux | 7.2.0, branch `sun252i_f101_7.2` | The defconfig specifies the branch, not a commit |
+| BusyBox | 1.38.0 | Read from the BusyBox banner in the image |
 | musl | 1.2.6 | |
-| Buildroot | `2026.08` + 若干提交 | 两个镜像由不同版本构建 |
-| 工具链 | GCC 15.3.0，binutils 2.45.1 | Buildroot 自带 musl 工具链 |
+| Buildroot | `2026.08` + some commits | The two images were built with different versions |
+| Toolchain | GCC 15.3.0, binutils 2.45.1 | Buildroot's bundled musl toolchain |
 
-## 验证情况
+## Verification status
 
-`manifest.json` 里的校验和、区域大小和版本字符串都来自两个镜像文件本身。<strong>本包没有记录真机启动测试</strong>，这里不声称任何板级结果。
+The checksums, region sizes, and version strings in `manifest.json` all come from the two image files themselves. <strong>This package records no real-hardware boot test</strong>, and no board-level result is claimed here.
 
-## 许可证
+## License
 
-固件及其第三方软件遵循各自的许可证，仓库的 CC0 声明<strong>不适用于</strong>它们。这些镜像中各组件的许可证文本和来源见 `licenses/README.md`。
+The firmware and its third-party software follow their respective licenses, and the repository's CC0 declaration <strong>does not apply</strong> to them. The license texts and origins of each component in these images are in `licenses/README.md`.

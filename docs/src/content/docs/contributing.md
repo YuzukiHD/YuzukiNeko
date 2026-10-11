@@ -1,32 +1,32 @@
 ---
-title: "参与贡献"
+title: "Contributing"
 ---
 
-欢迎提交：原理图、PCB 文件、BOM、BSP 支持、示例工程、勘误，以及经过验证的引脚补充。
+Contributions are welcome: schematics, PCB files, BOMs, BSP support, sample projects, errata and verified pinout additions.
 
-- 仓库：<https://github.com/YuzukiHD/YuzukiNeko>
-- 提交勘误或引脚补充时，请写明<strong>板子版本</strong>和<strong>验证方法</strong>（万用表、示波器、串口日志），并尽量附上原理图页码。
-- 硬件设计文件默认以 CC0 1.0 发布；固件、软件和第三方文件遵循各自目录的许可证。
+- Repository: <https://github.com/YuzukiHD/YuzukiNeko>
+- When submitting errata or pinout additions, state the <strong>board revision</strong> and the <strong>verification method</strong> (multimeter, oscilloscope, serial log), and include the schematic page number where you can.
+- Hardware design files are released under CC0 1.0 by default; firmware, software and third-party files follow the license in their respective directories.
 
-## 本地预览这份文档
+## Preview this documentation locally
 
-文档是 [Starlight](https://starlight.astro.build)（Astro）站点，源码在仓库的 `docs/` 目录，需要 Node.js 22.12 或更新的版本：
+The documentation is a [Starlight](https://starlight.astro.build) (Astro) site; its source is in the repository's `docs/` directory and it needs Node.js 22.12 or newer:
 
 ```sh
 cd docs
-npm ci          # 第一次，或依赖有变化时
-npm run dev     # 开发预览，改了页面会自动刷新
+npm ci          # The first time, or when dependencies change
+npm run dev     # Development preview; pages refresh automatically when changed
 ```
 
-然后打开 <http://localhost:4321/YuzukiNeko/>。
+Then open <http://localhost:4321/YuzukiNeko/>.
 
-要看和线上一样的构建结果：
+To see the build result exactly as it is online:
 
 ```sh
-npm run build      # 输出到 docs/dist/
-npm run preview    # 预览构建结果
+npm run build      # Output goes to docs/dist/
+npm run preview    # Preview the build result
 ```
 
-- 页面是 `docs/src/content/docs/` 下的 Markdown 文件，写法和目录约定见 `docs/README.md`。
-- 改了构建插件或样式后，如果页面还是旧的，删掉 `docs/.astro` 和 `docs/node_modules/.astro` 再重启，Astro 会按页面内容缓存渲染结果。
-- 推送到 `main` 后，GitHub Actions 会自动构建并发布到 GitHub Pages。
+- The pages are Markdown files under `docs/src/content/docs/`; for the writing style and directory conventions see `docs/README.md`.
+- After changing a build plugin or the styles, if pages are still stale, delete `docs/.astro` and `docs/node_modules/.astro` and restart; Astro caches rendered results by page content.
+- After a push to `main`, GitHub Actions builds and publishes to GitHub Pages automatically.

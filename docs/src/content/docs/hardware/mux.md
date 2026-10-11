@@ -1,21 +1,21 @@
 ---
-title: "引脚复用 (MUX)"
+title: "Pin multiplexing (MUX)"
 ---
 
-下表中的“复用功能”是 SoC 在该引脚上<strong>可以选择</strong>的功能，<strong>不是同时存在</strong>的功能，也不代表该功能在本板上已接线、已启用或有默认配置。每个引脚在 pinctrl/pinmux 软件中只能选一个功能。
+The "alternate functions" in the tables below are functions the SoC <strong>can select</strong> on that pin. They are <strong>not simultaneous</strong> functions, nor do they imply that the function is routed, enabled, or has a default configuration on this board. In pinctrl/pinmux software you can select only one function per pin.
 
-## 通用规则
+## General rules
 
-- 每个 GPIO 都可以当普通 GPIO：<strong>Function0 = 输入，Function1 = 输出</strong>。
-- Function11–13 保留；<strong>外部中断 EINT 是 Function14</strong>。
-- 表中 `F<n>` 即 pinmux 的 Function 编号，同一行里的功能互斥。
-- 在软件中通常用 `port + 引脚号 + mux` 三元组选择，例如 Zephyr 设备树里的 `ALLWINNER_PINMUX(port, num, mux)`。
-- 本文使用的是<strong>实际 SoC GPIO 名</strong>。V1.3 板的丝印请先按[勘误](errata.md)换算。
+- Every GPIO can be used as an ordinary GPIO: <strong>Function0 = input, Function1 = output</strong>.
+- Function11–13 are reserved; <strong>the external interrupt EINT is Function14</strong>.
+- `F<n>` in the table is the pinmux Function number; functions in the same row are mutually exclusive.
+- In software you usually select with the `port + pin number + mux` triple, for example `ALLWINNER_PINMUX(port, num, mux)` in a Zephyr device tree.
+- This document uses <strong>actual SoC GPIO names</strong>. For a V1.3 board, convert the silkscreen using the [errata](errata.md) first.
 
-## 左侧排针
+## Left header
 
 
-| 引脚 | F2 | F3 | F4 | F5 | F6 | F7 | F8 | F9 | F10 | 外部中断（F14） |
+| Pin | F2 | F3 | F4 | F5 | F6 | F7 | F8 | F9 | F10 | External interrupt (F14) |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `PD6` | LCD0-D10 | SPI1-CS1 | I2S0-MCLK | UART4-TX | PWM0-0 |  |  |  |  | PD-EINT6 |
 | `PD7` | LCD0-D11 | IR-RX | I2S0-BCLK | UART4-RX | PWM0-1 |  |  |  |  | PD-EINT7 |
@@ -37,10 +37,10 @@ title: "引脚复用 (MUX)"
 | `PE3` |  | LCD0-D9 | TWI0-SDA | I2S0-DOUT0 | UART4-RX | CAN1_RX0 | SPI1-MISO/DBI-SDI/DBI-TE/DBI-DCX | SDC2-CMD | PWM0-1 | PE-EINT3 |
 | `PE4` |  | LCD0-D16 | TWI2-SCK | I2S0-DIN0 | UART4-RTS | UART5-TX | SPI1-HOLD/DBI-DCX/DBI-WRX | SDC2-D3 | PWM0-2 | PE-EINT4 |
 
-## 右侧排针
+## Right header
 
 
-| 引脚 | F2 | F3 | F4 | F5 | F6 | F7 | F8 | F9 | F10 | 外部中断（F14） |
+| Pin | F2 | F3 | F4 | F5 | F6 | F7 | F8 | F9 | F10 | External interrupt (F14) |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `PD5` | LCD0-D7 | SPI1-WP/DBI-TE | UART2-CTS | IR-RX | TWI0-SDA |  |  |  |  | PD-EINT5 |
 | `PD4` | LCD0-D6 | SPI1-HOLD/DBI-DCX/DBI-WRX | UART2-RTS | UART3-CTS | TWI0-SCK |  |  |  |  | PD-EINT4 |
@@ -61,4 +61,4 @@ title: "引脚复用 (MUX)"
 | `PE9` |  | UART2-CTS | TWI0-SDA | CAN1_RX0 | UART3-RX | PWM0-1 | SPI1-MOSI/DBI-SDO |  |  | PE-EINT9 |
 | `PE10` |  | UART4-TX | TWI1-SCK | I2S0-MCLK | UART1-TX | PWM0-2 | SPI1-MISO/DBI-SDI/DBI-TE/DBI-DCX |  |  | PE-EINT10 |
 
-`GPADC` 是模拟输入，板级通道分配需要对照[原理图](files.md)确认。
+`GPADC` is an analog input; the board-level channel assignment must be confirmed against the [schematic](files.md).

@@ -1,20 +1,20 @@
 ---
-title: "编译与运行"
+title: "Building and running"
 ---
 
-这一页说明怎样编译 Zephyr 程序，并用三种方式把它放到 YuzukiNeko 上运行：
+This page explains how to build a Zephyr program and get it running on the YuzukiNeko in three ways:
 
-| 方式 | 程序放在哪 | 断电后 | 需要 | 适合 |
+| Method | Where the program lives | After power-off | Requires | Suited to |
 | --- | --- | --- | --- | --- |
-| [方式一：下载到 RAM 运行](#方式一下载到-ram-运行) | PSRAM | 丢失 | FEL + xfel | 开发调试，改一次跑一次 |
-| [方式二：xfel 直接写 NOR](#方式二xfel-直接写-nor) | SPI NOR | 保留，上电自动运行 | NOR 里有加载器；每次进 FEL + xfel | 固定一个程序，不想装 UF2 下载器 |
-| [方式三：UF2 拖放下载](#方式三uf2-拖放下载) | SPI NOR | 保留，上电自动运行 | NOR 里有加载器和 UF2 下载器；只需要 USB 线 | 日常下载的通用方式 |
+| [Method 1: download to RAM and run](#method-1-download-to-ram-and-run) | PSRAM | Lost | FEL + xfel | Development and debugging; build once, run once |
+| [Method 2: write NOR directly with xfel](#method-2-write-nor-directly-with-xfel) | SPI NOR | Retained, runs automatically on power-up | A loader in NOR; enter FEL + xfel each time | One fixed program, without installing a UF2 downloader |
+| [Method 3: UF2 drag-and-drop download](#method-3-uf2-drag-and-drop-download) | SPI NOR | Retained, runs automatically on power-up | A loader and the UF2 downloader in NOR; only a USB cable | The general everyday download method |
 
-三种方式用的是<strong>同一个</strong> `zephyr.bin`，不需要分别编译。方式二和方式三都要先在 NOR 里装好加载器，见 [NOR 启动的共同基础](#nor-启动的共同基础)。
+All three methods use <strong>the same</strong> `zephyr.bin`; there is no need to build separately for each. Methods 2 and 3 both require the loader to be installed in NOR first, see [The common basis for NOR boot](#the-common-basis-for-nor-boot).
 
-开始前请先完成 [配置开发环境](zephyr-setup-env.md) 和 [获取 Zephyr 代码](zephyr-get-source.md)，并安装好 xfel（见 [FEL 下载模式与工具](../../boot/fel.md)）。
+Before you start, complete [Configuring the development environment](zephyr-setup-env.md) and [Getting the Zephyr source](zephyr-get-source.md), and install xfel (see [FEL download mode and tools](../../boot/fel.md)).
 
-## 编译
+## Building
 
 ```sh
 . ~/f101-zephyr/env.sh
@@ -24,47 +24,47 @@ west build -b yuzukineko -d build/hello zephyr/samples/hello_world
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/zephyr-build-run/build.cast"></div>
 
-| 参数 | 含义 |
+| Argument | Meaning |
 | --- | --- |
-| `-b yuzukineko` | 板级。评估板用 `f101_evb` |
-| `-d build/hello` | 构建目录，不同程序用不同目录，互不覆盖 |
-| `zephyr/samples/hello_world` | 要编译的应用，换成别的示例路径即可 |
+| `-b yuzukineko` | Board. Use `f101_evb` for the evaluation board |
+| `-d build/hello` | Build directory; use a different directory for each program so they do not overwrite each other |
+| `zephyr/samples/hello_world` | The application to build; replace it with the path of another sample |
 
-产物在 `build/hello/zephyr/` 下：
+The output is under `build/hello/zephyr/`:
 
-| 文件 | 说明 |
+| File | Description |
 | --- | --- |
-| `zephyr.bin` | 裸二进制，下载到板子的就是它 |
-| `zephyr.elf` | 带符号的 ELF，调试和看内存布局用 |
+| `zephyr.bin` | Bare binary; this is what gets downloaded to the board |
+| `zephyr.elf` | ELF with symbols, for debugging and inspecting the memory layout |
 
-镜像的链接地址和入口都是 `0x40010000`（PSRAM 的起点附近）。工具链是玄铁 900 的 newlib GCC，通过 `ZEPHYR_TOOLCHAIN_VARIANT=cross-compile` 接入，由 `env.sh` 设置。
+The image's link address and entry point are both `0x40010000` (near the start of PSRAM). The toolchain is the XuanTie 900 newlib GCC, wired in through `ZEPHYR_TOOLCHAIN_VARIANT=cross-compile`, set by `env.sh`.
 
-重新编译同一个目录用 `west build -d build/hello`；换了板级或想从头来，加 `-p always`。
+To rebuild the same directory, use `west build -d build/hello`; if you changed the board or want to start over, add `-p always`.
 
-## 控制台
+## Console
 
-`yuzukineko` 的控制台是 <strong>UART1，PB00（TX）/ PB01（RX），115200 8N1</strong>。把 USB 转串口的 RX 接 PB00、TX 接 PB01，并共地，然后用任意串口终端打开，例如：
+The console of `yuzukineko` is <strong>UART1, PB00 (TX) / PB01 (RX), 115200 8N1</strong>. Connect the USB-to-serial adapter's RX to PB00 and its TX to PB01, share ground, then open any serial terminal, for example:
 
 ```sh
 picocom -b 115200 /dev/ttyUSB0
 ```
 
-没有输出时，先判断是哪一环出了问题：接线和终端参数、程序有没有真正执行、还是 Zephyr 自身。一个有效的办法是先载入一个裸机小程序（链接在 `0x40010000`，轮询 UART 并写发送寄存器）证明这条路径是通的。
+When there is no output, first work out which link is at fault: the wiring and terminal parameters, whether the program is really executing, or Zephyr itself. A useful approach is to first load a small bare-metal program (linked at `0x40010000`, polling UART and writing the transmit register) to prove that this path works.
 
-## 方式一：下载到 RAM 运行
+## Method 1: download to RAM and run
 
-主机通过 USB 把 `zephyr.bin` 写进 PSRAM 再跳转过去运行，不动 Flash。
+The host writes `zephyr.bin` into PSRAM over USB and then jumps to it, without touching Flash.
 
-1. 让板子进入 FEL：按住 FEL 键，接上 USB 数据线，松开（详见 [FEL 下载模式与工具](../../boot/fel.md#进入-fel)）。
-2. 确认连接：
+1. Put the board into FEL: hold the FEL button, connect the USB data cable, release (see [FEL download mode and tools](../../boot/fel.md#entering-fel)).
+2. Confirm the connection:
 
    ```sh
    xfel version
    ```
 
-   输出里应有 `AWUSBFEX ID=0x00193700(F101)`。
+   The output should contain `AWUSBFEX ID=0x00193700(F101)`.
 
-3. 初始化内存、载入、运行：
+3. Initialize memory, load, and run:
 
    ```sh
    xfel ddr f101-s3
@@ -72,52 +72,52 @@ picocom -b 115200 /dev/ttyUSB0
    xfel exec 0x40010000
    ```
 
-此时控制台应开始输出。`hello_world` 会打印 `Hello World! yuzukineko/sun252i_f101`。
+At this point the console should start producing output. `hello_world` prints `Hello World! yuzukineko/sun252i_f101`.
 
-| 命令 | 作用 |
+| Command | Effect |
 | --- | --- |
-| `xfel ddr f101-s3` | 初始化 PSRAM。这个辅助程序同时配好 UART 时钟和引脚复用，缺了它控制台没有输出 |
-| `xfel write 0x40010000 …` | 把镜像写到链接地址 |
-| `xfel exec 0x40010000` | 跳到入口开始运行 |
+| `xfel ddr f101-s3` | Initialize PSRAM. This helper also sets up the UART clock and pin multiplexing; without it the console has no output |
+| `xfel write 0x40010000 …` | Write the image to the link address |
+| `xfel exec 0x40010000` | Jump to the entry point and start running |
 
-要点：
+Points to note:
 
-- <strong>每次下载都要重新上电进入 FEL。</strong>`exec` 之后 CPU 已离开 BROM，FEL 不再可用。
-- 这条路径跳过了 boot0 和 u-boot，SoC 早期初始化（CPU CSR、控制台时钟）由 Zephyr 自己负责。
-- `exec` 之后不要再用 `xfel read32`、`hexdump` 查看状态，USB 链路已断。要查状态只能在 `exec` 之前。
-- `exec` 之后看到 `usb bulk send/recv error`，说明 CPU 已经在跑你的代码，属正常现象，但<strong>不代表 Zephyr 本身运行正常</strong>，以控制台输出为准。
+- <strong>Every download needs a fresh power-up into FEL.</strong> After `exec` the CPU has left the BROM and FEL is no longer available.
+- This path skips boot0 and u-boot, so the early SoC initialization (CPU CSR, console clock) is handled by Zephyr itself.
+- Do not use `xfel read32` or `hexdump` to check status after `exec`; the USB link is already gone. Status can only be checked before `exec`.
+- Seeing `usb bulk send/recv error` after `exec` means the CPU is already running your code, which is normal, but it <strong>does not mean Zephyr itself is running correctly</strong>; go by the console output.
 
-## NOR 启动的共同基础
+## The common basis for NOR boot
 
-方式二和方式三都把程序写进板载的 16 MiB SPI NOR，由 Flash 里的加载器在上电时取出来运行。这一节说明它是怎么工作的，以及怎样装加载器。
+Methods 2 and 3 both write the program into the onboard 16 MiB SPI NOR, and a loader in the Flash fetches it out and runs it at power-up. This section explains how that works and how to install the loader.
 
-### 工作原理
+### How it works
 
-| 内容 | NOR 偏移 | 说明 |
+| Content | NOR offset | Description |
 | --- | --- | --- |
-| 加载器（三份） | `0x000000` / `0x010000` / `0x020000` | SyterKit `flash-boot` |
-| 已保存的 Flash 采样点 | `0x02f000` | 加载器自己维护，<strong>不要覆盖</strong> |
-| UF2 下载器（系统程序） | `0x030000` | 头页 + 镜像，最大 `0x1CF000` 字节；只有方式三需要 |
-| 应用（你的 Zephyr 程序） | `0x200000` | 头页 + 镜像，最大 `0x9F0000` 字节 |
+| Loader (three copies) | `0x000000` / `0x010000` / `0x020000` | SyterKit `flash-boot` |
+| Saved Flash sample point | `0x02f000` | Maintained by the loader itself, <strong>do not overwrite</strong> |
+| UF2 downloader (system program) | `0x030000` | Header page + image, up to `0x1CF000` bytes; needed only by method 3 |
+| Application (your Zephyr program) | `0x200000` | Header page + image, up to `0x9F0000` bytes |
 
-上电后 BROM 把加载器读进 SRAM，加载器初始化 PSRAM 和 Flash 控制器，然后二选一：
+At power-up the BROM reads the loader into SRAM, the loader initializes PSRAM and the Flash controller, then chooses one of two paths:
 
-- <strong>PD5 上的按键没有按住，且应用头页有效</strong>：把应用复制到 PSRAM 并运行。
-- 否则：运行 UF2 下载器，板子在 USB 口上显示为盘 `F101BOOT`，等待拖入 `.uf2`。
+- <strong>The button on PD5 is not held, and the application header page is valid</strong>: copy the application to PSRAM and run it.
+- Otherwise: run the UF2 downloader, and the board appears on the USB port as the drive `F101BOOT`, waiting for a `.uf2` to be dragged in.
 
-应用和方式一一样<strong>在 PSRAM 里运行</strong>，不是在 Flash 里就地执行，所以用的是同一个 `zephyr.bin`。每个程序前有一个 4 KiB 的<strong>头页</strong>，记录镜像载入的 PSRAM 地址（默认 `0x40010000`）和大小。头页由 `mkuf2.py` 自动加上，不需要手写。
+The application runs <strong>in PSRAM</strong> just as in method 1, not in place from Flash, so it is the same `zephyr.bin`. Each program is preceded by a 4 KiB <strong>header page</strong> that records the PSRAM address the image loads to (the default `0x40010000`) and its size. The header page is added automatically by `mkuf2.py`; you do not write it by hand.
 
 :::caution
-这个布局与 [Linux + Buildroot](../linux/linux-prebuilt.md)、RustSBI + Asterinas 镜像的布局<strong>互不兼容</strong>，不能混着写。从那些镜像换过来，需要重新装一遍加载器。动手前先按 [SPI NOR 布局与备份](../../boot/flash-layout.md) 备份整片 Flash。
+This layout is <strong>mutually incompatible</strong> with the layout of the [Linux + Buildroot](../linux/linux-prebuilt.md) and RustSBI + Asterinas images, and they must not be written mixed together. Switching over from those images requires reinstalling the loader. Before you start, back up the whole Flash following [SPI NOR layout and backup](../../boot/flash-layout.md).
 :::
 
 :::caution
-一旦 NOR 里有了有效的加载器，板子上电就直接从 Flash 启动，<strong>不会再自己进入 FEL</strong>。之后每次要用 xfel，都必须按住 FEL 键上电，见 [FEL 下载模式与工具](../../boot/fel.md#进入-fel)。
+Once NOR holds a valid loader, the board boots straight from Flash at power-up and <strong>no longer enters FEL on its own</strong>. From then on, every time you want to use xfel you must hold the FEL button while powering up, see [FEL download mode and tools](../../boot/fel.md#entering-fel).
 :::
 
-### 准备工具
+### Preparing the tools
 
-`mkuf2.py` 在 `zephyr-components` 仓库里，是只依赖标准库的 Python 脚本，不用装额外的包。仓库的作用见 [获取 zephyr-components](zephyr-get-source.md#获取-zephyr-components)；已经克隆过的，跳过下面的 `git clone` 和 `checkout`：
+`mkuf2.py` lives in the `zephyr-components` repository; it is a Python script that only needs the standard library, with no extra packages to install. For what the repository is for, see [Get zephyr-components](zephyr-get-source.md#get-zephyr-components); if you have already cloned it, skip the `git clone` and `checkout` below:
 
 ```sh
 cd ~/f101-zephyr
@@ -127,10 +127,10 @@ mkdir -p out
 ```
 
 :::tip
-这个仓库的其他目录是 MicroPython、mGBA 等应用，各自带 git 子模块。这里只用 `uf2-downloader/`，不需要执行 `git submodule update`。
+The other directories in this repository are applications such as MicroPython and mGBA, each with its own git submodules. Only `uf2-downloader/` is used here; there is no need to run `git submodule update`.
 :::
 
-### 编译加载器
+### Building the loader
 
 ```sh
 cd ~/f101-zephyr
@@ -146,11 +146,11 @@ cd ..
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/zephyr-build-run/loader.cast" data-speed="3"></div>
 
-产物是 `out/syterkit/build/yuzukineko/app_sram/flash-boot/flash-boot_spi.bin`（32 KiB）。
+The output is `out/syterkit/build/yuzukineko/app_sram/flash-boot/flash-boot_spi.bin` (32 KiB).
 
-### 写入加载器
+### Writing the loader
 
-进入 FEL，先备份整片 Flash，再把加载器写三份：
+Enter FEL, back up the whole Flash first, then write the loader three times:
 
 ```sh
 xfel version
@@ -162,13 +162,13 @@ xfel spinor write 0x010000 $L
 xfel spinor write 0x020000 $L
 ```
 
-`xfel spinor write` 会自动擦除需要的扇区。写 Flash 不需要执行 `xfel ddr`。
+`xfel spinor write` erases the sectors it needs automatically. Writing Flash does not require running `xfel ddr`.
 
-接着按你用的方式继续：方式二写入应用，方式三写入 UF2 下载器。
+Then continue according to the method you are using: method 2 writes the application, method 3 writes the UF2 downloader.
 
-### 生成带头页的镜像
+### Generating an image with a header page
 
-`mkuf2.py` 把 `zephyr.bin` 加上头页。`--raw` 输出 Flash 原始镜像，供 `xfel spinor write` 用；不加 `--raw` 输出 `.uf2` 文件。
+`mkuf2.py` adds a header page to `zephyr.bin`. `--raw` outputs the raw Flash image, for use with `xfel spinor write`; without `--raw` it outputs a `.uf2` file.
 
 ```sh
 python3 zephyr-components/uf2-downloader/tools/mkuf2.py app build/hello/zephyr/zephyr.bin --raw -o out/app.img
@@ -176,23 +176,23 @@ python3 zephyr-components/uf2-downloader/tools/mkuf2.py app build/hello/zephyr/z
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/zephyr-build-run/mkuf2.cast"></div>
 
-输出类似 `out/app.img: 2096208 bytes at 0x200000`。镜像大于应用区（`0x9F0000` 字节）时脚本会报错退出。默认载入地址是 `0x40010000`，和 Zephyr 的链接地址一致；镜像链接在别处时用 `--load` 指定。
+The output is similar to `out/app.img: 2096208 bytes at 0x200000`. When the image is larger than the application area (`0x9F0000` bytes) the script reports an error and exits. The default load address is `0x40010000`, matching Zephyr's link address; when the image is linked elsewhere, specify it with `--load`.
 
-## 方式二：xfel 直接写 NOR
+## Method 2: write NOR directly with xfel
 
-不装 UF2 下载器，每次都用 xfel 把应用写到 NOR 的 `0x200000`。适合只想固定跑一个程序的场景。
+Without installing the UF2 downloader, use xfel each time to write the application to `0x200000` in NOR. Suited to the case where you only want one fixed program to run.
 
-**前提**：已按上面的 [NOR 启动的共同基础](#nor-启动的共同基础) 把加载器写进 NOR。
+**Prerequisite**: the loader has been written into NOR as described under [The common basis for NOR boot](#the-common-basis-for-nor-boot) above.
 
-**1. 生成应用镜像**
+**1. Generate the application image**
 
 ```sh
 python3 zephyr-components/uf2-downloader/tools/mkuf2.py app build/hello/zephyr/zephyr.bin --raw -o out/app.img
 ```
 
-**2. 进入 FEL 并写入**
+**2. Enter FEL and write**
 
-按住 FEL 键上电，然后：
+Hold the FEL button while powering up, then:
 
 ```sh
 xfel version
@@ -200,9 +200,9 @@ xfel spinor write 0x200000 out/app.img
 xfel reset
 ```
 
-**3. 观察控制台**
+**3. Watch the console**
 
-加载器会先打印自己的日志，再运行你的程序：
+The loader prints its own log first, then runs your program:
 
 ```text
 PSRAM: … MiB initialized
@@ -211,21 +211,21 @@ SPI NOR: image  0x00201000 -> 0x40010000 (… KiB)
 starting at 0x40010000 (id 0)
 ```
 
-之后每次改代码：重新编译 → `mkuf2.py app … --raw` → 按住 FEL 键上电 → `xfel spinor write 0x200000` → `xfel reset`。
+Afterwards, for each code change: rebuild → `mkuf2.py app … --raw` → hold the FEL button while powering up → `xfel spinor write 0x200000` → `xfel reset`.
 
 :::caution
-这种方式 Flash 里没有 UF2 下载器。如果应用写坏、头页无效，加载器找不到可运行的程序，会报 `flash: no valid system program`，不再往下启动，板子没有程序输出。这时只能再进 FEL 重写应用。
+With this method there is no UF2 downloader in Flash. If the application is written incorrectly or its header page is invalid, the loader finds no runnable program, reports `flash: no valid system program`, stops booting, and the board has no program output. In that case the only option is to enter FEL again and rewrite the application.
 :::
 
-## 方式三：UF2 拖放下载
+## Method 3: UF2 drag-and-drop download
 
-这是<strong>通用的日常下载方式</strong>。xfel 只在最开始用一次，把 UF2 下载器装进 NOR；以后把应用做成 `.uf2` 文件，拖进板子显示的 USB 盘即可，不再需要 FEL 和 xfel。
+This is <strong>the general everyday download method</strong>. xfel is used only once at the very beginning, to install the UF2 downloader into NOR; afterwards you turn the application into a `.uf2` file and drag it into the USB drive the board shows, and FEL and xfel are no longer needed.
 
-### 第一步：安装 UF2 下载器（只做一次）
+### Step one: install the UF2 downloader (once only)
 
-**前提**：已按 [NOR 启动的共同基础](#nor-启动的共同基础) 把加载器写进 NOR。
+**Prerequisite**: the loader has been written into NOR as described under [The common basis for NOR boot](#the-common-basis-for-nor-boot).
 
-**1. 编译 UF2 下载器并加头页**
+**1. Build the UF2 downloader and add the header page**
 
 ```sh
 west build -b yuzukineko -d build/uf2 zephyr-components/uf2-downloader
@@ -234,9 +234,9 @@ python3 zephyr-components/uf2-downloader/tools/mkuf2.py system build/uf2/zephyr/
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/zephyr-build-run/downloader.cast"></div>
 
-**2. 进入 FEL 并写入**
+**2. Enter FEL and write**
 
-按住 FEL 键上电，然后：
+Hold the FEL button while powering up, then:
 
 ```sh
 xfel version
@@ -244,53 +244,53 @@ xfel spinor write 0x030000 out/sys.img
 xfel reset
 ```
 
-这里<strong>不写应用</strong>。Flash 里没有有效应用时，加载器会直接运行下载器。
+Here you do <strong>not write the application</strong>. When there is no valid application in Flash, the loader runs the downloader directly.
 
-**3. 确认 UF2 盘出现**
+**3. Confirm the UF2 drive appears**
 
-复位后，用 USB 数据线连接电脑，板子应显示为 USB 盘 <strong>`F101BOOT`</strong>。看到这个盘，安装就完成了。
+After the reset, connect to the computer with a USB data cable; the board should appear as the USB drive <strong>`F101BOOT`</strong>. Seeing this drive means the installation is complete.
 
-### 第二步：用 UF2 下载应用（日常流程）
+### Step two: download an application with UF2 (the everyday flow)
 
-把 `zephyr.bin` 做成 `.uf2`：
+Turn `zephyr.bin` into a `.uf2`:
 
 ```sh
 python3 zephyr-components/uf2-downloader/tools/mkuf2.py app build/hello/zephyr/zephyr.bin -o out/app.uf2
 ```
 
-输出类似 `out/app.uf2: 2096208 bytes at 0x200000, 8189 UF2 blocks`。`.uf2` 文件大小约是 `zephyr.bin` 的两倍，因为每个块只携带 256 字节数据。
+The output is similar to `out/app.uf2: 2096208 bytes at 0x200000, 8189 UF2 blocks`. The `.uf2` file is about twice the size of `zephyr.bin`, because each block carries only 256 bytes of data.
 
-然后：
+Then:
 
-1. 让板子进入 UF2 下载器：<strong>按住 PD5 上的按键，再上电</strong>（或复位）。Flash 里没有有效应用时不用按键，自动进入。
-2. 板子显示为 `F101BOOT` 盘。
-3. 把 `out/app.uf2` 拷进这个盘。
-4. 拷完后板子自动重启，加载器运行新的应用，控制台开始输出。
+1. Put the board into the UF2 downloader: <strong>hold the button on PD5, then power up</strong> (or reset). When there is no valid application in Flash the button is not needed, it enters automatically.
+2. The board appears as the `F101BOOT` drive.
+3. Copy `out/app.uf2` into this drive.
+4. After the copy finishes the board restarts automatically, the loader runs the new application, and the console starts producing output.
 
-之后每次改代码：重新编译 → `mkuf2.py app …` → 按住按键上电 → 拷贝。
+Afterwards, for each code change: rebuild → `mkuf2.py app …` → hold the button while powering up → copy.
 
-### 三种 uf2 文件
+### The three kinds of uf2 files
 
-| 文件类型 | 命令 | 写入位置 | 能写的范围 |
+| File type | Command | Write location | Range it can write |
 | --- | --- | --- | --- |
-| 应用 | `mkuf2.py app zephyr.bin -o x.uf2` | `0x200000` | 只能写应用区 |
-| 下载器本身 | `mkuf2.py system zephyr.bin -o x.uf2` | `0x030000` | 任意位置 |
-| 加载器 | `mkuf2.py loader flash-boot_spi.bin -o x.uf2` | `0x000000` | 任意位置 |
+| Application | `mkuf2.py app zephyr.bin -o x.uf2` | `0x200000` | Only the application area |
+| The downloader itself | `mkuf2.py system zephyr.bin -o x.uf2` | `0x030000` | Any location |
+| Loader | `mkuf2.py loader flash-boot_spi.bin -o x.uf2` | `0x000000` | Any location |
 
 :::caution
-`app` 文件只会写到应用区，写错了顶多是应用不能运行。`system` 和 `loader` 文件可以写入任何位置，写坏了板子就没有加载器，只有 FEL 能救。只拖放你信任的文件，并且写入期间不要断电。
+An `app` file writes only to the application area, so a mistake at worst means the application will not run. `system` and `loader` files can write to any location; write them wrong and the board has no loader, and only FEL can rescue it. Only drag in files you trust, and do not cut power while writing.
 :::
 
-更多关于 UF2 的细节见 [UF2 拖放烧录](zephyr-uf2.md)。
+For more detail about UF2 see [UF2 drag-and-drop flashing](zephyr-uf2.md).
 
-## 常见问题
+## Troubleshooting
 
-<strong>方式一：`exec` 后控制台没有输出</strong>：先确认控制台接线和参数，确认 `xfel ddr f101-s3` 已经执行。仍然没有，用前面「控制台」一节说的裸机小程序区分问题在哪一环。
+<strong>Method 1: the console has no output after `exec`</strong>: first confirm the console wiring and parameters, and that `xfel ddr f101-s3` has been run. If there is still nothing, use the small bare-metal program mentioned in the "Console" section above to work out which link is at fault.
 
-<strong>`mkuf2.py` 报 `… bytes, the limit is 10420224`</strong>：应用超过了 `0x9F0000` 字节的应用区。减小程序，或去掉不需要的功能。
+<strong>`mkuf2.py` reports `… bytes, the limit is 10420224`</strong>: the application exceeds the `0x9F0000`-byte application area. Make the program smaller, or drop features you do not need.
 
-<strong>没有出现 `F101BOOT` 盘</strong>：确认用的是带数据线的 USB-C 线，接在下载口上；确认已按住 PD5 的按键再上电。仍然没有，说明加载器或下载器没装好，按住 FEL 键上电，重新写入。
+<strong>The `F101BOOT` drive does not appear</strong>: confirm you are using a USB-C cable with data lines, plugged into the download port; confirm you have held the button on PD5 before powering up. If it still does not appear, the loader or the downloader is not installed properly; hold the FEL button while powering up and rewrite them.
 
-<strong>拷贝或写入后板子重启，但没有输出</strong>：先用方式一把同一个 `zephyr.bin` 载入内存运行，看程序本身是否正常，再排查 NOR 里的镜像。
+<strong>The board restarts after a copy or write but has no output</strong>: first use method 1 to load the same `zephyr.bin` into memory and run it, to see whether the program itself is fine, then investigate the image in NOR.
 
-<strong>板子上电什么都没有</strong>：加载器被覆盖或写坏。按住 FEL 键上电，重新写加载器，或者用备份恢复：`xfel spinor write 0x0 neko-backup.bin`。
+<strong>The board does nothing at all at power-up</strong>: the loader has been overwritten or written incorrectly. Hold the FEL button while powering up and rewrite the loader, or restore from the backup: `xfel spinor write 0x0 neko-backup.bin`.

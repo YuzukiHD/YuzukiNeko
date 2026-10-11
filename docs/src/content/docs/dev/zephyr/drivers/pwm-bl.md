@@ -1,43 +1,43 @@
 ---
-title: "PWM-BL - 模拟背光"
+title: "PWM-BL - analog backlight"
 ---
 
-PWM_BL 是 F101 上专门驱动 LCD 背光的模块，和通用的 [PWM](pwm.md) 是两个独立的设备。它不产生任意频率的方波：它控制片内的两个升压（BOOST）电路，通过“灌电流”的大小调节背光 LED 的亮度，调光有数字加模拟两种方式。在 Zephyr 里它是 `pwm_bl` 设备，接口仍然是标准的 `<zephyr/drivers/pwm.h>`，驱动是 `drivers/pwm/pwm_sunxi_bl.c`。
+PWM_BL is the module on the F101 dedicated to driving the LCD backlight, and it is a device separate from the general-purpose [PWM](pwm.md). It does not produce square waves of arbitrary frequency: it controls two on-chip boost (BOOST) circuits and adjusts the brightness of the backlight LEDs through the size of the "sink current"; dimming has both a digital and an analog form. In Zephyr it is the `pwm_bl` device, the interface is still the standard `<zephyr/drivers/pwm.h>`, and the driver is `drivers/pwm/pwm_sunxi_bl.c`.
 
-| 项目 | 内容 |
+| Item | Content |
 | --- | --- |
-| 端口 | 两个：端口 0（BOOST0，PWM 脚 PB2，反馈脚 PB3）数字加模拟比较调光；端口 1（BOOST1，PWM 脚 PB0，反馈脚 PB1）纯模拟，750 kHz |
-| 通道 | 对 API 只有一个通道，通道 0，别的通道返回 `-EINVAL`；设置时两个端口一起开关，亮度（灌电流）只写端口 0 |
-| 亮度 | `脉宽 × 256 ÷ 周期` 得到灌电流级别，最大 200，0 关闭 |
-| 计时单位 | `pwm_get_cycles_per_sec` 返回 1 GHz，一个周期是 1 ns，比例精确 |
-| 极性 | 没有。模拟级没有极性，`flags` 被忽略 |
-| 周期 | 周期的长短不改变输出，只有脉宽和周期的比值有用 |
-| 板子 | `f101_evb` 的 RGB 屏背光接在这里；`yuzukineko` 的背光在通用 PWM 的通道 2，不用 PWM_BL |
+| Ports | Two: port 0 (BOOST0, PWM pin PB2, feedback pin PB3) digital plus analog comparison dimming; port 1 (BOOST1, PWM pin PB0, feedback pin PB1) analog only, 750 kHz |
+| Channel | As far as the API is concerned there is only one channel, channel 0, and any other channel returns `-EINVAL`; when setting, the two ports are switched together, and the brightness (sink current) is written only to port 0 |
+| Brightness | `pulse × 256 ÷ period` gives the sink current level, maximum 200, 0 switches off |
+| Time unit | `pwm_get_cycles_per_sec` returns 1 GHz, so one period is 1 ns and the ratios are exact |
+| Polarity | None. There is no polarity in the analog stage, `flags` is ignored |
+| Period | The length of the period does not change the output, only the ratio of pulse to period is useful |
+| Board | The RGB panel backlight of `f101_evb` is connected here; the backlight of `yuzukineko` is on channel 2 of the general-purpose PWM and does not use PWM_BL |
 
-本文的演示在 `yuzukineko` 上运行：用 overlay 把 `pwm_bl` 打开（只用 PB2、PB3，不动 PB0、PB1 的控制台），这块板上没有接 PWM_BL 的背光，所以演示读回模块的寄存器来看驱动写进去的亮度，没有测输出。
+The demonstration in this page runs on `yuzukineko`: an overlay switches `pwm_bl` on (using only PB2 and PB3, without touching the console on PB0 and PB1), and since no backlight on this board is connected to PWM_BL, the demonstration reads the module's registers back to see the brightness the driver wrote into them, without measuring the output.
 
-## 设备树
+## Devicetree
 
-| 文件 | 作用 |
+| File | Purpose |
 | --- | --- |
-| `dts/bindings/pwm/allwinner,sunxi-pwm-bl.yaml` | 绑定 |
-| `dts/riscv/allwinner/sun252i_f101.dtsi` | SoC 设备树：`pwm_bl` 节点，默认 `disabled` |
-| `examples/pwm_bl_api/app.overlay` | 应用的 overlay：引脚组，打开 `pwm_bl`，用 `zephyr,user` 节点引用它 |
+| `dts/bindings/pwm/allwinner,sunxi-pwm-bl.yaml` | Binding |
+| `dts/riscv/allwinner/sun252i_f101.dtsi` | SoC devicetree: the `pwm_bl` node, `disabled` by default |
+| `examples/pwm_bl_api/app.overlay` | The application overlay: the pin group, switching `pwm_bl` on, and referencing it from the `zephyr,user` node |
 
-### SoC 设备树：sun252i_f101.dtsi
+### SoC devicetree: sun252i_f101.dtsi
 
 ```c
 pwm_bl: pwm@200a000 {
-	/* 匹配驱动 pwm_sunxi_bl.c 里的 DT_DRV_COMPAT allwinner_sunxi_pwm_bl */
+	/* matches DT_DRV_COMPAT allwinner_sunxi_pwm_bl in the driver pwm_sunxi_bl.c */
 	compatible = "allwinner,sunxi-pwm-bl";
 
-	/* 引用它的 pwms 属性有 3 个格子：通道、周期（纳秒）、标志 */
+	/* the pwms property that references it has 3 cells: channel, period (nanoseconds), flags */
 	#pwm-cells = <3>;
 
-	/* 寄存器窗口：基址 0x0200a000，长度 0x400；两个端口各占 0x200 */
+	/* register window: base 0x0200a000, length 0x400; each of the two ports takes 0x200 */
 	reg = <0x0200a000 0x400>;
 
-	/* 驱动自己配置时钟：CCU 的基址，PWM_BL 模块时钟、总线门控和复位寄存器的偏移 */
+	/* the driver configures the clock itself: the CCU base address, and the offsets of the PWM_BL module clock, bus gate and reset registers */
 	ccu-base = <0x02001000>;
 	mod-clk-reg = <0x790>;
 	bus-clk-reg = <0x794>;
@@ -46,9 +46,9 @@ pwm_bl: pwm@200a000 {
 };
 ```
 
-### 打开 PWM_BL：app.overlay
+### Enabling PWM_BL: app.overlay
 
-`yuzukineko` 的板级文件没有打开 `pwm_bl`，演示用应用的 overlay 打开它。PB0、PB1 是 UART1 控制台，不能给 PWM_BL，所以只给 PB2、PB3（BOOST0 的 PWM 和反馈，复用功能 2），再用 `zephyr,user` 节点放一个 `pwms` 属性：
+The board files of `yuzukineko` do not switch `pwm_bl` on, so the demonstration switches it on from the application overlay. PB0 and PB1 are the UART1 console and cannot be given to PWM_BL, so only PB2 and PB3 are assigned (the PWM and feedback of BOOST0, multiplexing function 2), and a `pwms` property is placed in the `zephyr,user` node:
 
 ```c
 /*
@@ -79,9 +79,9 @@ pwm_bl: pwm@200a000 {
 };
 ```
 
-`PWM_POLARITY_INVERTED` 写在这里只是和别的背光节点保持一致，对 PWM_BL 没有影响。显示流水线用的 `pwm-backlight` 节点的属性见 [显示](display.md) 和 [PWM](pwm.md)。
+`PWM_POLARITY_INVERTED` is written here only to stay consistent with the other backlight nodes; it has no effect on PWM_BL. For the properties of the `pwm-backlight` node used by the display pipeline, see [Display](display.md) and [PWM](pwm.md).
 
-### 绑定：allwinner,sunxi-pwm-bl.yaml
+### Binding: allwinner,sunxi-pwm-bl.yaml
 
 ```yaml
 # Copyright (c) 2026 Yuzuki Tsuru
@@ -124,42 +124,42 @@ pwm-cells:
   - flags
 ```
 
-| 属性 | 必填 | 含义 |
+| Property | Required | Meaning |
 | --- | --- | --- |
-| `reg` | 是 | 寄存器窗口 |
-| `ccu-base` | 是 | CCU 的基址 |
-| `mod-clk-reg` | 是 | PWM_BL 模块时钟寄存器在 CCU 里的偏移 |
-| `bus-clk-reg` | 是 | PWM_BL 总线门控和复位寄存器在 CCU 里的偏移 |
-| `#pwm-cells` | 否 | 固定为 3：通道、周期、标志 |
-| `pinctrl-0`、`pinctrl-names` | 否 | 引脚，见 [GPIO 页的 pinctrl 一节](gpio.md#引脚复用pinctrl) |
+| `reg` | Yes | Register window |
+| `ccu-base` | Yes | Base address of the CCU |
+| `mod-clk-reg` | Yes | CCU offset of the PWM_BL module clock register |
+| `bus-clk-reg` | Yes | CCU offset of the PWM_BL bus gate and reset register |
+| `#pwm-cells` | No | Fixed at 3: channel, period, flags |
+| `pinctrl-0`, `pinctrl-names` | No | Pins, see [the pinctrl section of the GPIO page](gpio.md#pin-multiplexing-pinctrl) |
 
 ## Kconfig
 
-| 选项 | 默认 | 含义 |
+| Option | Default | Meaning |
 | --- | --- | --- |
-| `CONFIG_PWM` | 板级 defconfig 里是 `y` | 打开 PWM 子系统 |
-| `CONFIG_PWM_SUNXI_BL` | `y`（依赖 `DT_HAS_ALLWINNER_SUNXI_PWM_BL_ENABLED`） | 编译这个驱动，并选中 `CONFIG_PINCTRL` |
-| `CONFIG_PWM_SUNXI_BL_INIT_PRIORITY` | 82 | 驱动的初始化优先级 |
+| `CONFIG_PWM` | `y` in the board defconfig | Switch on the PWM subsystem |
+| `CONFIG_PWM_SUNXI_BL` | `y` (depends on `DT_HAS_ALLWINNER_SUNXI_PWM_BL_ENABLED`) | Build this driver, and select `CONFIG_PINCTRL` |
+| `CONFIG_PWM_SUNXI_BL_INIT_PRIORITY` | 82 | Initialization priority of the driver |
 
-## 驱动怎么工作
+## How the driver works
 
-初始化时驱动做这些事：打开总线时钟、释放复位，把模块时钟设成 PLL_PERI_2X 分频后接近 400 MHz；应用 `pinctrl`；PB0 和 PB2 的驱动能力设为 3（`yuzukineko` 上 PB0 是控制台 TX，它的驱动能力也被改成 3，不影响通信）；按固定的参数配置两个端口：
+At initialization the driver does these things: switches on the bus clock, releases the reset, and sets the module clock to close to 400 MHz after dividing PLL_PERI_2X; applies the `pinctrl`; sets the drive strength of PB0 and PB2 to 3 (on `yuzukineko` PB0 is the console TX, and its drive strength is also changed to 3, without affecting communication); and configures the two ports with fixed parameters:
 
-| 端口 | 配置 |
+| Port | Configuration |
 | --- | --- |
-| 端口 1（BOOST1） | 纯模拟，750 kHz，最大亮度代码 2 |
-| 端口 0（BOOST0） | 数字加模拟比较：周期 0x215，初始有效 0x1a，最大有效 0x140，最大亮度代码 3 |
+| Port 1 (BOOST1) | Analog only, 750 kHz, maximum brightness code 2 |
+| Port 0 (BOOST0) | Digital plus analog comparison: period 0x215, initially active 0x1a, maximum active 0x140, maximum brightness code 3 |
 
-设置亮度时（`pwm_set_cycles`）：`级别 = 脉宽 × 256 ÷ 周期`，不超过 200；级别非 0 就使能两个端口，端口 0 的灌电流设为这个级别；级别是 0 就关闭两个端口。下面的演示读回的寄存器：
+When setting the brightness (`pwm_set_cycles`): `level = pulse × 256 ÷ period`, not exceeding 200; if the level is not 0 both ports are enabled and the sink current of port 0 is set to this level; if the level is 0 both ports are switched off. The registers read back by the demonstration below:
 
-| 寄存器 | 偏移（端口 0，端口 1 加 0x200） | 内容 |
+| Register | Offset (port 0; add 0x200 for port 1) | Content |
 | --- | --- | --- |
-| `CTRL` | `0x0000` | 位 0 使能 |
-| `ANA1` | `0x0054` | 位 23:16 灌电流级别，位 2:0 最大亮度代码 |
+| `CTRL` | `0x0000` | Bit 0 enables |
+| `ANA1` | `0x0054` | Bits 23:16 sink current level, bits 2:0 maximum brightness code |
 
-## 接口详解
+## API details
 
-下面每个接口一个小标题：原型、驱动的行为、示例函数和它在板子上的输出。示例来自文末的[完整演示程序](#完整演示程序)，里面的 `err()` 把返回值转成名字。读寄存器的函数和用到的宏：
+Each API below gets its own short heading: the prototype, the driver's behavior, an example function, and its output on the board. The examples come from [the complete demonstration program](#the-complete-demonstration-program) at the end of the page, whose `err()` turns a return value into a name. The function that reads the registers and the macros it uses:
 
 ```c
 #define BASE		DT_REG_ADDR(DT_NODELABEL(pwm_bl))
@@ -186,7 +186,7 @@ static void show_regs(void)
 int pwm_get_cycles_per_sec(const struct device *dev, uint32_t channel, uint64_t *cycles);
 ```
 
-返回每秒多少个周期：1 000 000 000，所以脉宽和周期的数值直接就是纳秒。只有通道 0，别的通道返回 `-EINVAL`。
+Returns how many cycles there are per second: 1 000 000 000, so the values of the pulse and the period are directly in nanoseconds. Only channel 0 exists, any other channel returns `-EINVAL`.
 
 ```c
 /* pwm_get_cycles_per_sec: 1 GHz, so a cycle is a nanosecond and the ratios are exact */
@@ -214,12 +214,12 @@ static void demo_cycles_per_sec(void)
 int pwm_set_cycles(const struct device *dev, uint32_t channel, uint32_t period, uint32_t pulse, pwm_flags_t flags);
 ```
 
-亮度由 `pulse / period` 决定。100% 得到 256，被限制到 200；50% 是 128；5% 是 12；0.5% 是 1。标志被忽略。
+The brightness is determined by `pulse / period`. 100% gives 256, clamped to 200; 50% is 128; 5% is 12; 0.5% is 1. The flags are ignored.
 
-| 参数 | 返回 |
+| Argument | Return |
 | --- | --- |
-| 通道不是 0，周期 0，或脉宽大于周期 | `-EINVAL` |
-| 其他 | 0 |
+| Channel other than 0, period 0, or pulse greater than the period | `-EINVAL` |
+| Other | 0 |
 
 ```c
 /* pwm_set_cycles: the level is pulse * 256 / period; 200 is the maximum, a level of 0 switches the
@@ -258,7 +258,7 @@ static void demo_set_cycles(void)
 int pwm_set(const struct device *dev, uint32_t channel, uint32_t period, uint32_t pulse, pwm_flags_t flags);
 ```
 
-周期和脉宽用纳秒（`PWM_USEC()`、`PWM_MSEC()` 等宏）。时钟是 1 GHz，所以不需要换算；周期是 20 µs 还是 1 ms 不影响结果，比值一样级别就一样。
+The period and pulse are in nanoseconds (macros such as `PWM_USEC()` and `PWM_MSEC()`). The clock is 1 GHz, so no conversion is needed; whether the period is 20 µs or 1 ms does not affect the result, the same ratio gives the same level.
 
 ```c
 /* pwm_set: the same in nanoseconds; the period does not change the output, only the ratio does */
@@ -289,7 +289,7 @@ static void demo_set(void)
 int pwm_set_dt(const struct pwm_dt_spec *spec, uint32_t period, uint32_t pulse);
 ```
 
-通道、设备和标志来自设备树的 `pwms` 属性。演示的 `bl` 取自 overlay 里 `zephyr,user` 节点的 `pwms = <&pwm_bl 0 20000 PWM_POLARITY_INVERTED>`。
+The channel, device and flags come from the `pwms` property in the devicetree. The `bl` of the demonstration comes from `pwms = <&pwm_bl 0 20000 PWM_POLARITY_INVERTED>` in the `zephyr,user` node of the overlay.
 
 ```c
 static const struct device *const pwm_bl = DEVICE_DT_GET(DT_NODELABEL(pwm_bl));
@@ -317,7 +317,7 @@ static void demo_set_dt(void)
 int pwm_set_pulse_dt(const struct pwm_dt_spec *spec, uint32_t pulse);
 ```
 
-用设备树里写的周期，只给脉宽。脉宽 0 得到级别 0，两个端口都关闭，这是关背光的办法。
+Uses the period written in the devicetree and supplies only the pulse. A pulse of 0 gives level 0, with both ports switched off, which is the way to turn the backlight off.
 
 ```c
 /* pwm_set_pulse_dt: only the pulse; 0 switches the backlight off */
@@ -341,9 +341,9 @@ static void demo_set_pulse_dt(void)
          port 0 enabled 0, port 1 enabled 0, load current level 0 (maximum brightness code 3)
 ```
 
-### 驱动拒绝的参数
+### Arguments the driver rejects
 
-驱动检查通道号、周期和脉宽三项：只有通道 0，别的通道返回 `-EINVAL`，寄存器不动。
+The driver checks three things, the channel number, the period and the pulse: only channel 0 exists, any other channel returns `-EINVAL` and the registers are left untouched.
 
 ```c
 /* the arguments the driver refuses */
@@ -370,9 +370,9 @@ static void demo_errors(void)
          port 0 enabled 1, port 1 enabled 1, load current level 128 (maximum brightness code 3)
 ```
 
-## 完整演示程序
+## The complete demonstration program
 
-上面所有示例和日志都来自这一个程序。建一个目录，放进下面的文件，就可以像其他 Zephyr 应用一样编译。
+All the examples and logs above come from this one program. Create a directory, put the files below into it, and it can be built like any other Zephyr application.
 
 ```text
 pwm_bl_api/
@@ -582,7 +582,7 @@ int main(void)
 }
 ```
 
-### 编译和运行
+### Building and running
 
 ```sh
 . ~/f101-zephyr/env.sh
@@ -592,7 +592,7 @@ west build -b yuzukineko -d build/pwm-bl-api pwm_bl_api
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/drivers-pwm-bl/build.cast" data-speed="6"></div>
 
-下载运行的方法见[编译与运行](../zephyr-build-run.md)。控制台 UART1 上的完整输出：
+For how to download and run it, see [Building and running](../zephyr-build-run.md). The complete output on the console UART1:
 
 ```text
 [clock] pwm_get_cycles_per_sec(channel 0)   = 0, 1000000000 Hz

@@ -1,138 +1,138 @@
 ---
-title: "SD - SD 卡协议栈"
+title: "SD - SD card protocol stack"
 ---
 
-SD 组件是 SD 主机控制器驱动（[SDHC](../drivers/sdhc.md)）之上的软件：初始化卡的 SD 协议栈、按扇区读写卡的磁盘接口，以及在卡上放 FAT 文件系统的 `fs_*` 接口。这三层都可以单独使用。
+The SD component is the software above the SD host controller driver ([SDHC](../drivers/sdhc.md)): the SD protocol stack that initializes the card, the disk interface that reads and writes the card by sector, and the `fs_*` interface that puts a FAT filesystem on the card. All three layers can be used on their own.
 
-这些代码是 Zephyr 上游自带的，F101 的 fork 没有改动它们。F101 这边提供的是 SDHC 主机控制器驱动（`drivers/sdhc/sdhc_sunxi.c`），以及板级设备树里 `smhc0` 下名为 `SD` 的磁盘子节点。这里写的是这套协议栈在 `yuzukineko` 上怎么用，每个接口都附有板子上的输出。
+This code ships with Zephyr upstream, and the F101 fork does not change it. What the F101 side provides is the SDHC host controller driver (`drivers/sdhc/sdhc_sunxi.c`), and the disk child node named `SD` under `smhc0` in the board devicetree. This page describes how to use this stack on `yuzukineko`, and every interface comes with its output on the board.
 
-源码位置（都在 `~/f101-zephyr/` 下）：
+Source locations (all under `~/f101-zephyr/`):
 
-* SD 协议栈：`zephyr/subsys/sd/`（`sd.c`、`sdmmc.c`、`sd_ops.c`、`sdio.c`、`mmc.c`），头文件 `zephyr/include/zephyr/sd/{sd.h,sdmmc.h,sd_spec.h,sdio.h,mmc.h}`。
-* 磁盘：`zephyr/subsys/disk/disk_access.c` 是磁盘接口，`zephyr/drivers/disk/sdmmc_subsys.c` 把 SD 协议栈挂成名为 `SD` 的磁盘；头文件 `zephyr/include/zephyr/storage/disk_access.h`、`zephyr/include/zephyr/drivers/disk.h`。
-* 文件系统：`zephyr/subsys/fs/fs.c` 是虚拟文件系统层，`zephyr/subsys/fs/fat_fs.c` 是 FAT 适配层，`modules/fs/fatfs/` 是 ELM FatFs；头文件 `zephyr/include/zephyr/fs/fs.h`。
-* 主机控制器：`zephyr/drivers/sdhc/sdhc_sunxi.c`。
+* SD protocol stack: `zephyr/subsys/sd/` (`sd.c`, `sdmmc.c`, `sd_ops.c`, `sdio.c`, `mmc.c`), headers `zephyr/include/zephyr/sd/{sd.h,sdmmc.h,sd_spec.h,sdio.h,mmc.h}`.
+* Disk: `zephyr/subsys/disk/disk_access.c` is the disk interface, `zephyr/drivers/disk/sdmmc_subsys.c` attaches the SD protocol stack as a disk named `SD`; headers `zephyr/include/zephyr/storage/disk_access.h`, `zephyr/include/zephyr/drivers/disk.h`.
+* Filesystem: `zephyr/subsys/fs/fs.c` is the virtual filesystem layer, `zephyr/subsys/fs/fat_fs.c` is the FAT adaptation layer, `modules/fs/fatfs/` is ELM FatFs; header `zephyr/include/zephyr/fs/fs.h`.
+* Host controller: `zephyr/drivers/sdhc/sdhc_sunxi.c`.
 
-`yuzukineko` 上的几个前提：`SD` 磁盘只打开了 `SDMMC_STACK`，没有 MMC（eMMC）协议栈；SDIO 协议栈由 WiFi/蓝牙芯片使用，见 [AIC8800 WIFI](aic8800-wifi.md)。总线是 4 位，不支持 1.8 V 的 UHS 模式和 SPI 模式。文件系统是 FAT12/16/32，打开 `CONFIG_FS_FATFS_EXFAT` 后还有 exFAT，支持长文件名。磁盘名 `SD` 和 FatFs 的挂载点 `/SD:` 对应。
+A few prerequisites on `yuzukineko`: the `SD` disk has only `SDMMC_STACK` enabled, not the MMC (eMMC) stack; the SDIO stack is used by the WiFi/Bluetooth chip, see [AIC8800 WIFI](aic8800-wifi.md). The bus is 4 bit, and the 1.8 V UHS mode and SPI mode are not supported. The filesystem is FAT12/16/32, plus exFAT when `CONFIG_FS_FATFS_EXFAT` is enabled, with long file name support. The disk name `SD` corresponds to the FatFs mount point `/SD:`.
 
-## 架构
+## Architecture
 
 ```mermaid
 flowchart TB
-    APP["应用<br/>fs_open / fs_read / fs_write ...<br/>disk_access_read / disk_access_write ...<br/>sd_init / sdmmc_read_blocks ..."]
-    APP --> VFS["fs.c 虚拟文件系统<br/>挂载表、文件和目录对象"]
-    VFS --> FATA["fat_fs.c<br/>Zephyr 到 FatFs 的适配"]
-    FATA --> FF["ELM FatFs<br/>ff.c：FAT 表、目录、长文件名"]
-    FF --> DISKIF["diskio.c<br/>FatFs 的磁盘函数"]
-    DISKIF --> DA["disk_access.c<br/>按磁盘名查找，引用计数"]
+    APP["Application<br/>fs_open / fs_read / fs_write ...<br/>disk_access_read / disk_access_write ...<br/>sd_init / sdmmc_read_blocks ..."]
+    APP --> VFS["fs.c virtual filesystem<br/>mount table, file and directory objects"]
+    VFS --> FATA["fat_fs.c<br/>Zephyr to FatFs adaptation"]
+    FATA --> FF["ELM FatFs<br/>ff.c: FAT table, directories, long file names"]
+    FF --> DISKIF["diskio.c<br/>the FatFs disk functions"]
+    DISKIF --> DA["disk_access.c<br/>look up by disk name, reference counting"]
     APP --> DA
-    DA --> DRV["sdmmc_subsys.c<br/>磁盘驱动，名字 SD<br/>zephyr,sdmmc-disk"]
+    DA --> DRV["sdmmc_subsys.c<br/>disk driver named SD<br/>zephyr,sdmmc-disk"]
     DRV --> SDM["sdmmc.c / sd_ops.c<br/>sdmmc_read_blocks / write_blocks / ioctl"]
     APP --> SDC["sd.c<br/>sd_init / sd_is_card_present"]
     DRV --> SDC
     SDC --> SDM
     SDM --> HOST["sdhc.h<br/>sdhc_request / sdhc_set_io / sdhc_card_present"]
-    HOST --> SUNXI["sdhc_sunxi.c<br/>smhc0：DMA、弹跳缓冲区"]
-    SUNXI --> CARD["TF 卡<br/>4 位总线，PF0..PF5，卡检测 PF6"]
+    HOST --> SUNXI["sdhc_sunxi.c<br/>smhc0: DMA, bounce buffer"]
+    SUNXI --> CARD["TF card<br/>4 bit bus, PF0..PF5, card detect PF6"]
 ```
 
-上图的箭头就是函数调用的方向，三层各管一件事：
+The arrows in the diagram above are the direction of function calls, and each of the three layers handles one thing:
 
-| 层 | 管什么 | 入口 |
+| Layer | What it handles | Entry points |
 | --- | --- | --- |
-| SD 协议栈 | 上电、识别卡、协商总线宽度和时钟、读写块、卡的 ioctl。内部用 `struct sd_card` 记录这张卡的一切 | `sd_init`、`sd_is_card_present`、`sdmmc_read_blocks`、`sdmmc_write_blocks`、`sdmmc_ioctl` |
-| 磁盘接口 | 给每块存储一个名字，统一成“初始化、状态、按扇区读写、ioctl”。同一个名字可以被多个使用者初始化，内部用引用计数 | `disk_access_init`、`disk_access_status`、`disk_access_read`、`disk_access_write`、`disk_access_ioctl` |
-| 文件系统 | 在磁盘上放 FAT，提供路径、文件、目录 | `fs_mount`、`fs_open`、`fs_read`、`fs_write`、`fs_readdir` 等 |
+| SD protocol stack | Power-up, card identification, bus width and clock negotiation, block read and write, card ioctl. Internally a `struct sd_card` records everything about this card | `sd_init`, `sd_is_card_present`, `sdmmc_read_blocks`, `sdmmc_write_blocks`, `sdmmc_ioctl` |
+| Disk interface | Gives each storage device a name and unifies it into "initialize, status, read and write by sector, ioctl". The same name can be initialized by several users, with reference counting internally | `disk_access_init`, `disk_access_status`, `disk_access_read`, `disk_access_write`, `disk_access_ioctl` |
+| Filesystem | Puts FAT on the disk, and provides paths, files and directories | `fs_mount`, `fs_open`, `fs_read`, `fs_write`, `fs_readdir`, and so on |
 
-应用可以用其中任意一层：只想要文件就用 `fs_*`；要自己管分区、做裸读写就用 `disk_access_*`；要持有 `struct sd_card`、自己决定什么时候初始化（比如不通过设备树里的磁盘节点）就直接用 `sd_init`。`fs_*` 往下走 `disk_access_*`，`disk_access_*` 往下走 `sdmmc_*`，三层可以同时使用，但它们各自记录卡的状态：`disk_access_*` 用的是磁盘驱动里的那个 `struct sd_card`，应用自己 `sd_init` 的是另一个，两个互不知道对方。
+An application can use any one of the layers: if it only wants files, use `fs_*`; to manage partitions itself and do raw read and write, use `disk_access_*`; to hold a `struct sd_card` and decide itself when to initialize (for example, not through the disk node in the devicetree), use `sd_init` directly. `fs_*` goes down to `disk_access_*`, and `disk_access_*` goes down to `sdmmc_*`; the three layers can be used at the same time, but each records the card state on its own: `disk_access_*` uses the `struct sd_card` inside the disk driver, while one the application initializes itself with `sd_init` is another, and neither knows about the other.
 
-## 数据流
+## Data flow
 
-### 初始化卡
+### Initializing the card
 
 ```mermaid
 flowchart TB
-    A["sd_init(sdhc, &card)"] --> B["sdhc_get_host_props<br/>读控制器能力"]
-    B --> C["sd_init_io<br/>断电 500 ms，上电 500 ms<br/>1 位总线，400 kHz"]
-    C --> D["CMD0 + CMD8<br/>电压检查，失败重试 SD_RETRY_COUNT 次"]
-    D --> E["ACMD41<br/>探测，再带电压窗口和 HCS 位初始化<br/>读到 OCR，得知 SDHC"]
-    E --> F["CMD2 读 CID<br/>CMD3 要 RCA<br/>CMD9 读 CSD，算出块数"]
-    F --> G["CMD7 选中卡<br/>时钟提到 25 MHz"]
-    G --> H["ACMD51 读 SCR<br/>CMD6 检查功能"]
-    H --> I["sdmmc_init_hs<br/>ACMD6 切 4 位总线<br/>时钟提到主机能给的最高 50 MHz"]
+    A["sd_init(sdhc, &card)"] --> B["sdhc_get_host_props<br/>read the controller capabilities"]
+    B --> C["sd_init_io<br/>power off 500 ms, power on 500 ms<br/>1 bit bus, 400 kHz"]
+    C --> D["CMD0 + CMD8<br/>voltage check, retry SD_RETRY_COUNT times on failure"]
+    D --> E["ACMD41<br/>probe, then initialize with the voltage window and the HCS bit<br/>read the OCR, learn the SDHC"]
+    E --> F["CMD2 reads the CID<br/>CMD3 asks for the RCA<br/>CMD9 reads the CSD, computes the block count"]
+    F --> G["CMD7 selects the card<br/>clock raised to 25 MHz"]
+    G --> H["ACMD51 reads the SCR<br/>CMD6 checks the functions"]
+    H --> I["sdmmc_init_hs<br/>ACMD6 switches to a 4 bit bus<br/>clock raised to the highest the host can give, 50 MHz"]
     I --> J["card.status = CARD_INITIALIZED"]
 ```
 
-初始化过程中用的都是 SDHC 页里“手动 CMD”演示过的那些命令，区别在于这里由协议栈自动完成，并且处理了各种重试和 SDSC/SDHC 的差异。`yuzukineko` 上整个 `sd_init` 约 1016 ms，其中 1000 ms 是两次 500 ms 的上电延时（`power-up delay`，来自控制器的 `power_delay`），真正的命令交互只有十几毫秒。
+The initialization uses the same commands demonstrated under "manual CMD" on the SDHC page; the difference is that here the protocol stack does it automatically, and handles the various retries and the SDSC/SDHC differences. On `yuzukineko` the whole `sd_init` takes about 1016 ms, of which 1000 ms is the two 500 ms power-on delays (`power-up delay`, from the controller's `power_delay`); the actual command interaction is only a dozen milliseconds.
 
-### 读写数据
+### Reading and writing data
 
 ```mermaid
 flowchart LR
-    subgraph 文件
-        F1["fs_read / fs_write"] --> F2["FatFs<br/>簇链、FAT 表<br/>512 字节窗口缓存"]
-        F2 --> F3["disk_access_read / write<br/>扇区号 + 扇区数"]
+    subgraph File
+        F1["fs_read / fs_write"] --> F2["FatFs<br/>cluster chain, FAT table<br/>512 byte window cache"]
+        F2 --> F3["disk_access_read / write<br/>sector number + sector count"]
     end
-    subgraph 磁盘
+    subgraph Disk
         F3 --> D1["sdmmc_read_blocks / write_blocks"]
-        R1["应用直接<br/>disk_access_read / write"] --> D1
+        R1["application directly<br/>disk_access_read / write"] --> D1
     end
-    D1 --> D2{"缓冲区对齐？<br/>CONFIG_SDHC_BUFFER_ALIGNMENT = 1"}
-    D2 -->|"总是满足，直接用"| D3["card_read / card_write<br/>CMD17 / CMD18 / CMD24 / CMD25"]
-    D3 --> D4["sdhc_request<br/>DMA 描述符"]
-    D4 --> D5{"缓冲区缓存行对齐？"}
-    D5 -->|是| D6["控制器直接 DMA"]
-    D5 -->|否| D7["驱动里的弹跳缓冲区<br/>CPU 拷贝"]
-    D6 --> D8["SD 卡"]
+    D1 --> D2{"buffer aligned?<br/>CONFIG_SDHC_BUFFER_ALIGNMENT = 1"}
+    D2 -->|"always satisfied, use it directly"| D3["card_read / card_write<br/>CMD17 / CMD18 / CMD24 / CMD25"]
+    D3 --> D4["sdhc_request<br/>DMA descriptors"]
+    D4 --> D5{"buffer cache-line aligned?"}
+    D5 -->|yes| D6["the controller DMAs directly"]
+    D5 -->|no| D7["the bounce buffer in the driver<br/>CPU copy"]
+    D6 --> D8["SD card"]
     D7 --> D8
 ```
 
-* 对齐：SD 协议栈对缓冲区对齐的要求由 `CONFIG_SDHC_BUFFER_ALIGNMENT` 决定。sunxi 驱动没有改这个值，保持默认的 1，所以 SD 协议栈不会自己拷贝，任何地址都直接交给控制器驱动；不是缓存行（64 字节）对齐的缓冲区由 `sdhc_sunxi.c` 经过弹跳缓冲区拷贝。控制器驱动一次 DMA 最多搬运 `SDHC_SUNXI_MAX_DESC`（128）个描述符，每个 8 KiB，合计 1 MiB；超过这个大小的请求不走 DMA，由 CPU 读写 FIFO。不是 64 字节对齐的缓冲区先经过 64 KiB 的弹跳缓冲区（`SDHC_SUNXI_BOUNCE_KB`），请求比它大时同样由 CPU 搬运。演示里对齐的 1 MiB 读取走 DMA，用 44 ms；偏移 4 字节的 1 MiB 读取超过弹跳缓冲区，由 CPU 搬运，用 199 ms。
-* 读写失败：数据传输失败时协议栈按 `SD_DATA_RETRIES`（默认 3）重试。
-* 并发：`struct sd_card` 里有一把互斥锁，`sdmmc_*` 和 `sdmmc_ioctl` 都会取它，取不到时 `SD_DATA_TIMEOUT` 之后返回 `-EBUSY`。
+* Alignment: the buffer alignment requirement of the SD protocol stack is determined by `CONFIG_SDHC_BUFFER_ALIGNMENT`. The sunxi driver does not change this value and keeps the default 1, so the SD protocol stack does not copy anything itself and hands any address to the controller driver; a buffer that is not cache-line (64 byte) aligned is copied by `sdhc_sunxi.c` through the bounce buffer. One DMA transfer by the controller driver moves at most `SDHC_SUNXI_MAX_DESC` (128) descriptors, each 8 KiB, 1 MiB in total; a request larger than that does not use DMA and the CPU reads and writes the FIFO instead. A buffer that is not 64 byte aligned goes through the 64 KiB bounce buffer (`SDHC_SUNXI_BOUNCE_KB`), and a request larger than it is likewise moved by the CPU. In the demonstration the aligned 1 MiB read uses DMA and takes 44 ms; the 1 MiB read at an offset of 4 bytes exceeds the bounce buffer, is moved by the CPU, and shows 199 ms in the `disk_access_read` output below.
+* Read and write failure: when a data transfer fails, the stack retries `SD_DATA_RETRIES` (default 3) times.
+* Concurrency: there is a mutex in `struct sd_card`, and both `sdmmc_*` and `sdmmc_ioctl` take it; when it cannot be taken, they return `-EBUSY` after `SD_DATA_TIMEOUT`.
 
-## 设备树
+## Devicetree
 
-SD 协议栈本身没有自己的设备，它挂在 SDHC 主机控制器的节点下面。`yuzukineko` 的 `smhc0` 节点已经写好，应用不需要改。
+The SD protocol stack has no device of its own; it hangs below the node of the SDHC host controller. The `smhc0` node of `yuzukineko` is already written, and the application does not need to change it.
 
-| 文件 | 作用 |
+| File | Purpose |
 | --- | --- |
-| `dts/bindings/sd/zephyr,sdmmc-disk.yaml` | `zephyr,sdmmc-disk` 绑定：规定磁盘节点要有 `disk-name` |
-| `dts/bindings/sd/sd-device.yaml` | SD 总线上设备的公共部分（`on-bus: sd`） |
-| `dts/bindings/sdhc/allwinner,sunxi-smhc.yaml` | 主机控制器的绑定，见 [SDHC](../drivers/sdhc.md) |
-| `boards/yuzukihd/yuzukineko/yuzukineko.dts` | 板级设备树：`smhc0` 的引脚、位宽、卡检测，以及 `sdmmc` 磁盘子节点 |
+| `dts/bindings/sd/zephyr,sdmmc-disk.yaml` | The `zephyr,sdmmc-disk` binding: requires the disk node to have `disk-name` |
+| `dts/bindings/sd/sd-device.yaml` | The common part of devices on the SD bus (`on-bus: sd`) |
+| `dts/bindings/sdhc/allwinner,sunxi-smhc.yaml` | The binding of the host controller, see [SDHC](../drivers/sdhc.md) |
+| `boards/yuzukihd/yuzukineko/yuzukineko.dts` | The board devicetree: the pins, bus width and card detect of `smhc0`, and the `sdmmc` disk child node |
 
-### 板级设备树：yuzukineko.dts
+### Board devicetree: yuzukineko.dts
 
 ```c
 &smhc0 {
-	/* 引脚：PF0..PF5，复用功能 2，定义见 SDHC 页 */
+	/* Pins: PF0..PF5, multiplexing function 2, defined on the SDHC page */
 	pinctrl-0 = <&smhc0_pins>;
 	pinctrl-names = "default";
 
-	/* TF 卡槽接了 4 根数据线 */
+	/* The TF card slot has 4 data lines wired */
 	bus-width = <4>;
 
-	/* 卡检测：PF6，有卡时为低电平。sd_is_card_present 读的就是它 */
+	/* Card detect: PF6, low when a card is present. This is what sd_is_card_present reads */
 	cd-gpios = <&gpiof 6 GPIO_ACTIVE_LOW>;
 	status = "okay";
 
-	/* 子节点：SD 总线上的一个磁盘。节点名随意，compatible 必须是 zephyr,sdmmc-disk */
+	/* Child node: a disk on the SD bus. The node name is arbitrary; compatible must be zephyr,sdmmc-disk */
 	sdmmc {
-		/* 匹配 drivers/disk/sdmmc_subsys.c 里的 DT_DRV_COMPAT zephyr_sdmmc_disk */
+		/* Matches DT_DRV_COMPAT zephyr_sdmmc_disk in drivers/disk/sdmmc_subsys.c */
 		compatible = "zephyr,sdmmc-disk";
 
-		/* 磁盘名：disk_access_* 的第一个参数，也是 FatFs 的磁盘名。
-		 * FatFs 的挂载点 "/SD:" 里的 SD 要和它一致 */
+		/* Disk name: the first argument of disk_access_*, and also the FatFs disk name.
+		 * The SD in the FatFs mount point "/SD:" must match it */
 		disk-name = "SD";
 		status = "okay";
 	};
 };
 ```
 
-驱动 `sdmmc_subsys.c` 对每个 `zephyr,sdmmc-disk` 节点做三件事：一份自己的 `struct sd_card`（`sdmmc_data.card`）、用 `DT_INST_PARENT` 找到父节点（主机控制器）、在系统初始化阶段（优先级 `CONFIG_SD_INIT_PRIORITY`，90）用 `disk_access_register` 把磁盘名注册进去。注册时并不访问卡；第一次 `disk_access_init` 才会真正初始化卡。
+The driver `sdmmc_subsys.c` does three things for each `zephyr,sdmmc-disk` node: it keeps its own `struct sd_card` (`sdmmc_data.card`), finds the parent node (the host controller) with `DT_INST_PARENT`, and registers the disk name with `disk_access_register` during system initialization (priority `CONFIG_SD_INIT_PRIORITY`, 90). Registration does not access the card; the first `disk_access_init` is what actually initializes the card.
 
-### 绑定：zephyr,sdmmc-disk.yaml
+### Binding: zephyr,sdmmc-disk.yaml
 
 ```yaml
 description: |
@@ -155,110 +155,110 @@ properties:
       Disk name.
 ```
 
-| 属性 | 必填 | 含义 |
+| Property | Required | Meaning |
 | --- | --- | --- |
-| `disk-name` | 是 | 磁盘名。`disk_access_*` 用它查找磁盘；用 FatFs 时它还要等于挂载点里 `/` 与 `:` 之间的字符串 |
-| `status` | 否 | `okay` 时才会创建磁盘设备 |
+| `disk-name` | Yes | Disk name. `disk_access_*` uses it to look up the disk; with FatFs it must also equal the string between `/` and `:` in the mount point |
+| `status` | No | The disk device is created only when `okay` |
 
 ## Kconfig
 
-SD 协议栈、磁盘、FatFs 三部分的 Kconfig 都是上游的。下表按“打开哪层、各层怎么调”的顺序，一个选项一行；默认值是 `yuzukineko` 上构建时实际生效的值，没有写出的选项没有被选中。
+The Kconfig of all three parts, the SD protocol stack, the disk and FatFs, is upstream. The table below is in the order "which layer to enable, how each layer is tuned", one option per row; the default values are the values actually in effect for the build on `yuzukineko`, and options that are not listed are not selected.
 
-### SD 协议栈
+### SD protocol stack
 
-| 选项 | 默认 | 含义 |
+| Option | Default | Meaning |
 | --- | --- | --- |
-| `CONFIG_SDMMC_STACK` | `y`（由 `CONFIG_SDMMC_SUBSYS` 选中） | SD 存储卡协议支持 |
-| `CONFIG_MMC_STACK` | `n` | MMC（eMMC）协议支持，只接 SD 卡时不需要 |
-| `CONFIG_SDIO_STACK` | `n` | SDIO 卡协议支持；WiFi 驱动用到它时会自动选中 |
-| `CONFIG_SD_STACK` | `y`（上面三项任一打开即选中） | 隐藏选项，打开整个 SD 子系统，并选中 `SDHC` |
-| `CONFIG_SD_LOG_LEVEL` | 3（`INF`），由 `CONFIG_SD_LOG_LEVEL_DEFAULT` 决定 | SD 协议栈日志级别，模块名 `sd` |
-| `CONFIG_SD_INIT_TIMEOUT` | 1500 | `sd_init` 等待卡互斥锁的最长时间（毫秒） |
-| `CONFIG_SD_RETRY_COUNT` | 10 | 初始化命令（如 CMD8）失败时的重试次数 |
-| `CONFIG_SD_OCR_RETRY_COUNT` | 1000 | 读取 OCR（ACMD41）的重试次数，卡上电可能很慢 |
-| `CONFIG_SD_CMD_TIMEOUT` | 200 | 命令超时（毫秒） |
-| `CONFIG_SD_DATA_TIMEOUT` | 10000 | 数据传输超时，同时是取 `sd_card` 互斥锁的最长等待（毫秒） |
-| `CONFIG_SD_BUFFER_SIZE` | 64 | `struct sd_card` 里内部缓冲区的字节数；`SDHC_BUFFER_ALIGNMENT` 不是 1，或者打开 MMC、SDIO 时是 512 |
-| `CONFIG_SD_CMD_RETRIES` | 0 | 单条命令失败后的重试次数 |
-| `CONFIG_SD_DATA_RETRIES` | 3 | 数据传输失败后的重试次数 |
-| `CONFIG_SD_UHS_PROTOCOL` | `n` | 超高速（1.8 V UHS）协议。要求主机驱动选中 `SDHC_SUPPORTS_UHS`，sunxi 驱动没有，所以不可用 |
-| `CONFIG_MMC_RCA` | 2 | MMC 卡的相对地址；`MMC_STACK` 关闭时没有作用 |
-| `CONFIG_SDHC_BUFFER_ALIGNMENT` | 1 | 主机驱动要求的缓冲区对齐字节数，sunxi 用默认的 1 |
+| `CONFIG_SDMMC_STACK` | `y` (selected by `CONFIG_SDMMC_SUBSYS`) | SD memory card protocol support |
+| `CONFIG_MMC_STACK` | `n` | MMC (eMMC) protocol support, not needed when only SD cards are attached |
+| `CONFIG_SDIO_STACK` | `n` | SDIO card protocol support; selected automatically when the WiFi driver uses it |
+| `CONFIG_SD_STACK` | `y` (selected when any of the three above is enabled) | Hidden option, enables the whole SD subsystem and selects `SDHC` |
+| `CONFIG_SD_LOG_LEVEL` | 3 (`INF`), determined by `CONFIG_SD_LOG_LEVEL_DEFAULT` | SD protocol stack log level, module name `sd` |
+| `CONFIG_SD_INIT_TIMEOUT` | 1500 | Longest time `sd_init` waits for the card mutex (milliseconds) |
+| `CONFIG_SD_RETRY_COUNT` | 10 | Number of retries when an initialization command (such as CMD8) fails |
+| `CONFIG_SD_OCR_RETRY_COUNT` | 1000 | Number of retries when reading the OCR (ACMD41); a card may power up very slowly |
+| `CONFIG_SD_CMD_TIMEOUT` | 200 | Command timeout (milliseconds) |
+| `CONFIG_SD_DATA_TIMEOUT` | 10000 | Data transfer timeout, which is also the longest wait for taking the `sd_card` mutex (milliseconds) |
+| `CONFIG_SD_BUFFER_SIZE` | 64 | Number of bytes of the internal buffer in `struct sd_card`; 512 when `SDHC_BUFFER_ALIGNMENT` is not 1, or when MMC or SDIO is enabled |
+| `CONFIG_SD_CMD_RETRIES` | 0 | Number of retries after a single command fails |
+| `CONFIG_SD_DATA_RETRIES` | 3 | Number of retries after a data transfer fails |
+| `CONFIG_SD_UHS_PROTOCOL` | `n` | Ultra high speed (1.8 V UHS) protocol. Requires the host driver to select `SDHC_SUPPORTS_UHS`, which the sunxi driver does not, so it is unavailable |
+| `CONFIG_MMC_RCA` | 2 | Relative address of the MMC card; has no effect when `MMC_STACK` is off |
+| `CONFIG_SDHC_BUFFER_ALIGNMENT` | 1 | Number of buffer alignment bytes required by the host driver; sunxi uses the default 1 |
 
-### 磁盘
+### Disk
 
-| 选项 | 默认 | 含义 |
+| Option | Default | Meaning |
 | --- | --- | --- |
-| `CONFIG_DISK_ACCESS` | 应用里设为 `y`；`FAT_FILESYSTEM_ELM` 也会选中它 | 磁盘接口 `disk_access_*` |
-| `CONFIG_DISK_DRIVER_SDMMC` | `y`（设备树里有 `zephyr,sdmmc-disk` 节点时） | 编译 `sdmmc_subsys.c`，把 SD 协议栈挂成磁盘 |
-| `CONFIG_SDMMC_SUBSYS` | `y` | 通过 SD 协议栈访问磁盘，并选中 `SDMMC_STACK` |
-| `CONFIG_SD_INIT_PRIORITY` | 90 | 磁盘驱动的系统初始化优先级，要晚于主机控制器（`SDHC_INIT_PRIORITY`，85） |
-| `CONFIG_SDMMC_LOG_LEVEL` | 3 | 磁盘驱动日志级别，模块名 `sdmmc` |
-| `CONFIG_DISK_LOG_LEVEL` | 3 | 磁盘接口日志级别，模块名 `disk` |
+| `CONFIG_DISK_ACCESS` | set to `y` in the application; `FAT_FILESYSTEM_ELM` also selects it | The disk interface `disk_access_*` |
+| `CONFIG_DISK_DRIVER_SDMMC` | `y` (when the devicetree has a `zephyr,sdmmc-disk` node) | Builds `sdmmc_subsys.c`, attaching the SD protocol stack as a disk |
+| `CONFIG_SDMMC_SUBSYS` | `y` | Access the disk through the SD protocol stack, and selects `SDMMC_STACK` |
+| `CONFIG_SD_INIT_PRIORITY` | 90 | System initialization priority of the disk driver, which must be later than the host controller (`SDHC_INIT_PRIORITY`, 85) |
+| `CONFIG_SDMMC_LOG_LEVEL` | 3 | Disk driver log level, module name `sdmmc` |
+| `CONFIG_DISK_LOG_LEVEL` | 3 | Disk interface log level, module name `disk` |
 
-### 文件系统
+### Filesystem
 
-| 选项 | 默认 | 含义 |
+| Option | Default | Meaning |
 | --- | --- | --- |
-| `CONFIG_FILE_SYSTEM` | 应用里设为 `y` | 虚拟文件系统层 `fs_*` |
-| `CONFIG_FAT_FILESYSTEM_ELM` | 应用里设为 `y` | ELM FatFs，并选中 `DISK_ACCESS` |
-| `CONFIG_FILE_SYSTEM_MAX_TYPES` | 2 | 最多注册几种文件系统类型 |
-| `CONFIG_FILE_SYSTEM_MAX_FILE_NAME` | -1 | 文件名最大长度，非正数表示取已启用的文件系统里最大的 |
-| `CONFIG_FILE_SYSTEM_INIT_PRIORITY` | 99 | 文件系统初始化优先级 |
-| `CONFIG_FILE_SYSTEM_MKFS` | `n` | 提供 `fs_mkfs`，格式化存储设备 |
-| `CONFIG_FS_FATFS_READ_ONLY` | `n` | 去掉所有写代码，卡只读 |
-| `CONFIG_FS_FATFS_MKFS` | `n` | FatFs 带格式化代码（`FILE_SYSTEM_MKFS` 或 `FS_FATFS_MOUNT_MKFS` 打开时选中） |
-| `CONFIG_FS_FATFS_MOUNT_MKFS` | 默认 `y`，演示里设为 `n` | 挂载失败（卡上没有文件系统）时自动格式化。会擦掉整张卡，应用里要关掉；关掉后卡必须事先格式化好，否则 `fs_mount` 返回错误 |
-| `CONFIG_FS_FATFS_MAX_ROOT_ENTRIES` | 512 | 格式化时根目录项数，仅 `FS_FATFS_MKFS` 打开时出现 |
-| `CONFIG_FS_FATFS_EXFAT` | `n`，演示里设为 `y` | exFAT 支持，会选中长文件名；大于 32 GB 的卡常常是 exFAT |
-| `CONFIG_FS_FATFS_NUM_FILES` | 4 | 同时打开的文件数，每个 `FIL` 在编译期预分配 |
-| `CONFIG_FS_FATFS_NUM_DIRS` | 4 | 同时打开的目录数，每个 `DIR` 在编译期预分配 |
-| `CONFIG_FS_FATFS_HAS_RTC` | `n` | 文件时间戳。关闭时所有文件用固定日期；打开则要应用实现 `get_fattime` |
-| `CONFIG_FS_FATFS_EXTRA_NATIVE_API` | `n` | 暴露 `f_getlabel`、`f_setlabel`、`f_expand`、`f_findfirst`、`f_findnext` |
-| `CONFIG_FS_FATFS_LFN` | `n`，演示里设为 `y` | 长文件名。关闭时只支持 8.3 短文件名 |
-| `CONFIG_FS_FATFS_LFN_MODE_BSS` | `y`（打开 LFN 时的默认） | 长文件名工作区放在静态内存，不可重入 |
-| `CONFIG_FS_FATFS_LFN_MODE_STACK` | `n`，演示里设为 `y` | 长文件名工作区放在栈上，主栈要留够，演示里 `MAIN_STACK_SIZE` 是 8192 |
-| `CONFIG_FS_FATFS_LFN_MODE_HEAP` | `n` | 长文件名工作区放在堆上，需要 `HEAP_MEM_POOL_SIZE` 大于 0 |
-| `CONFIG_FS_FATFS_MAX_LFN` | 255 | 长文件名的最大字符数 |
-| `CONFIG_FS_FATFS_CODEPAGE` | 437 | 短文件名的 OEM 代码页 |
-| `CONFIG_FS_FATFS_MAX_SS` | 512 | 支持的最大扇区大小，512 时所有卷按 512 处理 |
-| `CONFIG_FS_FATFS_MIN_SS` | 512 | 预期的最小扇区大小 |
-| `CONFIG_FS_FATFS_WINDOW_ALIGNMENT` | 1 | `FATFS` 里窗口缓冲区的对齐字节数 |
-| `CONFIG_FS_FATFS_REENTRANT` | `n` | 每个卷一把互斥锁，多线程同时访问同一个卷时要打开 |
-| `CONFIG_FS_FATFS_LBA64` | `n` | 64 位扇区号，依赖 `FS_FATFS_EXFAT` |
-| `CONFIG_FS_FATFS_MULTI_PARTITION` | `n` | 一个物理磁盘上多个分区。关闭时一个磁盘就是一个卷，使用卡上第一个分区（或整盘就是一个卷） |
-| `CONFIG_FS_FATFS_CUSTOM_MOUNT_POINT_COUNT` | 0 | 自定义挂载点个数，默认只有 `/SD:` 等内置名字 |
-| `CONFIG_FS_FATFS_CUSTOM_MOUNT_POINTS` | 无 | 自定义挂载点名字的列表，个数大于 0 时才有 |
-| `CONFIG_FS_FATFS_FSTAB_AUTOMOUNT` | `n` | 按设备树里的 fstab 节点自动挂载 |
-| `CONFIG_FS_LOG_LEVEL` | 3 | 文件系统层日志级别，模块名 `fs`。错误时会打印 `<err> fs: ...`，见后面的日志 |
+| `CONFIG_FILE_SYSTEM` | set to `y` in the application | The virtual filesystem layer `fs_*` |
+| `CONFIG_FAT_FILESYSTEM_ELM` | set to `y` in the application | ELM FatFs, and selects `DISK_ACCESS` |
+| `CONFIG_FILE_SYSTEM_MAX_TYPES` | 2 | Maximum number of filesystem types to register |
+| `CONFIG_FILE_SYSTEM_MAX_FILE_NAME` | -1 | Maximum file name length; a non-positive value means take the largest among the enabled filesystems |
+| `CONFIG_FILE_SYSTEM_INIT_PRIORITY` | 99 | Filesystem initialization priority |
+| `CONFIG_FILE_SYSTEM_MKFS` | `n` | Provides `fs_mkfs`, to format a storage device |
+| `CONFIG_FS_FATFS_READ_ONLY` | `n` | Removes all write code, the card is read-only |
+| `CONFIG_FS_FATFS_MKFS` | `n` | FatFs with format code (selected when `FILE_SYSTEM_MKFS` or `FS_FATFS_MOUNT_MKFS` is enabled) |
+| `CONFIG_FS_FATFS_MOUNT_MKFS` | default `y`, set to `n` in the demonstration | Automatically format when the mount fails (the card has no filesystem). It erases the whole card, so the application must turn it off; after turning it off the card must be formatted in advance, otherwise `fs_mount` returns an error |
+| `CONFIG_FS_FATFS_MAX_ROOT_ENTRIES` | 512 | Number of root directory entries when formatting, present only when `FS_FATFS_MKFS` is enabled |
+| `CONFIG_FS_FATFS_EXFAT` | `n`, set to `y` in the demonstration | exFAT support, which selects long file names; cards larger than 32 GB are often exFAT |
+| `CONFIG_FS_FATFS_NUM_FILES` | 4 | Number of files open at the same time, each `FIL` preallocated at build time |
+| `CONFIG_FS_FATFS_NUM_DIRS` | 4 | Number of directories open at the same time, each `DIR` preallocated at build time |
+| `CONFIG_FS_FATFS_HAS_RTC` | `n` | File timestamps. When off all files use a fixed date; when on the application must implement `get_fattime` |
+| `CONFIG_FS_FATFS_EXTRA_NATIVE_API` | `n` | Exposes `f_getlabel`, `f_setlabel`, `f_expand`, `f_findfirst`, `f_findnext` |
+| `CONFIG_FS_FATFS_LFN` | `n`, set to `y` in the demonstration | Long file names. When off only 8.3 short file names are supported |
+| `CONFIG_FS_FATFS_LFN_MODE_BSS` | `y` (the default when LFN is on) | The long file name work area is in static memory and is not reentrant |
+| `CONFIG_FS_FATFS_LFN_MODE_STACK` | `n`, set to `y` in the demonstration | The long file name work area is on the stack, and the main stack must be large enough; in the demonstration `MAIN_STACK_SIZE` is 8192 |
+| `CONFIG_FS_FATFS_LFN_MODE_HEAP` | `n` | The long file name work area is on the heap, requiring `HEAP_MEM_POOL_SIZE` to be greater than 0 |
+| `CONFIG_FS_FATFS_MAX_LFN` | 255 | Maximum number of characters of a long file name |
+| `CONFIG_FS_FATFS_CODEPAGE` | 437 | OEM code page for short file names |
+| `CONFIG_FS_FATFS_MAX_SS` | 512 | Maximum supported sector size; at 512 all volumes are treated as 512 |
+| `CONFIG_FS_FATFS_MIN_SS` | 512 | Expected minimum sector size |
+| `CONFIG_FS_FATFS_WINDOW_ALIGNMENT` | 1 | Number of alignment bytes of the window buffer in `FATFS` |
+| `CONFIG_FS_FATFS_REENTRANT` | `n` | One mutex per volume; enable it when several threads access the same volume at the same time |
+| `CONFIG_FS_FATFS_LBA64` | `n` | 64 bit sector numbers, depends on `FS_FATFS_EXFAT` |
+| `CONFIG_FS_FATFS_MULTI_PARTITION` | `n` | Several partitions on one physical disk. When off one disk is one volume, using the first partition on the card (or the whole disk is one volume) |
+| `CONFIG_FS_FATFS_CUSTOM_MOUNT_POINT_COUNT` | 0 | Number of custom mount points; by default only built-in names such as `/SD:` exist |
+| `CONFIG_FS_FATFS_CUSTOM_MOUNT_POINTS` | none | List of custom mount point names, present only when the count is greater than 0 |
+| `CONFIG_FS_FATFS_FSTAB_AUTOMOUNT` | `n` | Mount automatically according to the fstab node in the devicetree |
+| `CONFIG_FS_LOG_LEVEL` | 3 | Filesystem layer log level, module name `fs`. On errors it prints `<err> fs: ...`, see the logs below |
 
-## 挂载一张 FAT 卡需要的配置
+## Configuration needed to mount a FAT card
 
-`fs_mount` 失败时，对照下面几项。它们都是 `sd_api` 里已经有的写法，缺哪一项现象不同。
+When `fs_mount` fails, check the items below. They are all already written in `sd_api`, and a different one missing gives a different symptom.
 
-| 位置 | 需要的内容 | 缺了会怎样 |
+| Location | What it needs | What happens if it is missing |
 | --- | --- | --- |
-| 板级设备树 `&smhc0` | `status = "okay"`，`pinctrl-0`、`bus-width = <4>`、`cd-gpios` 都写好 | 没有 `smhc0` 设备，`DEVICE_DT_GET(DT_NODELABEL(smhc0))` 编译不过 |
-| 板级设备树 `&smhc0 { sdmmc { ... }; }` | 子节点 `compatible = "zephyr,sdmmc-disk"`、`disk-name = "SD"`、`status = "okay"` | 没有名为 `SD` 的磁盘，`disk_access_*` 返回 `-EINVAL`，`fs_mount` 失败 |
-| 挂载点 | `mnt_point = "/SD:"`，冒号前的 `SD` 和 `disk-name` 一致 | 磁盘名对不上，`fs_mount` 找不到磁盘 |
-| `struct fs_mount_t` | `.type = FS_FATFS`，`.fs_data` 指向一个一直存在的 `FATFS` 对象（全局或 `static`，不能放在会返回的栈上），`.mnt_point` 同上 | 类型不对返回 `-ENOENT`；`FATFS` 对象放在栈上会在函数返回后被破坏 |
-| `prj.conf` | `CONFIG_FILE_SYSTEM=y`、`CONFIG_FAT_FILESYSTEM_ELM=y`（它会选中 `DISK_ACCESS`）；`CONFIG_DISK_DRIVER_SDMMC` 在设备树有磁盘节点时自动为 `y` | 少了文件系统选项，`fs_*` 链接不过；少了 FAT 驱动，`fs_mount` 返回 `-ENOENT`（FAT 类型没有注册） |
-| `prj.conf` 的长文件名 | 卡上有长文件名或中文名时需要 `CONFIG_FS_FATFS_LFN=y`；大于 32 GB 的卡常常是 exFAT，需要 `CONFIG_FS_FATFS_EXFAT=y` | 读不出长文件名，exFAT 卡挂载失败（`-ENODEV`，卡上没有可识别的文件系统） |
-| `prj.conf` 的栈 | `CONFIG_MAIN_STACK_SIZE=8192`；长文件名放在栈上（`FS_FATFS_LFN_MODE_STACK`）时 `fs_*` 的调用层次较深 | 主线程栈溢出，表现为挂载或列目录时崩溃或乱码 |
-| 卡 | 卡已经格式化为 FAT/exFAT，分区表里第一个分区（或整盘）就是文件系统 | `fs_mount` 返回 `-ENODEV`；不带 `FS_MOUNT_FLAG_NO_FORMAT` 且 `FS_FATFS_MOUNT_MKFS=y`（默认值）时，挂载失败会把卡格式化 |
-| 引脚 | PF0..PF5 和 JTAG 共用，卡检测是 PF6 | 这组脚被 JTAG 占用时，卡槽读不到卡或卡不响应 |
+| Board devicetree `&smhc0` | `status = "okay"`, with `pinctrl-0`, `bus-width = <4>` and `cd-gpios` all written | No `smhc0` device, and `DEVICE_DT_GET(DT_NODELABEL(smhc0))` does not build |
+| Board devicetree `&smhc0 { sdmmc { ... }; }` | A child node with `compatible = "zephyr,sdmmc-disk"`, `disk-name = "SD"` and `status = "okay"` | No disk named `SD`, so `disk_access_*` returns `-EINVAL` and `fs_mount` fails |
+| Mount point | `mnt_point = "/SD:"`, with the `SD` before the colon matching `disk-name` | The disk name does not match and `fs_mount` cannot find the disk |
+| `struct fs_mount_t` | `.type = FS_FATFS`, `.fs_data` pointing at a `FATFS` object that always exists (global or `static`, not on a stack that returns), `.mnt_point` as above | A wrong type returns `-ENOENT`; a `FATFS` object on the stack is destroyed after the function returns |
+| `prj.conf` | `CONFIG_FILE_SYSTEM=y`, `CONFIG_FAT_FILESYSTEM_ELM=y` (which selects `DISK_ACCESS`); `CONFIG_DISK_DRIVER_SDMMC` is automatically `y` when the devicetree has a disk node | Without the filesystem options `fs_*` does not link; without the FAT driver `fs_mount` returns `-ENOENT` (the FAT type is not registered) |
+| Long file names in `prj.conf` | `CONFIG_FS_FATFS_LFN=y` is needed when the card has long file names or Chinese names; cards larger than 32 GB are often exFAT and need `CONFIG_FS_FATFS_EXFAT=y` | Long file names cannot be read, and an exFAT card fails to mount (`-ENODEV`, no recognizable filesystem on the card) |
+| Stack in `prj.conf` | `CONFIG_MAIN_STACK_SIZE=8192`; when long file names are on the stack (`FS_FATFS_LFN_MODE_STACK`) the `fs_*` call depth is fairly deep | Main thread stack overflow, showing up as a crash or garbage when mounting or listing a directory |
+| Card | The card is already formatted as FAT/exFAT, and the first partition in the partition table (or the whole disk) is the filesystem | `fs_mount` returns `-ENODEV`; without `FS_MOUNT_FLAG_NO_FORMAT` and with `FS_FATFS_MOUNT_MKFS=y` (the default), a failed mount formats the card |
+| Pins | PF0..PF5 are shared with JTAG, and card detect is PF6 | When this group of pins is taken by JTAG, the card slot does not read the card or the card does not respond |
 
-`CONFIG_FS_FATFS_MOUNT_MKFS` 的默认值是 `y`：挂载时如果没有认出文件系统，并且 `fs_mount_t.flags` 没有 `FS_MOUNT_FLAG_NO_FORMAT`，FatFs 会直接格式化这张卡。`sd_api` 在 `prj.conf` 里把它设成 `n`，同时给 `flags` 加了 `FS_MOUNT_FLAG_NO_FORMAT`。
+The default value of `CONFIG_FS_FATFS_MOUNT_MKFS` is `y`: when mounting, if the filesystem is not recognized and `fs_mount_t.flags` does not have `FS_MOUNT_FLAG_NO_FORMAT`, FatFs formats the card directly. `sd_api` sets it to `n` in `prj.conf`, and also adds `FS_MOUNT_FLAG_NO_FORMAT` to `flags`.
 
-挂载失败时，先用 `disk_access_init("SD")` 单独试磁盘层：它返回 0 说明卡和设备树都没问题，问题在文件系统一侧；它返回负数就是卡或磁盘节点的问题。文件系统层出错时会在控制台打印 `<err> fs: ...`。
+When a mount fails, first try the disk layer alone with `disk_access_init("SD")`: if it returns 0 then the card and the devicetree are fine and the problem is on the filesystem side; if it returns a negative number then the problem is the card or the disk node. On a filesystem layer error, `<err> fs: ...` is printed to the console.
 
-## 接口详解
+## Interface details
 
-演示在 `yuzukineko` 上，卡槽里是一张 8 GB 的 SDHC 卡，卡上已经有 FAT32 文件系统和一些文件。每个接口一个小标题，下面是它的原型、行为和一个完整的示例函数，以及这个函数在板子上的输出。
+The demonstration is on `yuzukineko`, with an 8 GB SDHC card in the card slot, and the card already has a FAT32 filesystem and some files on it. Each interface has its own heading, below which is its prototype, its behavior, a complete example function, and the output of that function on the board.
 
-演示不会改变卡上已有的内容：裸写扇区时写回的是它原来的内容，创建的文件和目录最后都删除。
+The demonstration does not change what is already on the card: a raw sector write writes back its original content, and the files and directories it creates are all deleted at the end.
 
-示例函数共用的头文件、宏和辅助函数：
+Headers, macros and helper functions shared by the example functions:
 
 ```c
 #include <errno.h>
@@ -303,9 +303,9 @@ static const char *err(int ret)
 }
 ```
 
-`DISK_NAME`、`MOUNT_POINT` 是设备树里磁盘名 `SD` 和 FatFs 挂载点 `/SD:`。`err()` 只是把几个常见的错误号打印成名字。
+`DISK_NAME` and `MOUNT_POINT` are the disk name `SD` in the devicetree and the FatFs mount point `/SD:`. `err()` simply prints a few common error numbers as names.
 
-`big` 是各示例共用的 1 MiB 缓冲区：
+`big` is the 1 MiB buffer shared by the examples:
 
 ```c
 static uint8_t big[1024 * 1024 + 64] __aligned(64);
@@ -319,12 +319,12 @@ static uint8_t big[1024 * 1024 + 64] __aligned(64);
 bool sd_is_card_present(const struct device *sdhc_dev);
 ```
 
-问主机控制器卡槽里有没有卡。内部是 `sdhc_card_present(dev) == 1`，所以读的是设备树里 `cd-gpios` 的引脚（PF6）；控制器是 `NULL` 时返回 `false`。
+Asks the host controller whether there is a card in the slot. Internally it is `sdhc_card_present(dev) == 1`, so it reads the `cd-gpios` pin in the devicetree (PF6); when the controller is `NULL` it returns `false`.
 
-| 返回 | 含义 |
+| Return | Meaning |
 | --- | --- |
-| `true` | 有卡 |
-| `false` | 没有卡，或者 `sdhc_dev` 是 `NULL` |
+| `true` | There is a card |
+| `false` | There is no card, or `sdhc_dev` is `NULL` |
 
 ```c
 static void demo_sd_is_card_present(void)
@@ -348,33 +348,33 @@ static void demo_sd_is_card_present(void)
 int sd_init(const struct device *sdhc_dev, struct sd_card *card);
 ```
 
-初始化一张卡：上电、识别、协商总线宽度和时钟，成功后 `card` 里就有这张卡的全部信息，之后只需要 `card` 就能访问它。过程见前面的“初始化卡”流程图。`card` 的内存由调用者提供，调用后不能释放，直到不再访问这张卡。
+Initializes a card: power-up, identification, bus width and clock negotiation; on success `card` holds all the information about this card, and only `card` is needed to access it afterwards. The process is in the "Initializing the card" flowchart above. The memory for `card` is provided by the caller and must not be freed after the call, until the card is no longer accessed.
 
-| 返回 | 含义 |
+| Return | Meaning |
 | --- | --- |
-| 0 | 成功，`card->status` 为 `CARD_INITIALIZED`（2） |
-| `-ENODEV` | `sdhc_dev` 是 `NULL` |
-| `-ETIMEDOUT` | 卡初始化超时（卡不存在、不响应） |
-| `-EBUSY` | 卡正忙 |
-| `-EIO` | 初始化过程中出现 I/O 错误 |
-| `-ENOTSUP` | 卡类型协议栈没打开（例如接了 MMC 但没开 `MMC_STACK`） |
+| 0 | Success, `card->status` is `CARD_INITIALIZED` (2) |
+| `-ENODEV` | `sdhc_dev` is `NULL` |
+| `-ETIMEDOUT` | Card initialization timed out (card absent, not responding) |
+| `-EBUSY` | The card is busy |
+| `-EIO` | An I/O error occurred during initialization |
+| `-ENOTSUP` | The protocol stack for the card type is not enabled (for example an MMC is attached but `MMC_STACK` is off) |
 
-初始化后可以读取的 `struct sd_card` 字段：
+`struct sd_card` fields that can be read after initialization:
 
-| 字段 | 含义 | 演示里的值 |
+| Field | Meaning | Value in the demonstration |
 | --- | --- | --- |
-| `status` | `CARD_UNINITIALIZED` 0、`CARD_ERROR` 1、`CARD_INITIALIZED` 2 | 2 |
-| `type` | `CARD_SDMMC` 0、`CARD_SDIO` 1、`CARD_COMBO` 2、`CARD_MMC` 3 | 0 |
-| `ocr` | 卡的 OCR 寄存器；bit 31 上电完成，bit 30（CCS）为 1 表示块寻址的 SDHC/SDXC | `c0ff8000` |
-| `relative_addr` | CMD3 得到的相对地址 | `0001` |
-| `sd_version` | 规范版本，`SD_SPEC_VER1_0`（位 0）、`1_1`（位 1）、`2_0`（位 2）、`3_0`（位 3） | 4，即 2.0 |
-| `block_count`、`block_size` | 块数和每块字节数 | 15728640、512，共 7680 MiB |
-| `bus_io.bus_width`、`bus_io.clock` | 当前总线宽度和时钟 | 4 位、50 MHz |
-| `bus_io.timing` | 当前时序，取值是 `enum sdhc_timing_mode`：`SDHC_TIMING_LEGACY` 1、`SDHC_TIMING_HS` 2 | 1 |
+| `status` | `CARD_UNINITIALIZED` 0, `CARD_ERROR` 1, `CARD_INITIALIZED` 2 | 2 |
+| `type` | `CARD_SDMMC` 0, `CARD_SDIO` 1, `CARD_COMBO` 2, `CARD_MMC` 3 | 0 |
+| `ocr` | The OCR register of the card; bit 31 is power-up complete, bit 30 (CCS) being 1 means a block-addressed SDHC/SDXC | `c0ff8000` |
+| `relative_addr` | The relative address obtained from CMD3 | `0001` |
+| `sd_version` | Specification version, `SD_SPEC_VER1_0` (bit 0), `1_1` (bit 1), `2_0` (bit 2), `3_0` (bit 3) | 4, that is 2.0 |
+| `block_count`, `block_size` | Number of blocks and bytes per block | 15728640, 512, 7680 MiB in total |
+| `bus_io.bus_width`, `bus_io.clock` | Current bus width and clock | 4 bit, 50 MHz |
+| `bus_io.timing` | Current timing, the values are `enum sdhc_timing_mode`: `SDHC_TIMING_LEGACY` 1, `SDHC_TIMING_HS` 2 | 1 |
 
-SD 规范版本低于 3.0 的卡（`sd_version` 小于 `SD_SPEC_VER3_0`），上游的 `sdmmc_read_switch` 只在 3.0 以上才记录卡支持的总线速度位（`switch_caps.bus_speed`）。`sdmmc_select_bus_speed` 读不到高速位，选了默认速度（CMD6 选默认功能，时序 `SDHC_TIMING_LEGACY`）；`sdmmc_set_bus_speed` 取时钟时用的是 `MIN(主机最高时钟, hs_max_dtr)`，`hs_max_dtr` 是另一处按 CMD6 检查结果填的高速上限 50 MHz。两处合起来，这张卡就是“默认速度时序、50 MHz 时钟”。SD 规范规定默认速度模式最高 25 MHz，所以 50 MHz 超出了规范。
+For a card whose SD specification version is below 3.0 (`sd_version` less than `SD_SPEC_VER3_0`), the upstream `sdmmc_read_switch` records the bus speed bits the card supports (`switch_caps.bus_speed`) only at 3.0 and above. `sdmmc_select_bus_speed` cannot read the high speed bit and picks the default speed (CMD6 selects the default function, timing `SDHC_TIMING_LEGACY`); when `sdmmc_set_bus_speed` takes the clock it uses `MIN(the highest clock of the host, hs_max_dtr)`, and `hs_max_dtr` is another high speed limit of 50 MHz filled in from the CMD6 check result. The two together make this card "default speed timing, 50 MHz clock". The SD specification says the default speed mode is at most 25 MHz, so 50 MHz is outside the specification.
 
-这是上游 `subsys/sd` 的行为，不是 F101 的 SDHC 驱动或对接层的问题：驱动按协议栈要求的时钟和时序设置控制器，设成什么就是什么。这张卡在 50 MHz 下读写 1 MiB 的数据、反复读写最后一个扇区和 FAT 文件都和写入一致，没有出现读写错误；但换别的 2.0 卡时，如果遇到读写错误或 CRC 错误，可以先怀疑这一点。本文没有改动上游代码。
+This is the behavior of the upstream `subsys/sd`, not a problem with the F101 SDHC driver or the attachment layer: the driver sets the controller to the clock and timing the protocol stack asks for, and whatever it is set to is what it is. This card reads and writes 1 MiB of data at 50 MHz, and repeatedly reading and writing the last sector and the FAT files all match what was written, with no read or write errors; but with another 2.0 card, if read or write errors or CRC errors appear, this is the first thing to suspect. This page does not change the upstream code.
 
 ```c
 static struct sd_card card;
@@ -412,18 +412,18 @@ static void demo_sd_init(void)
 int sdmmc_read_blocks(struct sd_card *card, uint8_t *rbuf, uint32_t start_block, uint32_t num_blocks);
 ```
 
-从卡上读 `num_blocks` 个块（每块 `card->block_size` 字节，SDHC 都是 512）到 `rbuf`，起始块号是 `start_block`。一个块用 CMD17，多个块用 CMD18，控制器在最后自动发 CMD12。
+Reads `num_blocks` blocks from the card (each `card->block_size` bytes, 512 for SDHC) into `rbuf`, starting at block number `start_block`. One block uses CMD17, several blocks use CMD18, and the controller sends CMD12 automatically at the end.
 
-| 返回 | 含义 |
+| Return | Meaning |
 | --- | --- |
-| 0 | 成功 |
-| `-EINVAL` | `start_block + num_blocks` 超过 `card->block_count` |
-| `-ENOTSUP` | 卡是 SDIO 卡，没有存储 |
-| `-EBUSY` | 取不到卡的互斥锁（别的线程正在访问，超过 `SD_DATA_TIMEOUT`） |
-| `-ETIMEDOUT` | 读超时 |
-| `-EIO` | I/O 错误 |
+| 0 | Success |
+| `-EINVAL` | `start_block + num_blocks` exceeds `card->block_count` |
+| `-ENOTSUP` | The card is an SDIO card and has no storage |
+| `-EBUSY` | The card mutex cannot be taken (another thread is accessing it, for longer than `SD_DATA_TIMEOUT`) |
+| `-ETIMEDOUT` | Read timeout |
+| `-EIO` | I/O error |
 
-缓冲区没有对齐要求（`SDHC_BUFFER_ALIGNMENT` 是 1），但不是 64 字节对齐的缓冲区会经过驱动的弹跳缓冲区，较慢。
+The buffer has no alignment requirement (`SDHC_BUFFER_ALIGNMENT` is 1), but a buffer that is not 64 byte aligned goes through the bounce buffer of the driver and is slower.
 
 ```c
 static void demo_sdmmc_read_blocks(void)
@@ -460,7 +460,7 @@ static void demo_sdmmc_read_blocks(void)
 [sdmmc_read_blocks] one block beyond the end = -EINVAL
 ```
 
-块 0 的最后两个字节是 `55 aa`，说明读到的是 MBR 或 FAT 引导扇区。对齐的 1 MiB 读取 44 ms，约 23 MiB/s，一次请求正好用满 128 个 DMA 描述符。缓冲区偏移 4 字节时，请求超过弹跳缓冲区，改由 CPU 搬运，在后面 `disk_access_read` 的输出里是 199 ms。详见 [SDHC](../drivers/sdhc.md) 里 `SDHC_SUNXI_MAX_DESC` 和 `SDHC_SUNXI_BOUNCE_KB`。
+The last two bytes of block 0 are `55 aa`, showing that what was read is the MBR or the FAT boot sector. The aligned 1 MiB read takes 44 ms, about 23 MiB/s, and one request exactly uses up 128 DMA descriptors. When the buffer is offset by 4 bytes the request exceeds the bounce buffer and is moved by the CPU instead, which is 199 ms in the `disk_access_read` output below. See `SDHC_SUNXI_MAX_DESC` and `SDHC_SUNXI_BOUNCE_KB` in [SDHC](../drivers/sdhc.md).
 
 ### sdmmc_write_blocks
 
@@ -470,9 +470,9 @@ static void demo_sdmmc_read_blocks(void)
 int sdmmc_write_blocks(struct sd_card *card, const uint8_t *wbuf, uint32_t start_block, uint32_t num_blocks);
 ```
 
-把 `wbuf` 里的 `num_blocks` 个块写到卡上，起始块号是 `start_block`。一个块用 CMD24，多个块用 CMD25。返回值和 `sdmmc_read_blocks` 相同；写超时或写出错时是 `-ETIMEDOUT`、`-EIO`。函数返回后卡可能还在内部编程，要确保数据落盘，之后调用 `sdmmc_ioctl(card, DISK_IOCTL_CTRL_SYNC, NULL)`，它会等卡空闲。
+Writes `num_blocks` blocks from `wbuf` to the card, starting at block number `start_block`. One block uses CMD24, several blocks use CMD25. The return values are the same as `sdmmc_read_blocks`; on a write timeout or write error they are `-ETIMEDOUT`, `-EIO`. The card may still be programming internally after the function returns; to make sure the data is on the card, call `sdmmc_ioctl(card, DISK_IOCTL_CTRL_SYNC, NULL)` afterwards, which waits for the card to become idle.
 
-写裸块会破坏卡上的文件系统，所以演示只把最后一个块读出来再原样写回去，写完同步，再读一遍比较。
+Writing raw blocks destroys the filesystem on the card, so the demonstration only reads the last block out and writes it back as it is, syncs after writing, and reads it once more to compare.
 
 ```c
 /* writes the last block back with the content it has: the card is not changed */
@@ -513,18 +513,18 @@ static void demo_sdmmc_write_blocks(void)
 int sdmmc_ioctl(struct sd_card *card, uint8_t cmd, void *buf);
 ```
 
-对卡发 I/O 控制。支持的 `cmd`：
+Sends an I/O control to the card. Supported `cmd`:
 
-| `cmd` | `buf` | 行为 |
+| `cmd` | `buf` | Behavior |
 | --- | --- | --- |
-| `DISK_IOCTL_GET_SECTOR_COUNT` | `uint32_t *` | 块数 |
-| `DISK_IOCTL_GET_SECTOR_SIZE` | `uint32_t *` | 块大小（字节） |
-| `DISK_IOCTL_GET_ERASE_BLOCK_SZ` | `uint32_t *` | 擦除块大小。SD 协议栈在这里直接返回块大小的数值（512），不是卡真正的擦除块大小 |
-| `DISK_IOCTL_CTRL_SYNC` | 不用，可以是 `NULL` | 等卡不忙。协议栈没有写缓存，所以不需要刷缓存 |
-| `DISK_IOCTL_CTRL_DEINIT` | 不用 | 等卡不忙，然后关闭卡的电源。之后访问这张卡要重新 `sd_init` |
-| 其他 | | `-ENOTSUP` |
+| `DISK_IOCTL_GET_SECTOR_COUNT` | `uint32_t *` | Number of blocks |
+| `DISK_IOCTL_GET_SECTOR_SIZE` | `uint32_t *` | Block size (bytes) |
+| `DISK_IOCTL_GET_ERASE_BLOCK_SZ` | `uint32_t *` | Erase block size. The SD protocol stack returns the value of the block size here (512), not the real erase block size of the card |
+| `DISK_IOCTL_CTRL_SYNC` | not used, can be `NULL` | Waits for the card to not be busy. The protocol stack has no write cache, so there is no cache to flush |
+| `DISK_IOCTL_CTRL_DEINIT` | not used | Waits for the card to not be busy, then powers the card off. Accessing this card afterwards requires a new `sd_init` |
+| anything else | | `-ENOTSUP` |
 
-取不到卡的互斥锁时返回 `-EBUSY` 之类的错误。
+When the card mutex cannot be taken it returns an error such as `-EBUSY`.
 
 ```c
 static void demo_sdmmc_ioctl(void)
@@ -570,18 +570,18 @@ static void demo_sdmmc_deinit(void)
 int disk_access_init(const char *pdrv);
 ```
 
-初始化名为 `pdrv` 的磁盘。内部：先按名字查磁盘，没有就返回 `-EINVAL`；磁盘第一次初始化时调用驱动的 `init`（对 `SD` 就是先 `sd_is_card_present`，再 `sd_init`），成功后引用计数加 1；之后再调用只是引用计数加 1，不会再初始化卡。引用计数到 0（对应次数的 `DISK_IOCTL_CTRL_DEINIT`）之后才会真正关电。
+Initializes the disk named `pdrv`. Internally: first look up the disk by name and return `-EINVAL` if there is none; the first time the disk is initialized it calls the `init` of the driver (for `SD` this is `sd_is_card_present` first, then `sd_init`), and on success increments the reference count; later calls only increment the reference count and do not initialize the card again. The card is really powered off only after the reference count reaches 0 (through that many `DISK_IOCTL_CTRL_DEINIT`).
 
-新代码应当用 `disk_access_ioctl(pdrv, DISK_IOCTL_CTRL_INIT, NULL)`，这个函数只是为了兼容旧代码保留。
+New code should use `disk_access_ioctl(pdrv, DISK_IOCTL_CTRL_INIT, NULL)`; this function is kept only for compatibility with old code.
 
-| 返回 | 含义 |
+| Return | Meaning |
 | --- | --- |
-| 0 | 成功 |
-| `-EINVAL` | 没有这个名字的磁盘 |
-| `DISK_STATUS_NOMEDIA`（2，正值） | 卡槽里没有卡。注意这是正数 |
-| 其他负数 | `sd_init` 的错误，例如 `-ETIMEDOUT`、`-EIO` |
+| 0 | Success |
+| `-EINVAL` | There is no disk with this name |
+| `DISK_STATUS_NOMEDIA` (2, positive) | There is no card in the slot. Note that this is a positive number |
+| other negative numbers | Errors of `sd_init`, for example `-ETIMEDOUT`, `-EIO` |
 
-初始化耗时和 `sd_init` 一样，约 1015 ms。
+Initialization takes as long as `sd_init`, about 1015 ms.
 
 ```c
 static void demo_disk_access_init(void)
@@ -608,16 +608,16 @@ static void demo_disk_access_init(void)
 int disk_access_status(const char *pdrv);
 ```
 
-读磁盘状态。
+Reads the disk status.
 
-| 返回 | 含义 |
+| Return | Meaning |
 | --- | --- |
-| `DISK_STATUS_OK`（0） | 卡已初始化，可以读写 |
-| `DISK_STATUS_UNINIT`（1） | 卡还没初始化，或者已经 `DEINIT` |
-| `DISK_STATUS_NOMEDIA`（2） | 卡槽里没有卡（每次调用都读一次卡检测引脚） |
-| `-EINVAL` | 没有这个名字的磁盘 |
+| `DISK_STATUS_OK` (0) | The card is initialized and can be read and written |
+| `DISK_STATUS_UNINIT` (1) | The card is not initialized yet, or has been deinitialized |
+| `DISK_STATUS_NOMEDIA` (2) | There is no card in the slot (every call reads the card detect pin once) |
+| `-EINVAL` | There is no disk with this name |
 
-返回的是状态值而不是错误码，所以 0 表示正常，`-EINVAL` 是负数，其他状态是正数。
+What is returned is a status value rather than an error code, so 0 means normal, `-EINVAL` is negative, and the other statuses are positive.
 
 ```c
 static void demo_disk_access_status(void)
@@ -642,19 +642,19 @@ static void demo_disk_access_status(void)
 int disk_access_ioctl(const char *pdrv, uint8_t cmd, void *buff);
 ```
 
-取磁盘参数或发控制请求。对 `SD` 磁盘：
+Gets disk parameters or sends a control request. For the `SD` disk:
 
-| `cmd` | `buff` | 行为 |
+| `cmd` | `buff` | Behavior |
 | --- | --- | --- |
-| `DISK_IOCTL_GET_SECTOR_COUNT` | `uint32_t *` | 扇区数 |
-| `DISK_IOCTL_GET_SECTOR_SIZE` | `uint32_t *` | 扇区大小（字节） |
-| `DISK_IOCTL_GET_ERASE_BLOCK_SZ` | `uint32_t *` | 擦除块大小，SD 协议栈返回 512（见 `sdmmc_ioctl`） |
-| `DISK_IOCTL_CTRL_SYNC` | 不用 | 等卡不忙 |
-| `DISK_IOCTL_CTRL_INIT` | 不用 | 同 `disk_access_init`，引用计数加 1 |
-| `DISK_IOCTL_CTRL_DEINIT` | 不用，或 `bool *`（真表示强制，不管引用计数） | 引用计数减 1，到 0 时关闭卡的电源，磁盘状态回到 `DISK_STATUS_UNINIT` |
-| 其他 | | `-ENOTSUP` |
+| `DISK_IOCTL_GET_SECTOR_COUNT` | `uint32_t *` | Number of sectors |
+| `DISK_IOCTL_GET_SECTOR_SIZE` | `uint32_t *` | Sector size (bytes) |
+| `DISK_IOCTL_GET_ERASE_BLOCK_SZ` | `uint32_t *` | Erase block size, the SD protocol stack returns 512 (see `sdmmc_ioctl`) |
+| `DISK_IOCTL_CTRL_SYNC` | not used | Waits for the card to not be busy |
+| `DISK_IOCTL_CTRL_INIT` | not used | Same as `disk_access_init`, increments the reference count |
+| `DISK_IOCTL_CTRL_DEINIT` | not used, or `bool *` (true means force, regardless of the reference count) | Decrements the reference count and, at 0, powers the card off and returns the disk status to `DISK_STATUS_UNINIT` |
+| anything else | | `-ENOTSUP` |
 
-没有这个名字的磁盘返回 `-EINVAL`。
+For a disk that does not have this name it returns `-EINVAL`.
 
 ```c
 static uint32_t sector_count, sector_size;
@@ -714,7 +714,7 @@ static void demo_disk_access_deinit(void)
 int disk_access_read(const char *pdrv, uint8_t *data_buf, uint32_t start_sector, uint32_t num_sector);
 ```
 
-从磁盘读 `num_sector` 个扇区到 `data_buf`。要先初始化磁盘，否则读到的是错误。返回值同 `sdmmc_read_blocks`：越界是 `-EINVAL`，没有这个磁盘名也是 `-EINVAL`。
+Reads `num_sector` sectors from the disk into `data_buf`. The disk must be initialized first, otherwise the read is an error. The return values are the same as `sdmmc_read_blocks`: out of range is `-EINVAL`, and a missing disk name is also `-EINVAL`.
 
 ```c
 static void demo_disk_access_read(void)
@@ -761,7 +761,7 @@ static void demo_disk_access_read(void)
 int disk_access_write(const char *pdrv, const uint8_t *data_buf, uint32_t start_sector, uint32_t num_sector);
 ```
 
-把 `data_buf` 写到磁盘的 `num_sector` 个扇区。返回值同 `sdmmc_write_blocks`。写完后用 `DISK_IOCTL_CTRL_SYNC` 等卡编程结束。和上面一样，演示只把最后一个扇区读出来再原样写回。
+Writes `num_sector` sectors from `data_buf` to the disk. The return values are the same as `sdmmc_write_blocks`. After writing, use `DISK_IOCTL_CTRL_SYNC` to wait for the card to finish programming. As above, the demonstration only reads the last sector out and writes it back as it is.
 
 ```c
 /* writes the last sector back with the data it has: the card is not changed */
@@ -801,7 +801,7 @@ static void demo_disk_access_write(void)
 static inline void fs_file_t_init(struct fs_file_t *zfp);
 ```
 
-把文件对象清零。`fs_open` 之前必须调用，否则栈上的随机值会被当作已经打开的文件。
+Zeroes the file object. It must be called before `fs_open`, otherwise random values on the stack are treated as an already open file.
 
 ```c
 static void demo_fs_file_t_init(void)
@@ -826,7 +826,7 @@ static void demo_fs_file_t_init(void)
 static inline void fs_dir_t_init(struct fs_dir_t *zdp);
 ```
 
-把目录对象清零。`fs_opendir` 之前必须调用。
+Zeroes the directory object. It must be called before `fs_opendir`.
 
 ```c
 static void demo_fs_dir_t_init(void)
@@ -852,28 +852,28 @@ static void demo_fs_dir_t_init(void)
 int fs_mount(struct fs_mount_t *mp);
 ```
 
-把一个文件系统挂到挂载点上。`struct fs_mount_t` 的内容：
+Mounts a filesystem at the mount point. The contents of `struct fs_mount_t`:
 
-| 字段 | 含义 |
+| Field | Meaning |
 | --- | --- |
-| `type` | 文件系统类型，FAT 用 `FS_FATFS` |
-| `mnt_point` | 挂载点。ELM FatFs 只允许 `/RAM:`、`/NAND:`、`/CF:`、`/SD:`、`/SD2:`、`/USB:`、`/USB2:`、`/USB3:`，或者单个数字如 `/0:`；这里的名字（去掉 `/` 和 `:`）就是磁盘名，所以 `SD` 磁盘只能挂在 `/SD:` |
-| `fs_data` | FatFs 的卷对象，类型是 `FATFS`（来自 `<ff.h>`），内存由应用提供，要一直存在到 `fs_unmount` |
-| `flags` | `FS_MOUNT_FLAG_NO_FORMAT`：不格式化；`FS_MOUNT_FLAG_READ_ONLY`：只读；`FS_MOUNT_FLAG_USE_DISK_ACCESS`：挂载成功后由 FAT 驱动自己置位，应用不用设（所以 `fs_mount` 会修改 `flags`）。`FS_MOUNT_FLAG_AUTOMOUNT`：设备树自动挂载用 |
+| `type` | Filesystem type, `FS_FATFS` for FAT |
+| `mnt_point` | Mount point. ELM FatFs only allows `/RAM:`, `/NAND:`, `/CF:`, `/SD:`, `/SD2:`, `/USB:`, `/USB2:`, `/USB3:`, or a single digit such as `/0:`; the name here (without `/` and `:`) is the disk name, so the `SD` disk can only be mounted at `/SD:` |
+| `fs_data` | The volume object of FatFs, of type `FATFS` (from `<ff.h>`); the memory is provided by the application and must exist until `fs_unmount` |
+| `flags` | `FS_MOUNT_FLAG_NO_FORMAT`: do not format; `FS_MOUNT_FLAG_READ_ONLY`: read-only; `FS_MOUNT_FLAG_USE_DISK_ACCESS`: set by the FAT driver itself after a successful mount, the application does not set it (so `fs_mount` modifies `flags`). `FS_MOUNT_FLAG_AUTOMOUNT`: for automatic mounting from the devicetree |
 
-挂载时 FatFs 通过磁盘接口初始化 `SD` 磁盘（所以 `fs_mount` 之前不一定要自己调 `disk_access_init`），读引导扇区，识别 FAT12/16/32 或 exFAT。传入的结构在 `fs_unmount` 成功之前不能修改。
+When mounting, FatFs initializes the `SD` disk through the disk interface (so `disk_access_init` does not have to be called by yourself before `fs_mount`), reads the boot sector, and recognizes FAT12/16/32 or exFAT. The structure passed in must not be modified until `fs_unmount` succeeds.
 
-不带 `FS_MOUNT_FLAG_NO_FORMAT` 并且 `CONFIG_FS_FATFS_MOUNT_MKFS` 打开时，卡上没有可识别的文件系统会被自动格式化，也就是擦掉整张卡。演示在 `prj.conf` 里把 `FS_FATFS_MOUNT_MKFS` 关掉，并且加了 `FS_MOUNT_FLAG_NO_FORMAT`，两处保险。
+Without `FS_MOUNT_FLAG_NO_FORMAT` and with `CONFIG_FS_FATFS_MOUNT_MKFS` enabled, a card with no recognizable filesystem is formatted automatically, that is, the whole card is erased. The demonstration turns `FS_FATFS_MOUNT_MKFS` off in `prj.conf` and also adds `FS_MOUNT_FLAG_NO_FORMAT`, two safeguards.
 
-| 返回 | 含义 |
+| Return | Meaning |
 | --- | --- |
-| 0 | 成功 |
-| `-EBUSY` | 这个挂载点已经挂载了 |
-| `-ENOENT` | 该文件系统类型没有注册 |
-| `-ENOTSUP` | 文件系统驱动不支持（或设了 `USE_DISK_ACCESS` 而驱动不支持） |
-| `-EROFS` | 需要格式化，但设了只读标志 |
-| `-ENODEV` | 卡上没有可识别的文件系统，又不允许格式化 |
-| `-EIO` | 读卡失败，或卡没有响应 |
+| 0 | Success |
+| `-EBUSY` | This mount point is already mounted |
+| `-ENOENT` | That filesystem type is not registered |
+| `-ENOTSUP` | The filesystem driver does not support it (or `USE_DISK_ACCESS` is set and the driver does not support it) |
+| `-EROFS` | Formatting is needed, but the read-only flag is set |
+| `-ENODEV` | There is no recognizable filesystem on the card, and formatting is not allowed |
+| `-EIO` | Reading the card failed, or the card did not respond |
 
 ```c
 static FATFS fat_fs;
@@ -900,7 +900,7 @@ static void demo_fs_mount(void)
 [fs_mount] the same mount point again = -EBUSY
 ```
 
-第二次挂载时文件系统层打印了 `<err> fs: file system already mounted!!`，在后面的完整日志里。
+On the second mount the filesystem layer prints `<err> fs: file system already mounted!!`, in the full log below.
 
 ### fs_readmount
 
@@ -910,7 +910,7 @@ static void demo_fs_mount(void)
 int fs_readmount(int *index, const char **name);
 ```
 
-遍历当前的挂载点。`index` 从 0 开始，每成功一次加 1，`name` 返回挂载点名；没有更多挂载点时返回 `-ENOENT`，并把 `name` 置为 `NULL`。
+Iterates over the current mount points. `index` starts at 0 and is incremented by 1 on each success, and `name` returns the mount point name; when there are no more mount points it returns `-ENOENT` and sets `name` to `NULL`.
 
 ```c
 static void demo_fs_readmount(void)
@@ -936,14 +936,14 @@ static void demo_fs_readmount(void)
 int fs_statvfs(const char *path, struct fs_statvfs *stat);
 ```
 
-读卷的总空间和剩余空间。`path` 是挂载点或挂载点下的路径。FAT 的结果：`f_frsize` 是簇大小，`f_blocks` 是总簇数，`f_bfree` 是空闲簇数；`f_bsize` 是扇区大小（512）。总字节数是 `f_blocks * f_frsize`。
+Reads the total and free space of the volume. `path` is the mount point or a path under the mount point. The FAT result: `f_frsize` is the cluster size, `f_blocks` is the total number of clusters, `f_bfree` is the number of free clusters; `f_bsize` is the sector size (512). The total number of bytes is `f_blocks * f_frsize`.
 
-| 返回 | 含义 |
+| Return | Meaning |
 | --- | --- |
-| 0 | 成功 |
-| `-EINVAL` | 路径不对，没有挂载 |
-| `-ENOTSUP` | 文件系统驱动不支持 |
-| `-EIO` | 读 FAT 表出错 |
+| 0 | Success |
+| `-EINVAL` | Wrong path, not mounted |
+| `-ENOTSUP` | The filesystem driver does not support it |
+| `-EIO` | Error reading the FAT table |
 
 ```c
 static void demo_fs_statvfs(void)
@@ -964,7 +964,7 @@ static void demo_fs_statvfs(void)
 [fs_statvfs] 7675 MiB total, 5903 MiB free
 ```
 
-簇大小 32 KiB，一共 245631 个簇，剩余 188896 个。
+The cluster size is 32 KiB, there are 245631 clusters in total, and 188896 are free.
 
 ### fs_opendir
 
@@ -974,14 +974,14 @@ static void demo_fs_statvfs(void)
 int fs_opendir(struct fs_dir_t *zdp, const char *path);
 ```
 
-打开目录。`zdp` 要先 `fs_dir_t_init`。同时打开的目录数受 `CONFIG_FS_FATFS_NUM_DIRS` 限制。
+Opens a directory. `zdp` must be `fs_dir_t_init`ed first. The number of directories open at the same time is limited by `CONFIG_FS_FATFS_NUM_DIRS`.
 
-| 返回 | 含义 |
+| Return | Meaning |
 | --- | --- |
-| 0 | 成功 |
-| `-ENOENT` | 目录不存在，或路径里的挂载点不存在 |
-| `-ENOMEM` | 目录对象用光了（`FS_FATFS_NUM_DIRS`） |
-| `-ENODEV` | 卷上没有可识别的文件系统 |
+| 0 | Success |
+| `-ENOENT` | The directory does not exist, or the mount point in the path does not exist |
+| `-ENOMEM` | Directory objects are used up (`FS_FATFS_NUM_DIRS`) |
+| `-ENODEV` | There is no recognizable filesystem on the volume |
 
 ```c
 static void demo_fs_opendir(void)
@@ -1014,7 +1014,7 @@ static void demo_fs_opendir(void)
 int fs_readdir(struct fs_dir_t *zdp, struct fs_dirent *entry);
 ```
 
-读下一个目录项到 `entry`（`name`、`type`、`size`）。`type` 是 `FS_DIR_ENTRY_FILE` 或 `FS_DIR_ENTRY_DIR`；目录的 `size` 是 0。到目录末尾时返回 0，并且 `entry->name[0]` 是 `'\0'`，所以结束条件是看名字，而不是返回值。FAT 的目录项没有固定顺序，是磁盘上存放的顺序。
+Reads the next directory entry into `entry` (`name`, `type`, `size`). `type` is `FS_DIR_ENTRY_FILE` or `FS_DIR_ENTRY_DIR`; the `size` of a directory is 0. At the end of the directory it returns 0 and `entry->name[0]` is `'\0'`, so the end condition is the name, not the return value. FAT directory entries have no fixed order; it is the order in which they are stored on the disk.
 
 ```c
 /* the first entries of the root directory; an empty name ends the listing */
@@ -1053,7 +1053,7 @@ static void demo_fs_readdir(void)
 [fs_readdir]   file      32768  Pokemon-Red.sav
 ```
 
-演示只读前 6 项。
+The demonstration reads only the first 6 entries.
 
 ### fs_closedir
 
@@ -1063,7 +1063,7 @@ static void demo_fs_readdir(void)
 int fs_closedir(struct fs_dir_t *zdp);
 ```
 
-关闭目录，释放目录对象。成功返回 0。
+Closes the directory and frees the directory object. Returns 0 on success.
 
 ```c
 static void demo_fs_closedir(void)
@@ -1094,13 +1094,13 @@ static void demo_fs_closedir(void)
 int fs_mkdir(const char *path);
 ```
 
-创建目录，只创建最后一级，父目录必须已经存在。
+Creates a directory, only the last level; the parent directory must already exist.
 
-| 返回 | 含义 |
+| Return | Meaning |
 | --- | --- |
-| 0 | 成功 |
-| `-EEXIST` | 已经有同名的文件或目录 |
-| `-ENOENT` | 父目录不存在 |
+| 0 | Success |
+| `-EEXIST` | A file or directory with the same name already exists |
+| `-ENOENT` | The parent directory does not exist |
 
 ```c
 static void demo_fs_mkdir(void)
@@ -1132,24 +1132,24 @@ static void demo_fs_mkdir(void)
 int fs_open(struct fs_file_t *zfp, const char *file_name, fs_mode_t flags);
 ```
 
-打开文件。`zfp` 要先 `fs_file_t_init`；同时打开的文件数受 `CONFIG_FS_FATFS_NUM_FILES` 限制。`flags`：
+Opens a file. `zfp` must be `fs_file_t_init`ed first; the number of files open at the same time is limited by `CONFIG_FS_FATFS_NUM_FILES`. `flags`:
 
-| 标志 | 含义 |
+| Flag | Meaning |
 | --- | --- |
-| `FS_O_READ` | 只读 |
-| `FS_O_WRITE` | 只写 |
-| `FS_O_RDWR` | 读写（`FS_O_READ | FS_O_WRITE`） |
-| `FS_O_CREATE` | 文件不存在就创建 |
-| `FS_O_APPEND` | 每次写之前移到文件末尾 |
-| `FS_O_TRUNC` | 打开时把文件截为 0 字节 |
+| `FS_O_READ` | Read-only |
+| `FS_O_WRITE` | Write-only |
+| `FS_O_RDWR` | Read and write (`FS_O_READ | FS_O_WRITE`) |
+| `FS_O_CREATE` | Create the file if it does not exist |
+| `FS_O_APPEND` | Move to the end of the file before each write |
+| `FS_O_TRUNC` | Truncate the file to 0 bytes when opening |
 
-| 返回 | 含义 |
+| Return | Meaning |
 | --- | --- |
-| 0 | 成功 |
-| `-ENOENT` | 文件不存在（没有 `FS_O_CREATE`），或路径里的挂载点不存在 |
-| `-ENOMEM` | 文件对象用光了（`FS_FATFS_NUM_FILES`） |
-| `-EROFS` | 以 `FS_MOUNT_FLAG_READ_ONLY` 挂载的卷上要求写 |
-| `-ENODEV` | 卷上没有可识别的文件系统 |
+| 0 | Success |
+| `-ENOENT` | The file does not exist (no `FS_O_CREATE`), or the mount point in the path does not exist |
+| `-ENOMEM` | File objects are used up (`FS_FATFS_NUM_FILES`) |
+| `-EROFS` | A write is requested on a volume mounted with `FS_MOUNT_FLAG_READ_ONLY` |
+| `-ENODEV` | There is no recognizable filesystem on the volume |
 
 ```c
 static void demo_fs_open(void)
@@ -1177,7 +1177,7 @@ static void demo_fs_open(void)
 [fs_open] a path with no mount point = -ENOENT
 ```
 
-没有挂载点的路径，文件系统层打印 `<err> fs: mount point not found!!`。
+For a path with no mount point, the filesystem layer prints `<err> fs: mount point not found!!`.
 
 ### fs_write
 
@@ -1187,9 +1187,9 @@ static void demo_fs_open(void)
 ssize_t fs_write(struct fs_file_t *zfp, const void *ptr, size_t size);
 ```
 
-从当前位置写 `size` 字节，位置往后移。返回实际写入的字节数，卡满了会小于 `size`；出错返回负的错误号。数据可能还在 FatFs 的缓存里，要落到卡上用 `fs_sync` 或 `fs_close`。
+Writes `size` bytes from the current position, and the position moves forward. Returns the number of bytes actually written, which is less than `size` when the card is full; on error it returns a negative error number. The data may still be in the FatFs cache; to get it onto the card use `fs_sync` or `fs_close`.
 
-用 `FS_O_READ` 打开的文件写入返回 `-EACCES`（FatFs 的“拒绝访问”）。
+A write to a file opened with `FS_O_READ` returns `-EACCES` (the "access denied" of FatFs).
 
 ```c
 static const char text[] = "Written by sd_api on the YuzukiNeko\n";
@@ -1235,7 +1235,7 @@ static void demo_fs_write(void)
 int fs_sync(struct fs_file_t *zfp);
 ```
 
-把文件缓存的数据和目录项（文件大小）写到卡上，文件保持打开。演示里 `fs_sync` 之后在文件还没关闭时 `fs_stat` 就能看到新的大小。
+Writes the cached file data and the directory entry (file size) to the card, and the file stays open. In the demonstration, after `fs_sync` the new size is visible through `fs_stat` while the file is still open.
 
 ```c
 static void demo_fs_sync(void)
@@ -1274,7 +1274,7 @@ static void demo_fs_sync(void)
 int fs_seek(struct fs_file_t *zfp, off_t offset, int whence);
 ```
 
-移动读写位置。`whence` 是 `FS_SEEK_SET`（从开头）、`FS_SEEK_CUR`（从当前位置）、`FS_SEEK_END`（从末尾，偏移通常为负）。成功返回 0。
+Moves the read/write position. `whence` is `FS_SEEK_SET` (from the start), `FS_SEEK_CUR` (from the current position), `FS_SEEK_END` (from the end, the offset is usually negative). Returns 0 on success.
 
 ```c
 static void demo_fs_seek(void)
@@ -1304,7 +1304,7 @@ static void demo_fs_seek(void)
 [fs_seek] -4 from the end = 0, now at 104
 ```
 
-文件是 108 字节，从末尾回退 4 字节是 104。
+The file is 108 bytes, and going back 4 bytes from the end is 104.
 
 ### fs_tell
 
@@ -1314,7 +1314,7 @@ static void demo_fs_seek(void)
 off_t fs_tell(struct fs_file_t *zfp);
 ```
 
-返回当前读写位置，字节为单位，从文件开头算起。
+Returns the current read/write position, in bytes, counted from the start of the file.
 
 ```c
 static void demo_fs_tell(void)
@@ -1350,7 +1350,7 @@ static void demo_fs_tell(void)
 ssize_t fs_read(struct fs_file_t *zfp, void *ptr, size_t size);
 ```
 
-从当前位置读最多 `size` 字节，位置往后移。返回实际读到的字节数；在文件末尾返回 0；出错返回负的错误号。
+Reads up to `size` bytes from the current position, and the position moves forward. Returns the number of bytes actually read; at the end of the file it returns 0; on error it returns a negative error number.
 
 ```c
 static void demo_fs_read(void)
@@ -1387,7 +1387,7 @@ static void demo_fs_read(void)
 int fs_truncate(struct fs_file_t *zfp, off_t length);
 ```
 
-把文件改成 `length` 字节：比原来小就截断，比原来大就扩展，扩展出来的部分用 0 填充（FatFs 适配层一个字节一个字节地写 0）。调用之后读写位置在 `length` 处；卷空间不够时，文件只扩展到能扩展的大小。文件要用可写方式打开。
+Changes the file to `length` bytes: shorter than before truncates, longer than before extends, and the extended part is filled with 0 (the FatFs adaptation layer writes 0 byte by byte). After the call the read/write position is at `length`; when there is not enough space on the volume, the file is extended only as far as it can be. The file must be opened in a writable way.
 
 ```c
 static void demo_fs_truncate(void)
@@ -1430,7 +1430,7 @@ static void demo_fs_truncate(void)
 int fs_close(struct fs_file_t *zfp);
 ```
 
-关闭文件，缓存的数据写到卡上，目录项更新。关闭后 `zfp->mp` 被清空，所以对同一个文件对象再关一次是空操作，返回 0。
+Closes the file, the cached data is written to the card, and the directory entry is updated. After closing, `zfp->mp` is cleared, so closing the same file object again is a no-op and returns 0.
 
 ```c
 static void demo_fs_close(void)
@@ -1464,13 +1464,13 @@ static void demo_fs_close(void)
 int fs_stat(const char *path, struct fs_dirent *entry);
 ```
 
-读文件或目录的信息：`name`、`type`（`FS_DIR_ENTRY_FILE` 或 `FS_DIR_ENTRY_DIR`）、`size`。不需要先打开文件。
+Reads the information of a file or directory: `name`, `type` (`FS_DIR_ENTRY_FILE` or `FS_DIR_ENTRY_DIR`), `size`. The file does not need to be opened first.
 
-| 返回 | 含义 |
+| Return | Meaning |
 | --- | --- |
-| 0 | 成功 |
-| `-ENOENT` | 不存在 |
-| `-EINVAL` | 路径不对 |
+| 0 | Success |
+| `-ENOENT` | Does not exist |
+| `-EINVAL` | Wrong path |
 
 ```c
 static void demo_fs_stat(void)
@@ -1499,7 +1499,7 @@ static void demo_fs_stat(void)
 int fs_rename(const char *from, const char *to);
 ```
 
-改名或移动，`from` 和 `to` 必须在同一个挂载点。**FAT 的实现里，如果 `to` 已经存在，会先把它删掉再改名**，不会返回 `-EEXIST`。注意：这个删除发生在检查 `from` 之前，所以 `from` 不存在时，`to` 也会被删掉，函数返回 `-ENOENT`。演示里先后验证了改名、覆盖已有的名字，以及对不存在的文件改名。
+Renames or moves; `from` and `to` must be on the same mount point. **In the FAT implementation, if `to` already exists, it is deleted first and then the rename happens**, and `-EEXIST` is not returned. Note: this deletion happens before `from` is checked, so when `from` does not exist, `to` is deleted as well and the function returns `-ENOENT`. The demonstration verifies a rename, overwriting an existing name, and renaming a file that does not exist, in that order.
 
 ```c
 static void demo_fs_rename(void)
@@ -1548,13 +1548,13 @@ static void demo_fs_rename(void)
 int fs_unlink(const char *path);
 ```
 
-删除文件或空目录。
+Deletes a file or an empty directory.
 
-| 返回 | 含义 |
+| Return | Meaning |
 | --- | --- |
-| 0 | 成功 |
-| `-ENOENT` | 不存在 |
-| `-EACCES` | 目录非空，或文件有只读属性（FatFs 的“拒绝访问”） |
+| 0 | Success |
+| `-ENOENT` | Does not exist |
+| `-EACCES` | The directory is not empty, or the file has the read-only attribute (the "access denied" of FatFs) |
 
 ```c
 static void demo_fs_unlink(void)
@@ -1588,13 +1588,13 @@ static void demo_fs_unlink(void)
 int fs_unmount(struct fs_mount_t *mp);
 ```
 
-卸载文件系统，传入的是 `fs_mount` 用过的同一个结构。卸载前要先关闭所有文件和目录。卸载后 `mp` 和 `fs_data` 才可以释放或修改。FAT 驱动在卸载时还会对磁盘做一次掉电（相当于 `DISK_IOCTL_CTRL_DEINIT`），之后要再访问卡就得重新 `disk_access_init` 或重新 `fs_mount`。
+Unmounts the filesystem; what is passed in is the same structure that `fs_mount` used. All files and directories must be closed before unmounting. Only after unmounting may `mp` and `fs_data` be freed or modified. When unmounting, the FAT driver also powers the disk off once (equivalent to `DISK_IOCTL_CTRL_DEINIT`); accessing the card afterwards requires a new `disk_access_init` or a new `fs_mount`.
 
-| 返回 | 含义 |
+| Return | Meaning |
 | --- | --- |
-| 0 | 成功 |
-| `-EINVAL` | 这个挂载点没有挂载 |
-| `-ENOTSUP` | 文件系统驱动不支持 |
+| 0 | Success |
+| `-EINVAL` | This mount point is not mounted |
+| `-ENOTSUP` | The filesystem driver does not support it |
 
 ```c
 static void demo_fs_unmount(void)
@@ -1612,9 +1612,9 @@ static void demo_fs_unmount(void)
 [fs_unmount] the same mount point again = -EINVAL
 ```
 
-### 读写速度
+### Read and write speed
 
-文件读写和裸读写是同一个路径，这里单独量一下 FatFs 的文件读写速度：写一个 1 MiB 的文件（每次 64 KiB），再读回来逐字节比较。写 90 ms（约 11 MiB/s），读 59 ms（约 17 MiB/s），读回的数据和写入的一致。文件读写是 16 次 64 KiB 的请求，缓冲区 64 字节对齐，直接 DMA；写入比读取慢，包含卡内部编程的时间和 FAT 表、目录项的更新。
+File read and write and raw read and write are the same path; here the FatFs file read and write speed is measured separately: write a 1 MiB file (64 KiB at a time), then read it back and compare byte by byte. Writing takes 90 ms (about 11 MiB/s), reading 59 ms (about 17 MiB/s), and the data read back matches what was written. File read and write is 16 requests of 64 KiB, with the buffer 64 byte aligned, going straight to DMA; writing is slower than reading, and includes the time the card spends programming internally plus the updates of the FAT table and the directory entry.
 
 ```c
 static uint8_t pattern[64 * 1024] __aligned(64);
@@ -1666,45 +1666,45 @@ static void demo_fs_speed(void)
 [speed] read it back, 0 piece(s) differ, 59 ms
 ```
 
-## 验证项
+## Verification items
 
-下面按验证项列出：验证了什么，怎么验证的，板上看到了什么。所有输出都在后面的完整日志里。
+Below, item by item: what was verified, how it was verified, and what was seen on the board. All the output is in the full log below.
 
-| 验证项 | 怎么验证的 | 板上看到的 |
+| Item | How it was verified | What was seen on the board |
 | --- | --- | --- |
-| 卡检测 | `sd_is_card_present` 传入 `smhc0` 和 `NULL` | 有卡返回 1，传 `NULL` 返回 0 |
-| 卡初始化 | `sd_init`，再读 `struct sd_card` 的字段；传 `NULL` 控制器 | 返回 0，用时 1016 ms；OCR `c0ff8000`，块寻址；7680 MiB；4 位总线，50 MHz；传 `NULL` 返回 `-ENODEV` |
-| 块读写 | `sdmmc_read_blocks` 读块 0、1 MiB、最后一块、越界一块；`sdmmc_write_blocks` 把最后一块读出来原样写回，同步后再读比较 | 块 0 签名 `55 aa`；对齐 1 MiB 读 44 ms；越界返回 `-EINVAL`；写回后数据相同 |
-| 块 ioctl | `sdmmc_ioctl` 取块数、块大小、擦除块大小，同步，发一个没有处理的命令，最后 `DEINIT` | 数值与 `sd_init` 一致；未处理的命令返回 `-ENOTSUP`；`DEINIT` 返回 0 |
-| 磁盘初始化和状态 | `disk_access_init`、`disk_access_status`，磁盘名用 `SD` 和不存在的 `NODISK` | `SD` 返回 0，状态 0；`NODISK` 返回 `-EINVAL` |
-| 磁盘读写 | `disk_access_read` 读扇区 0、对齐和偏移 4 字节的 1 MiB、最后一个扇区、越界；`disk_access_write` 原样写回最后一个扇区 | 对齐 1 MiB 44 ms，偏移 4 字节 199 ms；越界返回 `-EINVAL`；写回后数据相同 |
-| 磁盘 ioctl | `disk_access_ioctl` 取扇区数、扇区大小、擦除块大小、同步；`DEINIT` 之后看状态，再 `INIT`，再读扇区 0 | 状态变成 1（`DISK_STATUS_UNINIT`），`INIT` 之后能读到 `55 aa` |
-| 挂载 | `fs_mount` 挂 `/SD:`，再挂一次；`fs_readmount` 遍历；`fs_unmount` 两次 | 第一次 0，第二次 `-EBUSY`；遍历到 `/SD:`；卸载第二次返回 `-EINVAL` |
-| 卷信息 | `fs_statvfs` | 簇 32768 字节，245631 个簇，188896 个空闲，7675 MiB 总量 |
-| 目录 | `fs_opendir`、`fs_readdir`、`fs_closedir`、`fs_mkdir`、`fs_unlink`（删空目录） | 列出根目录的前 6 项；不存在的目录返回 `-ENOENT`；重复创建返回 `-EEXIST`；删除空目录返回 0 |
-| 文件读写 | `fs_open` 创建，`fs_write` 写两次，`fs_sync` 后在文件仍打开时 `fs_stat`，`fs_seek` 三种 `whence`，`fs_tell`，`fs_read`，`fs_truncate` 缩小和扩大，`fs_close` | 写 36 字节两次；同步后大小为 108；`fs_seek` 位置 10、15、104；读到原文；截断后 10 字节，扩展后 100 字节 |
-| 文件管理 | `fs_stat`、`fs_rename`（普通改名、覆盖已有的名字、源不存在）、`fs_unlink` | 改名后旧名 `-ENOENT`；覆盖后新名的大小变成 4 字节；源不存在返回 `-ENOENT` |
-| 错误路径 | 以只读方式打开后写、没有挂载点的路径、不存在的文件 | `-EACCES`、`-ENOENT`、`-ENOENT`，控制台同时有 `<err> fs` 日志 |
-| 大块 DMA | 对齐缓冲区上一次读 1 MiB（128 个描述符） | 从 199 ms 降到 44 ms |
-| 文件读写速度和数据一致 | 写 1 MiB（64 KiB 一次），读回逐字节比较 | 写 90 ms，读 59 ms，0 块不同 |
-| 对象初始化 | `fs_file_t_init`、`fs_dir_t_init` 对填 0xff 的对象初始化 | 指针和标志都被清零 |
+| Card detect | `sd_is_card_present` called with `smhc0` and with `NULL` | Returns 1 with a card, returns 0 with `NULL` |
+| Card initialization | `sd_init`, then reading the fields of `struct sd_card`; a `NULL` controller | Returns 0, taking 1016 ms; OCR `c0ff8000`, block addressing; 7680 MiB; 4 bit bus, 50 MHz; with `NULL` it returns `-ENODEV` |
+| Block read and write | `sdmmc_read_blocks` reading block 0, 1 MiB, the last block, one block beyond the end; `sdmmc_write_blocks` reading the last block out and writing it back as it is, then reading and comparing after a sync | The signature of block 0 is `55 aa`; the aligned 1 MiB read takes 44 ms; out of range returns `-EINVAL`; the data is the same after writing it back |
+| Block ioctl | `sdmmc_ioctl` getting the block count, block size and erase block size, syncing, sending a command that is not handled, and finally `DEINIT` | The values match `sd_init`; the unhandled command returns `-ENOTSUP`; `DEINIT` returns 0 |
+| Disk initialization and status | `disk_access_init`, `disk_access_status`, with the disk names `SD` and the nonexistent `NODISK` | `SD` returns 0, status 0; `NODISK` returns `-EINVAL` |
+| Disk read and write | `disk_access_read` reading sector 0, 1 MiB aligned and offset by 4 bytes, the last sector, and out of range; `disk_access_write` writing the last sector back as it is | The aligned 1 MiB takes 44 ms, the 4 byte offset 199 ms; out of range returns `-EINVAL`; the data is the same after writing it back |
+| Disk ioctl | `disk_access_ioctl` getting the sector count, sector size and erase block size, and syncing; after `DEINIT` checking the status, then `INIT`, then reading sector 0 | The status becomes 1 (`DISK_STATUS_UNINIT`), and after `INIT` `55 aa` can be read |
+| Mount | `fs_mount` mounting `/SD:`, mounting it once more; `fs_readmount` iterating; `fs_unmount` twice | The first is 0, the second `-EBUSY`; the iteration reaches `/SD:`; the second unmount returns `-EINVAL` |
+| Volume information | `fs_statvfs` | Clusters of 32768 bytes, 245631 clusters, 188896 free, 7675 MiB in total |
+| Directories | `fs_opendir`, `fs_readdir`, `fs_closedir`, `fs_mkdir`, `fs_unlink` (deleting the empty directory) | Lists the first 6 entries of the root directory; a directory that does not exist returns `-ENOENT`; creating it again returns `-EEXIST`; deleting the empty directory returns 0 |
+| File read and write | `fs_open` to create, `fs_write` twice, `fs_stat` after `fs_sync` while the file is still open, `fs_seek` with the three `whence` values, `fs_tell`, `fs_read`, `fs_truncate` shrinking and extending, `fs_close` | Writes 36 bytes twice; the size after the sync is 108; the `fs_seek` positions are 10, 15, 104; the original text is read back; after truncation 10 bytes, after extension 100 bytes |
+| File management | `fs_stat`, `fs_rename` (an ordinary rename, overwriting an existing name, a missing source), `fs_unlink` | After the rename the old name is `-ENOENT`; after the overwrite the size of the new name becomes 4 bytes; a missing source returns `-ENOENT` |
+| Error paths | Writing after opening read-only, a path with no mount point, a file that does not exist | `-EACCES`, `-ENOENT`, `-ENOENT`, and the console also has `<err> fs` logs |
+| Large block DMA | One 1 MiB read on the aligned buffer (128 descriptors) | From 199 ms down to 44 ms |
+| File read and write speed and data consistency | Writing 1 MiB (64 KiB at a time) and reading it back for a byte by byte comparison | Write 90 ms, read 59 ms, 0 pieces differ |
+| Object initialization | `fs_file_t_init`, `fs_dir_t_init` on an object filled with 0xff | The pointers and flags are all cleared |
 
-## 未验证项
+## Items not verified
 
-| 项目 | 为什么没有验证 |
+| Item | Why it was not verified |
 | --- | --- |
-| `fs_mkfs` | 会格式化存储设备，擦掉整张卡；`FILE_SYSTEM_MKFS` 也没有打开 |
-| 卡槽没有卡时的路径 | 板上一直有卡。代码里 `sd_is_card_present` 为 0 时 `main` 打印 `no card in the slot, nothing more to do` 就退出，这一条没有跑过 |
-| 拔卡、插卡事件 | 要人工动作，不在自动流程里 |
-| 其他卡（SDSC、SDXC、SD 3.0 以上、exFAT） | 手上只有这一张 SDHC 的 SD 2.0 卡 |
-| `fs_register`、`fs_unregister` | 注册新文件系统类型的接口，属于文件系统驱动，应用用不到 |
-| `sdio.h`、`mmc.h` 的接口 | SDIO 由 WiFi/蓝牙芯片使用，见 [AIC8800 WIFI](aic8800-wifi.md)；`yuzukineko` 没有 eMMC，`MMC_STACK` 没有打开 |
-| 1.8 V UHS 模式、SPI 模式 | 控制器驱动不支持，协议栈相关代码没有编进来 |
-| LittleFS 等其他文件系统 | 这里只讲 SD 卡上的 FAT |
+| `fs_mkfs` | It formats the storage device and erases the whole card; `FILE_SYSTEM_MKFS` is not enabled either |
+| The path when there is no card in the slot | There is always a card on the board. In the code, when `sd_is_card_present` is 0, `main` prints `no card in the slot, nothing more to do` and exits; this one has not been run |
+| Card removal and insertion events | They need a manual action and are not in the automatic flow |
+| Other cards (SDSC, SDXC, SD 3.0 and above, exFAT) | Only this one SDHC SD 2.0 card is on hand |
+| `fs_register`, `fs_unregister` | Interfaces to register a new filesystem type; they belong to filesystem drivers and applications do not need them |
+| The interfaces of `sdio.h`, `mmc.h` | SDIO is used by the WiFi/Bluetooth chip, see [AIC8800 WIFI](aic8800-wifi.md); `yuzukineko` has no eMMC and `MMC_STACK` is not enabled |
+| 1.8 V UHS mode, SPI mode | The controller driver does not support them, and the related protocol stack code is not compiled in |
+| Other filesystems such as LittleFS | Only FAT on the SD card is covered here |
 
-## 完整演示程序
+## Full demonstration program
 
-上面所有示例和日志都来自这一个程序。建一个目录，放进下面的文件，就可以像其他 Zephyr 应用一样编译。
+All the examples and logs above come from this one program. Create a directory, put the files below into it, and it can be built like any other Zephyr application.
 
 ```text
 sd_api/
@@ -1746,7 +1746,7 @@ CONFIG_DEVMEM_SHELL=n
 CONFIG_LOG_PRINTK=n
 ```
 
-`CONFIG_SDHC=y`、`CONFIG_DISK_ACCESS=y` 之类的行在板子的设备树有 `zephyr,sdmmc-disk` 节点时会被自动选中，这里写出来是为了让依赖一目了然。`CONFIG_MAIN_STACK_SIZE=8192` 是因为长文件名放在栈上（`FS_FATFS_LFN_MODE_STACK`），`fs_*` 调用比较深。
+Lines such as `CONFIG_SDHC=y` and `CONFIG_DISK_ACCESS=y` are selected automatically when the board devicetree has a `zephyr,sdmmc-disk` node; they are written out here to make the dependencies obvious at a glance. `CONFIG_MAIN_STACK_SIZE=8192` is because long file names are on the stack (`FS_FATFS_LFN_MODE_STACK`) and the `fs_*` calls are fairly deep.
 
 ### src/main.c
 
@@ -2465,7 +2465,7 @@ int main(void)
 }
 ```
 
-### 编译和运行
+### Build and run
 
 ```sh
 . ~/f101-zephyr/env.sh
@@ -2475,11 +2475,11 @@ west build -b yuzukineko -d build/sd-api examples/sd_api
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/components-sd/build.cast" data-speed="6"></div>
 
-下载运行的方法见[编译与运行](../zephyr-build-run.md)。运行前把 TF 卡插进卡槽。卡槽里没有卡时，程序在 `sd_is_card_present` 之后打印 `no card in the slot, nothing more to do` 就退出；这条路径没有在板子上运行，板子上一直有卡。
+For how to download and run, see [Build and run](../zephyr-build-run.md). Insert the TF card into the card slot before running. When there is no card in the slot, after `sd_is_card_present` the program prints `no card in the slot, nothing more to do` and exits; this path was not run on the board, there was always a card on the board.
 
-## 板子上的完整日志
+## Full log on the board
 
-控制台 UART1 上的完整输出，从 Zephyr 的启动横幅开始：
+The complete output on the console UART1, starting from the Zephyr boot banner:
 
 ```text
 *** Booting Zephyr OS build b6f3dfe1a1f4 ***
@@ -2597,4 +2597,4 @@ sd_api done
 [00:00:04.645,000] <err> fs: fs not mounted (mp == 0x403211a0)
 ```
 
-结尾的几行 `<err> fs: ...` 是文件系统层对前面几个故意出错的调用打的日志（重复挂载、打开不存在的目录、重复创建目录、打开不存在的文件、路径里没有挂载点、写只读文件、改名和删除不存在的文件、卸载后再卸载），它们是延迟输出的，排在程序输出之后。程序里的返回值才是应用要看的。第二行的 `display_sunxi` 是显示驱动在后台完成初始化时打的日志，与本组件无关。
+The few `<err> fs: ...` lines at the end are the logs the filesystem layer prints for the several deliberately failing calls above (mounting twice, opening a directory that does not exist, creating a directory twice, opening a file that does not exist, a path with no mount point, writing a read-only file, renaming and deleting files that do not exist, unmounting after unmounting); they are output late and come after the program output. The return values in the program are what the application should look at. The `display_sunxi` on the second line is a log the display driver prints while it finishes initializing in the background, and is unrelated to this component.

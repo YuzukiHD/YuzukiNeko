@@ -1,56 +1,56 @@
 ---
-title: "mGBA - GBA 模拟器"
+title: "mGBA - GBA emulator"
 ---
 
-在板子上运行 Game Boy Advance 游戏（也能跑 Game Boy / Game Boy Color）：模拟器核心是 [mGBA](https://github.com/mgba-emu/mgba)，ROM 从 TF 卡读取；游戏画面 240×160 交给显示引擎的视频层放大到整块屏幕；声音经 I2S 从片上 codec 输出；屏幕上叠一层 LVGL 画的半透明按键，用触摸屏操作。示例是 `zephyr-components/mgba/samples/gba_player`，mGBA 本体是组件里的 git 子模块（MPL-2.0），不需要 BIOS 文件。
+Runs Game Boy Advance games on the board (Game Boy / Game Boy Color work too): the emulator core is [mGBA](https://github.com/mgba-emu/mgba) and the ROM is read from the TF card; the 240×160 game picture is handed to the display engine's video plane and scaled up to the whole screen; the sound goes out over I2S from the on-chip codec; and a layer of semi-transparent buttons drawn with LVGL is overlaid on the screen and operated with the touchscreen. The sample is `zephyr-components/mgba/samples/gba_player`; mGBA itself is a git submodule in the component (MPL-2.0), and no BIOS file is needed.
 
 ```mermaid
 flowchart TB
-    SD["TF 卡<br/>xxx.gba + xxx.sav"] -->|"fs_read"| CORE["mGBA 核心<br/>gba_run_frame()"]
-    TP["GT967 触摸屏"] -->|"input 事件"| PAD["pad.c<br/>LVGL 按键 + 触摸命中"]
-    PAD -->|"GBA_KEY_* 位掩码"| CORE
-    CORE -->|"RGB565 240x160"| VID["video.c<br/>4 个帧缓冲轮换"]
-    CORE -->|"PCM 重采样到 48 kHz"| ARING["audio.c<br/>环形缓冲"]
-    PAD -->|"LVGL"| ARGB["显示引擎 ARGB 层"]
-    ARING -.->|"队列长度 = 时钟"| CORE
-    ARING -->|"i2s_write"| CODEC["片上 codec"]
-    VID -->|"display_sunxi_show_rgb"| DE["显示引擎视频层<br/>硬件放大 + 居中 → 1024x768 屏"]
-    ARGB -.->|"叠在视频层上"| DE
+    SD["TF card<br/>xxx.gba + xxx.sav"] -->|"fs_read"| CORE["mGBA core<br/>gba_run_frame()"]
+    TP["GT967 touchscreen"] -->|"input events"| PAD["pad.c<br/>LVGL buttons + touch hit test"]
+    PAD -->|"GBA_KEY_* bit mask"| CORE
+    CORE -->|"RGB565 240x160"| VID["video.c<br/>4 framebuffers in rotation"]
+    CORE -->|"PCM resampled to 48 kHz"| ARING["audio.c<br/>ring buffer"]
+    PAD -->|"LVGL"| ARGB["display engine ARGB plane"]
+    ARING -.->|"queue length = the clock"| CORE
+    ARING -->|"i2s_write"| CODEC["on-chip codec"]
+    VID -->|"display_sunxi_show_rgb"| DE["display engine video plane<br/>hardware upscale + centering → 1024x768 screen"]
+    ARGB -.->|"stacked on the video plane"| DE
 ```
 
-没有单独的定时器：模拟器每算完一帧，就检查声音队列，队列里积的声音多了就 `k_msleep(1)` 等一等，所以<strong>声音输出的速度决定游戏速度</strong>。
+There is no separate timer: each time the emulator finishes a frame it checks the sound queue, and if too much sound has piled up it waits with `k_msleep(1)`, so <strong>the speed of the sound output sets the game speed</strong>.
 
-开始前请先完成 [配置开发环境](../zephyr-setup-env.md) 和 [获取 Zephyr 代码](../zephyr-get-source.md)。
+Before you start, first complete [Setting up the development environment](../zephyr-setup-env.md) and [Getting the Zephyr source](../zephyr-get-source.md).
 
-## 准备
+## Preparation
 
-### ROM 和 TF 卡
+### ROM and TF card
 
-<strong>ROM 需要自备，本文和仓库都不提供任何游戏文件。</strong>请只使用你自己合法拥有的游戏（例如自己的卡带转出来的文件）。
+<strong>You must supply the ROM yourself; neither this page nor the repository provides any game files.</strong> Use only games you legally own (for example, a file dumped from your own cartridge).
 
-| 项 | 说明 |
+| Item | Description |
 | --- | --- |
-| ROM 文件 | `.gba`（GBA）、`.gb`、`.gbc`（Game Boy / Color）；扩展名大小写都认（`.gba` 或 `.GBA`），核心按扩展名选 |
-| 放哪里 | TF 卡<strong>根目录</strong> |
-| 选哪个 | 先找 `CONFIG_SAMPLE_GBA_ROM`（默认 `/SD:/game.gba`）；不存在就取根目录里第一个大小不超过 `CONFIG_MGBA_MAX_ROM_SIZE_MB`（示例设为 10 MiB）的文件，`.gba` 优先，其次 `.gb` / `.gbc` |
-| 存档 | 和 ROM 同目录、同主文件名、扩展名 `.sav`（`xxx.gba` 对应 `xxx.sav`）；文件存在就读入，游戏存档内容有变化时每 3 秒写回一次 |
-| BIOS | <strong>不需要</strong>，用 mGBA 内置的替代 BIOS；<strong>不支持</strong>从文件加载真 BIOS |
-| 文件系统 | FAT 或 exFAT，支持长文件名 |
+| ROM file | `.gba` (GBA), `.gb`, `.gbc` (Game Boy / Color); the extension is recognized in either case (`.gba` or `.GBA`), and the core is chosen by the extension |
+| Where it goes | the TF card's <strong>root directory</strong> |
+| Which one is chosen | it first looks for `CONFIG_SAMPLE_GBA_ROM` (default `/SD:/game.gba`); if it does not exist it takes the first file in the root directory whose size does not exceed `CONFIG_MGBA_MAX_ROM_SIZE_MB` (set to 10 MiB in the sample), preferring `.gba` and then `.gb` / `.gbc` |
+| Save file | in the same directory as the ROM, with the same base file name and the extension `.sav` (`xxx.gba` corresponds to `xxx.sav`); if the file exists it is read in, and it is written back every 3 seconds whenever the game's save data has changed |
+| BIOS | <strong>not needed</strong>; mGBA's built-in replacement BIOS is used, and loading a real BIOS from a file is <strong>not supported</strong> |
+| Filesystem | FAT or exFAT, with long file name support |
 
-ROM 整个读进内存，所以大小受 `CONFIG_MGBA_MAX_ROM_SIZE_MB` 限制。超过 10 MiB 的 ROM（最大 32 MiB）需要打开按需分页：编译时加 `-DEXTRA_CONF_FILE=…/paged.conf`，让 ROM 作为文件映射、用到哪一页才从卡里读，见 [配置选项](#配置选项)。`paged.conf` 不改 ROM 的选法，仍然是 `game.gba` 或根目录第一个文件。
+The ROM is read into memory in one piece, so its size is limited by `CONFIG_MGBA_MAX_ROM_SIZE_MB`. A ROM larger than 10 MiB (up to 32 MiB) needs on-demand paging: add `-DEXTRA_CONF_FILE=…/paged.conf` at build time so the ROM is a file mapping and a page is read from the card only when it is used; see [Configuration options](#configuration-options). `paged.conf` does not change how the ROM is chosen; it is still `game.gba` or the first file in the root directory.
 
-### 拉取 mGBA 子模块
+### Fetching the mGBA submodule
 
-mGBA 本体是组件里的 git 子模块，第一次编译前要拉下来：
+mGBA itself is a git submodule in the component and must be fetched before the first build:
 
 ```sh
 cd ~/f101-zephyr/zephyr-components/mgba
 git submodule update --init mgba
 ```
 
-## 编译
+## Building
 
-在工作区里执行：
+Run this in the workspace:
 
 ```sh
 . ~/f101-zephyr/env.sh
@@ -60,33 +60,33 @@ west build -b yuzukineko -d build/mgba zephyr-components/mgba/samples/gba_player
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/apps-mgba/build.cast" data-speed="6"></div>
 
-产物是 `build/mgba/zephyr/zephyr.bin`，约 4.98 MB，链接地址 `0x40010000`。
+The output is `build/mgba/zephyr/zephyr.bin`, about 4.98 MB, linked at `0x40010000`.
 
-示例的 `prj.conf` 里有 `CONFIG_MINIMAL_LIBC=y`：`shim/` 里的头文件按 Zephyr 的最小 C 库写，自己的应用引用这个模块时也要选它。
+The sample's `prj.conf` has `CONFIG_MINIMAL_LIBC=y`: the headers in `shim/` are written for Zephyr's minimal C library, and your own application must select it too when it uses this module.
 
-示例的 `CMakeLists.txt` 用 `ZEPHYR_EXTRA_MODULES` 把上两级目录的组件模块引进来，所以不用另外指定：
+The sample's `CMakeLists.txt` brings in the component module two directories up with `ZEPHYR_EXTRA_MODULES`, so it does not have to be specified separately:
 
 ```cmake
 # the mGBA module is two directories up
 list(APPEND ZEPHYR_EXTRA_MODULES ${CMAKE_CURRENT_SOURCE_DIR}/../..)
 ```
 
-## 运行
+## Running
 
-用 [编译与运行](../zephyr-build-run.md) 里的任一种方式下载，控制台是 UART1（115200 8N1）。
+Download it with either method in [Building and running](../zephyr-build-run.md); the console is UART1 (115200 8N1).
 
-- 调试时用<strong>方式一</strong>：`xfel ddr f101-s3`、`xfel write 0x40010000 build/mgba/zephyr/zephyr.bin`、`xfel exec 0x40010000`。
-- 脱机运行用<strong>方式三</strong>：`mkuf2.py app build/mgba/zephyr/zephyr.bin -o out/mgba.uf2`，拖进 `F101BOOT` 盘。
+- For debugging use <strong>method one</strong>: `xfel ddr f101-s3`, `xfel write 0x40010000 build/mgba/zephyr/zephyr.bin`, `xfel exec 0x40010000`.
+- For stand-alone running use <strong>method three</strong>: `mkuf2.py app build/mgba/zephyr/zephyr.bin -o out/mgba.uf2`, then drag it onto the `F101BOOT` drive.
 
 :::caution
-板子只有一个 USB-C 口，既是 xfel 下载口，也是 UF2 盘的口。先下载，再接别的设备。
+The board has only one USB-C port, which is both the xfel download port and the UF2 drive port. Download first, then connect other devices.
 :::
 
-先把装好 ROM 的 TF 卡插进卡槽，再上电下载。
+Insert the TF card with the ROM into the slot first, then power up and download.
 
-### 运行后的输出
+### Output after running
 
-串口控制台依次打印下面的内容（TF 卡里是一个 8 MiB 的 `.gba`，日志里的文件名写作 `game`；之后每 5 秒一行统计）：
+The serial console prints the following in order (the TF card holds an 8 MiB `.gba`, and the file name in the log is written as `game`; after that, one line of statistics every 5 seconds):
 
 ```text
 *** Booting Zephyr OS build b6f3dfe1a1f4 ***
@@ -99,53 +99,53 @@ gba: 306 frames, emulation 4224 us/frame, sound 244898 frames pushed, queued 272
 gba: 300 frames, emulation 11407 us/frame, sound 241097 frames pushed, queued 3179, underruns 0, ring empty 36, slab full 932, skipped 150
 ```
 
-### 显示和触摸屏初始化
+### Display and touchscreen initialization
 
-`display_sunxi` 报 `1024x768 @ 60 Hz`，说明视频层可用；`gt967` 报固件版本和 `up to 5 point(s)`，说明触摸屏可以同时识别 5 个手指。
+`display_sunxi` reports `1024x768 @ 60 Hz`, which means the video plane is available; `gt967` reports the firmware version and `up to 5 point(s)`, which means the touchscreen can recognize 5 fingers at once.
 
-### TF 卡和 ROM 读取
+### TF card and ROM reading
 
-控制台打印 `ROM /SD:/game.gba, save /SD:/game.sav`，随后 `gba: ROM …, 8388608 bytes`：TF 卡挂载完成，ROM 选定并整个读入内存。随后游戏画面出现在屏幕上，半透明按键叠在上面。
+The console prints `ROM /SD:/game.gba, save /SD:/game.sav`, followed by `gba: ROM …, 8388608 bytes`: the TF card is mounted, the ROM is chosen and read into memory in one piece. The game picture then appears on the screen, with the semi-transparent buttons overlaid on it.
 
-### 模拟速度和声音队列
+### Emulation speed and sound queue
 
-之后每 5 秒一行统计。5 秒里模拟约 300 帧（约 60 fps），送进声音缓冲约 24 万个立体声帧（48 kHz × 5 秒），`underruns` 为 0。`emulation` 一项每帧耗时随游戏场景变化，两个 5 秒窗口分别是 4224 μs 和 11407 μs，都在 16700 μs 的帧时间之内。
+After that there is one line of statistics every 5 seconds. In 5 seconds it emulates about 300 frames (about 60 fps) and pushes about 240000 stereo frames into the sound buffer (48 kHz × 5 seconds), and `underruns` is 0. The `emulation` figure varies with the game scene; the two 5-second windows are 4224 μs and 11407 μs, both within the 16700 μs frame time.
 
-各字段的含义：
+The meaning of each field:
 
-| 字段 | 含义 |
+| Field | Meaning |
 | --- | --- |
-| `frames` | 这 5 秒模拟的帧数，满速是约 300 |
-| `emulation … us/frame` | 每帧模拟平均耗时，超过 16700 μs 就赶不上实时 |
-| `sound … frames pushed` | 送进声音环形缓冲的立体声帧数 |
-| `queued` | 当前缓冲里等待播放的帧数 |
-| `underruns` | I2S 断流重启的次数 |
-| `ring empty` | 声音线程发现环形缓冲不够一块的次数 |
-| `slab full` | 声音线程等不到空闲块的次数（模拟比播放快时出现，正常） |
-| `skipped` | 跳过绘制的帧数，默认每两帧画一帧 |
+| `frames` | frames emulated in these 5 seconds; full speed is about 300 |
+| `emulation … us/frame` | average emulation time per frame; above 16700 μs it cannot keep up with real time |
+| `sound … frames pushed` | stereo frames pushed into the sound ring buffer |
+| `queued` | frames currently waiting to be played in the buffer |
+| `underruns` | number of I2S underrun restarts |
+| `ring empty` | times the sound thread found fewer than one block in the ring buffer |
+| `slab full` | times the sound thread could not get a free block (it appears when emulation is faster than playback, which is normal) |
+| `skipped` | frames whose drawing was skipped; by default one frame is drawn every two |
 
-### 屏幕上的画面
+### The picture on the screen
 
-游戏画面放大后显示在面板中间，叠在上面的是半透明屏幕按键；手指按住某个键，该键变成橙黄色。
+The game picture is scaled up and shown in the middle of the panel, with the semi-transparent on-screen buttons overlaid on it; when a finger holds a button, that button turns orange.
 
-![板子屏幕上的 GBA 游戏画面和叠加的屏幕按键](figures/mgba-game.png)
+![GBA game picture on the board screen with the on-screen buttons overlaid](figures/mgba-game.webp)
 
-照片里是《塞尔达传说：众神的三角力量 & 四把剑》的选择画面。按键的位置：L、R 在左上角和右上角，方向键在左下，A、B 在右下，SELECT、START 在底部中间。
+The photo shows the selection screen of The Legend of Zelda: A Link to the Past & Four Swords. Button positions: L and R at the top-left and top-right, the D-pad at the lower left, A and B at the lower right, and SELECT and START at the bottom center.
 
-## 缩放与输出路径
+## Scaling and output path
 
-### 画面
+### Picture
 
-画面一路都是 RGB565，不做 CPU 缩放，放大交给显示引擎的视频层：
+The picture is RGB565 all the way, with no CPU scaling; the upscaling is left to the display engine's video plane:
 
-1. 核心把一帧画进 `video_acquire()` 给的缓冲，大小 240×160×2 字节。
-2. `video_present()` 把缓冲的数据缓存刷回内存，唤醒 `video` 线程。
-3. `video` 线程调 `display_sunxi_show_rgb()`，视频层从这块内存直接读，硬件放大。
-4. 同时，LVGL 的 ARGB 层画在视频层上面，所以屏幕按键不占用游戏画面的带宽。
+1. The core draws a frame into the buffer `video_acquire()` supplies, 240×160×2 bytes.
+2. `video_present()` flushes the buffer's data cache back to memory and wakes the `video` thread.
+3. The `video` thread calls `display_sunxi_show_rgb()`; the video plane reads directly from this memory and upscales in hardware.
+4. At the same time, LVGL's ARGB plane draws above the video plane, so the on-screen buttons do not consume the game picture's bandwidth.
 
-`video.c` 用 4 块缓冲（`NBUF 4`）轮流用：核心画下一帧时，视频层还在扫描上一帧，所以不能写同一块。`video_present()` 只把最新一帧的编号放进 `ready_idx`，`video` 线程等显示（可能要等下一次刷新）的时候，核心不会被卡住；如果来不及，旧画面直接被新的盖掉。
+`video.c` uses 4 buffers (`NBUF 4`) in rotation: while the core draws the next frame, the video plane is still scanning the previous one, so it cannot write the same buffer. `video_present()` puts only the index of the latest frame into `ready_idx`, and the core is not blocked while the `video` thread waits for the display (which may mean waiting for the next refresh); if it cannot keep up, the old picture is simply overwritten by the new one.
 
-`video.c` 第 45–66 行：
+`video.c` lines 45–66:
 
 ```c
 static void video_main(void *a, void *b, void *c)
@@ -172,9 +172,9 @@ static void video_main(void *a, void *b, void *c)
 }
 ```
 
-### 缩放规则
+### Scaling rule
 
-缩放在驱动 `zephyr/drivers/display/sunxi/display_sunxi.c` 的 `display_sunxi_show_rgb()` 里：<strong>保持宽高比，放到刚好塞进整屏</strong>，居中，宽高取偶数。
+The scaling is in `display_sunxi_show_rgb()` in the driver `zephyr/drivers/display/sunxi/display_sunxi.c`: <strong>keep the aspect ratio and scale to just fit the whole screen</strong>, centered, with even width and height.
 
 ```c
 if ((uint64_t)data->width * img->height <= (uint64_t)data->height * img->width) {
@@ -188,18 +188,18 @@ dw &= ~1U;
 dh &= ~1U;
 ```
 
-目标屏幕是 1024×768：
+The target screen is 1024×768:
 
-| 游戏 | 源画面 | 放大后 | 位置 |
+| Game | Source picture | After scaling | Position |
 | --- | --- | --- | --- |
-| GBA | 240×160 | 1024×682 | 水平铺满，垂直居中，上下各约 43 像素黑边 |
-| Game Boy / Color | 160×144 | 853×768 | 垂直铺满，水平居中，左右留黑边 |
+| GBA | 240×160 | 1024×682 | fills the width, centered vertically, with black bars of about 43 pixels at the top and bottom |
+| Game Boy / Color | 160×144 | 853×768 | fills the height, centered horizontally, with black bars at the left and right |
 
-源画面尺寸来自 `gba_frame()` 返回的 `width` 和 `height`（核心自己报），不是写死的。放大是线性插值，不支持整数倍缩放（像素风）和滤镜，不能在应用里选缩放模式。
+The source picture size comes from the `width` and `height` returned by `gba_frame()` (the core reports them itself) and is not hard-coded. The upscaling is linear interpolation; integer scaling (pixel art) and filters are not supported, and the scaling mode cannot be selected in the application.
 
-### 跳帧
+### Frame skipping
 
-画面默认每两帧画一帧（`CONFIG_SAMPLE_GBA_VIDEO_DIV=2`，约 30 fps）。跳过的帧只跑模拟和声音，不跑渲染器，给负载重的场景留时间。主循环里还有第二层：声音队列低于 `SKIP_BELOW`（1500 帧）时进入“追赶”，至少每四帧画一帧，直到队列涨回 `SKIP_RESUME`（2800 帧）。`main.c` 第 311–329 行：
+By default one frame is drawn every two (`CONFIG_SAMPLE_GBA_VIDEO_DIV=2`, about 30 fps). A skipped frame runs only the emulation and the sound, not the renderer, which leaves time for heavy scenes. There is a second layer in the main loop: when the sound queue drops below `SKIP_BELOW` (1500 frames) it goes into "catch-up" and draws at least one frame in four, until the queue climbs back to `SKIP_RESUME` (2800 frames). `main.c` lines 311–329:
 
 ```c
 while (true) {
@@ -225,11 +225,11 @@ while (true) {
 }
 ```
 
-## 声音
+## Sound
 
-核心产生的声音采样率由游戏决定，`gba_player.c` 的 `resample()`（第 142–174 行）用 16.16 定点的线性插值转成输出采样率（`CONFIG_SAMPLE_GBA_RATE`，默认 48000，也可设 44100），输出 16 位有符号立体声。
+The sample rate of the sound the core produces is decided by the game; `resample()` in `gba_player.c` (lines 142–174) converts it to the output sample rate (`CONFIG_SAMPLE_GBA_RATE`, default 48000, also settable to 44100) with 16.16 fixed-point linear interpolation, and outputs 16-bit signed stereo.
 
-主循环把 PCM 放进 `audio.c` 的环形缓冲，`audio` 线程切成 512 帧一块，交给 I2S 播放，片上 codec 输出到耳机和功放。codec 的音量在 `audio.c` 第 59–62 行设置：
+The main loop puts the PCM into the ring buffer in `audio.c`; the `audio` thread cuts it into 512-frame blocks and hands them to I2S for playback, and the on-chip codec outputs to the headphones and the amplifier. The codec volume is set in `audio.c` lines 59–62:
 
 ```c
 audio_codec_start_output(ctl);
@@ -238,43 +238,43 @@ audio_codec_set_property(ctl, AUDIO_PROPERTY_OUTPUT_VOLUME, AUDIO_CHANNEL_ALL,
 				(audio_property_value_t){.vol = 150});
 ```
 
-`.vol` 范围 0–255。想改音量改这个数；静音、左右声道分别设置的写法见 [MP4 播放器](mp4-player.md#在哪里调整音量)，两个应用用的是同一套 codec 接口。
+`.vol` ranges from 0 to 255. To change the volume, change this number; for muting and for setting the left and right channels separately see the [MP4 player](mp4-player.md#where-the-volume-is-adjusted); the two applications use the same codec interface.
 
-`audio.c` 的几个常量决定缓冲大小：
+A few constants in `audio.c` decide the buffer sizes:
 
-| 常量 | 值 | 含义 |
+| Constant | Value | Meaning |
 | --- | --- | --- |
-| `BLOCK_FRAMES` | 512 | 一块的立体声帧数，48 kHz 下约 10.7 ms |
-| `SLAB_BLOCKS` | 6 | 交给 I2S 的内存块数 |
-| `PREFILL` | 3 | 先送 3 块再启动 I2S |
-| `RING_BLOCKS` | 8 | 环形缓冲能装 8 块 |
-| `HIGH_WATER`（`main.c`） | `RATE / 15` | 队列超过这么多帧（48 kHz 下 3200 帧，约 67 ms）模拟就等待 |
+| `BLOCK_FRAMES` | 512 | stereo frames per block, about 10.7 ms at 48 kHz |
+| `SLAB_BLOCKS` | 6 | number of memory blocks given to I2S |
+| `PREFILL` | 3 | send 3 blocks before starting I2S |
+| `RING_BLOCKS` | 8 | the ring buffer holds 8 blocks |
+| `HIGH_WATER` (`main.c`) | `RATE / 15` | above this many queued frames (3200 at 48 kHz, about 67 ms) the emulation waits |
 
-I2S 写入返回 `-EIO` 说明流断了，`audio_main()` 会重新 `PREPARE` 并重新预填，这就是统计行里 `underruns` 的来源。
+An I2S write returning `-EIO` means the stream broke; `audio_main()` `PREPARE`s again and pre-fills again, and that is where `underruns` in the statistics line comes from.
 
-## 屏幕按键：界面与事件的实现
+## On-screen buttons: UI and event implementation
 
-屏幕按键由 `src/pad.c` 实现，只有这一个文件，215 行。设计上有两个要点：
+The on-screen buttons are implemented in `src/pad.c`, a single file of 215 lines. Two points stand out in the design:
 
-- <strong>画面用 LVGL，触摸不用 LVGL 的输入。</strong>LVGL 的指针输入一次只认一个手指，而玩游戏要同时按方向键和 A/B。所以 `pad.c` 直接读 Zephyr 输入子系统的多点触摸事件，自己判断每个手指落在哪个按键上；LVGL 的按钮只负责显示。
-- <strong>按键状态是一个位掩码</strong>（`GBA_KEY_*`），触摸线程写，模拟线程每帧读一次。
+- <strong>The picture uses LVGL, but touch does not use LVGL's input.</strong> LVGL's pointer input recognizes only one finger at a time, whereas playing a game needs a direction and A/B pressed at once. So `pad.c` reads the Zephyr input subsystem's multi-touch events directly and works out which button each finger lands on itself; the LVGL buttons are only for display.
+- <strong>The button state is a bit mask</strong> (`GBA_KEY_*`); the touch thread writes it and the emulation thread reads it once per frame.
 
 ```mermaid
 flowchart TD
-    GT["GT967 触摸屏<br/>I2C，最多 5 点"] -->|"INPUT_ABS_MT_SLOT / ABS_X / ABS_Y / BTN_TOUCH"| IT["input 线程<br/>优先级 4"]
-    IT -->|"touch_event 回调"| FING["fingers[5]<br/>x, y, down"]
-    FING --> SCAN["touch_scan()<br/>每个键 x 5 个手指命中测试<br/>+ 50 ms 松手保持"]
-    SCAN -->|"按下 / 松开"| BTN["LVGL 按钮<br/>LV_STATE_PRESSED 变橙黄色"]
+    GT["GT967 touchscreen<br/>I2C, up to 5 points"] -->|"INPUT_ABS_MT_SLOT / ABS_X / ABS_Y / BTN_TOUCH"| IT["input thread<br/>priority 4"]
+    IT -->|"touch_event callback"| FING["fingers[5]<br/>x, y, down"]
+    FING --> SCAN["touch_scan()<br/>hit test each button against 5 fingers<br/>+ 50 ms release hold"]
+    SCAN -->|"press / release"| BTN["LVGL button<br/>LV_STATE_PRESSED turns orange"]
     SCAN -->|"mask"| KEYS["keys<br/>atomic_t"]
-    BTN --> LV["lv_timer_handler()<br/>每 16 ms"]
-    LV --> ARGB["ARGB 层"]
-    KEYS -->|"pad_keys()"| MAIN["main 循环<br/>gba_set_keys()"]
-    MAIN --> EMU["mGBA 核心<br/>setKeys()"]
+    BTN --> LV["lv_timer_handler()<br/>every 16 ms"]
+    LV --> ARGB["ARGB plane"]
+    KEYS -->|"pad_keys()"| MAIN["main loop<br/>gba_set_keys()"]
+    MAIN --> EMU["mGBA core<br/>setKeys()"]
 ```
 
-### 创建控件
+### Creating the widgets
 
-每个键是一个 `lv_button`，里面一个 `lv_label`（方向键用 LVGL 内置符号，其余是文字）。`key_add()` 同时做两件事：创建并设置样式；把它的位置和键位记进数组 `pad_keys_tbl`，触摸时用来命中测试。`pad.c` 第 140–167 行：
+Each button is an `lv_button` with an `lv_label` inside it (the D-pad uses LVGL's built-in symbols, the rest use text). `key_add()` does two things at once: it creates the button and sets the styles, and it records its position and key bit in the `pad_keys_tbl` array, which the touch hit test uses. `pad.c` lines 140–167:
 
 ```c
 static void key_add(int x, int y, int w, int h, const char *text, uint32_t bit, int radius)
@@ -307,20 +307,20 @@ static void key_add(int x, int y, int w, int h, const char *text, uint32_t bit, 
 }
 ```
 
-- 参数：位置 `x, y`（相对屏幕左上角）、大小 `w, h`、显示文字 `text`、对应的 GBA 键位 `bit`、圆角 `radius`（`LV_RADIUS_CIRCLE` 是圆形）。
-- 样式：平时是 30% 不透明的白色加 50% 不透明的白色边框，透出后面的游戏画面；按下状态（`LV_STATE_PRESSED`）变成 70% 不透明的橙黄色 `(255, 200, 60)`。
-- 最多 `MAX_KEYS`（10）个键，正好是 GBA 的 10 个键，再加要先改这个宏。
-- 字体用 `lv_font_montserrat_28`，所以 `prj.conf` 里开了 `CONFIG_LV_FONT_MONTSERRAT_28=y`；`LV_SYMBOL_LEFT` 等符号也在这个字体里。
+- Arguments: the position `x, y` (relative to the top-left corner of the screen), the size `w, h`, the displayed text `text`, the corresponding GBA key bit `bit`, and the corner radius `radius` (`LV_RADIUS_CIRCLE` is a circle).
+- Style: normally white at 30% opacity with a white border at 50% opacity, letting the game picture behind show through; in the pressed state (`LV_STATE_PRESSED`) it becomes orange `(255, 200, 60)` at 70% opacity.
+- There are at most `MAX_KEYS` (10) keys, exactly the 10 keys of a GBA; adding more requires raising this macro first.
+- The font is `lv_font_montserrat_28`, so `prj.conf` enables `CONFIG_LV_FONT_MONTSERRAT_28=y`; symbols such as `LV_SYMBOL_LEFT` are in this font too.
 
-屏幕背景要透明，否则会盖住视频层。这在 `pad_main()` 第一行：
+The screen background must be transparent, otherwise it would cover the video plane. This is the first line of `pad_main()`:
 
 ```c
 lv_obj_set_style_bg_opa(lv_screen_active(), LV_OPA_TRANSP, 0);
 ```
 
-### LVGL 自己的事件
+### LVGL's own events
 
-按钮上还挂着一个 `key_event` 回调，处理 LVGL 自己产生的按下和松开事件（比如接了 LVGL 指针输入时）。它只响应三种事件：`LV_EVENT_PRESSED` 置位，`LV_EVENT_RELEASED` 和 `LV_EVENT_PRESS_LOST` 清位，其他事件（绘制、样式变化、`PRESSING` 等，按住期间会不断到来）一律忽略。`pad.c` 第 122–138 行：
+The button also carries a `key_event` callback, which handles the press and release events LVGL produces itself (when LVGL pointer input is connected, for example). It responds to only three events: `LV_EVENT_PRESSED` sets the bit, `LV_EVENT_RELEASED` and `LV_EVENT_PRESS_LOST` clear it, and every other event (drawing, style changes, `PRESSING` and so on, which keep arriving while the button is held) is ignored. `pad.c` lines 122–138:
 
 ```c
 static void key_event(lv_event_t *e)
@@ -342,11 +342,11 @@ static void key_event(lv_event_t *e)
 }
 ```
 
-示例没有配置 LVGL 的指针输入设备，所以这个回调在示例里不会被触发；有触摸屏时，`keys` 每 16 ms 被 `touch_scan()` 的结果整个覆盖。
+The sample does not configure an LVGL pointer input device, so this callback is never triggered in the sample; with a touchscreen, `keys` is overwritten wholesale every 16 ms by the result of `touch_scan()`.
 
-### 触摸事件到 GBA 键位
+### Touch events to GBA key bits
 
-触摸屏是设备树里 `chosen` 的 `zephyr,touch`（`yuzukineko` 上是 GT967，在 I2C1）。`pad.c` 用 `INPUT_CALLBACK_DEFINE` 注册回调，每一个触摸事件进来都会调到它。多点触摸的事件序列是“先选槽位，再给该槽位的坐标和按下状态”，所以回调里用 `cur_slot` 记当前槽位。第 54–80 行：
+The touchscreen is `zephyr,touch` in the devicetree's `chosen` (on `yuzukineko` it is the GT967, on I2C1). `pad.c` registers a callback with `INPUT_CALLBACK_DEFINE`, and every touch event that comes in reaches it. The event sequence for multi-touch is "select the slot first, then give that slot's coordinates and press state", so the callback keeps the current slot in `cur_slot`. Lines 54–80:
 
 ```c
 #define TOUCH_SLOTS	5
@@ -377,9 +377,9 @@ static void touch_event(struct input_event *evt, void *user_data)
 INPUT_CALLBACK_DEFINE(DEVICE_DT_GET(DT_CHOSEN(zephyr_touch)), touch_event, NULL);
 ```
 
-触摸屏坐标是 1024×768，和屏幕像素一一对应（设备树里 `screen-width = <1024>`，`screen-height = <768>`），所以不用换算，直接和按键矩形比较。
+The touchscreen coordinates are 1024×768 and map one to one onto screen pixels (`screen-width = <1024>`, `screen-height = <768>` in the devicetree), so no conversion is needed and they are compared directly with the button rectangles.
 
-然后 `touch_scan()` 对每个键逐个检查 5 个手指（第 83–119 行）：
+`touch_scan()` then checks each button against the 5 fingers one by one (lines 83–119):
 
 ```c
 static uint32_t touch_scan(void)
@@ -421,29 +421,29 @@ static uint32_t touch_scan(void)
 }
 ```
 
-- <strong>命中范围</strong>：按键矩形四边各扩大 `HIT_MARGIN`（12 像素），所以相邻的键（比如方向键之间）的判定区域会有重叠，手指落在缝隙里可能同时按下两个键，对斜向操作有用。
-- <strong>松手保持</strong>：触摸控制器偶尔会有一帧报告没有手指、但手指其实还在玻璃上，这会被当成“松开再按下”。所以键在手指离开后再保持 `RELEASE_HOLD_MS`（50 ms）。
-- <strong>同步显示</strong>：键的状态变化时，同时给 LVGL 按钮加或去掉 `LV_STATE_PRESSED`，按钮变色。LVGL 自己不知道有手指，颜色全由这里驱动。
-- 返回值是按下的所有键的位掩码。
+- <strong>Hit area</strong>: the button rectangle is expanded by `HIT_MARGIN` (12 pixels) on each of the four sides, so the hit areas of adjacent buttons (between the D-pad keys, say) overlap and a finger in the gap may press two buttons at once, which is useful for diagonal input.
+- <strong>Release hold</strong>: the touch controller occasionally reports one frame of no finger while the finger is actually still on the glass, which would count as a release and a re-press. So the key is held for `RELEASE_HOLD_MS` (50 ms) after the finger leaves.
+- <strong>Synchronized display</strong>: when a key's state changes, `LV_STATE_PRESSED` is added to or removed from the LVGL button at the same time, and the button changes color. LVGL itself does not know about fingers; the colors are driven entirely from here.
+- The return value is the bit mask of all the keys that are pressed.
 
-键位值来自 `include/mgba_zephyr/gba.h`，和 GBA 硬件的 `KEYINPUT` 寄存器位序一致：
+The key bit values come from `include/mgba_zephyr/gba.h` and match the bit order of the GBA hardware's `KEYINPUT` register:
 
-| 键 | 宏 | 位 |
+| Key | Macro | Bit |
 | --- | --- | --- |
 | A | `GBA_KEY_A` | `BIT(0)` |
 | B | `GBA_KEY_B` | `BIT(1)` |
 | SELECT | `GBA_KEY_SELECT` | `BIT(2)` |
 | START | `GBA_KEY_START` | `BIT(3)` |
-| 右 | `GBA_KEY_RIGHT` | `BIT(4)` |
-| 左 | `GBA_KEY_LEFT` | `BIT(5)` |
-| 上 | `GBA_KEY_UP` | `BIT(6)` |
-| 下 | `GBA_KEY_DOWN` | `BIT(7)` |
+| Right | `GBA_KEY_RIGHT` | `BIT(4)` |
+| Left | `GBA_KEY_LEFT` | `BIT(5)` |
+| Up | `GBA_KEY_UP` | `BIT(6)` |
+| Down | `GBA_KEY_DOWN` | `BIT(7)` |
 | R | `GBA_KEY_R` | `BIT(8)` |
 | L | `GBA_KEY_L` | `BIT(9)` |
 
-### 线程与状态传递
+### Threads and state passing
 
-`pad_start()` 起一个叫 `pad` 的线程（优先级 7，栈 4096 字节），`pad_main()` 里先建按键，再进入循环：每 16 ms 扫描一次触摸、写入 `keys`、调用一次 `lv_timer_handler()` 让 LVGL 刷新。第 193–199 行：
+`pad_start()` starts a thread named `pad` (priority 7, 4096-byte stack); in `pad_main()` the buttons are created first, then it enters a loop: every 16 ms it scans the touch, writes `keys`, and calls `lv_timer_handler()` once to let LVGL refresh. Lines 193–199:
 
 ```c
 while (true) {
@@ -455,9 +455,9 @@ while (true) {
 }
 ```
 
-模拟线程（`main()` 所在的线程）每帧开头调用 `pad_keys()` 取 `keys`，再 `gba_set_keys()` 交给核心。`keys` 是 `atomic_t`，两个线程之间不用加锁。
+The emulation thread (the one `main()` runs in) calls `pad_keys()` at the start of each frame to take `keys` and passes it to the core with `gba_set_keys()`. `keys` is an `atomic_t`, so no locking is needed between the two threads.
 
-输入事件在 Zephyr 的 input 线程里处理，优先级由 `boards/yuzukineko.conf` 抬到 4，比模拟线程（主线程优先级 6）和 `pad` 线程（7）都高，这样一帧模拟算得久的时候也不会丢手指：
+Input events are handled in Zephyr's input thread, whose priority `boards/yuzukineko.conf` raises to 4, higher than the emulation thread (the main thread, priority 6) and the `pad` thread (7), so fingers are not lost even when a frame takes long to emulate:
 
 ```ini
 CONFIG_INPUT=y
@@ -467,9 +467,9 @@ CONFIG_INPUT_THREAD_PRIORITY=4
 CONFIG_INPUT_QUEUE_MAX_MSGS=64
 ```
 
-### 默认布局
+### Default layout
 
-布局是按 1024×600 的屏画的，用 `dy = 屏高 - 600` 把下半部分的键下移，所以高屏幕上摇杆和按钮仍然贴着屏幕下边。`yuzukineko` 屏高 768，`dy = 168`。`pad_main()` 第 177–191 行：
+The layout is drawn for a 1024×600 screen, and `dy = screen height - 600` moves the lower buttons down, so on a taller screen the D-pad and buttons still sit against the bottom edge. The `yuzukineko` screen is 768 high, so `dy = 168`. `pad_main()` lines 177–191:
 
 ```c
 const int dy = lv_display_get_vertical_resolution(NULL) - 600;
@@ -489,151 +489,151 @@ key_add(380, 520 + dy, 120, 60, "SELECT", GBA_KEY_SELECT, 30);
 key_add(524, 520 + dy, 120, 60, "START", GBA_KEY_START, 30);
 ```
 
-在 768 高的屏上的实际坐标（`x, y, 宽 × 高`）：
+The actual coordinates on the 768-high screen (`x, y, width × height`):
 
-| 键 | 位置 | 大小 |
+| Key | Position | Size |
 | --- | --- | --- |
-| 左 | 30, 498 | 90 × 90 |
-| 右 | 210, 498 | 90 × 90 |
-| 上 | 120, 408 | 90 × 90 |
-| 下 | 120, 588 | 90 × 90 |
-| A | 830, 528 | 100 × 100（圆形） |
-| B | 720, 598 | 100 × 100（圆形） |
+| Left | 30, 498 | 90 × 90 |
+| Right | 210, 498 | 90 × 90 |
+| Up | 120, 408 | 90 × 90 |
+| Down | 120, 588 | 90 × 90 |
+| A | 830, 528 | 100 × 100 (circle) |
+| B | 720, 598 | 100 × 100 (circle) |
 | L | 20, 20 | 140 × 70 |
 | R | 864, 20 | 140 × 70 |
 | SELECT | 380, 688 | 120 × 60 |
 | START | 524, 688 | 120 × 60 |
 
-按键叠在画面上：画面放大后水平铺满 1024（见 [缩放规则](#缩放规则)）。
+The buttons are stacked on the picture: after scaling, the picture fills the width of 1024 (see [Scaling rule](#scaling-rule)).
 
-### 怎么改布局
+### How to change the layout
 
-| 想改什么 | 改哪里 |
+| What you want to change | Where to change it |
 | --- | --- |
-| 移动、放大某个键 | `pad.c` 的 `pad_main()` 里对应那行 `key_add(x, y, w, h, …)`，坐标是屏幕像素，原点在左上角 |
-| 换键上的文字 | `key_add()` 的 `text` 参数；方向键用的是 `LV_SYMBOL_*`，普通文字要用字体里有的字符 |
-| 改颜色、透明度 | `key_add()` 里的 `lv_obj_set_style_bg_*` 几行。平时是 `LV_OPA_30` 白色，按下是 `LV_OPA_70` 的橙黄色 |
-| 改字体大小 | `lv_font_montserrat_28`，换成 `lv_font_montserrat_16` 等，同时在 `prj.conf` 里打开对应的 `CONFIG_LV_FONT_MONTSERRAT_*` |
-| 换成 Game Boy 的布局（没有 L、R） | 删掉 `L`、`R` 两行 `key_add`；`gba_set_keys()` 对 GB 核心同样有效，多出的位会被忽略 |
-| 加一个键 | 先把 `MAX_KEYS` 加大，再 `key_add(…, GBA_KEY_xxx, …)` |
-| 让触摸更好按或更不容易误触 | `HIT_MARGIN`（命中范围外扩，默认 12 像素） |
-| 调整松手保持时间 | `RELEASE_HOLD_MS`（默认 50 ms） |
-| 不要屏幕按键 | 删掉 `main.c` 里的 `pad_start()`（第 271 行）；这样 `pad_keys()` 永远是 0，游戏收不到任何输入 |
+| Move or enlarge a button | the matching `key_add(x, y, w, h, …)` line in `pad_main()` in `pad.c`; the coordinates are screen pixels with the origin at the top-left corner |
+| Change the text on a button | the `text` argument of `key_add()`; the D-pad uses `LV_SYMBOL_*`, and ordinary text must use characters the font contains |
+| Change the color or opacity | the `lv_obj_set_style_bg_*` lines in `key_add()`. Normally white at `LV_OPA_30`, pressed orange at `LV_OPA_70` |
+| Change the font size | `lv_font_montserrat_28`; switch to `lv_font_montserrat_16` and the like, enabling the matching `CONFIG_LV_FONT_MONTSERRAT_*` in `prj.conf` at the same time |
+| Switch to a Game Boy layout (no L, R) | delete the `L` and `R` `key_add` lines; `gba_set_keys()` works for the GB core too, and extra bits are ignored |
+| Add a button | raise `MAX_KEYS` first, then `key_add(…, GBA_KEY_xxx, …)` |
+| Make touch easier to hit or less prone to mis-taps | `HIT_MARGIN` (the hit area expansion, 12 pixels by default) |
+| Adjust the release hold time | `RELEASE_HOLD_MS` (50 ms by default) |
+| No on-screen buttons | delete `pad_start()` in `main.c` (line 271); `pad_keys()` is then always 0 and the game receives no input at all |
 
-加键示例：把 START 左边加一个可以按住加速的“快进”键（这只是演示按键怎么加，示例本身没有快进功能）需要在 `gba.h` 里有对应的键位，GBA 只有上表那 10 个，所以多出的键要自己在 `main()` 里解释。
+Example of adding a button: adding a "fast-forward" button to the left of START that accelerates while held (this only demonstrates how to add a button; the sample itself has no fast-forward) requires a matching key bit in `gba.h`, and a GBA has only the 10 keys in the table above, so an extra key must be interpreted by you in `main()`.
 
-### 限制
+### Limits
 
-- <strong>只支持触摸屏</strong>。没有 `zephyr,touch` 的板子，`HAS_TOUCH` 为 0，按键只能被 LVGL 的指针输入驱动，但示例没有配置 LVGL 指针输入，所以那样的板子上没有可用的输入。不支持物理按键、手柄和 USB 键盘。
-- 没有暂停、快进、存档位（save state）、金手指和菜单。存档只有游戏自己的电池存档（`.sav`）。
+- <strong>Touchscreen only</strong>. On a board without `zephyr,touch`, `HAS_TOUCH` is 0 and the buttons can only be driven by LVGL's pointer input, but the sample does not configure LVGL pointer input, so there is no usable input on such a board. Physical buttons, gamepads, and USB keyboards are not supported.
+- There is no pause, fast-forward, save state, cheat codes, or menu. The only saves are the game's own battery saves (`.sav`).
 
-## 功能与修改位置
+## Features and where to change them
 
-| 功能 | 位置 | 怎么改 |
+| Feature | Location | How to change |
 | --- | --- | --- |
-| 选 ROM | `main.c` `pick_rom()`（第 122 行）、`CONFIG_SAMPLE_GBA_ROM` | 编译时指定路径，或把文件命名为 `game.gba` |
-| 存档文件名 | `pick_rom()` 末尾，把 ROM 扩展名换成 `.sav` | 改拼接规则 |
-| 存档写回间隔 | `main.c` `SAVE_MS`（3000 ms） | 改宏 |
-| 声音输出采样率 | `CONFIG_SAMPLE_GBA_RATE` | 48000 或 44100 |
-| 音量 | `audio.c` 第 60–62 行的 `.vol` | 0–255 |
-| 画面帧率 | `CONFIG_SAMPLE_GBA_VIDEO_DIV` | 1 为每帧都画，2 为 30 fps，最大 4 |
-| 追赶阈值 | `main.c` 的 `SKIP_BELOW`、`SKIP_RESUME`、`SKIP_COUNT` | 改宏 |
-| 屏幕按键 | `pad.c` | 见上一节 |
-| 缩放方式 | 显示驱动 `display_sunxi_show_rgb()` | 在驱动里改，应用里没有选项 |
-| CPU 主频 | `main.c` `cpu_clock_setup()` + `CONFIG_SAMPLE_GBA_CPU_MHZ` | 见配置选项 |
+| Choose the ROM | `main.c` `pick_rom()` (line 122), `CONFIG_SAMPLE_GBA_ROM` | specify the path at build time, or name the file `game.gba` |
+| Save file name | at the end of `pick_rom()`, the ROM extension is replaced by `.sav` | change the concatenation rule |
+| Save write-back interval | `main.c` `SAVE_MS` (3000 ms) | change the macro |
+| Sound output sample rate | `CONFIG_SAMPLE_GBA_RATE` | 48000 or 44100 |
+| Volume | `.vol` in `audio.c` lines 60–62 | 0–255 |
+| Picture frame rate | `CONFIG_SAMPLE_GBA_VIDEO_DIV` | 1 draws every frame, 2 is 30 fps, the maximum is 4 |
+| Catch-up thresholds | `SKIP_BELOW`, `SKIP_RESUME`, `SKIP_COUNT` in `main.c` | change the macros |
+| On-screen buttons | `pad.c` | see the previous section |
+| Scaling | the display driver `display_sunxi_show_rgb()` | change it in the driver; there is no option in the application |
+| CPU clock | `main.c` `cpu_clock_setup()` + `CONFIG_SAMPLE_GBA_CPU_MHZ` | see the configuration options |
 
-`cpu_clock_setup()` 以 72 MHz 为一步把 CPU 主频往目标值抬，每抬一步用一段带校验的循环自检，自检出错就退回上一步的频率，电压不改。示例设为 1008 MHz，没有成功抬到时会在日志里打印 `cpu: … MHz refused` 或 `cpu: … MHz BAD`。
+`cpu_clock_setup()` raises the CPU clock toward the target in 72 MHz steps, self-testing with a checked loop after each step; if the self-test fails it falls back to the previous frequency, and the voltage is not changed. The sample sets 1008 MHz, and if the raise does not succeed the log prints `cpu: … MHz refused` or `cpu: … MHz BAD`.
 
-## 配置选项
+## Configuration options
 
-示例选项（`samples/gba_player/Kconfig`）：
+Sample options (`samples/gba_player/Kconfig`):
 
-| 选项 | 默认 | 说明 |
+| Option | Default | Description |
 | --- | --- | --- |
-| `CONFIG_SAMPLE_GBA_ROM` | `"/SD:/game.gba"` | 首选 ROM 路径，不存在时取根目录第一个合适的文件 |
-| `CONFIG_SAMPLE_GBA_RATE` | 48000 | 声音输出采样率，48000 或 44100 |
-| `CONFIG_SAMPLE_GBA_VIDEO_DIV` | 2 | 每 N 帧画一帧，范围 1–4 |
-| `CONFIG_SAMPLE_GBA_CPU_MHZ` | 0（`prj.conf` 里设为 1008） | CPU 主频，0 表示保持引导程序设的值 |
-| `CONFIG_SAMPLE_GBA_BENCH` | 关 | 不限速、不显示地跑固定帧数，打印耗时 |
-| `CONFIG_SAMPLE_GBA_BENCH_FRAMESKIP` | 0 | 基准里两个绘制帧之间跳过的帧数 |
-| `CONFIG_SAMPLE_GBA_BENCH_FRAMES` | 1200 | 基准帧数，每 200 帧打印画面的 CRC |
-| `CONFIG_SAMPLE_GBA_ROM_DIAG` | 关 | 打印卡里每个 ROM 的大小、尾部填充和随机读速度，然后停止 |
-| `CONFIG_SAMPLE_GBA_PROFILE` | 关 | 采样模拟线程的 PC，打印直方图 |
-| `CONFIG_SAMPLE_GBA_HOT_RAM` | 关 | 在 XIP 镜像里把模拟器和示例代码放进 RAM 运行 |
+| `CONFIG_SAMPLE_GBA_ROM` | `"/SD:/game.gba"` | preferred ROM path; if it does not exist, the first suitable file in the root directory is used |
+| `CONFIG_SAMPLE_GBA_RATE` | 48000 | sound output sample rate, 48000 or 44100 |
+| `CONFIG_SAMPLE_GBA_VIDEO_DIV` | 2 | draw one frame every N frames, range 1–4 |
+| `CONFIG_SAMPLE_GBA_CPU_MHZ` | 0 (set to 1008 in `prj.conf`) | CPU clock; 0 means keep the value the bootloader set |
+| `CONFIG_SAMPLE_GBA_BENCH` | off | runs a fixed number of frames without pacing or display, printing the elapsed time |
+| `CONFIG_SAMPLE_GBA_BENCH_FRAMESKIP` | 0 | frames skipped between two drawn frames in the benchmark |
+| `CONFIG_SAMPLE_GBA_BENCH_FRAMES` | 1200 | number of frames for the benchmark; prints a picture CRC every 200 frames |
+| `CONFIG_SAMPLE_GBA_ROM_DIAG` | off | prints each ROM's size, trailing padding, and random-read speed on the card, then stops |
+| `CONFIG_SAMPLE_GBA_PROFILE` | off | samples the emulation thread's PC and prints a histogram |
+| `CONFIG_SAMPLE_GBA_HOT_RAM` | off | for an XIP image, places the emulator and sample code in RAM to run from there |
 
-模块选项（`zephyr-components/mgba/Kconfig`）：
+Module options (`zephyr-components/mgba/Kconfig`):
 
-| 选项 | 默认 | 说明 |
+| Option | Default | Description |
 | --- | --- | --- |
-| `CONFIG_MGBA` | 关（示例打开） | 编译 mGBA 核心，只支持 RISC-V |
-| `CONFIG_MGBA_RVV` | 开启 `SUN252I_F101_RVV` 时为开 | 用向量扩展加速复制、填充和背景渲染器，输出与标量版一致 |
-| `CONFIG_MGBA_ROM_DEMAND_PAGED` | 关 | ROM 作为按需分页的文件映射，需要 MMU 和 `DEMAND_PAGING` |
-| `CONFIG_MGBA_MAX_ROM_SIZE_MB` | 32（示例设为 10） | 整个读进内存的 ROM 的最大大小，范围 1–32 |
+| `CONFIG_MGBA` | off (on in the sample) | builds the mGBA core; RISC-V only |
+| `CONFIG_MGBA_RVV` | on when `SUN252I_F101_RVV` is enabled | uses the vector extension to accelerate copies, fills, and the background renderer, with output identical to the scalar version |
+| `CONFIG_MGBA_ROM_DEMAND_PAGED` | off | the ROM becomes an on-demand paged file mapping; needs the MMU and `DEMAND_PAGING` |
+| `CONFIG_MGBA_MAX_ROM_SIZE_MB` | 32 (set to 10 in the sample) | maximum size of a ROM read into memory in one piece, range 1–32 |
 
-`prj.conf` 和 `boards/yuzukineko.conf` 里与播放有关的主要选项：
+The main playback-related options in `prj.conf` and `boards/yuzukineko.conf`:
 
-| 选项 | 作用 |
+| Option | Purpose |
 | --- | --- |
-| `CONFIG_SDHC`、`CONFIG_DISK_DRIVER_SDMMC` | TF 卡 |
-| `CONFIG_FAT_FILESYSTEM_ELM`、`CONFIG_FS_FATFS_EXFAT`、`CONFIG_FS_FATFS_LFN` | FAT / exFAT 与长文件名 |
-| `CONFIG_FPU`、`CONFIG_FPU_SHARING` | 硬件浮点，多线程共用 |
-| `CONFIG_I2S`、`CONFIG_AUDIO`、`CONFIG_AUDIO_CODEC` | 声音输出和音量 |
-| `CONFIG_DISPLAY`、`CONFIG_DISPLAY_SUNXI_ARGB8888` | 显示，ARGB 叠加层放屏幕按键 |
-| `CONFIG_LVGL`、`CONFIG_LV_COLOR_DEPTH_32` | LVGL，32 位色深以支持透明度 |
-| `CONFIG_LV_Z_MEM_POOL_SIZE=131072` | LVGL 内存池 128 KiB |
-| `CONFIG_LV_Z_VDB_SIZE=4` | LVGL 绘图缓冲，占屏幕的 4% |
-| `CONFIG_LV_FONT_MONTSERRAT_16`、`CONFIG_LV_FONT_MONTSERRAT_28` | 按键文字用的字体 |
-| `CONFIG_INPUT`、`CONFIG_I2C` | 触摸屏控制器在 I2C 上 |
-| `CONFIG_INPUT_GT967_MAX_TOUCH_POINTS=5` | 同时识别 5 个手指 |
-| `CONFIG_INPUT_THREAD_PRIORITY=4` | input 线程优先级，比模拟线程高 |
-| `CONFIG_INPUT_QUEUE_MAX_MSGS=64` | input 队列深度 |
-| `CONFIG_MAIN_STACK_SIZE=16384` | 主线程栈，核心的调用深度大 |
-| `CONFIG_HEAP_MEM_POOL_SIZE=262144` | 内核堆 |
-| `CONFIG_COMMON_LIBC_MALLOC_ARENA_SIZE=-1` | C 库 malloc 用掉全部剩余内存，ROM 缓冲从这里分配 |
-| `CONFIG_SUN252I_F101_RVV=y` | 内核支持向量寄存器的保存 |
-| `CONFIG_VDEC=n`、`CONFIG_G2D=n` 等 | 关掉不用的驱动 |
+| `CONFIG_SDHC`, `CONFIG_DISK_DRIVER_SDMMC` | the TF card |
+| `CONFIG_FAT_FILESYSTEM_ELM`, `CONFIG_FS_FATFS_EXFAT`, `CONFIG_FS_FATFS_LFN` | FAT / exFAT and long file names |
+| `CONFIG_FPU`, `CONFIG_FPU_SHARING` | hardware floating point, shared between threads |
+| `CONFIG_I2S`, `CONFIG_AUDIO`, `CONFIG_AUDIO_CODEC` | sound output and volume |
+| `CONFIG_DISPLAY`, `CONFIG_DISPLAY_SUNXI_ARGB8888` | display; the ARGB overlay plane holds the on-screen buttons |
+| `CONFIG_LVGL`, `CONFIG_LV_COLOR_DEPTH_32` | LVGL, with a 32-bit color depth to support alpha |
+| `CONFIG_LV_Z_MEM_POOL_SIZE=131072` | LVGL memory pool 128 KiB |
+| `CONFIG_LV_Z_VDB_SIZE=4` | LVGL draw buffer, 4% of the screen |
+| `CONFIG_LV_FONT_MONTSERRAT_16`, `CONFIG_LV_FONT_MONTSERRAT_28` | the fonts used for the button text |
+| `CONFIG_INPUT`, `CONFIG_I2C` | the touchscreen controller is on I2C |
+| `CONFIG_INPUT_GT967_MAX_TOUCH_POINTS=5` | recognizes 5 fingers at once |
+| `CONFIG_INPUT_THREAD_PRIORITY=4` | input thread priority, higher than the emulation thread |
+| `CONFIG_INPUT_QUEUE_MAX_MSGS=64` | input queue depth |
+| `CONFIG_MAIN_STACK_SIZE=16384` | main thread stack; the core has a deep call chain |
+| `CONFIG_HEAP_MEM_POOL_SIZE=262144` | kernel heap |
+| `CONFIG_COMMON_LIBC_MALLOC_ARENA_SIZE=-1` | the C library malloc uses all the remaining memory; the ROM buffer is allocated from it |
+| `CONFIG_SUN252I_F101_RVV=y` | the kernel supports saving the vector registers |
+| `CONFIG_VDEC=n`, `CONFIG_G2D=n` and so on | unused drivers are turned off |
 
-## 功能范围
+## Scope
 
-- ROM 只认裸 ROM 文件，不支持压缩包（`.zip`、`.7z`）；文件放在 TF 卡根目录，不扫描子目录。
-- 整读的 ROM 最大 10 MiB（示例设置）；更大的 ROM 用按需分页，见 [配置选项](#配置选项)。
-- 不支持外部 BIOS、存档状态（save state）、金手指、连线（link cable）、红外和太阳能传感器。
-- 不支持运行中切换游戏、暂停、快进、重置；换游戏需要重启。
-- 缩放只有一种：保持宽高比放大到满屏；需要整数倍或滤镜时改显示驱动。
-- 统计行里 `emulation … us/frame` 超过 16700 时模拟跟不上实时，主循环通过跳帧追赶，画面帧率下降，声音以不断流为优先。
+- Only bare ROM files are recognized; archives (`.zip`, `.7z`) are not supported. The file goes in the TF card's root directory, and subdirectories are not scanned.
+- A ROM read in one piece is at most 10 MiB (the sample's setting); a larger ROM uses on-demand paging, see [Configuration options](#configuration-options).
+- An external BIOS, save states, cheat codes, link cable, infrared, and the solar sensor are not supported.
+- Switching games, pause, fast-forward, and reset are not supported at runtime; changing games requires a restart.
+- There is only one kind of scaling: scale up to full screen keeping the aspect ratio; for integer scaling or filters, change the display driver.
+- When `emulation … us/frame` in the statistics line is above 16700 the emulation cannot keep up with real time; the main loop catches up by skipping frames, the picture frame rate drops, and keeping the sound uninterrupted takes priority.
 
-## 排错
+## Troubleshooting
 
-| 现象 | 原因与处理 |
+| Symptom | Cause and handling |
 | --- | --- |
-| 打印 `cannot mount the SD card` | TF 卡没挂上；检查卡是否插好、是否为 FAT / exFAT |
-| 打印 `no .gba/.gb/.gbc file on the card` | 根目录没有可用的 ROM；把文件放到 TF 卡根目录，大小不超过 `CONFIG_MGBA_MAX_ROM_SIZE_MB` |
-| 统计行 `emulation` 超过 16700 μs | 模拟跟不上实时，主循环自动跳帧；可调大 `CONFIG_SAMPLE_GBA_VIDEO_DIV` |
-| `underruns` 不为 0 | I2S 断流，`audio_main()` 会重新准备并预填 |
+| The log prints `cannot mount the SD card` | the TF card was not mounted; check that it is seated properly and is FAT / exFAT |
+| The log prints `no .gba/.gb/.gbc file on the card` | there is no usable ROM in the root directory; put the file in the TF card's root directory, no larger than `CONFIG_MGBA_MAX_ROM_SIZE_MB` |
+| `emulation` in the statistics line is above 16700 μs | the emulation cannot keep up with real time and the main loop skips frames automatically; `CONFIG_SAMPLE_GBA_VIDEO_DIV` can be raised |
+| `underruns` is not 0 | an I2S underrun; `audio_main()` re-prepares and pre-fills |
 
-## 代码结构
+## Code structure
 
-| 文件 | 内容 |
+| File | Contents |
 | --- | --- |
-| `zephyr-components/mgba/include/mgba_zephyr/gba.h` | 对外接口：`gba_open()`、`gba_run_frame()`、`gba_audio_read()`、`gba_set_keys()`、`gba_save_flush()` 和 `GBA_KEY_*` |
-| `zephyr-components/mgba/src/gba_player.c` | 把 mGBA 核心包成上面的接口：读 ROM 和存档、重采样声音、帧缓冲 |
-| `zephyr-components/mgba/src/gba_memory.c`、`src/renderers/` | mGBA 文件的修改版（MPL-2.0），按需分页、向量渲染器 |
-| `zephyr-components/mgba/src/mgba_libc.c`、`shim/` | 补 C 库缺少的函数和头文件 |
-| `samples/gba_player/src/main.c` | 主循环：选 ROM、跑模拟、声音节拍、存档 |
-| `samples/gba_player/src/video.c` | 帧缓冲轮换和视频层输出 |
-| `samples/gba_player/src/audio.c` | 声音环形缓冲、I2S 和 codec |
-| `samples/gba_player/src/pad.c` | LVGL 屏幕按键和触摸命中 |
+| `zephyr-components/mgba/include/mgba_zephyr/gba.h` | public interface: `gba_open()`, `gba_run_frame()`, `gba_audio_read()`, `gba_set_keys()`, `gba_save_flush()`, and `GBA_KEY_*` |
+| `zephyr-components/mgba/src/gba_player.c` | wraps the mGBA core in the interface above: reads the ROM and save file, resamples the sound, frame buffers |
+| `zephyr-components/mgba/src/gba_memory.c`, `src/renderers/` | modified versions of mGBA files (MPL-2.0): on-demand paging, vector renderers |
+| `zephyr-components/mgba/src/mgba_libc.c`, `shim/` | supplies the C library functions and headers that are missing |
+| `samples/gba_player/src/main.c` | main loop: choose the ROM, run the emulation, sound pacing, saving |
+| `samples/gba_player/src/video.c` | framebuffer rotation and video plane output |
+| `samples/gba_player/src/audio.c` | sound ring buffer, I2S, and codec |
+| `samples/gba_player/src/pad.c` | LVGL on-screen buttons and the touch hit test |
 
-### 运行流程
+### Flow of execution
 
-`main()` 做的事，按顺序：
+What `main()` does, in order:
 
-1. `cpu_clock_setup()` 抬 CPU 主频。
-2. `fs_mount()` 挂载 TF 卡到 `/SD:`，失败就打印 `cannot mount the SD card` 并退出。
-3. `video_init()` 分配 4 块帧缓冲并起 `video` 线程；`audio_init()` 起 `audio` 线程；任一失败就退出。
-4. `pick_rom()` 选 ROM 并决定存档路径；找不到就打印 `no .gba/.gb/.gbc file on the card` 并退出。
-5. `gba_open()` 读入 ROM 和存档，创建核心；`pad_start()` 起 `pad` 线程。
-6. 进入主循环：取键 → 设置帧缓冲和跳帧 → `gba_run_frame()` → 画面交给 `video_present()` → 把声音放进环形缓冲 → 声音队列满了就等 → 每 3 秒保存一次 → 每 5 秒打印一行统计。
+1. `cpu_clock_setup()` raises the CPU clock.
+2. `fs_mount()` mounts the TF card at `/SD:`; on failure it prints `cannot mount the SD card` and exits.
+3. `video_init()` allocates the 4 framebuffers and starts the `video` thread; `audio_init()` starts the `audio` thread; either one failing causes an exit.
+4. `pick_rom()` chooses the ROM and decides the save path; if none is found it prints `no .gba/.gb/.gbc file on the card` and exits.
+5. `gba_open()` reads in the ROM and the save file and creates the core; `pad_start()` starts the `pad` thread.
+6. It enters the main loop: take the keys → set the frame buffer and frame skip → `gba_run_frame()` → hand the picture to `video_present()` → put the sound into the ring buffer → wait when the sound queue is full → save every 3 seconds → print one line of statistics every 5 seconds.
 
 ```mermaid
 flowchart TD
@@ -646,18 +646,18 @@ flowchart TD
     F --> H["gba_audio_read -> audio_push"]
     G --> H
     H --> I{"audio_queued()<br/>> HIGH_WATER ?"}
-    I -->|"是"| J["k_msleep(1) 等声音播放"]
+    I -->|"yes"| J["k_msleep(1) wait for the sound to play"]
     J --> I
-    I -->|"否"| K["每 3 s gba_save_flush<br/>每 5 s 打印统计"]
+    I -->|"no"| K["gba_save_flush every 3 s<br/>print statistics every 5 s"]
     K --> E
 ```
 
-线程和优先级（数值越小越优先）：
+Threads and priorities (a smaller number is higher priority):
 
-| 线程 | 优先级 | 作用 |
+| Thread | Priority | Purpose |
 | --- | --- | --- |
-| `audio` | 3 | 从环形缓冲取块送 I2S |
-| input（系统） | 4 | 触摸事件回调 |
-| `video` | 5 | 调 `display_sunxi_show_rgb()`，可能等下一次刷新 |
-| main（模拟） | 6 | 主循环 |
-| `pad` | 7 | LVGL 刷新和触摸扫描 |
+| `audio` | 3 | takes blocks from the ring buffer and sends them to I2S |
+| input (system) | 4 | touch event callback |
+| `video` | 5 | calls `display_sunxi_show_rgb()`, possibly waiting for the next refresh |
+| main (emulation) | 6 | the main loop |
+| `pad` | 7 | LVGL refresh and touch scanning |

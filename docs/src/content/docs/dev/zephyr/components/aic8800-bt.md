@@ -1,110 +1,110 @@
 ---
-title: "AIC8800 蓝牙 - 蓝牙驱动"
+title: "AIC8800 Bluetooth - Bluetooth Driver"
 ---
 
-AIC8800 是爱科微（AICSemi）的 WiFi + 蓝牙二合一芯片。这一篇讲它的蓝牙部分：芯片里的蓝牙控制器通过 UART 说 HCI（H:4，带硬件流控），Zephyr 自带的蓝牙主机（Host）跑在 SoC 上，应用用 `<zephyr/bluetooth/bluetooth.h>` 里的标准接口，不需要关心芯片。F101 这边要做的只有两件事：把控制器的固件送进芯片，以及在 HCI 传输打开时放开控制器的复位。这两件事由组件的 `src/aic_bt.c` 完成。
+The AIC8800 is a Wi-Fi + Bluetooth combo chip from AICSemi. This page covers its Bluetooth part: the Bluetooth controller in the chip speaks HCI (H:4, with hardware flow control) over UART, Zephyr's own Bluetooth Host runs on the SoC, and applications use the standard interfaces in `<zephyr/bluetooth/bluetooth.h>` without having to care about the chip. On the F101 side only two things have to be done: deliver the controller's firmware into the chip, and release the controller's reset when the HCI transport is opened. Both are done by the component's `src/aic_bt.c`.
 
-WiFi 部分在另一篇：[AIC8800 WIFI](aic8800-wifi.md)。芯片的 SDIO 总线、REG_ON 上电、固件放在哪里、固件怎么下载、芯片识别，WiFi 篇的[总线与固件加载](aic8800-wifi.md#总线与固件加载)一节已经写了，本文不重复；蓝牙的固件、补丁和配置在同一次 SDIO 下载里一起送进芯片。
+The Wi-Fi part is in another page: [AIC8800 WIFI](aic8800-wifi.md). The chip's SDIO bus, REG_ON power-up, where the firmware lives, how the firmware is downloaded and the chip identification are already written in the [Bus and firmware loading](aic8800-wifi.md#bus-and-firmware-loading) section of the Wi-Fi page and are not repeated here; the Bluetooth firmware, patch and configuration are delivered to the chip in the same SDIO download.
 
-蓝牙控制器的 HCI 走 UART2，H:4，115200，带硬件流控：TX 接 PE6、RX 接 PE7、RTS 接 PE8、CTS 接 PE9；蓝牙复位 BT_RSTN 接 PD8，低电平有效。HCI 传输用 Zephyr 的 `drivers/bluetooth/hci/h4.c`，加上组件 `src/aic_bt.c` 里的 `bt_hci_transport_setup()`。蓝牙专用的源码是 `~/f101-zephyr/zephyr-components/aic8800/src/aic_bt.c`，以及 `host/drv/aic_bsp/` 里 `CONFIG_BT_SUPPORT` 下的蓝牙补丁和配置下载。
+The Bluetooth controller's HCI goes over UART2, H:4, 115200, with hardware flow control: TX is on PE6, RX on PE7, RTS on PE8 and CTS on PE9; the Bluetooth reset BT_RSTN is on PD8 and is active low. The HCI transport uses Zephyr's `drivers/bluetooth/hci/h4.c` plus `bt_hci_transport_setup()` in the component's `src/aic_bt.c`. The Bluetooth-specific source is `~/f101-zephyr/zephyr-components/aic8800/src/aic_bt.c`, and the Bluetooth patch and configuration download under `CONFIG_BT_SUPPORT` in `host/drv/aic_bsp/`.
 
-`bt_enable()` 打开 HCI 传输时，如果芯片还没启动，会先调用 `aicz_wifi_start()` 启动它，已经启动就立刻返回，所以应用不必先用 WiFi。反过来，蓝牙固件和 WiFi 固件在同一次 SDIO 下载里，不能只拉起蓝牙而不启动 WiFi 固件。
+When `bt_enable()` opens the HCI transport, if the chip has not started yet it first calls `aicz_wifi_start()` to start it, and if it has already started it returns immediately, so an application does not have to use Wi-Fi first. Conversely, the Bluetooth firmware and the Wi-Fi firmware are in the same SDIO download, so Bluetooth cannot be brought up without the Wi-Fi firmware starting.
 
-控制器自报 HCI 和 LMP 版本 5.4，厂商号 0x0b3b，本地地址是控制器提供的公共地址，WiFi 的 MAC 是另一个地址。Zephyr 主机里没有打开 `BT_CLASSIC`，所以只有低功耗（LE）；LE 的广播者、观察者、外设、中心角色由主机的 Kconfig 选择。
+The controller reports HCI and LMP version 5.4 itself, manufacturer 0x0b3b; the local address is the public address the controller provides, and the Wi-Fi MAC is a different address. `BT_CLASSIC` is not enabled in the Zephyr host, so only low energy (LE) is available; the LE broadcaster, observer, peripheral and central roles are selected by the host's Kconfig.
 
-## 架构
+## Architecture
 
 ```mermaid
 flowchart TB
-    APP["应用<br/>bt_enable / bt_le_adv_start / bt_le_scan_start / bt_conn_le_create"] --> HOST["Zephyr 蓝牙主机<br/>subsys/bluetooth/host<br/>hci_core、adv、scan、conn、gatt、att、l2cap"]
-    HOST --> H4["H:4 驱动 h4.c<br/>zephyr,bt-hci-uart<br/>bt_hci_open / bt_hci_send"]
-    H4 --> SETUP["aic_bt.c<br/>bt_hci_transport_setup()<br/>启动芯片、释放 BT_RSTN、清掉启动垃圾"]
-    H4 --> UART["UART2 uart2<br/>ns16550，115200，硬件流控<br/>PE6 TX / PE7 RX / PE8 RTS / PE9 CTS"]
-    UART --> BTC["AIC8800 蓝牙控制器<br/>LE 链路层、HCI"]
-    SETUP --> START["aicz_wifi_start()<br/>SDIO 下载 WiFi 固件、蓝牙补丁和配置<br/>见 WiFi 篇"]
-    START --> SDIO["SDIO 4 位 smhc2"]
-    SDIO --> CHIP["AIC8800 芯片"]
+    APP["Application<br/>bt_enable / bt_le_adv_start / bt_le_scan_start / bt_conn_le_create"] --> HOST["Zephyr Bluetooth host<br/>subsys/bluetooth/host<br/>hci_core, adv, scan, conn, gatt, att, l2cap"]
+    HOST --> H4["H:4 driver h4.c<br/>zephyr,bt-hci-uart<br/>bt_hci_open / bt_hci_send"]
+    H4 --> SETUP["aic_bt.c<br/>bt_hci_transport_setup()<br/>start the chip, release BT_RSTN, clear boot garbage"]
+    H4 --> UART["UART2 uart2<br/>ns16550, 115200, hardware flow control<br/>PE6 TX / PE7 RX / PE8 RTS / PE9 CTS"]
+    UART --> BTC["AIC8800 Bluetooth controller<br/>LE link layer, HCI"]
+    SETUP --> START["aicz_wifi_start()<br/>SDIO download of Wi-Fi firmware, Bluetooth patch and config<br/>see the Wi-Fi page"]
+    START --> SDIO["SDIO 4-bit smhc2"]
+    SDIO --> CHIP["AIC8800 chip"]
     BTC --- CHIP
     RST["bt-reset-gpios<br/>BT_RSTN PD8"] --> BTC
     SETUP --> RST
 ```
 
-| 层 | 位置 | 作用 |
+| Layer | Location | Purpose |
 | --- | --- | --- |
-| 蓝牙主机 | `zephyr/subsys/bluetooth/host/` | GAP、GATT、ATT、L2CAP、SMP；应用接口都在这里，F101 没有改动 |
-| H:4 驱动 | `zephyr/drivers/bluetooth/hci/h4.c` | 把 HCI 包加上 1 字节类型头，经 UART 收发；`bt_hci_open()` 时调用 `bt_hci_transport_setup()` |
-| 传输准备 | `zephyr-components/aic8800/src/aic_bt.c` | 实现 `bt_hci_transport_setup()`（覆盖 h4.c 里的弱符号），并在启动早期把 BT_RSTN 拉到复位 |
-| 固件与补丁 | `zephyr-components/aic8800/host/drv/aic_bsp/` | 蓝牙补丁表和配置（模式、波特率、流控、发射功率）；随 WiFi 固件经 SDIO 下载 |
-| UART | `ns16550` 兼容的 `uart2` | 115200，开硬件流控；引脚在板级设备树的 `uart2_pins` |
+| Bluetooth host | `zephyr/subsys/bluetooth/host/` | GAP, GATT, ATT, L2CAP, SMP; all the application interfaces are here, unchanged on the F101 |
+| H:4 driver | `zephyr/drivers/bluetooth/hci/h4.c` | Adds a 1-byte type header to HCI packets and sends and receives them over UART; calls `bt_hci_transport_setup()` in `bt_hci_open()` |
+| Transport setup | `zephyr-components/aic8800/src/aic_bt.c` | Implements `bt_hci_transport_setup()` (overriding the weak symbol in h4.c), and pulls BT_RSTN into reset early in boot |
+| Firmware and patch | `zephyr-components/aic8800/host/drv/aic_bsp/` | Bluetooth patch table and configuration (mode, baud rate, flow control, TX power); downloaded over SDIO together with the Wi-Fi firmware |
+| UART | The `ns16550`-compatible `uart2` | 115200, hardware flow control enabled; the pins are in `uart2_pins` in the board devicetree |
 
-## 数据流
+## Data flow
 
-`bt_enable()` 一次调用里发生的事：
+What happens in one `bt_enable()` call:
 
 ```mermaid
 sequenceDiagram
-    participant A as 应用
-    participant H as 蓝牙主机
+    participant A as Application
+    participant H as Bluetooth host
     participant D as h4.c
     participant S as aic_bt.c
-    participant C as 芯片
-    Note over S,C: 系统启动：aic_bt_reset_hold() 把 BT_RSTN 拉到复位
+    participant C as Chip
+    Note over S,C: System boot: aic_bt_reset_hold() holds BT_RSTN in reset
     A->>H: bt_enable(NULL)
     H->>D: bt_hci_open()
     D->>S: bt_hci_transport_setup(uart2)
-    S->>C: aicz_wifi_start()：REG_ON、SDIO 枚举、下载固件、补丁、配置
-    S->>C: BT_RSTN 置位 10 ms 再释放
-    S->>S: 等 500 ms，读空 UART 里启动时吐出的字节
-    D-->>H: 打开成功，起 RX 线程
-    H->>C: HCI Reset、读本地版本、读特性、读缓冲区大小、读 BD_ADDR……
-    C-->>H: 命令完成事件
-    H-->>A: 返回 0
+    S->>C: aicz_wifi_start(): REG_ON, SDIO enumeration, firmware, patch, config download
+    S->>C: assert BT_RSTN for 10 ms, then release
+    S->>S: wait 500 ms, drain the bytes the UART emits during boot
+    D-->>H: open succeeds, start the RX thread
+    H->>C: HCI Reset, read local version, read features, read buffer size, read BD_ADDR......
+    C-->>H: command complete event
+    H-->>A: returns 0
 ```
 
-数据面：
+The data plane:
 
 ```mermaid
 flowchart LR
-    subgraph 发送
-        A1["bt_le_adv_start()<br/>bt_le_scan_start()<br/>bt_conn_le_create()"] --> A2["主机组 HCI 命令<br/>net_buf"]
-        A2 --> A3["h4_send()<br/>加类型头，入队"]
-        A3 --> A4["UART2 TX 中断<br/>RTS/CTS 流控"]
+    subgraph Transmit
+        A1["bt_le_adv_start()<br/>bt_le_scan_start()<br/>bt_conn_le_create()"] --> A2["Host assembles HCI commands<br/>net_buf"]
+        A2 --> A3["h4_send()<br/>add type header, enqueue"]
+        A3 --> A4["UART2 TX interrupt<br/>RTS/CTS flow control"]
     end
-    subgraph 接收
-        B4["UART2 RX 中断"] --> B3["h4.c RX 线程<br/>按 H:4 头拼包"]
-        B3 --> B2["bt_recv()<br/>主机 RX 线程分发"]
-        B2 --> B1["LE 广播报告<br/>-> 扫描回调<br/>连接事件 -> bt_conn_cb"]
+    subgraph Receive
+        B4["UART2 RX interrupt"] --> B3["h4.c RX thread<br/>reassemble packets by H:4 header"]
+        B3 --> B2["bt_recv()<br/>dispatched by host RX thread"]
+        B2 --> B1["LE advertising reports<br/>-> scan callback<br/>connect event -> bt_conn_cb"]
     end
 ```
 
-* 发送：主机把命令、ACL 数据放进 `net_buf`，`h4_send()` 排进队列并打开 UART 的发送中断。
-* 接收：UART 接收中断把字节读进 FIFO，H:4 的 RX 线程按包头拼成 HCI 包，交给主机；主机的 RX 线程再分发事件，扫描回调和连接回调都在这个线程里执行，回调里不要阻塞。
-* 主机做 ACL 流控时会发 `Host Buffer Size` 命令，控制器回答“不支持”，`bt_enable()` 就会失败，所以 `CONFIG_AIC8800_BT` 打开时，驱动的 Kconfig 把 `CONFIG_BT_HCI_ACL_FLOW_CONTROL` 的默认值改成 `n`。
+* Transmit: the host puts commands and ACL data into `net_buf`, and `h4_send()` enqueues them and enables the UART's transmit interrupt.
+* Receive: the UART receive interrupt reads bytes into a FIFO, the H:4 RX thread reassembles them into HCI packets by packet header and hands them to the host; the host's RX thread then dispatches events, and both the scan callback and the connection callbacks run on this thread, so callbacks must not block.
+* When the host does ACL flow control it sends the `Host Buffer Size` command; the controller answers "not supported" and `bt_enable()` then fails, so when `CONFIG_AIC8800_BT` is enabled the driver's Kconfig changes the default of `CONFIG_BT_HCI_ACL_FLOW_CONTROL` to `n`.
 
-## 设备树
+## Devicetree
 
-蓝牙用到三处设备树：UART2 和挂在它下面的 HCI 节点、`chosen` 里指向 HCI 节点的 `zephyr,bt-hci`、WiFi 节点里的 `bt-reset-gpios`。
+Bluetooth uses three places in the devicetree: UART2 and the HCI node under it, the `zephyr,bt-hci` that points at the HCI node in `chosen`, and the `bt-reset-gpios` in the Wi-Fi node.
 
-| 文件 | 作用 |
+| File | Purpose |
 | --- | --- |
-| `dts/bindings/wifi/aicsemi,aic8800.yaml` | 芯片节点的绑定，`bt-reset-gpios` 在这里定义 |
-| `zephyr/dts/bindings/bluetooth/zephyr,bt-hci-uart.yaml` | UART 上的 HCI 设备的绑定（Zephyr 自带），H:4 驱动匹配它 |
-| `boards/yuzukihd/yuzukineko/yuzukineko.dts` | 板级设备树：打开 UART2 和 HCI 节点，接 `bt-reset-gpios` |
+| `dts/bindings/wifi/aicsemi,aic8800.yaml` | Binding of the chip node; `bt-reset-gpios` is defined here |
+| `zephyr/dts/bindings/bluetooth/zephyr,bt-hci-uart.yaml` | Binding of the HCI device on a UART (shipped with Zephyr); the H:4 driver matches it |
+| `boards/yuzukihd/yuzukineko/yuzukineko.dts` | Board devicetree: enables UART2 and the HCI node and wires `bt-reset-gpios` |
 
-### 板级设备树：yuzukineko.dts
+### Board devicetree: yuzukineko.dts
 
-选择 HCI 设备。主机的 `bt_enable()` 用 `zephyr,bt-hci` 找传输：
+Selecting the HCI device. The host's `bt_enable()` finds the transport with `zephyr,bt-hci`:
 
 ```c
 / {
 	chosen {
-		/* 主机用这个节点作 HCI 传输 */
+		/* The host uses this node as the HCI transport */
 		zephyr,bt-hci = &bt_hci;
 	};
 };
 ```
 
-UART2 的引脚（TX PE6、RX PE7、RTS PE8、CTS PE9，复用编号 3）。这四个脚也是 I2C0 和 RGB 屏的引脚，所以板级设备树里把 `i2c0` 设成了 `disabled`，也不能同时用 RGB 屏：
+The UART2 pins (TX PE6, RX PE7, RTS PE8, CTS PE9, mux function 3). These four pins are also the pins of I2C0 and the RGB display, so the board devicetree sets `i2c0` to `disabled`, and the RGB display cannot be used at the same time either:
 
 ```c
 &pio {
@@ -120,79 +120,79 @@ UART2 的引脚（TX PE6、RX PE7、RTS PE8、CTS PE9，复用编号 3）。这�
 };
 ```
 
-UART2 和它下面的 HCI 节点：
+UART2 and the HCI node under it:
 
 ```c
 &uart2 {
 	status = "okay";
-	current-speed = <115200>;		/* 控制器的补丁表里配置的波特率也是 115200 */
-	hw-flow-control;			/* H:4 要求硬件流控 */
+	current-speed = <115200>;		/* The baud rate configured in the controller's patch table is also 115200 */
+	hw-flow-control;			/* H:4 requires hardware flow control */
 	pinctrl-0 = <&uart2_pins>;
 	pinctrl-names = "default";
 
 	bt_hci: bt-hci {
-		compatible = "zephyr,bt-hci-uart";	/* 匹配 h4.c */
+		compatible = "zephyr,bt-hci-uart";	/* Matches h4.c */
 		status = "okay";
 	};
 };
 ```
 
-芯片节点上的蓝牙复位脚（节点本身的 `reg-on-gpios` 和 SDIO 部分见 WiFi 篇）：
+The Bluetooth reset pin on the chip node (see the Wi-Fi page for the node's own `reg-on-gpios` and the SDIO part):
 
 ```c
 &smhc2 {
 	aic8800 {
 		compatible = "aicsemi,aic8800";
-		reg-on-gpios = <&gpioe 10 GPIO_ACTIVE_HIGH>;	/* 芯片电源，WiFi 篇 */
-		/* BT_RSTN：低电平有效，PD8。下载固件期间保持复位，HCI 传输打开时才释放 */
+		reg-on-gpios = <&gpioe 10 GPIO_ACTIVE_HIGH>;	/* Chip power, see the Wi-Fi page */
+		/* BT_RSTN: active low, PD8. Held in reset while the firmware is downloaded, released only when the HCI transport is opened */
 		bt-reset-gpios = <&gpiod 8 GPIO_ACTIVE_LOW>;
 	};
 };
 ```
 
-### 绑定的属性
+### Binding properties
 
-`aicsemi,aic8800` 里和蓝牙有关的只有一项：
+Only one entry in `aicsemi,aic8800` relates to Bluetooth:
 
-| 属性 | 必填 | 含义 |
+| Property | Required | Meaning |
 | --- | --- | --- |
-| `bt-reset-gpios` | 否 | 蓝牙部分的复位（BT_RSTN）。系统启动时拉到复位并保持，固件下载完、HCI 传输打开时释放。不写这一项，驱动不控制复位脚 |
+| `bt-reset-gpios` | no | Reset of the Bluetooth part (BT_RSTN). Pulled into reset at system boot and held there; released once the firmware is downloaded and the HCI transport is opened. Without this entry the driver does not control the reset pin |
 
-`zephyr,bt-hci-uart`（Zephyr 自带）：`bt-hci-name` 默认 `"H:4"`，`bt-hci-bus` 默认 `"uart"`，另有 `bt-hci-quirks`、`bt-hci-vs-ext`，本板都不设。
+`zephyr,bt-hci-uart` (shipped with Zephyr): `bt-hci-name` defaults to `"H:4"` and `bt-hci-bus` to `"uart"`; there are also `bt-hci-quirks` and `bt-hci-vs-ext`, neither of which this board sets.
 
 ## Kconfig
 
-驱动自己的蓝牙选项只有一个，其余是 Zephyr 蓝牙主机的选项。
+The driver has only one Bluetooth option of its own; the rest are options of the Zephyr Bluetooth host.
 
-| 选项 | 默认 | 含义 |
+| Option | Default | Meaning |
 | --- | --- | --- |
-| `CONFIG_AIC8800_BT` | `n`，依赖 `BT`、`BT_H4` | 打开蓝牙控制器的支持：编译 `src/aic_bt.c`，固件下载里带上蓝牙补丁；打开时把 `BT_HCI_ACL_FLOW_CONTROL` 的默认值改成 `n` |
-| `CONFIG_AIC8800` | `n`，依赖 RISCV | 驱动本体，选项和依赖见 WiFi 篇 |
-| `CONFIG_MINIMAL_LIBC` | 板子默认 picolibc | 驱动的 `compat/` 头文件按最小 C 库写，picolibc 下编译失败，必须打开 |
-| `CONFIG_BT` | `n` | 打开蓝牙主机 |
-| `CONFIG_BT_HCI` | `n` | 基于 HCI 的蓝牙主机，主机和控制器之间走 HCI 驱动 |
-| `CONFIG_BT_H4` | `y`（设备树里有 `zephyr,bt-hci-uart`） | UART H:4 传输；`CONFIG_AIC8800_BT` 依赖它 |
-| `CONFIG_BT_HCI_ACL_FLOW_CONTROL` | `y`，驱动在 `AIC8800_BT` 时改为 `n` | 主机对控制器做 ACL 流控；控制器不支持 `Host Buffer Size`，必须关 |
-| `CONFIG_BT_DEVICE_NAME` | `"Zephyr"` | 设备名，广播数据里用它。演示设为 `"F101-AIC8800"` |
-| `CONFIG_BT_BROADCASTER` | 没有观察者角色时为 `y`，`BT_PERIPHERAL` 会选中它 | 广播者角色，演示显式打开 |
-| `CONFIG_BT_OBSERVER` | `n` | 观察者角色，`bt_le_scan_start` 需要它 |
-| `CONFIG_BT_PERIPHERAL` | `n` | 外设角色，可连接广播 `BT_LE_ADV_CONN_FAST_1` 需要它 |
-| `CONFIG_BT_CENTRAL` | `n` | 中心角色，`bt_conn_le_create` 需要它 |
-| `CONFIG_BT_GATT_CLIENT` | `n` | GATT 客户端，`bt_gatt_discover` 需要它 |
-| `CONFIG_BT_MAX_CONN` | 1 | 同时连接数，演示设为 1 |
-| `CONFIG_BT_RX_STACK_SIZE` | 随配置 | 主机 RX 线程和 H:4 RX 线程的栈，演示设 2048 |
-| `CONFIG_BT_LOG_LEVEL_INF` | 随 `BT_LOG_LEVEL` | 蓝牙日志级别设为 INF，启动时打印传输、地址、版本 |
-| `CONFIG_SYSTEM_WORKQUEUE_STACK_SIZE` | 随板子 | 主机在系统工作队列里处理一部分事件，演示设 4096 |
-| `CONFIG_MAIN_STACK_SIZE` | 随板子 | 主线程的栈，演示设 8192 |
-| `CONFIG_HEAP_MEM_POOL_SIZE` | 随板子 | 驱动从内核堆里分配缓冲区，演示设 262144 |
+| `CONFIG_AIC8800_BT` | `n`, depends on `BT`, `BT_H4` | Enables Bluetooth controller support: compiles `src/aic_bt.c` and includes the Bluetooth patch in the firmware download; when enabled it changes the default of `BT_HCI_ACL_FLOW_CONTROL` to `n` |
+| `CONFIG_AIC8800` | `n`, depends on RISCV | The driver itself; options and dependencies are in the Wi-Fi page |
+| `CONFIG_MINIMAL_LIBC` | The board default is picolibc | The driver's `compat/` headers are written for the minimal C library and fail to compile with picolibc, so it must be enabled |
+| `CONFIG_BT` | `n` | Enables the Bluetooth host |
+| `CONFIG_BT_HCI` | `n` | The HCI-based Bluetooth host, with an HCI driver between the host and the controller |
+| `CONFIG_BT_H4` | `y` (with `zephyr,bt-hci-uart` in the devicetree) | UART H:4 transport; `CONFIG_AIC8800_BT` depends on it |
+| `CONFIG_BT_HCI_ACL_FLOW_CONTROL` | `y`, changed to `n` by the driver with `AIC8800_BT` | The host does ACL flow control with the controller; the controller does not support `Host Buffer Size`, so it must be off |
+| `CONFIG_BT_DEVICE_NAME` | `"Zephyr"` | The device name, used in the advertising data. The demo sets it to `"F101-AIC8800"` |
+| `CONFIG_BT_BROADCASTER` | `y` when there is no observer role; `BT_PERIPHERAL` selects it | Broadcaster role; the demo enables it explicitly |
+| `CONFIG_BT_OBSERVER` | `n` | Observer role; `bt_le_scan_start` needs it |
+| `CONFIG_BT_PERIPHERAL` | `n` | Peripheral role; connectable advertising `BT_LE_ADV_CONN_FAST_1` needs it |
+| `CONFIG_BT_CENTRAL` | `n` | Central role; `bt_conn_le_create` needs it |
+| `CONFIG_BT_GATT_CLIENT` | `n` | GATT client; `bt_gatt_discover` needs it |
+| `CONFIG_BT_MAX_CONN` | 1 | Maximum simultaneous connections; the demo sets it to 1 |
+| `CONFIG_BT_RX_STACK_SIZE` | Follows the configuration | Stack of the host RX thread and the H:4 RX thread; the demo sets 2048 |
+| `CONFIG_BT_LOG_LEVEL_INF` | Follows `BT_LOG_LEVEL` | Sets the Bluetooth log level to INF, printing the transport, address and version at start-up |
+| `CONFIG_SYSTEM_WORKQUEUE_STACK_SIZE` | Follows the board | The host handles some events on the system work queue; the demo sets 4096 |
+| `CONFIG_MAIN_STACK_SIZE` | Follows the board | Stack of the main thread; the demo sets 8192 |
+| `CONFIG_HEAP_MEM_POOL_SIZE` | Follows the board | The driver allocates buffers from the kernel heap; the demo sets 262144 |
 
-其余为 AIC8800 驱动自带的网络栈等选项（`NETWORKING`、`WIFI`、`SDHC`……），由 `CONFIG_AIC8800` 选中，演示的 `prj.conf` 里也写了出来，列表见 WiFi 篇。
+The rest are the AIC8800 driver's own options such as the network stack (`NETWORKING`, `WIFI`, `SDHC`, ...), selected by `CONFIG_AIC8800` and also written out in the demo's `prj.conf`; the list is in the Wi-Fi page.
 
-## 接口详解
+## Interface details
 
-蓝牙应用接口是 Zephyr 的，头文件在 `<zephyr/bluetooth/>` 下，这个组件没有另外的应用接口。下面每个接口一个小标题：原型、行为和示例函数，示例函数都在文末[完整 demo 程序](#完整-demo-程序)的 `main.c` 里，板上输出来自文末的[完整日志](#板子上的完整日志)。
+The Bluetooth application interfaces are Zephyr's, with headers under `<zephyr/bluetooth/>`; this component has no separate application interface. Each interface below has its own heading: prototype, behavior and example function; the example functions are all in the `main.c` of [Complete demo program](#complete-demo-program) at the end, and the board output comes from [Complete log on the board](#complete-log-on-the-board) at the end.
 
-演示的 `main.c` 开头是头文件和宏：
+The demo's `main.c` starts with the includes and macros:
 
 ```c
 #include <string.h>
@@ -204,7 +204,7 @@ UART2 和它下面的 HCI 节点：
 #include <zephyr/kernel.h>
 #include <zephyr/sys/printk.h>
 
-/* 要连接的对端地址，大写，和扫描打印的一致，例如 "2C:19:5C:E0:6E:60"；空串表示不连接 */
+/* Peer address to connect to, uppercase, matching the scan output, for example "2C:19:5C:E0:6E:60"; an empty string means do not connect */
 #define CONNECT_ADDR	""
 
 #define ADV_SECONDS	5
@@ -218,7 +218,7 @@ UART2 和它下面的 HCI 节点：
 int bt_enable(bt_ready_cb_t cb);
 ```
 
-初始化蓝牙主机并打开 HCI 传输。`cb` 为 `NULL` 时同步执行，返回时蓝牙已经可用；不为 `NULL` 时立刻返回，初始化完成后调用 `cb`。成功返回 0，失败返回负的错误码。在这块板子上它会：打开 `zephyr,bt-hci` 指定的 H:4 设备，进入 `bt_hci_transport_setup()` 启动芯片（SDIO 下载固件、释放 BT_RSTN），再发 HCI 命令读控制器的信息。首次调用约 3.2 秒，大部分时间花在芯片启动和固件下载上。
+Initializes the Bluetooth host and opens the HCI transport. With `cb` as `NULL` it runs synchronously, and Bluetooth is already available when it returns; when `cb` is not `NULL` it returns immediately and calls `cb` once initialization is complete. It returns 0 on success and a negative error code on failure. On this board it: opens the H:4 device named by `zephyr,bt-hci`, enters `bt_hci_transport_setup()` to start the chip (download the firmware over SDIO, release BT_RSTN), and then sends HCI commands to read the controller's information. The first call takes about 3.2 seconds, most of it spent on chip bring-up and firmware download.
 
 ```c
 static int enable_bluetooth(void)
@@ -235,7 +235,7 @@ static int enable_bluetooth(void)
 }
 ```
 
-板上输出，前面 `aic8800` 开头的是芯片启动和固件下载，`bt_hci_core` 开头的是主机读到的控制器信息：
+Board output; the lines starting with `aic8800` are the chip bring-up and firmware download, and the lines starting with `bt_hci_core` are the controller information the host reads:
 
 ```text
 [00:00:02.672,000] <inf> aic8800: aic_wifi_init ok
@@ -247,7 +247,7 @@ static int enable_bluetooth(void)
 bt_enable ok
 ```
 
-那条 `<wrn>` 是主机的提示：控制器有 14 个 ACL 缓冲，主机只准备了 3 个发送上下文（由 `CONFIG_BT_MAX_CONN=1` 决定）。只有一个连接时没有影响。
+That `<wrn>` is the host's notice: the controller has 14 ACL buffers, while the host prepared only 3 TX contexts (determined by `CONFIG_BT_MAX_CONN=1`). With only one connection it has no effect.
 
 ### bt_id_get
 
@@ -255,7 +255,7 @@ bt_enable ok
 void bt_id_get(bt_addr_le_t *addrs, size_t *count);
 ```
 
-读出本地的身份地址。`addrs` 是调用者给的数组，`count` 进来时是数组能放几个，出去时是实际填了几个。身份数量上限是 `CONFIG_BT_ID_MAX`。这块板子上控制器提供公共地址，所以有一个 `(public)` 身份。
+Reads out the local identity addresses. `addrs` is an array the caller provides; on entry `count` is how many the array can hold, and on exit it is how many were actually filled. The maximum number of identities is `CONFIG_BT_ID_MAX`. On this board the controller provides a public address, so there is one `(public)` identity.
 
 ```c
 static void show_identity(void)
@@ -273,7 +273,7 @@ static void show_identity(void)
 }
 ```
 
-板上输出：
+Board output:
 
 ```text
 identity 0: C0:E3:50:B5:3B:23 (public)
@@ -285,7 +285,7 @@ identity 0: C0:E3:50:B5:3B:23 (public)
 static inline int bt_addr_le_to_str(const bt_addr_le_t *addr, char *str, size_t len);
 ```
 
-把 LE 地址格式化成 `"XX:XX:XX:XX:XX:XX (public)"` 或 `"(random)"` 的字符串；`str` 至少要 `BT_ADDR_LE_STR_LEN` 字节。`show_identity()` 里用它打印本地地址，下面扫描的列表里用它打印对端地址。上面 `bt_id_get` 的输出就是它的输出。
+Formats an LE address into a `"XX:XX:XX:XX:XX:XX (public)"` or `"(random)"` string; `str` must be at least `BT_ADDR_LE_STR_LEN` bytes. It is used in `show_identity()` to print the local address and in the scan list below to print the peer addresses. The output of `bt_id_get` above is its output.
 
 ### bt_get_name
 
@@ -293,7 +293,7 @@ static inline int bt_addr_le_to_str(const bt_addr_le_t *addr, char *str, size_t 
 const char *bt_get_name(void);
 ```
 
-返回当前的设备名，也就是广播数据里的名字。`CONFIG_BT_DEVICE_NAME_DYNAMIC` 没打开时是编译时的 `CONFIG_BT_DEVICE_NAME`。示例函数同样是 `show_identity()`，它的最后一行：
+Returns the current device name, which is the name in the advertising data. When `CONFIG_BT_DEVICE_NAME_DYNAMIC` is not enabled, it is the compile-time `CONFIG_BT_DEVICE_NAME`. The example function is again `show_identity()`, and its last line is:
 
 ```text
 device name: F101-AIC8800
@@ -307,7 +307,7 @@ int bt_le_adv_start(const struct bt_le_adv_param *param,
 		    const struct bt_data *sd, size_t sd_len);
 ```
 
-开始 LE 广播。`param` 描述广播的类型和间隔，`ad` 是广播数据，`sd` 是扫描响应数据，各带元素个数。演示用 `BT_LE_ADV_CONN_FAST_1`（可连接，快速广播间隔，需要 `CONFIG_BT_PERIPHERAL`）。广播数据放标志位和完整设备名，扫描响应放 GAP 服务的 16 位 UUID；数据用 `BT_DATA` 和 `BT_DATA_BYTES` 宏写成 `struct bt_data` 数组。成功返回 0；已经在广播返回 `-EALREADY`；参数或数据太长返回 `-EINVAL`。
+Starts LE advertising. `param` describes the advertising type and interval, `ad` is the advertising data and `sd` is the scan response data, each with an element count. The demo uses `BT_LE_ADV_CONN_FAST_1` (connectable, fast advertising interval, needs `CONFIG_BT_PERIPHERAL`). The advertising data carries the flags and the complete device name, and the scan response carries the 16-bit UUID of the GAP service; the data is written as an array of `struct bt_data` with the `BT_DATA` and `BT_DATA_BYTES` macros. It returns 0 on success; `-EALREADY` if it is already advertising; `-EINVAL` if the parameters or the data are too long.
 
 ```c
 static const struct bt_data adv_data[] = {
@@ -334,13 +334,13 @@ static int start_advertising(void)
 }
 ```
 
-板上输出：
+Board output:
 
 ```text
 advertising as "F101-AIC8800"
 ```
 
-返回 0 说明控制器接受了设置广播参数、广播数据、扫描响应数据和使能广播这几条 HCI 命令。板子本身无法收到自己的广播，演示时旁边也没有第二个设备在扫描，所以广播包是否被空中接收没有验证。
+A return of 0 means the controller accepted the HCI commands for setting the advertising parameters, the advertising data, the scan response data and enabling advertising. The board itself cannot receive its own advertising, and there was no second scanning device nearby during the demo, so whether the advertising packets are received over the air was not verified.
 
 ### bt_le_adv_stop
 
@@ -348,7 +348,7 @@ advertising as "F101-AIC8800"
 int bt_le_adv_stop(void);
 ```
 
-停止广播。没有在广播时返回 0。
+Stops advertising. Returns 0 when it is not advertising.
 
 ```c
 static int stop_advertising(void)
@@ -365,7 +365,7 @@ static int stop_advertising(void)
 }
 ```
 
-板上输出，在广播 5 秒（`main()` 里的 `ADV_SECONDS`）之后：
+Board output, after 5 seconds of advertising (`ADV_SECONDS` in `main()`):
 
 ```text
 advertising stopped
@@ -377,7 +377,7 @@ advertising stopped
 int bt_le_scan_start(const struct bt_le_scan_param *param, bt_le_scan_cb_t cb);
 ```
 
-开始 LE 扫描（需要 `CONFIG_BT_OBSERVER`）。`param` 里：`type` 为 `BT_LE_SCAN_TYPE_ACTIVE` 时会发扫描请求，拿到扫描响应；`BT_LE_SCAN_TYPE_PASSIVE` 只听广播；`interval` 和 `window` 以 0.625 ms 为单位，演示用 `BT_GAP_SCAN_FAST_INTERVAL`、`BT_GAP_SCAN_FAST_WINDOW`；`options` 为 `BT_LE_SCAN_OPT_NONE` 时同一个设备的重复报告也会上报。每收到一个广播报告就调用一次 `cb`。成功返回 0；已经在扫描返回 `-EALREADY`。
+Starts an LE scan (needs `CONFIG_BT_OBSERVER`). In `param`: a `type` of `BT_LE_SCAN_TYPE_ACTIVE` sends scan requests and gets scan responses; `BT_LE_SCAN_TYPE_PASSIVE` only listens for advertising; `interval` and `window` are in units of 0.625 ms, and the demo uses `BT_GAP_SCAN_FAST_INTERVAL` and `BT_GAP_SCAN_FAST_WINDOW`; with `options` of `BT_LE_SCAN_OPT_NONE`, duplicate reports of the same device are reported too. `cb` is called once per advertising report received. It returns 0 on success; `-EALREADY` if a scan is already running.
 
 ```c
 static int start_scan(void)
@@ -400,7 +400,7 @@ static int start_scan(void)
 }
 ```
 
-板上输出：
+Board output:
 
 ```text
 scanning
@@ -413,10 +413,10 @@ typedef void bt_le_scan_cb_t(const bt_addr_le_t *addr, int8_t rssi,
 			     uint8_t adv_type, struct net_buf_simple *buf);
 ```
 
-扫描回调：`addr` 是对端地址，`rssi` 是信号强度（dBm），`adv_type` 是广播报告类型（`BT_GAP_ADV_TYPE_ADV_IND` 是可连接的广播），`buf` 是广播数据。回调在蓝牙 RX 线程里执行，不要阻塞，也不要在里面调用会等待的蓝牙接口。演示的回调把设备按地址去重，记录最强的 RSSI、报告次数、是否可连接和名字；`buf` 交给 `bt_data_parse()` 解析。
+Scan callback: `addr` is the peer address, `rssi` is the signal strength (dBm), `adv_type` is the advertising report type (`BT_GAP_ADV_TYPE_ADV_IND` is connectable advertising), and `buf` is the advertising data. The callback runs on the Bluetooth RX thread, so it must not block, and it must not call Bluetooth interfaces that wait. The demo's callback de-duplicates devices by address and records the strongest RSSI, the report count, whether the device is connectable, and the name; `buf` is handed to `bt_data_parse()` for parsing.
 
 ```c
-/* 每收到一个广播报告调用一次，在蓝牙 RX 线程里 */
+/* Called once per advertising report received, on the Bluetooth RX thread */
 static void scan_report(const bt_addr_le_t *addr, int8_t rssi, uint8_t type,
 			struct net_buf_simple *ad)
 {
@@ -461,10 +461,10 @@ void bt_data_parse(struct net_buf_simple *ad,
 		   void *user_data);
 ```
 
-把广播数据按 AD 结构（长度、类型、内容）逐项拆开，对每一项调用 `func`；`func` 返回 `false` 就停止。注意 `ad` 会被消耗：函数逐项从缓冲区头部取走数据，返回后 `ad->len` 为 0，之后不能再对同一个缓冲区解析第二遍；需要多次解析就先拷一份。扫描回调里的 `buf` 是主机在回调后丢弃的，演示只解析一遍。
+Splits the advertising data item by item according to the AD structure (length, type, content) and calls `func` for each one; it stops when `func` returns `false`. Note that `ad` is consumed: the function takes the data item by item from the head of the buffer, and when it returns `ad->len` is 0, so the same buffer cannot be parsed a second time afterwards; if it must be parsed several times, copy it first. The `buf` in the scan callback is discarded by the host after the callback, and the demo parses it only once.
 
 ```c
-/* bt_data_parse 对广播数据里的每个字段调用一次 */
+/* bt_data_parse calls this once per field in the advertising data */
 static bool ad_field(struct bt_data *data, void *user_data)
 {
 	char *name = user_data;
@@ -479,7 +479,7 @@ static bool ad_field(struct bt_data *data, void *user_data)
 }
 ```
 
-板上能看到的结果是扫描列表最后一列的名字，来自这个回调：`Mijia Scale S400 XXXX` 这个设备的广播里带了完整名字。其他设备没有名字（空白），多半是不带名字的信标或使用了随机地址的手机、耳机。
+The result visible on the board is the name in the last column of the scan list, which comes from this callback: the `Mijia Scale S400 XXXX` device carries the complete name in its advertising. The other devices have no name (blank), most likely beacons without a name or phones and earbuds using a random address.
 
 ### bt_addr_le_cmp
 
@@ -487,7 +487,7 @@ static bool ad_field(struct bt_data *data, void *user_data)
 static inline int bt_addr_le_cmp(const bt_addr_le_t *a, const bt_addr_le_t *b);
 ```
 
-比较两个 LE 地址（类型和 6 字节），相等返回 0。`scan_report()` 用它找出这个地址以前有没有见过。
+Compares two LE addresses (type and 6 bytes), returning 0 when they are equal. `scan_report()` uses it to find out whether this address has been seen before.
 
 ### bt_le_scan_stop
 
@@ -495,7 +495,7 @@ static inline int bt_addr_le_cmp(const bt_addr_le_t *a, const bt_addr_le_t *b);
 int bt_le_scan_stop(void);
 ```
 
-停止扫描，停止后不再调用扫描回调。成功返回 0。示例函数停止扫描后把收集到的设备按 RSSI 从强到弱打印出来：
+Stops the scan, after which the scan callback is no longer called. Returns 0 on success. After stopping the scan, the example function prints the collected devices from strongest to weakest RSSI:
 
 ```c
 static void print_table(void)
@@ -534,7 +534,7 @@ static int stop_scan(void)
 }
 ```
 
-板上输出，扫描 10 秒（`SCAN_SECONDS`）的结果：一共收到 165 个广播报告、8 个不同的地址。设备地址的后三个字节用 `XX` 打了码；`(public)` 是公共地址，`(random)` 是随机地址，`connectable` 是收到过可连接广播的设备：
+Board output, the result of a 10-second scan (`SCAN_SECONDS`): 165 advertising reports and 8 different addresses were received in total. The last three bytes of the device addresses are masked with `XX`; `(public)` is a public address, `(random)` is a random address, and `connectable` marks devices whose connectable advertising was received:
 
 ```text
 165 reports, 8 devices
@@ -548,15 +548,15 @@ static int stop_scan(void)
  8  1C:78:4B:XX:XX:XX (public)  rssi  -98  reports   2  connectable
 ```
 
-## 连接
+## Connection
 
-连接需要一个可连接的对端，并且要事先知道它的地址。演示把对端地址放在 `main.c` 的 `CONNECT_ADDR` 宏里，默认是空串，所以没有发起连接，这一节的接口**没有在板上运行**，输出里只有一行：
+A connection needs a connectable peer whose address is known in advance. The demo puts the peer address in the `CONNECT_ADDR` macro in `main.c`, which is an empty string by default, so no connection was initiated, the interfaces in this section **were not run on the board**, and the output is only one line:
 
 ```text
 CONNECT_ADDR is empty, no connection tried
 ```
 
-扫描里出现的可连接设备都是周围别人的设备，演示没有去连接它们。要自己验证，把 `CONNECT_ADDR` 设成扫描列表里一个自己的设备的地址（大写，例如 `"2C:19:5C:E0:6E:60"`），重新编译；`connect_to()` 会在扫描列表里找到它、连接、发现它的 GATT 主服务、断开。这部分代码和 Zephyr 的蓝牙主机一起编译通过，下面是它用到的接口。
+The connectable devices that appear in the scan are other people's devices nearby, and the demo did not connect to them. To verify it yourself, set `CONNECT_ADDR` to the address of one of your own devices from the scan list (uppercase, for example `"2C:19:5C:E0:6E:60"`) and rebuild; `connect_to()` finds it in the scan list, connects, discovers its primary GATT services, and disconnects. This code compiles together with the Zephyr Bluetooth host; the interfaces it uses are below.
 
 ### BT_CONN_CB_DEFINE
 
@@ -567,7 +567,7 @@ BT_CONN_CB_DEFINE(conn_cbs) = {
 };
 ```
 
-静态注册连接事件的回调：`connected(conn, err)` 在连接建立（`err` 为 0）或建立失败（`err` 为 HCI 错误码）时调用，`disconnected(conn, reason)` 在断开时调用。回调在蓝牙 RX 线程里执行，示例里 `connected_cb` 只记下错误码、放一个信号量，让 `connect_to()` 所在的线程继续。
+Statically registers connection event callbacks: `connected(conn, err)` is called when the connection is established (`err` is 0) or when establishing it fails (`err` is an HCI error code), and `disconnected(conn, reason)` is called on disconnect. The callbacks run on the Bluetooth RX thread; in the example `connected_cb` only records the error code and gives a semaphore, so that the thread running `connect_to()` continues.
 
 ```c
 static void connected_cb(struct bt_conn *conn, uint8_t err)
@@ -589,7 +589,7 @@ int bt_conn_le_create(const bt_addr_le_t *peer, const struct bt_conn_le_create_p
 		      const struct bt_le_conn_param *conn_param, struct bt_conn **conn);
 ```
 
-作为中心向 `peer` 发起连接（需要 `CONFIG_BT_CENTRAL`）。成功返回 0，并在 `*conn` 里给出连接对象，这时只是请求已发出，连上还是失败由 `connected` 回调告诉你。`BT_CONN_LE_CREATE_CONN` 是默认的建立参数，`BT_LE_CONN_PARAM_DEFAULT` 是默认连接参数。`connect_to()` 用信号量等回调，最多等 15 秒。
+Initiates a connection to `peer` as the central (needs `CONFIG_BT_CENTRAL`). It returns 0 on success and gives the connection object in `*conn`; at this point the request has only been sent, and whether the connection succeeds or fails is reported by the `connected` callback. `BT_CONN_LE_CREATE_CONN` is the default create parameter and `BT_LE_CONN_PARAM_DEFAULT` is the default connection parameter. `connect_to()` waits for the callback with a semaphore, up to 15 seconds.
 
 ### bt_gatt_discover
 
@@ -597,7 +597,7 @@ int bt_conn_le_create(const bt_addr_le_t *peer, const struct bt_conn_le_create_p
 int bt_gatt_discover(struct bt_conn *conn, struct bt_gatt_discover_params *params);
 ```
 
-在连接上发现 GATT 属性（需要 `CONFIG_BT_GATT_CLIENT`）。演示用 `BT_GATT_DISCOVER_PRIMARY` 发现全部主服务，每发现一个就调用 `params->func`，最后以 `attr == NULL` 结束。
+Discovers GATT attributes on a connection (needs `CONFIG_BT_GATT_CLIENT`). The demo uses `BT_GATT_DISCOVER_PRIMARY` to discover all primary services; `params->func` is called for each one found, and it ends with `attr == NULL`.
 
 ```c
 static uint8_t discover_cb(struct bt_conn *conn, const struct bt_gatt_attr *attr,
@@ -624,7 +624,7 @@ static uint8_t discover_cb(struct bt_conn *conn, const struct bt_gatt_attr *attr
 int bt_conn_disconnect(struct bt_conn *conn, uint8_t reason);
 ```
 
-断开连接，`reason` 是 HCI 错误码，常用 `BT_HCI_ERR_REMOTE_USER_TERM_CONN`。断开完成后调用 `disconnected` 回调。
+Disconnects the connection; `reason` is an HCI error code, commonly `BT_HCI_ERR_REMOTE_USER_TERM_CONN`. The `disconnected` callback is called once the disconnect completes.
 
 ### bt_conn_unref
 
@@ -632,9 +632,9 @@ int bt_conn_disconnect(struct bt_conn *conn, uint8_t reason);
 void bt_conn_unref(struct bt_conn *conn);
 ```
 
-释放 `bt_conn_le_create()` 给的那一份连接引用。每次成功的 `bt_conn_le_create()` 都要配一次 `bt_conn_unref()`，包括连接失败和超时的路径。
+Releases the connection reference `bt_conn_le_create()` gave. Every successful `bt_conn_le_create()` must be paired with one `bt_conn_unref()`, including on the connection-failure and timeout paths.
 
-下面是把这四个接口串起来的 `connect_to()`：
+Below is `connect_to()`, which strings these four interfaces together:
 
 ```c
 static int connect_to(const char *want)
@@ -692,38 +692,38 @@ static int connect_to(const char *want)
 }
 ```
 
-## 验证项
+## Verified items
 
-每一项写清楚验证了什么、怎么验证的、板上看到了什么。板上输出的原文都在文末的[完整日志](#板子上的完整日志)里。
+Each item states what was verified, how it was verified, and what was seen on the board. The exact board output is in the [Complete log on the board](#complete-log-on-the-board) at the end.
 
-### 芯片启动和 HCI 传输
+### Chip bring-up and HCI transport
 
-验证 `bt_enable()` 能把芯片拉起来并打开 H:4 传输。方法是应用启动后直接调用 `bt_enable(NULL)`，不先使用 WiFi。日志里先是 SDIO 枚举、`Upload firmware`、`Start app`，然后是 `bt_hci_core` 的 `HCI transport: H:4` 和控制器的版本，最后 `bt_enable ok`。应用启动到 `bt_enable` 返回约 3.2 秒。
+Verifies that `bt_enable()` can bring the chip up and open the H:4 transport. The method is for the application to call `bt_enable(NULL)` directly after starting, without using Wi-Fi first. The log shows SDIO enumeration, `Upload firmware` and `Start app` first, then `bt_hci_core`'s `HCI transport: H:4` and the controller version, and finally `bt_enable ok`. About 3.2 seconds pass from application start to `bt_enable` returning.
 
-### 本地地址
+### Local address
 
-验证主机读到了控制器的地址。方法是 `bt_id_get()` 取地址，`bt_addr_le_to_str()` 格式化。输出 `identity 0: C0:E3:50:B5:3B:23 (public)`，和 `bt_hci_core` 打印的 `Identity` 一致。
+Verifies that the host read the controller's address. The method is to get the address with `bt_id_get()` and format it with `bt_addr_le_to_str()`. The output is `identity 0: C0:E3:50:B5:3B:23 (public)`, matching the `Identity` printed by `bt_hci_core`.
 
-### 广播
+### Advertising
 
-验证控制器接受广播参数、广播数据和扫描响应数据，并能启动、停止广播。方法是 `bt_le_adv_start()` 返回 0，等 5 秒后 `bt_le_adv_stop()` 返回 0。这只能证明 HCI 命令都被控制器接受。广播包有没有被空中收到，这次没有验证，见下面。
+Verifies that the controller accepts the advertising parameters, the advertising data and the scan response data, and that advertising can be started and stopped. The method is that `bt_le_adv_start()` returns 0, and after 5 seconds `bt_le_adv_stop()` returns 0. This only proves that the HCI commands were all accepted by the controller. Whether the advertising packets are received over the air was not verified this time; see below.
 
-### 扫描
+### Scanning
 
-验证接收路径：控制器的 LE 广播报告经 UART 到主机，再到扫描回调。方法是主动扫描 10 秒，回调里按地址去重、解析广播数据里的名字。收到 165 个报告、8 个不同的地址，其中一个带完整名字，名字由 `bt_data_parse()` 解出。这一项同时证明 UART2 的接收方向和硬件流控工作正常。
+Verifies the receive path: the controller's LE advertising reports travel over UART to the host and then to the scan callback. The method is an active scan for 10 seconds, with the callback de-duplicating by address and parsing the name out of the advertising data. 165 reports and 8 different addresses were received, one of them with a complete name, and the name was extracted by `bt_data_parse()`. This item also proves that UART2's receive direction and the hardware flow control work correctly.
 
-## 没有验证的项
+## Items not verified
 
-* 广播被空中收到：板子自己收不到自己的广播，演示时旁边也没有第二个扫描设备。要验证，需要一部手机，装一个 BLE 扫描类的应用，在广播的 5 秒内打开扫描，看是否出现名为 `F101-AIC8800` 的设备。这需要有人配合，这次没有做。
-* 连接和 GATT 发现：`connect_to()` 编译通过，但没有运行。需要一个自己的、可连接的 LE 设备，把它的地址填进 `CONNECT_ADDR`。扫描里出现的可连接设备都是周围别人的，没有去连。
-* 扩展广播、周期广播、ISO：演示没有打开这些选项，没有验证。
-* 配对、绑定（SMP）：没有验证。
-* 低功耗模式：固件配置里 `lpm_enable` 为 0，没有使用。
-* 经典蓝牙（BR/EDR）：不支持。
+* Advertising received over the air: the board cannot receive its own advertising, and there was no second scanning device nearby during the demo. To verify it, a phone is needed with a BLE scanning app; open the scan within the 5 seconds of advertising and look for a device named `F101-AIC8800`. That needs someone to help, and it was not done this time.
+* Connection and GATT discovery: `connect_to()` compiles but was not run. It needs an LE device of your own that is connectable, with its address filled into `CONNECT_ADDR`. The connectable devices in the scan are other people's nearby devices and were not connected to.
+* Extended advertising, periodic advertising, ISO: the demo does not enable these options, and they were not verified.
+* Pairing and bonding (SMP): not verified.
+* Low power mode: `lpm_enable` is 0 in the firmware configuration and it is not used.
+* Classic Bluetooth (BR/EDR): not supported.
 
-## 完整 demo 程序
+## Complete demo program
 
-上面所有示例和日志都来自这一个程序。建一个目录，放进下面的文件，就可以像其他 Zephyr 应用一样编译。
+All the examples and logs above come from this one program. Create a directory, put the files below in it, and it can be built like any other Zephyr application.
 
 ```text
 aic8800_bt_api/
@@ -738,7 +738,7 @@ aic8800_bt_api/
 ```cmake
 cmake_minimum_required(VERSION 3.20.0)
 
-# AIC8800 模块不在默认模块列表里，由应用指给 CMake
+# The AIC8800 module is not in the default module list, the application points CMake at it
 list(APPEND ZEPHYR_EXTRA_MODULES ${CMAKE_CURRENT_SOURCE_DIR}/../../zephyr-components/aic8800)
 
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
@@ -750,7 +750,7 @@ target_sources(app PRIVATE src/main.c)
 ### prj.conf
 
 ```ini
-# AIC8800 驱动，它通过 SDIO 下载固件并拉起 WiFi 和蓝牙两部分
+# AIC8800 driver; it downloads the firmware over SDIO and brings up both the Wi-Fi and Bluetooth parts
 CONFIG_AIC8800=y
 CONFIG_AIC8800_BT=y
 
@@ -764,7 +764,7 @@ CONFIG_FPU=y
 CONFIG_FPU_SHARING=y
 CONFIG_SYSTEM_WORKQUEUE_STACK_SIZE=4096
 
-# AIC8800 的 Kconfig 选中的网络栈
+# Network stack selected by the AIC8800 Kconfig
 CONFIG_NETWORKING=y
 CONFIG_NET_IPV4=y
 CONFIG_NET_IPV6=n
@@ -781,7 +781,7 @@ CONFIG_NET_L2_WIFI_MGMT=y
 CONFIG_SDHC=y
 CONFIG_GPIO=y
 
-# 与 SMHC2/UART2 引脚复用的外设，以及用不到的外设
+# Peripherals that share pins with SMHC2/UART2, and unused peripherals
 CONFIG_DISPLAY=n
 CONFIG_G2D=n
 CONFIG_USB_PHY_SUNXI=n
@@ -792,10 +792,10 @@ CONFIG_MIPI_DBI=n
 CONFIG_WDT_SUNXI=n
 CONFIG_VDEC=n
 
-# 握手密钥需要随机数；SoC 的随机数发生器还没有驱动，先用伪随机源
+# The handshake key needs random numbers; the SoC's random number generator has no driver yet, so a pseudo-random source is used for now
 CONFIG_TEST_RANDOM_GENERATOR=y
 
-# 蓝牙主机
+# Bluetooth host
 CONFIG_BT=y
 CONFIG_BT_HCI=y
 CONFIG_BT_DEVICE_NAME="F101-AIC8800"
@@ -807,7 +807,7 @@ CONFIG_BT_GATT_CLIENT=y
 CONFIG_BT_MAX_CONN=1
 CONFIG_BT_RX_STACK_SIZE=2048
 CONFIG_BT_LOG_LEVEL_INF=y
-# AIC8800 的兼容头（compat/）按 minimal libc 写，不能用 picolibc
+# The AIC8800 compatibility headers (compat/) are written for minimal libc and cannot use picolibc
 CONFIG_MINIMAL_LIBC=y
 ```
 
@@ -815,9 +815,9 @@ CONFIG_MINIMAL_LIBC=y
 
 ```c
 /*
- * AIC8800 蓝牙：bt_enable、本地地址、广播、扫描，以及连接对端的示例。
+ * AIC8800 Bluetooth: an example of bt_enable, the local address, advertising and scanning, plus connecting to a peer.
  *
- * 没有设置 CONNECT_ADDR 时不连接任何设备，连接那一段只编译、不运行。
+ * When CONNECT_ADDR is not set it connects to no device; the connection part is only compiled, not run.
  */
 
 #include <string.h>
@@ -829,7 +829,7 @@ CONFIG_MINIMAL_LIBC=y
 #include <zephyr/kernel.h>
 #include <zephyr/sys/printk.h>
 
-/* 要连接的对端地址，大写，和扫描打印的一致，例如 "2C:19:5C:E0:6E:60"；空串表示不连接 */
+/* Peer address to connect to, uppercase, matching the scan output, for example "2C:19:5C:E0:6E:60"; an empty string means do not connect */
 #define CONNECT_ADDR	""
 
 #define ADV_SECONDS	5
@@ -851,7 +851,7 @@ static int enable_bluetooth(void)
 	return 0;
 }
 
-/* ------------------------------------------------------------------ 本地地址 */
+/* ------------------------------------------------------------------ Local address */
 
 static void show_identity(void)
 {
@@ -867,7 +867,7 @@ static void show_identity(void)
 	printk("device name: %s\n", bt_get_name());
 }
 
-/* ------------------------------------------------------------------ 广播 */
+/* ------------------------------------------------------------------ Advertising */
 
 static const struct bt_data adv_data[] = {
 	BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),
@@ -905,7 +905,7 @@ static int stop_advertising(void)
 	return 0;
 }
 
-/* ------------------------------------------------------------------ 扫描 */
+/* ------------------------------------------------------------------ Scanning */
 
 struct dev {
 	bt_addr_le_t addr;
@@ -919,7 +919,7 @@ static struct dev devs[MAX_DEVICES];
 static int ndev;
 static unsigned int total;
 
-/* bt_data_parse 对广播数据里的每个字段调用一次 */
+/* bt_data_parse calls this once per field in the advertising data */
 static bool ad_field(struct bt_data *data, void *user_data)
 {
 	char *name = user_data;
@@ -933,7 +933,7 @@ static bool ad_field(struct bt_data *data, void *user_data)
 	return true;
 }
 
-/* 每收到一个广播报告调用一次，在蓝牙 RX 线程里 */
+/* Called once per advertising report received, on the Bluetooth RX thread */
 static void scan_report(const bt_addr_le_t *addr, int8_t rssi, uint8_t type,
 			struct net_buf_simple *ad)
 {
@@ -1023,7 +1023,7 @@ static int stop_scan(void)
 	return 0;
 }
 
-/* ------------------------------------------------------------------ 连接 */
+/* ------------------------------------------------------------------ Connection */
 
 static K_SEM_DEFINE(connected_sem, 0, 1);
 static K_SEM_DEFINE(disc_sem, 0, 1);
@@ -1148,7 +1148,7 @@ int main(void)
 }
 ```
 
-### 编译和运行
+### Build and run
 
 ```sh
 . ~/f101-zephyr/env.sh
@@ -1158,11 +1158,11 @@ west build -b yuzukineko -d build/aic8800-bt examples/aic8800_bt_api
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/components-aic8800-bt/build.cast" data-speed="6"></div>
 
-下载运行的方法见[编译与运行](../zephyr-build-run.md)。`uart2` 的引脚 PE8、PE9 和 `i2c0` 共用，`smhc2` 的引脚和 I2S0、USB 主机的 VBUS 开关共用，运行本演示时不要同时用这些外设。
+For how to download and run, see [Build and run](../zephyr-build-run.md). The `uart2` pins PE8 and PE9 are shared with `i2c0`, and the `smhc2` pins are shared with I2S0 and the USB host's VBUS switch, so do not use those peripherals at the same time as this demo.
 
-## 板子上的完整日志
+## Complete log on the board
 
-下面是演示的完整串口日志，从 Zephyr 的启动横幅开始：前面是芯片启动（上电、SDIO 枚举、芯片识别、蓝牙补丁和固件下载，同样的过程 WiFi 篇也有），然后是 `bt_enable` 读到的控制器信息、广播 5 秒、扫描 10 秒和扫描列表。
+The complete serial log of the demo follows, starting from the Zephyr boot banner: first the chip bring-up (power-up, SDIO enumeration, chip identification, Bluetooth patch and firmware download, the same process as in the Wi-Fi page), then the controller information read by `bt_enable`, 5 seconds of advertising, a 10-second scan and the scan list.
 
 ```text
 *** Booting Zephyr OS build b6f3dfe1a1f4 ***

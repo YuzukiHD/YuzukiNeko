@@ -1,62 +1,62 @@
 ---
-title: "YuzukiNeko Pico 开发板"
+title: "YuzukiNeko Pico Development Board"
 ---
 
 <p align="center">
-  <img width="380" alt="YuzukiNeko 3D 渲染" src="https://github.com/user-attachments/assets/650270c6-b822-48ad-bceb-6358ae01c4cd">
+  <img width="380" alt="YuzukiNeko 3D render" src="assets/figures/yuzukineko-3d-render.webp">
 </p>
 
-YuzukiNeko 是一块基于 <strong>Allwinner F101 系列 SoC</strong> 的开发板，采用 Raspberry Pi Pico 的 2 × 20 针外形。板载 16 MiB PSRAM（F101S3，V1.5 的 32 MiB 配置使用 F101S4）和 16 MiB NOR Flash（支持 XIP，即就地执行），适合做 RISC-V 图形、显示、音频和通用 I/O 项目。硬件设计以 CC0 1.0 发布。
+YuzukiNeko is a development board based on the <strong>Allwinner F101 series SoC</strong>, in the Raspberry Pi Pico 2 × 20 pin form factor. It carries 16 MiB of PSRAM (F101S3; the 32 MiB configuration of V1.5 uses F101S4) and 16 MiB of NOR Flash with XIP (execute-in-place) support, and suits RISC-V graphics, display, audio and general-purpose I/O projects. The hardware design is released under CC0 1.0.
 
-## 这份文档包含什么
+## What this documentation covers
 
-| 想做的事 | 去哪里 |
+| What you want to do | Where to go |
 | --- | --- |
-| 第一次上电，让板子跑起来 | [上手指南](quickstart.md) |
-| 查某个引脚能做什么 | [引脚排布](hardware/pinout.md)、[引脚复用](hardware/mux.md) |
-| 接 UART / I²C / SPI / CAN / PWM | [常用外设引脚组合](hardware/groups.md) |
-| 搞清楚自己的板子是 V1.3 / V1.4 / V1.5 | [勘误与版本差异](hardware/errata.md) |
-| 进入下载模式、安装 xfel / rfel | [FEL 下载模式与工具](boot/fel.md) |
-| 刷入现成的固件（RustSBI + Asterinas、Linux + Buildroot） | [RustSBI + Asterinas](dev/asterinas/rustsbi-asterinas.md)、[预编译 Linux 镜像](dev/linux/linux-prebuilt.md) |
-| 用底板接显示、Wi-Fi、CAN、音频 | [YuzukiCube-M 底板](baseboard.md) |
-| 写程序 | [Zephyr 开发](dev/zephyr/index.md)、[Linux 开发](dev/linux/index.md)、[RustSBI + Asterinas](dev/asterinas/rustsbi-asterinas.md) |
-| 打印外壳 | [3D 打印外壳](shell.md) |
+| Power up for the first time and get the board running | [Quickstart](quickstart.md) |
+| Look up what a given pin can do | [Pinout](hardware/pinout.md), [Pin multiplexing](hardware/mux.md) |
+| Wire up UART / I²C / SPI / CAN / PWM | [Common peripheral pin groups](hardware/groups.md) |
+| Work out whether your board is V1.3 / V1.4 / V1.5 | [Errata and revision differences](hardware/errata.md) |
+| Enter download mode and install xfel / rfel | [FEL download mode and tools](boot/fel.md) |
+| Flash ready-made firmware (RustSBI + Asterinas, Linux + Buildroot) | [RustSBI + Asterinas](dev/asterinas/rustsbi-asterinas.md), [Prebuilt Linux images](dev/linux/linux-prebuilt.md) |
+| Use the base board for display, Wi-Fi, CAN and audio | [YuzukiCube-M base board](baseboard.md) |
+| Write programs | [Zephyr development](dev/zephyr/index.md), [Linux development](dev/linux/index.md), [RustSBI + Asterinas](dev/asterinas/rustsbi-asterinas.md) |
+| Print an enclosure | [3D-printed enclosure](shell.md) |
 
-## 板卡规格
+## Board specifications
 
-| 项目 | 规格 |
+| Item | Specification |
 | --- | --- |
-| SoC | F101S3，XuanTie C907 RISC-V CPU（rv32imacfdv，同时支持 64 位），QFN68（7 mm × 7 mm） |
-| 缓存 | 32 KB I-cache + 16 KB D-cache |
-| 内存 | SiP 16 位 PSRAM，最大 16 MiB（本板 16 MiB；V1.5 面向 32 MiB 配置） |
-| 存储 | 16 MiB 外部 NOR Flash，支持 XIP |
-| 扩展 | Pico 风格 2 × 20 针排针 |
-| USB | USB-C 接口；SoC 提供 1 路 USB 2.0 DRD 控制器 |
-| 其他 | microSD 卡座，`FEL` 按键 |
-| 开源协议 | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)（硬件设计文件） |
+| SoC | F101S3, XuanTie C907 RISC-V CPU (rv32imacfdv, with 64-bit support), QFN68 (7 mm × 7 mm) |
+| Cache | 32 KB I-cache + 16 KB D-cache |
+| Memory | SiP 16-bit PSRAM, up to 16 MiB (16 MiB on this board; V1.5 targets the 32 MiB configuration) |
+| Storage | 16 MiB external NOR Flash with XIP support |
+| Expansion | Pico-style 2 × 20 pin header |
+| USB | USB-C connector; the SoC provides one USB 2.0 DRD controller |
+| Other | microSD card socket and a button labelled `FEL` |
+| Open-source license | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) (hardware design files) |
 
 :::caution
-板载 NOR Flash 属于系统资源：里面存放启动加载器和固件。随意擦写会让板子无法从 Flash 启动，务必先[备份](boot/flash-layout.md#备份整片-flash)。
+The onboard NOR Flash is a system resource: it holds the bootloader and the firmware. Erasing and writing it carelessly will stop the board from booting from Flash, so always [back it up](boot/flash-layout.md#back-up-the-whole-flash) first.
 :::
 
-## SoC 能力
+## SoC capabilities
 
-| 模块 | 能力 |
+| Block | Capability |
 | --- | --- |
-| 图像解码 | JPEG 最大 16384 × 16384；PNG 最大 2048 × 2048 |
-| 图像/视频编码 | JPEG/MJPEG 最高 720p@30 fps，最大分辨率 8192 × 8192 |
-| 显示处理 | 反交错最高 720p@60 fps；G2D 旋转与混合加速器 |
-| 视频输出 | RGB888 最高 1280 × 720@60 fps；单路 LVDS 最高 1366 × 768@60 fps；4 通道 MIPI DSI 最高 1280 × 800@60 fps |
-| 音频 | 1 路 DAC（DACOUT）、I2S/PCM、OWA OUT |
-| 安全 | 512 位 eFuse |
-| 连接与外设 | USB 2.0 DRD × 1、SDIO 2.0、SPI × 2、UART × 6、TWI × 3、CAN × 2、PWM、IR_RX、GPADC、TPADC |
+| Image decoding | JPEG up to 16384 × 16384; PNG up to 2048 × 2048 |
+| Image/video encoding | JPEG/MJPEG up to 720p@30 fps; maximum resolution 8192 × 8192 |
+| Display processing | de-interlace up to 720p@60 fps; G2D rotation and mixing accelerator |
+| Video output | RGB888 up to 1280 × 720@60 fps; single-link LVDS up to 1366 × 768@60 fps; 4-lane MIPI DSI up to 1280 × 800@60 fps |
+| Audio | One DAC (DACOUT), I2S/PCM, OWA OUT |
+| Security | 512-bit eFuse |
+| Connectivity and peripherals | USB 2.0 DRD × 1, SDIO 2.0, SPI × 2, UART × 6, TWI × 3, CAN × 2, PWM, IR_RX, GPADC, TPADC |
 
 :::tip
-上表是 SoC 的能力上限，不等于开发板上每一项都已引出或有现成软件支持。引出了哪些、软件支持到什么程度，见[引脚排布](hardware/pinout.md)和各软件方案的文档（[Zephyr](dev/zephyr/index.md)、[Linux](dev/linux/index.md)）。
+The table above is the SoC's capability ceiling; it does not mean that every item is brought out on the development board or has ready-made software support. For what is brought out and how well each software option supports it, see [Pinout](hardware/pinout.md) and the documentation for each software option ([Zephyr](dev/zephyr/index.md), [Linux](dev/linux/index.md)).
 :::
 
-## 相关项目
+## Related projects
 
-- 开发板仓库：<https://github.com/YuzukiHD/YuzukiNeko>
-- SyterKit（启动加载器）：<https://github.com/YuzukiHD/SyterKit>
-- xfel：<https://github.com/xboot/xfel>　rfel：<https://github.com/rustsbi/allwinner-hal/tree/main/rfel>
+- Development board repository: <https://github.com/YuzukiHD/YuzukiNeko>
+- SyterKit (bootloader): <https://github.com/YuzukiHD/SyterKit>
+- xfel: <https://github.com/xboot/xfel>, rfel: <https://github.com/rustsbi/allwinner-hal/tree/main/rfel>

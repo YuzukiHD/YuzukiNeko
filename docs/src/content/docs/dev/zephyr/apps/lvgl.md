@@ -1,42 +1,42 @@
 ---
-title: "LVGL - 图形界面"
+title: "LVGL - GUI"
 ---
 
-LVGL 是一个嵌入式图形库：控件（按钮、标签、滑条、图表……）、样式、动画、触摸事件都有现成的。在 F101 的 Zephyr 上，LVGL 作为 west 模块（`modules/lib/gui/lvgl`，版本 9.3.0）编进应用，通过标准的显示接口画到屏幕上，通过标准的输入子系统读触摸屏。不需要 `zephyr-components`，也不需要外部素材。
+LVGL is an embedded graphics library: widgets (buttons, labels, sliders, charts, …), styles, animations, and touch events all come ready-made. On the F101 with Zephyr, LVGL is built into the application as a west module (`modules/lib/gui/lvgl`, version 9.3.0), drawing to the screen through the standard display interface and reading the touchscreen through the standard input subsystem. No `zephyr-components` and no external assets are needed.
 
 ```mermaid
 flowchart TB
-    APP["应用 lv_button_create<br/>LVGL 9.3 软件渲染"] -->|"部分渲染缓冲<br/>CONFIG_LV_Z_VDB_SIZE"| FLUSH["lvgl_flush_cb_16bit<br/>display_write"]
-    TP["GT967 触摸<br/>I2C1 + INT"] -->|"input 子系统<br/>ABS_X / ABS_Y / BTN_TOUCH"| PTR["lvgl_pointer_input.c"]
-    PTR -->|"lv_indev 指针"| APP
-    FLUSH -->|"memcpy + cache flush"| FB["帧缓冲层<br/>RGB565 / ARGB8888"]
-    VID["视频层<br/>mp4 / 游戏画面"] -.->|"ARGB 模式叠在下面"| DE["显示引擎 DE → TCON"]
+    APP["App lv_button_create<br/>LVGL 9.3 software rendering"] -->|"partial render buffer<br/>CONFIG_LV_Z_VDB_SIZE"| FLUSH["lvgl_flush_cb_16bit<br/>display_write"]
+    TP["GT967 touch<br/>I2C1 + INT"] -->|"input subsystem<br/>ABS_X / ABS_Y / BTN_TOUCH"| PTR["lvgl_pointer_input.c"]
+    PTR -->|"lv_indev pointer"| APP
+    FLUSH -->|"memcpy + cache flush"| FB["framebuffer plane<br/>RGB565 / ARGB8888"]
+    VID["video plane<br/>mp4 / game picture"] -.->|"in ARGB mode stacked below"| DE["display engine DE → TCON"]
     FB --> DE
-    DE -->|"MIPI DSI"| DSI["1024x768 屏"]
+    DE -->|"MIPI DSI"| DSI["1024x768 screen"]
 ```
 
-本文依次讲：准备、编译和运行 hello 程序，在板子上跑官方 demo，然后是 LVGL 怎么接到显示和触摸、最小界面的完整代码，以及推荐的 Kconfig。每个运行步骤都写明串口和屏幕上会出现什么。
+This page covers, in order: preparation, building and running the hello program, running the official demos on the board, then how LVGL connects to the display and touch, the complete code of a minimal UI, and the recommended Kconfig. Every running step states what appears on the serial port and on the screen.
 
-开始前请先完成 [配置开发环境](../zephyr-setup-env.md) 和 [获取 Zephyr 代码](../zephyr-get-source.md)。
+Before you start, first complete [Setting up the development environment](../zephyr-setup-env.md) and [Getting the Zephyr source](../zephyr-get-source.md).
 
-## 准备
+## Preparation
 
-| 项 | 说明 |
+| Item | Description |
 | --- | --- |
-| LVGL 源码 | 随 Zephyr 的 west manifest 拉下来，在 `~/f101-zephyr/modules/lib/gui/lvgl`，版本 9.3.0。Zephyr 一侧的粘合层在 `zephyr/modules/lvgl/` |
-| 屏幕 | `yuzukineko` 载板的 1024×768 MIPI DSI 屏，设备树里是 `chosen { zephyr,display = &display; }`，见 [显示](../drivers/display.md) |
-| 触摸 | 载板上的 GT967 触摸控制器，在 `i2c1` 的 0x5d，设备树里是 `touch` 节点，见 [I2C](../drivers/i2c.md)。没有触摸也能跑，只是点不了控件 |
-| 素材 | 不需要。字体、图标都编进了 LVGL；demo 的图片也编在 demo 里 |
-| 外部硬件 | 只要板子能显示。官方 demo 的音乐播放器不会出声，它只是个界面 |
-| hello 程序 | `examples/lvgl_hello/`，源码见下面的 [新建一个最小的 UI](#新建一个最小的-ui) |
+| LVGL source | fetched with Zephyr's west manifest, in `~/f101-zephyr/modules/lib/gui/lvgl`, version 9.3.0. The Zephyr-side glue is in `zephyr/modules/lvgl/` |
+| Screen | the 1024×768 MIPI DSI panel of the `yuzukineko` carrier board; in the devicetree it is `chosen { zephyr,display = &display; }`, see [Display](../drivers/display.md) |
+| Touch | the GT967 touch controller on the carrier board, at 0x5d on `i2c1`; in the devicetree it is the `touch` node, see [I2C](../drivers/i2c.md). It runs without touch too, you just cannot tap the widgets |
+| Assets | not needed. The fonts and icons are compiled into LVGL, and the demo images are compiled into the demo |
+| External hardware | only a board that can display. The official demo's music player makes no sound; it is only a UI |
+| hello program | `examples/lvgl_hello/`, source in [Creating a minimal UI](#creating-a-minimal-ui) below |
 
 :::note
-本文的命令和日志都是 `yuzukineko` 板（载板，DSI 屏）。`f101_evb` 是 1024×600 的 RGB 屏，没有 GT967。
+The commands and logs in this page are for the `yuzukineko` board (carrier board, DSI panel). `f101_evb` is a 1024×600 RGB panel with no GT967.
 :::
 
-## 编译
+## Building
 
-在工作区里执行：
+Run this in the workspace:
 
 
 ```sh
@@ -47,15 +47,15 @@ west build -b yuzukineko -d build/lvgl-hello examples/lvgl_hello
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/apps-lvgl/build.cast" data-speed="6"></div>
 
-产物是 `build/lvgl-hello/zephyr/zephyr.bin`，约 2.7 MB（2733692 字节），链接地址 `0x40010000`，和其他 Zephyr 程序一样。其中帧缓冲 1.5 MiB 和 LVGL 内存池 64 KiB 是静态数组，占了大头。
+The output is `build/lvgl-hello/zephyr/zephyr.bin`, about 2.7 MB (2733692 bytes), linked at `0x40010000`, like any other Zephyr program. The 1.5 MiB framebuffer and the 64 KiB LVGL memory pool are static arrays and make up most of it.
 
-## 运行
+## Running
 
-用 xfel 下载运行（见 [编译与运行](../zephyr-build-run.md)），控制台是 UART1（115200 8N1）。
+Download and run it with xfel (see [Building and running](../zephyr-build-run.md)); the console is UART1 (115200 8N1).
 
-### 1. 启动 hello 程序
+### 1. Starting the hello program
 
-命令：
+The commands:
 
 ```sh
 xfel ddr f101-s3
@@ -63,7 +63,7 @@ xfel write 0x40010000 build/lvgl-hello/zephyr/zephyr.bin
 xfel exec 0x40010000
 ```
 
-运行后的输出，串口：
+The output after running, on the serial port:
 
 ```text
 [00:00:00.000,000] <inf> usb_phy_sunxi: ready
@@ -91,17 +91,17 @@ lvgl hello: 1024 x 768
 [00:00:00.575,000] <inf> gt967: configuration updated: 1024x768, 1 point(s)
 ```
 
-- `lvgl hello: 1024 x 768` 是 `main()` 打印的，LVGL 的显示建在了 1024×768 上。
-- `display_sunxi: 1024x768 @ 60 Hz, fb 0x4007e200` 是显示驱动，`fb` 是帧缓冲地址。
-- 三行 `gt967:` 是触摸驱动：读到固件版本，配置原来是最多 5 点，驱动按 `CONFIG_INPUT_GT967_MAX_TOUCH_POINTS=1` 改成了 1 点。
+- `lvgl hello: 1024 x 768` is printed by `main()`; LVGL's display was created at 1024×768.
+- `display_sunxi: 1024x768 @ 60 Hz, fb 0x4007e200` is the display driver, and `fb` is the framebuffer address.
+- The three `gt967:` lines are the touch driver: it reads the firmware version, and the configuration, originally up to 5 points, is changed by the driver to 1 point per `CONFIG_INPUT_GT967_MAX_TOUCH_POINTS=1`.
 
-![板子屏幕上的 hello 程序](figures/lvgl-hello.png)
+![The hello program on the board screen](figures/lvgl-hello.webp)
 
-屏幕上是标题 `Hello YuzukiNeko`，中间一个蓝色的 `Click me` 按钮，按钮下面是点击次数 `clicked 8 times`，底部一行小字显示触摸坐标（没有触摸时是 `touch -, -`）。
+The screen shows the title `Hello YuzukiNeko`, a blue `Click me` button in the middle, the click count `clicked 8 times` below the button, and a line of small text at the bottom showing the touch coordinates (`touch -, -` when there is no touch).
 
-### 2. 点击按钮
+### 2. Tapping the button
 
-用手指点屏幕中央的 “Click me” 按钮。每点一次，屏幕上的 “clicked N times” 加一，串口多一行 `button clicked`：
+Tap the "Click me" button in the middle of the screen with your finger. Each tap increments "clicked N times" on the screen and adds a `button clicked` line on the serial port:
 
 ```text
 button clicked, count 1
@@ -111,11 +111,11 @@ button clicked, count 4
 button clicked, count 5
 ```
 
-这条链是 GT967 中断、I2C 读坐标、input 事件、`lvgl_pointer`、LVGL 命中按钮、`LV_EVENT_CLICKED`、`btn_cb()`。按在空白处时，“touch X, Y” 标签更新坐标。
+This chain is the GT967 interrupt, an I2C coordinate read, an input event, `lvgl_pointer`, LVGL hitting the button, `LV_EVENT_CLICKED`, and `btn_cb()`. Tapping empty space updates the "touch X, Y" label with the coordinates.
 
-### 3. 查看触摸的原始事件
+### 3. Looking at the raw touch events
 
-需要看触摸的原始坐标时，在编译命令后加 `-DCONFIG_INPUT_LOG_LEVEL_DBG=y` 重新编译（调试用，上面的编译命令不含它），重新下载运行。驱动在每次按下和抬起时打印一行：
+To see the raw touch coordinates, add `-DCONFIG_INPUT_LOG_LEVEL_DBG=y` to the build command and rebuild (this is for debugging; the build command above does not include it), then download and run again. The driver prints a line on each press and release:
 
 ```text
 [00:00:00.493,000] <inf> display_sunxi: 1024x768 @ 60 Hz, fb 0x4007e440, video plane 0
@@ -128,13 +128,13 @@ button clicked, count 5
 [00:00:01.178,000] <dbg> gt967: gt967_work_handler: up id 0
 ```
 
-- `down id 0 at X,Y` 是按下和坐标，`up id 0` 是抬起。
-- 这段日志是不碰屏幕时的输出：启动后约 0.44 秒，驱动报告了两次各约 23 毫秒的短触摸，坐标是 (7, 752) 和 (11, 564)，都在屏幕最左边缘，不在按钮范围内（按钮在屏幕中央 300×100 的区域），之后没有再出现触摸事件。
-- 驱动（`input_gt967.c` 的 `gt967_work_handler()`）按控制器报告的状态原样转成输入事件。
+- `down id 0 at X,Y` is a press and its coordinates, and `up id 0` is a release.
+- This log is the output without touching the screen: about 0.44 seconds after bootup the driver reported two short touches of about 23 ms each, at coordinates (7, 752) and (11, 564), both at the far-left edge of the screen and outside the button (the button is in a 300×100 area in the middle of the screen); no further touch events appeared after that.
+- The driver (`gt967_work_handler()` in `input_gt967.c`) turns the state the controller reports into input events as-is.
 
-### 4. 运行 benchmark
+### 4. Running the benchmark
 
-benchmark 通过 LVGL 日志打印汇总表。`zephyr/modules/lvgl/lvgl.c` 的 `lvgl_log()` 对 `LV_LOG_LEVEL_USER` 只在消息以 `[` 开头时才跳过 `[User] ` 前缀，`LV_LOG()` 输出的裸消息原样打印：
+The benchmark prints its summary table through the LVGL log. In `lvgl_log()` in `zephyr/modules/lvgl/lvgl.c`, for `LV_LOG_LEVEL_USER` the `[User] ` prefix is skipped only when the message starts with `[`; the bare message printed by `LV_LOG()` is printed as-is:
 
 ```c
 	case LV_LOG_LEVEL_USER:
@@ -146,7 +146,7 @@ benchmark 通过 LVGL 日志打印汇总表。`zephyr/modules/lvgl/lvgl.c` 的 `
 		break;
 ```
 
-demo 的 `samples/modules/lvgl/demos/boards/` 下有 `yuzukineko.conf` 和 `yuzukineko.overlay`，Zephyr 编译 `yuzukineko` 板时会自动合并它们：
+Under `samples/modules/lvgl/demos/boards/` the demo has `yuzukineko.conf` and `yuzukineko.overlay`, which Zephyr merges automatically when building for the `yuzukineko` board:
 
 
 ```text
@@ -173,7 +173,7 @@ CONFIG_CPU_LOAD=y
 };
 ```
 
-选 demo 用 `CONFIG_LV_Z_DEMO_*`，选 benchmark：
+Select a demo with `CONFIG_LV_Z_DEMO_*`; to select the benchmark:
 
 ```sh
 . ~/f101-zephyr/env.sh
@@ -184,9 +184,9 @@ xfel write 0x40010000 build/lvgl-bench/zephyr/zephyr.bin
 xfel exec 0x40010000
 ```
 
-可选的 demo 有：
+The available demos are:
 
-benchmark 自己依次跑完所有场景，约 70 秒后串口输出汇总表（时间单位毫秒，Avg. time 是渲染加刷新）：
+The benchmark runs through all the scenes in turn by itself, and after about 70 seconds the serial port prints the summary table (times in milliseconds; Avg. time is render plus flush):
 
 
 ```text
@@ -224,18 +224,18 @@ Heap at 0x40266fb0 contains 32767 units in 15 buckets
 [00:01:09.839,000] <inf> lvgl: All scenes avg.,81%, 23, 34, 22, 12
 ```
 
-日志里的表（FPS 的上限是 30，来自 `LV_DEF_REFR_PERIOD` 的 33 毫秒）：
+The table in the log (the FPS ceiling is 30, from the 33 milliseconds of `LV_DEF_REFR_PERIOD`):
 
-- “刷新”一列是 `display_write()` 的耗时。整屏重画的场景稳定在 16 到 21 毫秒：1024×768 RGB565 是 1.5 MiB，约 90 MB/s 的拷贝加缓存回写。只改一小块的场景（Single rectangle 2 毫秒，Containers 4 毫秒）就小得多。
-- “渲染”一列是软件渲染的耗时。纯色填充几乎为 0，旋转图像（Rotated ARGB images，36 毫秒）、整屏文字（Screen sized text，62 毫秒）、图层透明度（Containers with opa_layer，37 毫秒）慢得多，因为没有 G2D 或向量加速。
-- 汇总行：平均 23 FPS，每帧 34 毫秒，其中渲染 22、刷新 12，平均 CPU 占用 81%。
-- CPU 一列有数值（11% 到 100%），因为 demo 的配置打开了 `CONFIG_CPU_LOAD`。
+- The "flush" column is the time taken by `display_write()`. For scenes that redraw the whole screen it holds steady at 16 to 21 milliseconds: 1024×768 RGB565 is 1.5 MiB, a copy plus cache write-back of about 90 MB/s. Scenes that change only a small area (Single rectangle 2 milliseconds, Containers 4 milliseconds) are much lower.
+- The "render" column is the time taken by software rendering. Solid fills are almost 0; rotated images (Rotated ARGB images, 36 milliseconds), full-screen text (Screen sized text, 62 milliseconds), and layer opacity (Containers with opa_layer, 37 milliseconds) are much slower, because there is no G2D or vector acceleration.
+- The summary line: 23 FPS on average, 34 milliseconds per frame, of which render is 22 and flush is 12, with average CPU usage of 81%.
+- The CPU column has values (11% to 100%) because the demo's configuration enables `CONFIG_CPU_LOAD`.
 
-![板子屏幕上的 benchmark 汇总表](figures/lvgl-benchmark.png)
+![The benchmark summary table on the board screen](figures/lvgl-benchmark.webp)
 
-汇总表第一行是所有场景的平均，后面每行是一个场景的 CPU 占用、帧率和每帧耗时（渲染 + 刷新）。左上角和右下角的小标签是 LVGL 的性能监视器，显示当前帧率和 CPU 占用。
+The first row of the summary table is the average over all scenes, and each row after that is one scene's CPU usage, frame rate, and time per frame (render + flush). The small labels in the top-left and bottom-right corners are LVGL's performance monitor, showing the current frame rate and CPU usage.
 
-### 5. 运行 widgets demo
+### 5. Running the widgets demo
 
 ```sh
 west build -b yuzukineko -d build/lvgl-widgets zephyr/samples/modules/lvgl/demos -- -DCONFIG_LV_Z_DEMO_WIDGETS=y
@@ -244,7 +244,7 @@ xfel write 0x40010000 build/lvgl-widgets/zephyr/zephyr.bin
 xfel exec 0x40010000
 ```
 
-运行后的输出，串口（最后一段是 demo 调 `lvgl_print_heap_info()` 打印的 LVGL 内存池使用情况）：
+The output after running, on the serial port (the last part is the LVGL memory pool usage the demo prints by calling `lvgl_print_heap_info()`):
 
 ```text
 [00:00:00.493,000] <inf> display_sunxi: 1024x768 @ 60 Hz, fb 0x400b8400, video plane 0
@@ -263,33 +263,33 @@ Heap at 0x4023e568 contains 32767 units in 15 buckets
 215776 free bytes, 46280 allocated bytes, overhead = 84 bytes (0.0%)
 ```
 
-内存池 262144 字节，demo 画出第一屏后用掉 46280 字节，空闲 215776 字节。
-![板子屏幕上的 LVGL widgets demo](figures/lvgl-widgets.png)
+The memory pool is 262144 bytes; after the demo draws its first screen 46280 bytes are used and 215776 bytes are free.
+![The LVGL widgets demo on the board screen](figures/lvgl-widgets.webp)
 
-屏幕上是 LVGL v9.3.0 的 widgets demo：顶部是 Profile、Analytics、Shop 三个选项卡，下面是头像和个人信息、输入框、下拉框、滑条和开关。左上角和右下角是性能监视器。
+The screen shows the LVGL v9.3.0 widgets demo: the tabs Profile, Analytics, and Shop at the top, and below them an avatar with personal details, a text field, a drop-down, a slider, and a switch. The performance monitor is in the top-left and bottom-right corners.
 
-### 6. 其他 sample
+### 6. Other samples
 
-| sample | 命令 | 说明 |
+| Sample | Command | Description |
 | --- | --- | --- |
-| `samples/subsys/display/lvgl` | `west build -b yuzukineko -d build/lvgl-sub zephyr/samples/subsys/display/lvgl` | 该 sample 的 `boards/` 下有 `yuzukineko.conf` 和 `yuzukineko.overlay` |
-| `samples/modules/lvgl/screen_transparency` | `west build -b yuzukineko -d build/lvgl-trans zephyr/samples/modules/lvgl/screen_transparency` | sample 要求显示支持 ARGB8888，它的 `boards/yuzukineko.conf` 里打开了 `CONFIG_DISPLAY_SUNXI_ARGB8888` |
-| `samples/modules/lvgl/multi_display` | - | 不适用：需要设备树里有 `zephyr,displays` 节点，板子只有一个显示 |
-| `samples/modules/lvgl/accelerometer_chart` | - | 不适用：需要 `accel0` 别名，板子上没有加速度计 |
+| `samples/subsys/display/lvgl` | `west build -b yuzukineko -d build/lvgl-sub zephyr/samples/subsys/display/lvgl` | the sample's `boards/` has `yuzukineko.conf` and `yuzukineko.overlay` |
+| `samples/modules/lvgl/screen_transparency` | `west build -b yuzukineko -d build/lvgl-trans zephyr/samples/modules/lvgl/screen_transparency` | the sample requires a display that supports ARGB8888; its `boards/yuzukineko.conf` enables `CONFIG_DISPLAY_SUNXI_ARGB8888` |
+| `samples/modules/lvgl/multi_display` | - | not applicable: it needs a `zephyr,displays` node in the devicetree, and the board has only one display |
+| `samples/modules/lvgl/accelerometer_chart` | - | not applicable: it needs an `accel0` alias, and the board has no accelerometer |
 
-## LVGL 怎么接到显示
+## How LVGL connects to the display
 
-### 数据流
+### Data flow
 
-LVGL 自己不碰硬件。Zephyr 一侧的 `zephyr/modules/lvgl/lvgl.c` 在系统启动阶段（`LV_Z_AUTO_INIT`，默认打开）做这几件事：
+LVGL itself does not touch the hardware. On the Zephyr side, `zephyr/modules/lvgl/lvgl.c` does these things during system startup (`LV_Z_AUTO_INIT`, on by default):
 
-1. 取 `chosen` 里的 `zephyr,display`，读 `display_get_capabilities()` 得到分辨率和像素格式；
-2. `lv_display_create()` 建一个 LVGL 显示，分辨率就是显示设备报的帧缓冲分辨率；
-3. 按像素格式选刷新回调：`PIXEL_FORMAT_RGB_565` 用 `lvgl_flush_cb_16bit`，`PIXEL_FORMAT_ARGB_8888` 用 `lvgl_flush_cb_32bit`；
-4. 分配渲染缓冲（下面讲），设成部分渲染模式；
-5. 为设备树里每个 `zephyr,lvgl-*-input` 节点注册一个输入设备。
+1. it takes `zephyr,display` from `chosen` and reads `display_get_capabilities()` to get the resolution and pixel format;
+2. `lv_display_create()` creates an LVGL display whose resolution is the framebuffer resolution the display device reports;
+3. it picks the flush callback by pixel format: `PIXEL_FORMAT_RGB_565` uses `lvgl_flush_cb_16bit`, `PIXEL_FORMAT_ARGB_8888` uses `lvgl_flush_cb_32bit`;
+4. it allocates the render buffer (covered below) and sets partial render mode;
+5. it registers an input device for every `zephyr,lvgl-*-input` node in the devicetree.
 
-对应的代码（`zephyr/modules/lvgl/lvgl_display.c`，`set_lvgl_rendering_cb()` 的 RGB565 / ARGB8888 两个分支）：
+The corresponding code (`zephyr/modules/lvgl/lvgl_display.c`, the RGB565 and ARGB8888 branches of `set_lvgl_rendering_cb()`):
 
 ```c
 case PIXEL_FORMAT_ARGB_8888:
@@ -305,9 +305,9 @@ case PIXEL_FORMAT_BGR_565:
 	lv_display_set_flush_cb(display, lvgl_flush_cb_16bit);
 ```
 
-应用要做的只有两件事：画界面、周期性地调 `lv_timer_handler()`。它负责重画脏区域，每画完一块就调一次刷新回调，刷新回调最终走到 `display_write()`。
+The application only has to do two things: draw the UI, and call `lv_timer_handler()` periodically. It redraws the dirty areas, calls the flush callback once for each block it finishes, and the flush callback ends up in `display_write()`.
 
-F101 的显示驱动（`drivers/display/sunxi/display_sunxi.c`）的 `display_write()` 把这一块 `memcpy` 到帧缓冲对应的位置，再做一次数据缓存回写（`sys_cache_data_flush_range`），显示引擎自己按刷新率扫描这块内存：
+`display_write()` in the F101 display driver (`drivers/display/sunxi/display_sunxi.c`) `memcpy`s this block to the corresponding place in the framebuffer and then does a data cache write-back (`sys_cache_data_flush_range`); the display engine scans this memory at the refresh rate on its own:
 
 ```c
 for (row = 0; row < desc->height; row++) {
@@ -318,70 +318,70 @@ for (row = 0; row < desc->height; row++) {
 }
 ```
 
-所以每个像素在内存里有两份：LVGL 渲染缓冲里一份（临时），帧缓冲里一份（长期）。这是 Zephyr 的 LVGL 粘合层的标准做法，F101 上没有直接渲染到帧缓冲的模式。
+So every pixel exists twice in memory: one copy in the LVGL render buffer (temporary) and one in the framebuffer (long-lived). This is the standard approach of Zephyr's LVGL glue; on the F101 there is no mode that renders directly into the framebuffer.
 
-### 显示缓冲：怎么选
+### Display buffers: how to choose
 
-两处内存要分清：
+Two areas of memory must be kept apart:
 
-| 内存 | 谁分配 | 大小 | 控制它的选项 |
+| Memory | Who allocates it | Size | Options that control it |
 | --- | --- | --- | --- |
-| 帧缓冲 | 显示驱动，静态数组（也可以改成运行时分配） | 宽 × 高 × 每像素字节数。1024×768 RGB565 是 1.5 MiB，ARGB8888 是 3 MiB | `CONFIG_DISPLAY_SUNXI_RGB565` / `ARGB8888`、`CONFIG_DISPLAY_SUNXI_FB_DIV`、`CONFIG_DISPLAY_SUNXI_FB_ALLOC` |
-| LVGL 渲染缓冲 | `modules/lvgl/lvgl.c`，默认静态数组 | 屏幕像素数 × `LV_Z_VDB_SIZE`% × 每像素字节数。10% 的 1024×768 RGB565 约 157 KiB | `CONFIG_LV_Z_VDB_SIZE`、`CONFIG_LV_Z_DOUBLE_VDB`、`CONFIG_LV_Z_FULL_REFRESH`、`CONFIG_LV_Z_BUFFER_ALLOC_*` |
+| Framebuffer | the display driver, a static array (it can be changed to runtime allocation) | width × height × bytes per pixel. For 1024×768, RGB565 is 1.5 MiB and ARGB8888 is 3 MiB | `CONFIG_DISPLAY_SUNXI_RGB565` / `ARGB8888`, `CONFIG_DISPLAY_SUNXI_FB_DIV`, `CONFIG_DISPLAY_SUNXI_FB_ALLOC` |
+| LVGL render buffer | `modules/lvgl/lvgl.c`, a static array by default | screen pixels × `LV_Z_VDB_SIZE`% × bytes per pixel. 10% of 1024×768 RGB565 is about 157 KiB | `CONFIG_LV_Z_VDB_SIZE`, `CONFIG_LV_Z_DOUBLE_VDB`, `CONFIG_LV_Z_FULL_REFRESH`, `CONFIG_LV_Z_BUFFER_ALLOC_*` |
 
-LVGL 的渲染模式在这里固定为部分渲染（`LV_DISPLAY_RENDER_MODE_PARTIAL`），打开 `CONFIG_LV_Z_FULL_REFRESH` 才改成整屏渲染。三种常用搭配：
+LVGL's render mode is fixed here at partial rendering (`LV_DISPLAY_RENDER_MODE_PARTIAL`); only with `CONFIG_LV_Z_FULL_REFRESH` does it become full-screen rendering. Three common combinations:
 
-| 搭配 | 配置 | 特点 |
+| Combination | Configuration | Characteristics |
 | --- | --- | --- |
-| 默认，部分渲染 | `LV_Z_VDB_SIZE=10` | 渲染缓冲小（约 157 KiB），每次只画脏区域一块块拷。静止的界面几乎不花时间；全屏动画要分约 10 块画。推荐 |
-| 双缓冲 | 再加 `LV_Z_DOUBLE_VDB=y` 和 `LV_Z_FLUSH_THREAD=y` | 一块在渲染，另一块在拷。F101 上刷新只是一次 `memcpy`，收益有限，不作为默认 |
-| 整屏渲染 | `LV_Z_FULL_REFRESH=y`（`LV_Z_VDB_SIZE` 自动变成 100） | 渲染缓冲和帧缓冲一样大（1.5 MiB），每次都整屏拷。适合想要整帧一致的场合，内存和时间都更大 |
+| Default, partial rendering | `LV_Z_VDB_SIZE=10` | the render buffer is small (about 157 KiB) and only the dirty areas are drawn, copied block by block. A static UI costs almost nothing; a full-screen animation is drawn in about 10 blocks. Recommended |
+| Double buffering | plus `LV_Z_DOUBLE_VDB=y` and `LV_Z_FLUSH_THREAD=y` | one buffer is being rendered while the other is being copied. On the F101 the flush is just one `memcpy`, so the gain is limited and it is not the default |
+| Full-screen rendering | `LV_Z_FULL_REFRESH=y` (`LV_Z_VDB_SIZE` automatically becomes 100) | the render buffer is as large as the framebuffer (1.5 MiB) and the whole screen is copied every time. Suits cases that need the whole frame to be consistent, at a greater cost in memory and time |
 
-`LV_Z_FLUSH_THREAD` 默认关闭：刷新在调 `lv_timer_handler()` 的那个线程里直接做完。它打开后会多一个线程专门调 `display_write()`，栈和优先级由 `LV_Z_FLUSH_THREAD_STACK_SIZE`、`LV_Z_FLUSH_THREAD_PRIORITY` 设。
+`LV_Z_FLUSH_THREAD` is off by default: the flush is done right there in the thread that calls `lv_timer_handler()`. When it is on, an extra thread calls `display_write()` specifically, with stack and priority set by `LV_Z_FLUSH_THREAD_STACK_SIZE` and `LV_Z_FLUSH_THREAD_PRIORITY`.
 
-驱动没有双缓冲，也不等垂直同步：`display_write()` 直接改正在被扫描的内存，快速滚动时有撕裂的可能。
+The driver has no double buffering and does not wait for vertical sync: `display_write()` changes the memory that is being scanned, so fast scrolling can tear.
 
-### 两种像素格式：RGB565 和 ARGB8888
+### Two pixel formats: RGB565 and ARGB8888
 
-这是选配置时最重要的一项：
+This is the most important item when choosing a configuration:
 
 | | RGB565 | ARGB8888 |
 | --- | --- | --- |
-| 显示选项 | `CONFIG_DISPLAY_SUNXI_RGB565=y`（默认） | `CONFIG_DISPLAY_SUNXI_ARGB8888=y` |
-| LVGL 选项 | `CONFIG_LV_COLOR_DEPTH_16=y`（LVGL 默认） | `CONFIG_LV_COLOR_DEPTH_32=y` |
-| 帧缓冲（1024×768） | 1.5 MiB | 3 MiB |
-| 透明度 | 不透明，盖住下面所有图层 | 帧缓冲层按每个像素的 alpha 和下面的视频层混合 |
-| 用途 | 独立的界面应用 | 叠在视频上的界面：[MP4 播放器](mp4-player.md) 的统计面板、nes / doom / mgba 的屏幕按键 |
+| Display option | `CONFIG_DISPLAY_SUNXI_RGB565=y` (default) | `CONFIG_DISPLAY_SUNXI_ARGB8888=y` |
+| LVGL option | `CONFIG_LV_COLOR_DEPTH_16=y` (LVGL default) | `CONFIG_LV_COLOR_DEPTH_32=y` |
+| Framebuffer (1024×768) | 1.5 MiB | 3 MiB |
+| Alpha | opaque, covering every layer below | the framebuffer plane blends with the video plane below per-pixel alpha |
+| Use | a standalone UI application | a UI overlaid on video: the [MP4 player](mp4-player.md)'s statistics panel, the on-screen buttons of nes / doom / mgba |
 
-两个选项必须成对：LVGL 渲染缓冲的大小按 `LV_Z_BITS_PER_PIXEL`（跟着 `LV_COLOR_DEPTH` 走）算，而刷新回调按显示设备报告的格式拷贝。两边位数不一致时缓冲大小和拷贝的行宽对不上。
+The two options must go together: the LVGL render buffer size is computed from `LV_Z_BITS_PER_PIXEL` (which follows `LV_COLOR_DEPTH`), while the flush callback copies according to the format the display device reports. If the two bit depths do not match, the buffer size and the copied row width do not line up.
 
-ARGB 模式下，屏幕背景要设成透明才能透出视频层：
+In ARGB mode the screen background must be set transparent so the video plane shows through:
 
 ```c
 lv_obj_set_style_bg_opa(lv_screen_active(), LV_OPA_TRANSP, 0);
 ```
 
-nes 的 `pad.c` 就是这么做的：背景透明，按键是 30% 不透明度的白色按钮。想只覆盖一个角落时用 `CONFIG_DISPLAY_SUNXI_FB_WINDOW_WIDTH/HEIGHT` 把帧缓冲层限制在左上角，显示引擎每次刷新少读很多内存，给视频层留出带宽，MP4 播放器就是 400×400。
+nes's `pad.c` does exactly this: a transparent background and buttons that are white at 30% opacity. To cover only one corner, use `CONFIG_DISPLAY_SUNXI_FB_WINDOW_WIDTH/HEIGHT` to limit the framebuffer plane to the top-left corner; each refresh then reads much less memory and leaves bandwidth for the video plane, which is what the MP4 player does with 400×400.
 
-### 加速：G2D 和 RVV
+### Acceleration: G2D and RVV
 
-<strong>LVGL 在 F101 上全部是软件渲染（`LV_USE_DRAW_SW`），G2D 和 RVV 都没有接。</strong>
+<strong>On the F101, LVGL is entirely software-rendered (`LV_USE_DRAW_SW`); neither G2D nor RVV is connected.</strong>
 
-- G2D：F101 有 [G2D](../drivers/g2d.md) 2D 加速器，Zephyr 里也有它的驱动，但 LVGL 9.3 里没有对应的绘制单元。`LV_USE_DRAW_G2D` 是 NXP 的 G2D，和 F101 的不是一回事，不能打开。LVGL 绘制的填充、混合、图像缩放都不会交给 G2D。
-- RVV：[RISC-V 向量扩展](../zephyr-riscv-vector.md)可以用 `CONFIG_SUN252I_F101_RVV=y` 打开，nes 的配置里就打开了。但 LVGL 的汇编加速选项 `LV_USE_DRAW_SW_ASM` 只有 `NONE`、`NEON`、`HELIUM`、`CUSTOM` 四种，没有 RVV 的实现；只有 `CUSTOM` 可以自己提供汇编，需要向量版混合函数时自己写。
-- 渲染并行：`CONFIG_LV_Z_USE_OSAL` 可以让 LVGL 用多个线程渲染，默认不打开。
+- G2D: the F101 has a [G2D](../drivers/g2d.md) 2D accelerator and Zephyr has a driver for it, but LVGL 9.3 has no matching draw unit. `LV_USE_DRAW_G2D` is NXP's G2D, which is not the same thing as the F101's, and cannot be enabled. The fills, blends, and image scaling LVGL draws are never handed to G2D.
+- RVV: the [RISC-V vector extension](../zephyr-riscv-vector.md) can be enabled with `CONFIG_SUN252I_F101_RVV=y`, and nes's configuration does so. But LVGL's assembly acceleration option `LV_USE_DRAW_SW_ASM` has only four values, `NONE`, `NEON`, `HELIUM`, and `CUSTOM`, and no RVV implementation; only `CUSTOM` lets you supply assembly yourself, so if you need vector blend functions you write them yourself.
+- Render parallelism: `CONFIG_LV_Z_USE_OSAL` lets LVGL render with multiple threads; it is off by default.
 
-没有加速意味着：填充、混合和文字都由 C907 内核一个像素一个像素算。下面 benchmark 的帧率就是这个情况。
+No acceleration means the fills, blends, and text are all computed pixel by pixel by the C907 core. The frame rates in the benchmark below reflect this.
 
-## LVGL 怎么接到触摸
+## How LVGL connects to the touchscreen
 
-触摸这条链全部是 Zephyr 标准件，没有 F101 专用的代码：
+The whole touch chain is standard Zephyr parts, with no F101-specific code:
 
-1. GT967 驱动（`drivers/input/input_gt967.c`，`CONFIG_INPUT_GT967`，设备树里有 `goodix,gt967` 节点时默认打开）在 INT 引脚中断后通过 I2C 读坐标，用 `input_touchscreen_report_pos()` 报告 `INPUT_ABS_X`、`INPUT_ABS_Y`，再用 `input_report_key()` 报告 `INPUT_BTN_TOUCH`。
-2. 设备树里加一个 `zephyr,lvgl-pointer-input` 节点，`input` 属性指向触摸节点。
-3. LVGL 的粘合层（`zephyr/modules/lvgl/input/lvgl_pointer_input.c`）监听这个输入设备的事件，把坐标按显示的方向转换、限制在屏幕范围内，放进消息队列，LVGL 在 `lv_timer_handler()` 里取出来，当作一个指针设备（`LV_INDEV_TYPE_POINTER`）。
+1. The GT967 driver (`drivers/input/input_gt967.c`, `CONFIG_INPUT_GT967`, on by default when the devicetree has a `goodix,gt967` node) reads the coordinates over I2C after an interrupt on the INT pin, reports `INPUT_ABS_X` and `INPUT_ABS_Y` with `input_touchscreen_report_pos()`, and reports `INPUT_BTN_TOUCH` with `input_report_key()`.
+2. A `zephyr,lvgl-pointer-input` node is added to the devicetree, with its `input` property pointing at the touch node.
+3. LVGL's glue (`zephyr/modules/lvgl/input/lvgl_pointer_input.c`) listens for events from this input device, converts the coordinates for the display orientation and clamps them to the screen, and puts them in a message queue; LVGL takes them out in `lv_timer_handler()` and treats them as a pointer device (`LV_INDEV_TYPE_POINTER`).
 
-板级设备树没有这个节点，每个应用要自己加一个 overlay（`boards/yuzukineko.overlay`）：
+The board devicetree has no such node, so each application must add its own overlay (`boards/yuzukineko.overlay`):
 
 ```c
 /* LVGL reads the GT967 touch panel as a pointer */
@@ -393,26 +393,26 @@ nes 的 `pad.c` 就是这么做的：背景透明，按键是 30% 不透明度�
 };
 ```
 
-同时在 `prj.conf` 里打开 `CONFIG_INPUT=y`。`CONFIG_LV_Z_POINTER_INPUT` 默认是 `y`，只要设备树里有这个节点就会生效。
+At the same time, enable `CONFIG_INPUT=y` in `prj.conf`. `CONFIG_LV_Z_POINTER_INPUT` is `y` by default, and takes effect as long as the devicetree has this node.
 
-绑定里还有三个属性，用来处理触摸方向和屏幕方向不一致的情况，用法是写在 `lvgl_pointer` 节点里：
+The binding has three more properties, for when the touch orientation and the screen orientation do not match; they are written inside the `lvgl_pointer` node:
 
-| 属性 | 作用 |
+| Property | Purpose |
 | --- | --- |
-| `swap-xy` | 交换 X、Y |
-| `invert-x` | X 方向取反 |
-| `invert-y` | Y 方向取反 |
+| `swap-xy` | swaps X and Y |
+| `invert-x` | inverts the X direction |
+| `invert-y` | inverts the Y direction |
 
-GT967 的分辨率在 `yuzukineko.dts` 里是 `screen-width = <1024>; screen-height = <768>;`，和屏一致，所以不需要这三个属性。
+The GT967's resolution is set in `yuzukineko.dts` as `screen-width = <1024>; screen-height = <768>;`, which matches the panel, so these three properties are not needed.
 
-限制：
+Limits:
 
-- LVGL 的指针设备<strong>只有一个手指</strong>。GT967 驱动默认也只报一个点（`CONFIG_INPUT_GT967_MAX_TOUCH_POINTS=1`），多点触摸 LVGL 不支持。要多点（比如游戏按键）要像 nes 的 `pad.c` 那样自己读 `input` 事件，把 `CONFIG_INPUT_GT967_MAX_TOUCH_POINTS` 调到 5。
-- 触摸驱动的 INT 和 RST 在 PD2、PD3，与 LCD 的引脚复用同一组，换成别的屏时要核对。
+- LVGL's pointer device has <strong>only one finger</strong>. The GT967 driver reports only one point by default too (`CONFIG_INPUT_GT967_MAX_TOUCH_POINTS=1`), and LVGL does not support multi-touch. For multiple points (game buttons, say) you must read `input` events yourself as nes's `pad.c` does and raise `CONFIG_INPUT_GT967_MAX_TOUCH_POINTS` to 5.
+- The touch driver's INT and RST are on PD2 and PD3, multiplexed in the same group as the LCD pins; check them when switching to another panel.
 
-## 新建一个最小的 UI
+## Creating a minimal UI
 
-下面是一个完整的 hello 程序：标题、一个按钮、一个点击计数、一个显示触摸坐标的标签。目录结构：
+Here is a complete hello program: a title, a button, a click counter, and a label showing the touch coordinates. The directory structure:
 
 ```text
 examples/lvgl_hello/
@@ -424,9 +424,9 @@ examples/lvgl_hello/
     └── main.c
 ```
 
-放在 `~/f101-zephyr/examples/` 下，和 [驱动](../drivers/display.md) 一章的演示在一起。
+It goes under `~/f101-zephyr/examples/`, together with the demos from the [Drivers](../drivers/display.md) chapter.
 
-`CMakeLists.txt`：
+`CMakeLists.txt`:
 
 ```cmake
 cmake_minimum_required(VERSION 3.20.0)
@@ -436,7 +436,7 @@ project(lvgl_hello)
 target_sources(app PRIVATE src/main.c)
 ```
 
-`prj.conf`，每一行的含义见后面的 [配置选项](#配置选项)：
+`prj.conf`; the meaning of each line is in [Configuration options](#configuration-options) below:
 
 ```text
 CONFIG_DISPLAY=y
@@ -461,9 +461,9 @@ CONFIG_SHELL=n
 CONFIG_DEVMEM_SHELL=n
 ```
 
-`boards/yuzukineko.overlay`：同上一节，把 GT967 接成 LVGL 的指针设备。
+`boards/yuzukineko.overlay`: as in the previous section, wires the GT967 up as an LVGL pointer device.
 
-`src/main.c`：
+`src/main.c`:
 
 ```c
 #include <stdio.h>
@@ -548,87 +548,87 @@ int main(void)
 }
 ```
 
-关键点（行号以上面的文件为准）：
+Key points (line numbers refer to the file above):
 
-- 38–45 行：取 `chosen` 里的显示设备，没准备好就退出。LVGL 自己在启动时已经初始化（`LV_Z_AUTO_INIT`），所以 `main()` 里不用调 `lv_init()`，也不用调 `lv_display_create()`。
-- 47–67 行：创建控件。`lv_screen_active()` 是当前屏幕，所有控件都挂在它下面或它的子控件下面。`lv_obj_align()` 相对父控件对齐。
-- 55 行：`lv_obj_add_event_cb(btn, btn_cb, LV_EVENT_CLICKED, NULL)` 注册点击回调。点击事件是触摸链的终点：GT967 → input → `lvgl_pointer` → LVGL 指针 → 命中按钮 → `LV_EVENT_CLICKED`。
-- 67 行：在屏幕本身上监听 `LV_EVENT_PRESSING`，读 `lv_indev_active()` 的坐标。事件只发给被按住的控件，按在按钮上时这个回调<strong>不会</strong>被调，只有按在空白处才更新坐标。
-- 69–70 行：先渲染一次再 `display_blanking_off()`，避免开屏时闪一下旧内容。官方 demo 也是这个顺序。
-- 74–78 行：主循环。`lv_timer_handler()` 返回距离下一次需要调用的毫秒数，睡这么久（最长 1 秒）。动画和事件都靠它驱动，不要把它饿死。
+- Lines 38–45: take the display device from `chosen` and exit if it is not ready. LVGL is already initialized at startup (`LV_Z_AUTO_INIT`), so `main()` does not need to call `lv_init()` or `lv_display_create()`.
+- Lines 47–67: create the widgets. `lv_screen_active()` is the current screen, and every widget hangs below it or below one of its children. `lv_obj_align()` aligns relative to the parent.
+- Line 55: `lv_obj_add_event_cb(btn, btn_cb, LV_EVENT_CLICKED, NULL)` registers the click callback. The click event is the end of the touch chain: GT967 → input → `lvgl_pointer` → LVGL pointer → hits the button → `LV_EVENT_CLICKED`.
+- Line 67: it listens for `LV_EVENT_PRESSING` on the screen itself and reads the coordinates from `lv_indev_active()`. Events are sent only to the widget being pressed, so this callback is <strong>not</strong> called when you press the button; the coordinates are updated only when you press empty space.
+- Lines 69–70: render once and then call `display_blanking_off()`, to avoid a flash of old content when the screen comes on. The official demo uses the same order.
+- Lines 74–78: the main loop. `lv_timer_handler()` returns the number of milliseconds until the next call, and it sleeps that long (at most 1 second). Animations and events are driven by it, so do not starve it.
 
-字体：`lv_font_montserrat_28` 要用到，必须有 `CONFIG_LV_FONT_MONTSERRAT_28=y`，没打开就编译不过。LVGL 自带的 Montserrat 字体只含 ASCII 和少量符号，<strong>不含中文</strong>。要显示中文需要自己用 LVGL 的字体转换工具生成 C 字体文件加进工程。
+Fonts: using `lv_font_montserrat_28` requires `CONFIG_LV_FONT_MONTSERRAT_28=y`; the build fails without it. The Montserrat fonts bundled with LVGL contain only ASCII and a few symbols, and <strong>no Chinese</strong>. To display Chinese you must generate a C font file with LVGL's font converter and add it to the project.
 
 
-## 配置选项
+## Configuration options
 
-`prj.conf` 里和 LVGL 有关的主要选项，每行一个：
+The main LVGL-related options in `prj.conf`, one per row:
 
-| 选项 | 默认 | 说明 |
+| Option | Default | Description |
 | --- | --- | --- |
-| `CONFIG_LVGL` | n | 打开 LVGL |
-| `CONFIG_DISPLAY` | n | 显示子系统，LVGL 的前提 |
-| `CONFIG_INPUT` | n | 输入子系统，触摸要用 |
-| `CONFIG_LV_Z_MEM_POOL_SIZE` | 2048 | LVGL 自己的内存池，所有控件、样式、图像缓存从这里分。hello 用 65536，1024×768 的 widgets / benchmark 用 262144。池满了 LVGL 会死机或画不出东西 |
-| `CONFIG_LV_Z_MEM_POOL_SYS_HEAP` | y（默认） | 内存池用一块私有的 sys_heap；可以改成 `LV_Z_MEM_POOL_HEAP_LIB_C` 用 C 库的堆 |
-| `CONFIG_LV_Z_VDB_SIZE` | 10 | 渲染缓冲占屏幕的百分比（1–100）。10% 的 1024×768 RGB565 约 157 KiB |
-| `CONFIG_LV_Z_DOUBLE_VDB` | n | 用两块渲染缓冲 |
-| `CONFIG_LV_Z_FULL_REFRESH` | n | 整屏渲染，`LV_Z_VDB_SIZE` 变成 100 |
-| `CONFIG_LV_Z_BUFFER_ALLOC_STATIC` | y（默认） | 渲染缓冲用静态数组；`LV_Z_BUFFER_ALLOC_DYNAMIC` 在运行时从 LVGL 内存池分 |
-| `CONFIG_LV_Z_FLUSH_THREAD` | n | 用单独线程调 `display_write()` |
-| `CONFIG_LV_Z_AUTO_INIT` | y | 启动时自动初始化 LVGL |
-| `CONFIG_LV_COLOR_DEPTH_16` / `_32` | 16 | 颜色深度，必须和显示驱动的像素格式一致 |
-| `CONFIG_DISPLAY_SUNXI_RGB565` / `ARGB8888` | RGB565 | 显示驱动的像素格式 |
-| `CONFIG_DISPLAY_SUNXI_FB_WINDOW_WIDTH` / `HEIGHT` | 0 | 只显示帧缓冲左上角的一个窗口（0 是整屏），叠在视频上时用 |
-| `CONFIG_DISPLAY_SUNXI_FB_DIV` | 1 | 帧缓冲每个方向缩小 1/N，由显示引擎放大，省内存但界面变糊 |
-| `CONFIG_DISPLAY_SUNXI_FB_ALLOC` | n | 帧缓冲运行时分配，需要 `COMMON_LIBC_MALLOC_ARENA_SIZE` 不为 0 |
-| `CONFIG_LV_FONT_MONTSERRAT_<size>` | 全部 n（默认字体见下） | 打开哪些字号的字体，用到哪个开哪个 |
-| `CONFIG_LV_USE_<控件>` | 各不相同 | 打开用到的控件，如 `LV_USE_CHART`、`LV_USE_SLIDER`。没打开的控件函数不存在 |
-| `CONFIG_LV_Z_POINTER_INPUT` | y | 指针输入，设备树里有 `zephyr,lvgl-pointer-input` 节点才生效 |
-| `CONFIG_LV_Z_POINTER_INPUT_MSGQ_COUNT` | 10 | 指针事件队列长度 |
-| `CONFIG_INPUT_GT967_MAX_TOUCH_POINTS` | 1 | 触摸驱动一次报告几个点，LVGL 只用一个 |
-| `CONFIG_LV_USE_LOG` | n | 打开 LVGL 日志 |
-| `CONFIG_LV_Z_SHELL` | 按 sample | LVGL 的 shell 命令，需要 `CONFIG_SHELL=y` |
-| `CONFIG_MAIN_STACK_SIZE` | 1024 | 主线程栈。LVGL 渲染在调用 `lv_timer_handler()` 的线程里，栈要给够，hello 用 8192 |
-| `CONFIG_HEAP_MEM_POOL_SIZE` | 板级 262144 | 内核堆。显示驱动的命令队列从这里分，不要改小 |
+| `CONFIG_LVGL` | n | enables LVGL |
+| `CONFIG_DISPLAY` | n | display subsystem; a prerequisite for LVGL |
+| `CONFIG_INPUT` | n | input subsystem; needed for touch |
+| `CONFIG_LV_Z_MEM_POOL_SIZE` | 2048 | LVGL's own memory pool; every widget, style, and image cache is allocated from it. hello uses 65536, and the 1024×768 widgets / benchmark use 262144. When the pool is full LVGL crashes or draws nothing |
+| `CONFIG_LV_Z_MEM_POOL_SYS_HEAP` | y (default) | the pool uses a private sys_heap; it can be changed to `LV_Z_MEM_POOL_HEAP_LIB_C` to use the C library heap |
+| `CONFIG_LV_Z_VDB_SIZE` | 10 | render buffer as a percentage of the screen (1–100). 10% of 1024×768 RGB565 is about 157 KiB |
+| `CONFIG_LV_Z_DOUBLE_VDB` | n | use two render buffers |
+| `CONFIG_LV_Z_FULL_REFRESH` | n | full-screen rendering; `LV_Z_VDB_SIZE` becomes 100 |
+| `CONFIG_LV_Z_BUFFER_ALLOC_STATIC` | y (default) | the render buffer is a static array; `LV_Z_BUFFER_ALLOC_DYNAMIC` allocates it from the LVGL memory pool at runtime |
+| `CONFIG_LV_Z_FLUSH_THREAD` | n | calls `display_write()` from a separate thread |
+| `CONFIG_LV_Z_AUTO_INIT` | y | initializes LVGL automatically at startup |
+| `CONFIG_LV_COLOR_DEPTH_16` / `_32` | 16 | color depth; must match the display driver's pixel format |
+| `CONFIG_DISPLAY_SUNXI_RGB565` / `ARGB8888` | RGB565 | the display driver's pixel format |
+| `CONFIG_DISPLAY_SUNXI_FB_WINDOW_WIDTH` / `HEIGHT` | 0 | shows only a window at the top-left of the framebuffer (0 is the whole screen); used when overlaying on video |
+| `CONFIG_DISPLAY_SUNXI_FB_DIV` | 1 | the framebuffer is reduced by 1/N in each direction and enlarged by the display engine; saves memory but blurs the UI |
+| `CONFIG_DISPLAY_SUNXI_FB_ALLOC` | n | allocates the framebuffer at runtime; requires `COMMON_LIBC_MALLOC_ARENA_SIZE` to be non-zero |
+| `CONFIG_LV_FONT_MONTSERRAT_<size>` | all n (the default font is below) | which font sizes to enable; enable the ones you use |
+| `CONFIG_LV_USE_<widget>` | varies | enables the widgets you use, such as `LV_USE_CHART` and `LV_USE_SLIDER`. A widget that is not enabled has no functions |
+| `CONFIG_LV_Z_POINTER_INPUT` | y | pointer input; takes effect only when the devicetree has a `zephyr,lvgl-pointer-input` node |
+| `CONFIG_LV_Z_POINTER_INPUT_MSGQ_COUNT` | 10 | pointer event queue length |
+| `CONFIG_INPUT_GT967_MAX_TOUCH_POINTS` | 1 | how many points the touch driver reports at once; LVGL uses only one |
+| `CONFIG_LV_USE_LOG` | n | enables the LVGL log |
+| `CONFIG_LV_Z_SHELL` | per sample | LVGL's shell commands; requires `CONFIG_SHELL=y` |
+| `CONFIG_MAIN_STACK_SIZE` | 1024 | main thread stack. LVGL renders in the thread that calls `lv_timer_handler()`, so give it enough stack; hello uses 8192 |
+| `CONFIG_HEAP_MEM_POOL_SIZE` | board 262144 | kernel heap. The display driver's command queue is allocated from it; do not shrink it |
 
-关于 `LV_FONT_MONTSERRAT_<size>`：LVGL 自己的默认字体是 Montserrat 14，Zephyr 的 Kconfig 里要显式打开。用 `lv_obj_set_style_text_font()` 指定其他字号时，对应字体必须打开，否则编译报找不到符号。
+About `LV_FONT_MONTSERRAT_<size>`: LVGL's own default font is Montserrat 14, and it must be enabled explicitly in Zephyr's Kconfig. When you use `lv_obj_set_style_text_font()` to specify another size, the matching font must be enabled, otherwise the build reports an unresolved symbol.
 
-### 推荐配置
+### Recommended configurations
 
-| 场景 | 配置 |
+| Scenario | Configuration |
 | --- | --- |
-| 独立界面应用（hello 的做法） | RGB565，`LV_COLOR_DEPTH_16`，`LV_Z_MEM_POOL_SIZE` 65536 起，`LV_Z_VDB_SIZE=10`，主线程栈 8192 |
-| 复杂界面、官方 demo | 同上，`LV_Z_MEM_POOL_SIZE=262144` |
-| 叠在视频上（mp4、nes、doom、mgba） | `DISPLAY_SUNXI_ARGB8888`，`LV_COLOR_DEPTH_32`，`LV_Z_VDB_SIZE=4`，`FB_WINDOW_*` 限制到界面所在的范围，`LV_Z_MEM_POOL_SIZE=131072` |
+| Standalone UI application (what hello does) | RGB565, `LV_COLOR_DEPTH_16`, `LV_Z_MEM_POOL_SIZE` from 65536, `LV_Z_VDB_SIZE=10`, main thread stack 8192 |
+| Complex UI, official demos | as above, `LV_Z_MEM_POOL_SIZE=262144` |
+| Overlaid on video (mp4, nes, doom, mgba) | `DISPLAY_SUNXI_ARGB8888`, `LV_COLOR_DEPTH_32`, `LV_Z_VDB_SIZE=4`, `FB_WINDOW_*` limited to the area of the UI, `LV_Z_MEM_POOL_SIZE=131072` |
 
-最后一行直接来自这几个播放器的 `prj.conf`。`LV_Z_VDB_SIZE=4` 是因为 ARGB 每个像素 4 字节，缓冲小一些。
+The last row comes straight from these players' `prj.conf`. `LV_Z_VDB_SIZE=4` is because ARGB is 4 bytes per pixel, so the buffer is smaller.
 
-内存池大小怎么定：先给大一点，上板后看 LVGL 启动时（`lvgl_print_heap_info()`，demo 里会调用）打印的 `free bytes / allocated bytes`，空闲过多就改小。benchmark 启动时是 254184 字节空闲、7872 字节已分配，之后随场景增长。
+How to size the memory pool: start generous, then after running on the board look at the `free bytes / allocated bytes` that LVGL prints at startup (`lvgl_print_heap_info()`, which the demo calls), and shrink it if there is too much free. At benchmark startup it is 254184 bytes free and 7872 bytes allocated, and it grows with the scenes after that.
 
-## 代码位置
+## Code locations
 
-| 文件 | 内容 |
+| File | Contents |
 | --- | --- |
-| `zephyr/modules/lvgl/lvgl.c` | LVGL 初始化：取显示、建渲染缓冲、注册输入 |
-| `zephyr/modules/lvgl/lvgl_display.c` | 刷新回调选择、刷新线程 |
-| `zephyr/modules/lvgl/lvgl_display_16bit.c`、`lvgl_display_32bit.c` | RGB565、ARGB8888 的刷新回调，最后调 `display_write()` |
-| `zephyr/modules/lvgl/lvgl_mem.c` | LVGL 内存池 |
-| `zephyr/modules/lvgl/input/lvgl_pointer_input.c` | 触摸（指针）输入 |
-| `zephyr/modules/lvgl/Kconfig`、`Kconfig.memory`、`Kconfig.input` | 上面所有 `LV_Z_*` 选项 |
-| `drivers/display/sunxi/display_sunxi.c` | 显示驱动：`display_write()` 拷贝到帧缓冲 |
-| `drivers/input/input_gt967.c` | GT967 触摸驱动 |
-| `samples/modules/lvgl/demos/` | 官方 demo 的 Zephyr 外壳 |
-| `modules/lib/gui/lvgl/` | LVGL 本体（9.3.0） |
-| `examples/lvgl_hello/` | 本文的 hello 程序 |
-| `samples/drivers/vdec/h264_player/src/overlay.c` | 叠加层用法：MP4 播放器的统计面板，折线图 |
-| `zephyr-components/nes/samples/nes_player/src/pad.c` | 叠加层用法：屏幕按键 |
+| `zephyr/modules/lvgl/lvgl.c` | LVGL initialization: take the display, create the render buffer, register input |
+| `zephyr/modules/lvgl/lvgl_display.c` | flush callback selection, flush thread |
+| `zephyr/modules/lvgl/lvgl_display_16bit.c`, `lvgl_display_32bit.c` | the RGB565 and ARGB8888 flush callbacks, ending in `display_write()` |
+| `zephyr/modules/lvgl/lvgl_mem.c` | LVGL memory pool |
+| `zephyr/modules/lvgl/input/lvgl_pointer_input.c` | touch (pointer) input |
+| `zephyr/modules/lvgl/Kconfig`, `Kconfig.memory`, `Kconfig.input` | all the `LV_Z_*` options above |
+| `drivers/display/sunxi/display_sunxi.c` | display driver: `display_write()` copies to the framebuffer |
+| `drivers/input/input_gt967.c` | GT967 touch driver |
+| `samples/modules/lvgl/demos/` | the Zephyr wrapper for the official demos |
+| `modules/lib/gui/lvgl/` | LVGL itself (9.3.0) |
+| `examples/lvgl_hello/` | the hello program from this page |
+| `samples/drivers/vdec/h264_player/src/overlay.c` | overlay usage: the MP4 player's statistics panel, a line chart |
+| `zephyr-components/nes/samples/nes_player/src/pad.c` | overlay usage: on-screen buttons |
 
-## 功能范围
+## Scope
 
-- G2D 和 RVV：LVGL 全部软件渲染。LVGL 9.3 没有对应 F101 G2D 的绘制单元；需要向量加速时，把 `LV_USE_DRAW_SW_ASM` 选成 `CUSTOM` 自己提供汇编。
-- 触摸：LVGL 的指针只有一个手指。要多点（比如游戏按键），像 nes 的 `pad.c` 那样自己读 `input` 事件，并把 `CONFIG_INPUT_GT967_MAX_TOUCH_POINTS` 调到 5。
-- 显示：板子只有一个显示，不支持多显示。
-- 像素格式：编译时用 `CONFIG_DISPLAY_SUNXI_RGB565` 或 `ARGB8888` 选定，不能在运行时切换，也不能旋转。
-- 刷新：驱动没有双缓冲和垂直同步，快速滚动可能撕裂。
-- 字体：自带字体不含中文，需要中文时用 LVGL 的字体转换工具生成 C 字体文件加进工程。
+- G2D and RVV: LVGL is entirely software-rendered. LVGL 9.3 has no draw unit for the F101 G2D; when you need vector acceleration, set `LV_USE_DRAW_SW_ASM` to `CUSTOM` and supply the assembly yourself.
+- Touch: LVGL's pointer has only one finger. For multiple points (game buttons, say), read `input` events yourself as nes's `pad.c` does and raise `CONFIG_INPUT_GT967_MAX_TOUCH_POINTS` to 5.
+- Display: the board has only one display; multiple displays are not supported.
+- Pixel format: chosen at build time with `CONFIG_DISPLAY_SUNXI_RGB565` or `ARGB8888`; it cannot be switched at runtime, and it cannot be rotated.
+- Refresh: the driver has no double buffering and no vertical sync, so fast scrolling can tear.
+- Fonts: the bundled fonts contain no Chinese; when you need Chinese, generate a C font file with LVGL's font converter and add it to the project.

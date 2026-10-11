@@ -1,46 +1,46 @@
 ---
-title: "ncnn - 神经网络推理"
+title: "ncnn - neural-network inference"
 ---
 
-[ncnn](https://github.com/Tencent/ncnn) 是腾讯开源的轻量神经网络推理框架。`zephyr-components/ncnn` 把它做成一个 Zephyr 模块：ncnn 本身是子模块 `ncnn/ncnn`，用它自己的 CMake 工程另外编成静态库，再链进固件。F101 的 C907 核带 RISC-V 向量扩展（RVV 1.0，VLEN 128 位），模块在固件打开向量扩展时让 ncnn 使用它自带的 RVV 内核。
+[ncnn](https://github.com/Tencent/ncnn) is a lightweight neural-network inference framework open-sourced by Tencent. `zephyr-components/ncnn` turns it into a Zephyr module: ncnn itself is the submodule `ncnn/ncnn`, built separately into a static library by its own CMake project, and then linked into the firmware. The C907 core of the F101 has the RISC-V vector extension (RVV 1.0, VLEN 128 bits), and the module makes ncnn use its own RVV kernels when the firmware enables the vector extension.
 
-组件自带一个 benchmark 示例 `samples/benchmark`：把 ncnn 的 `benchncnn` 编进固件，在板子上依次跑几个内置网络，从串口打印每个网络的单次推理耗时。<strong>这个示例不加载真实模型文件，也不输出识别结果</strong>，它测的是“这块板子跑某个网络要多久”。
+The component ships with a benchmark example, `samples/benchmark`: it builds ncnn's `benchncnn` into the firmware, runs several built-in networks one after another on the board, and prints each network's single-inference time over the serial port. <strong>This example does not load real model files and does not output recognition results</strong>; what it measures is "how long this board takes to run a given network".
 
 ```mermaid
 flowchart TB
-    SUB["编译期 · ncnn 子模块<br/>benchmark/models/*.param"] --> SEL["select_bench_models.py<br/>筛网络、按权重从小到大排序"]
+    SUB["build time · ncnn submodule<br/>benchmark/models/*.param"] --> SEL["select_bench_models.py<br/>filter networks, sort from small to large by weight"]
     MAIN["samples/benchmark main.c"] -->|"ncnn_bench_main"| BENCH["libncnn_bench.a<br/>benchncnn_selected.cpp"]
     SEL --> BENCH
-    SUB --> LIB["ncnn 子工程 libncnn.a<br/>NCNN_SIMPLESTL，RVV 内核"]
+    SUB --> LIB["ncnn subproject libncnn.a<br/>NCNN_SIMPLESTL, RVV kernels"]
     BENCH --> LIB
-    LIB --> GLUE["ncnn_libc.c<br/>sscanf / 时钟 / malloc 包装"]
-    GLUE --> KERNEL["Zephyr + minimal libc<br/>堆 = 镜像以上全部 RAM"]
+    LIB --> GLUE["ncnn_libc.c<br/>sscanf / clock / malloc wrappers"]
+    GLUE --> KERNEL["Zephyr + minimal libc<br/>heap = all RAM above the image"]
     MAIN -->|"printk / fprintf"| UART["UART1<br/>115200 8N1"]
 ```
 
-开始前请先完成 [配置开发环境](../zephyr-setup-env.md) 和 [获取 Zephyr 代码](../zephyr-get-source.md)。
+Before starting, complete [Setting up the development environment](../zephyr-setup-env.md) and [Getting the Zephyr source](../zephyr-get-source.md).
 
-## 准备：ncnn 源码和模型
+## Preparation: ncnn source and models
 
-### 拉子模块
+### Fetching the submodule
 
-ncnn 是 `zephyr-components` 的 git 子模块，没拉的话目录是空的，编译会直接报 `ncnn sources missing`：
+ncnn is a git submodule of `zephyr-components`; if it is not fetched, the directory is empty and the build fails immediately with `ncnn sources missing`:
 
 ```sh
 cd ~/f101-zephyr/zephyr-components
 git submodule update --init ncnn/ncnn
 ```
 
-### 模型是怎么“放进固件”的
+### How the models are "placed into the firmware"
 
-这个示例没有 SD 卡、没有文件系统，<strong>网络描述（`.param`）在编译时转成 C 头文件，直接编进固件</strong>：
+This example has no SD card and no file system; <strong>the network descriptions (`.param`) are converted into C header files at build time and compiled directly into the firmware</strong>:
 
-1. `ext/CMakeLists.txt` 遍历 `ncnn/ncnn/benchmark/models/*.param`，对每个文件调 ncnn 自带的 `ncnn_generate_param_header.cmake`，生成 `param/<名字>.hex.h`，里面是 `.param` 文本的字节数组。
-2. 同一个文件再用 `benchncnn_param_data.h.in` 生成 `benchncnn_param_data.h`，把所有头文件 `#include` 进来。
-3. `benchncnn.cpp` 调 `benchmark("名字", 输入, opt, 名字_param_data)`，用 `Net::load_param_mem()` 从内存读网络结构。
-4. <strong>权重没有放进固件</strong>。`benchncnn` 用 `DataReaderFromEmpty` 做权重来源，所以示例只测速度，网络没有真实的识别能力。
+1. `ext/CMakeLists.txt` walks `ncnn/ncnn/benchmark/models/*.param` and, for each file, invokes ncnn's own `ncnn_generate_param_header.cmake`, producing `param/<name>.hex.h` that holds a byte array of the `.param` text.
+2. The same file then uses `benchncnn_param_data.h.in` to generate `benchncnn_param_data.h`, which `#include`s all the headers.
+3. `benchncnn.cpp` calls `benchmark("<name>", input, opt, <name>_param_data)`, reading the network structure from memory with `Net::load_param_mem()`.
+4. <strong>The weights are not placed into the firmware</strong>. `benchncnn` uses `DataReaderFromEmpty` as the weight source, so the example only measures speed and the networks have no real recognition ability.
 
-ncnn 在这个模块里<strong>只能从内存加载网络</strong>，`fopen()` 一类函数在 `ncnn_libc.c` 里是桩，永远失败。要在自己的程序里跑真实模型，需要把 `.param` 和 `.bin` 都作为数组编进固件（或自己从别处读到内存），再调 `ncnn::Net` 的内存加载接口。`ncnn/ncnn/src/net.h` 里这几个接口的声明是：
+In this module ncnn <strong>can only load networks from memory</strong>; functions such as `fopen()` are stubs in `ncnn_libc.c` that always fail. To run a real model in your own program, both the `.param` and the `.bin` must be compiled into the firmware as arrays (or read into memory from elsewhere by your own code), and then the in-memory loading interfaces of `ncnn::Net` are called. The declarations of these interfaces in `ncnn/ncnn/src/net.h` are:
 
 ```cpp
 int load_param_mem(const char* mem);
@@ -48,25 +48,25 @@ size_t load_param(const unsigned char* mem);
 size_t load_model(const unsigned char* mem);
 ```
 
-`load_param_mem()` 接收以 `\0` 结尾的文本 `.param`；`load_param()` / `load_model()` 接收二进制的 `.param.bin` 和 `.bin`。真实权重必须是 fp32：模块用 `NCNN_INT8=OFF` 编译，没有 int8 内核。
+`load_param_mem()` takes a `\0`-terminated text `.param`; `load_param()` / `load_model()` take the binary `.param.bin` and `.bin`. Real weights must be fp32: the module is built with `NCNN_INT8=OFF` and has no int8 kernels.
 
-### 选哪些模型
+### Selecting which models
 
-选择由两个 Kconfig 选项决定，筛选和排序由 `select_bench_models.py` 在编译期完成（`ext/CMakeLists.txt` 里 `execute_process` 调用它）：
+The selection is decided by two Kconfig options, and the filtering and sorting are done at build time by `select_bench_models.py` (`ext/CMakeLists.txt` invokes it through `execute_process`):
 
-| 选项 | 作用 |
+| Option | Effect |
 | --- | --- |
-| `CONFIG_NCNN_BENCHMARK_MODELS` | 要跑的网络名，逗号分隔；留空表示全部 |
-| `CONFIG_NCNN_BENCHMARK_MAX_WEIGHTS_MB` | fp32 权重超过这个大小（MB）的网络直接不跑；0 表示不限制，默认 5 |
+| `CONFIG_NCNN_BENCHMARK_MODELS` | names of the networks to run, comma-separated; empty means all |
+| `CONFIG_NCNN_BENCHMARK_MAX_WEIGHTS_MB` | networks whose fp32 weights exceed this size (MB) are skipped outright; 0 means no limit, default 5 |
 
-脚本做了四件事：
+The script does four things:
 
-- 去掉名字以 `_int8` 结尾的网络；
-- 从 `.param` 里累加卷积、反卷积、全连接层的权重个数，乘 4 得到 fp32 字节数，大于 `MAX_WEIGHTS_MB` 的去掉；
-- 剩下的按权重大小<strong>从小到大</strong>重排，这样放不下的大网络不会抢走它后面网络的内存；
-- 在每个结果的 `fprintf` 前面插一个 `if (!ncnn_zephyr_oom_seen())`，期间有 `malloc()` 失败的网络<strong>不打印结果</strong>。
+- drop networks whose names end in `_int8`;
+- sum the number of weights of the convolution, deconvolution and fully-connected layers from the `.param`, multiply by 4 to get the fp32 byte count, and drop those larger than `MAX_WEIGHTS_MB`;
+- reorder the rest by weight size <strong>from small to large</strong>, so that a large network that does not fit cannot take the memory away from the networks after it;
+- insert an `if (!ncnn_zephyr_oom_seen())` in front of each result's `fprintf`, so a network during whose run a `malloc()` failed <strong>does not print its result</strong>.
 
-筛选部分是这样（`select_bench_models.py` 59–63 行、77–78 行）：
+The filtering part looks like this (`select_bench_models.py` lines 59–63, 77–78):
 
 ```python
 if (want is None or name in want) and not name.endswith("_int8"):
@@ -81,9 +81,9 @@ calls.sort()
 out[first] = "".join(l for _, _, l in calls)
 ```
 
-编译时脚本会往 stderr 打出最终入选的网络和权重大小。这是 ncnn 子模块 `benchmark/models` 里全部非 int8 网络的 fp32 权重和输入尺寸（从小到大）：
+At build time the script prints the finally selected networks and their weight sizes to stderr. These are the fp32 weights and input sizes of all non-int8 networks in the ncnn submodule's `benchmark/models` (from small to large):
 
-| 网络 | 权重 | 输入 | 网络 | 权重 | 输入 |
+| Network | Weights | Input | Network | Weights | Input |
 | --- | --- | --- | --- | --- | --- |
 | `blazeface` | 0.3 MB | 128×128 | `proxylessnasnet` | 16.2 MB | 224×224 |
 | `FastestDet` | 0.9 MB | 352×352 | `mobilenet` | 16.8 MB | 224×224 |
@@ -100,16 +100,16 @@ out[first] = "".join(l for _, _, l in calls)
 | `resnet50` | 102.0 MB | 224×224 | `alexnet` | 243.8 MB | 227×227 |
 | `vgg16` | 553.4 MB | 224×224 | | | |
 
-板子只有 16 MB PSRAM，堆约 13 MB，而层在初始化时会把权重再复制一份，所以 5 MB 的默认上限已经是比较大的网络了。<strong>ncnn 不检查大部分内存分配</strong>，权重放不下时网络会失败或直接崩溃，不要把 `MAX_WEIGHTS_MB` 设成 0 去试大网络。
+The board has only 16 MB of PSRAM and a heap of about 13 MB, and the layers copy the weights once more during initialization, so the default limit of 5 MB is already a fairly large network. <strong>ncnn does not check most of these allocations</strong>; when the weights do not fit, the network fails or crashes outright, so do not set `MAX_WEIGHTS_MB` to 0 to try large networks.
 
-指定网络的例子：只跑 `blazeface` 和 `yolo-fastestv2`：
+An example that selects networks: run only `blazeface` and `yolo-fastestv2`:
 
 ```sh
 west build -b yuzukineko -d build/ncnn zephyr-components/ncnn/samples/benchmark -- \
     '-DCONFIG_NCNN_BENCHMARK_MODELS="blazeface,yolo-fastestv2"'
 ```
 
-## 编译
+## Building
 
 ```sh
 . ~/f101-zephyr/env.sh
@@ -119,17 +119,17 @@ west build -b yuzukineko -d build/ncnn zephyr-components/ncnn/samples/benchmark
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/apps-ncnn/build.cast" data-speed="8"></div>
 
-产物是 `build/ncnn/zephyr/zephyr.bin`，约 1.16 MB，链接地址 `0x40010000`。
+The output is `build/ncnn/zephyr/zephyr.bin`, about 1.16 MB, linked at `0x40010000`.
 
 :::note
-示例的 `prj.conf` 里已经打开了 `CONFIG_MINIMAL_LIBC=y`，不用再从命令行传。ncnn 子工程的工具链文件 `toolchain.cmake.in` 里写死用 Zephyr 精简 C 库（minimal libc）的头文件，`ncnn_libc.c` 也只实现了精简库缺的那几个函数。`yuzukineko` 的默认 C 库是 picolibc，它把 `feof` 定义成宏，`ncnn_libc.c` 里的 `int feof(FILE *f)` 就会报 `expected ')' before '*' token`。在自己的应用里用 ncnn 模块时，也要在 `prj.conf` 里加这一项。
+The example's `prj.conf` already enables `CONFIG_MINIMAL_LIBC=y`, so it does not have to be passed on the command line. The ncnn subproject's toolchain file `toolchain.cmake.in` hard-codes the use of the Zephyr minimal C library (minimal libc) headers, and `ncnn_libc.c` implements only the few functions that the minimal library lacks. The default C library of `yuzukineko` is picolibc, which defines `feof` as a macro, so `int feof(FILE *f)` in `ncnn_libc.c` then fails with `expected ')' before '*' token`. When using the ncnn module in your own application, this option must also be added in `prj.conf`.
 :::
 
-第一次编译要把整个 ncnn 编一遍（`BUILD_ALWAYS ON`，每次 west build 都会进 ncnn 子工程检查，没改动时很快）。
+The first build compiles all of ncnn once (`BUILD_ALWAYS ON`; every west build enters the ncnn subproject to check, which is fast when nothing has changed).
 
-## 运行
+## Running
 
-用 [编译与运行](../zephyr-build-run.md) 里的任一种方式下载，控制台是 UART1（PB00/PB01，115200 8N1）。调试用方式一：
+Download with any of the methods in [Building and running](../zephyr-build-run.md); the console is UART1 (PB00/PB01, 115200 8N1). For debugging, use method one:
 
 ```sh
 xfel ddr f101-s3
@@ -137,9 +137,9 @@ xfel write 0x40010000 build/ncnn/zephyr/zephyr.bin
 xfel exec 0x40010000
 ```
 
-不需要 TF 卡、WiFi 或任何外设。没有屏幕输出，跑完后串口会打印 `ncnn benchmark done`。
+No TF card, WiFi or any peripheral is needed. There is no screen output; when the run finishes, the serial port prints `ncnn benchmark done`.
 
-本文的日志是在板子上真实跑出来的（`DISPLAY`、`GPIO`、`SPI` 等驱动在 `prj.conf` 里都关了，省出内存给网络）：
+The log in this article was produced by a real run on the board (the `DISPLAY`, `GPIO`, `SPI` and other drivers are all disabled in `prj.conf`, freeing memory for the networks):
 
 ```text
 *** Booting Zephyr OS build b6f3dfe1a1f4 ***
@@ -157,39 +157,39 @@ cooling_down = 0
 ncnn benchmark done, ret 0
 ```
 
-### 输出怎么看
+### How to read the output
 
-| 行 | 含义 |
+| Line | Meaning |
 | --- | --- |
-| `ncnn: vector extension on, VLEN 128 bits` | `main.c` 读 `vlenb` 寄存器得到向量寄存器宽度。固件没开向量扩展时这里是 `ncnn: no vector extension` |
-| `loop_count = 4` | 每个网络正式计时的次数，对应 `args[1]` |
-| `num_threads = 1` | ncnn 线程数。模块用 `NCNN_THREADS=OFF` 编译，只能是 1 |
-| `powersave = 0` | 大小核策略，C907 是单核，没作用 |
-| `gpu_device = -1` | 不使用 Vulkan GPU |
-| `cooling_down = 0` | 为 0 才不会在每个网络前睡 10 秒“降温” |
-| `<网络>  min / max / avg` | 一次完整前向推理（建立 Extractor、输入、取输出）的耗时，<strong>单位毫秒</strong>，4 次计时里的最小、最大、平均 |
-| `ncnn benchmark done, ret 0` | `ncnn_bench_main()` 返回值，0 表示正常结束 |
+| `ncnn: vector extension on, VLEN 128 bits` | `main.c` reads the `vlenb` register to get the vector register width. When the firmware has not enabled the vector extension, this is `ncnn: no vector extension` |
+| `loop_count = 4` | the number of timed runs per network, corresponding to `args[1]` |
+| `num_threads = 1` | the ncnn thread count. The module is built with `NCNN_THREADS=OFF`, so it can only be 1 |
+| `powersave = 0` | the big/little-core policy; the C907 is single-core, so it has no effect |
+| `gpu_device = -1` | Vulkan GPU is not used |
+| `cooling_down = 0` | only when it is 0 does it not sleep 10 seconds to "cool down" before each network |
+| `<network>  min / max / avg` | the time of one complete forward inference (creating the Extractor, input, fetching the output), <strong>in milliseconds</strong>, the minimum, maximum and average of the 4 timed runs |
+| `ncnn benchmark done, ret 0` | the return value of `ncnn_bench_main()`, 0 means it finished normally |
 
-`benchncnn` 对每个网络先做 8 次不计时的预热，再计时 4 次。输入用 0.01 填充，权重是空数据，因此耗时只反映网络结构和内核实现，不反映任何识别结果。
+For each network `benchncnn` first does 8 untimed warm-up runs, then 4 timed runs. The input is filled with 0.01 and the weights are empty data, so the timing reflects only the network structure and the kernel implementation, not any recognition result.
 
-日志里默认入选的 6 个网络（`blazeface`、`FastestDet`、`yolo-fastestv2`、`yolo-fastest-1.1`、`nanodet_m`、`squeezenet`）只打印了前 4 个。`nanodet_m` 和 `squeezenet` 没有出现：按上面的规则，没有结果行说明这两个网络运行期间有 `malloc()` 返回了 NULL，结果被丢弃。
+Of the 6 networks selected by default in the log (`blazeface`, `FastestDet`, `yolo-fastestv2`, `yolo-fastest-1.1`, `nanodet_m`, `squeezenet`), only the first 4 are printed. `nanodet_m` and `squeezenet` do not appear: by the rule above, a missing result line means a `malloc()` returned NULL during those networks' runs and the result was discarded.
 
-## RVV 加速
+## RVV acceleration
 
-### 怎么打开
+### How to enable it
 
-两处缺一不可：
+Both places are required:
 
-| 位置 | 内容 |
+| Location | Content |
 | --- | --- |
-| `prj.conf` | `CONFIG_SUN252I_F101_RVV=y`。它选上 `RISCV_ISA_EXT_V`，编译器得到 `-march=rv32imafdcv…`，并让每个中断和异常帧保存向量寄存器 |
-| `CMakeLists.txt` | `CONFIG_RISCV_ISA_EXT_V` 为真时 `NCNN_USE_RVV=ON`，传给 ncnn 子工程的 `NCNN_RVV` |
+| `prj.conf` | `CONFIG_SUN252I_F101_RVV=y`. It selects `RISCV_ISA_EXT_V`, the compiler gets `-march=rv32imafdcv…`, and every interrupt and exception frame saves the vector registers |
+| `CMakeLists.txt` | when `CONFIG_RISCV_ISA_EXT_V` is true, `NCNN_USE_RVV=ON`, passed to the ncnn subproject as `NCNN_RVV` |
 
-子工程用的是和固件相同的 `-mabi/-march`（`CMakeLists.txt` 从 `TOOLCHAIN_C_FLAGS` 里取出来），ncnn 的 `src/layer/riscv/` 下的内核（卷积、全连接、池化、激活等，共 170 多个文件，例如 `convolution_riscv.cpp`、`innerproduct_riscv.cpp`）随之编进 `libncnn.a`。ncnn 的 RVV 内核是编译期选择，没有运行时切换。
+The subproject uses the same `-mabi/-march` as the firmware (`CMakeLists.txt` takes them from `TOOLCHAIN_C_FLAGS`), and the kernels under ncnn's `src/layer/riscv/` (convolution, fully-connected, pooling, activation and so on, more than 170 files in total, for example `convolution_riscv.cpp`, `innerproduct_riscv.cpp`) are compiled into `libncnn.a` along with it. ncnn's RVV kernels are chosen at build time; there is no runtime switch.
 
-### 两处必要的补丁
+### Two necessary patches
 
-- <strong>向量单元检测</strong>：ncnn 只会在 Linux 下通过辅助向量检测向量单元，在其他系统上一律报告“没有向量单元、向量长度 0”，这会让张量内存布局（pack 大小）算错，而内核又是按有向量单元编译的，两边不一致。`ext/riscv_cpu.cpp` 重新定义了这两个函数：
+- <strong>Vector-unit detection</strong>: ncnn only detects the vector unit through the auxiliary vector under Linux, and on other systems it always reports "no vector unit, vector length 0", which makes the tensor memory layout (pack size) be computed wrongly, while the kernels are compiled for a present vector unit, so the two sides disagree. `ext/riscv_cpu.cpp` redefines these two functions:
 
 ```cpp
 int cpu_support_riscv_v()
@@ -206,20 +206,20 @@ int cpu_riscv_vlenb()
 }
 ```
 
-  `ext/weaken.cmake` 在编译完后用 `objcopy --redefine-sym` 把 `libncnn.a` 里 `cpu.cpp.obj` 的原版同名符号改名，保证链接时用的是上面这份。
-- <strong>线程栈</strong>：开了向量扩展后每个线程栈要能放下一个中断帧（VLEN 128 时约 560 字节），所以示例把主线程栈加到了 32 KiB（`CONFIG_MAIN_STACK_SIZE=32768`）。
+  `ext/weaken.cmake` uses `objcopy --redefine-sym` after the build to rename the original same-named symbols of `cpu.cpp.obj` inside `libncnn.a`, ensuring that the version above is the one used at link time.
+- <strong>Thread stack</strong>: with the vector extension enabled, each thread stack must be able to hold one interrupt frame (about 560 bytes with VLEN 128), so the example raises the main thread stack to 32 KiB (`CONFIG_MAIN_STACK_SIZE=32768`).
 
-### 向量和标量对比
+### Vector vs. scalar comparison
 
-用同样的命令、`CONFIG_SUN252I_F101_RVV=n` 另外编一份固件（二进制约 1.0 MB，`ncnn: no vector extension`），在同一块板上跑，单线程，毫秒：
+Using the same command with `CONFIG_SUN252I_F101_RVV=n`, build a second firmware (binary about 1.0 MB, `ncnn: no vector extension`), run it on the same board, single-threaded, in milliseconds:
 
-| 网络 | 标量 avg | 向量 avg | 倍数 |
+| Network | scalar avg | vector avg | ratio |
 | --- | --- | --- | --- |
 | `blazeface` | 399.13 | 176.52 | 2.26 |
 | `yolo-fastestv2` | 1083.18 | 671.97 | 1.61 |
 | `yolo-fastest-1.1` | 1562.98 | 760.05 | 2.06 |
 
-标量版的原始日志：
+The raw log of the scalar build:
 
 ```text
 *** Booting Zephyr OS build b6f3dfe1a1f4 ***
@@ -236,23 +236,23 @@ cooling_down = 0
 ncnn benchmark done, ret 0
 ```
 
-表里每个数只有一次上电的结果。标量版没有打印 `FastestDet`、`nanodet_m` 和 `squeezenet`，同样是因为这三个网络运行期间有 `malloc()` 失败（标量和向量布局的内存用量不同，所以失败的网络不一样）。
+Each number in the table is the result of a single power-on. The scalar build did not print `FastestDet`, `nanodet_m` or `squeezenet`, again because a `malloc()` failed during those three networks' runs (the scalar and vector layouts use different amounts of memory, so the networks that fail are different).
 
-## 功能与修改位置
+## Features and where to change them
 
-| 功能 | 位置 | 怎么改 |
+| Feature | Location | How to change |
 | --- | --- | --- |
-| 选网络 | `CONFIG_NCNN_BENCHMARK_MODELS` | 命令行 `-D` 或 `prj.conf`，见上 |
-| 权重大小上限 | `CONFIG_NCNN_BENCHMARK_MAX_WEIGHTS_MB` | 同上 |
-| 循环次数、线程、省电、GPU、降温 | `samples/benchmark/src/main.c` 的 `args[]` | 改字符串，见下 |
-| 向量扩展开关 | `prj.conf` 的 `CONFIG_SUN252I_F101_RVV` | `y` / `n` |
-| 堆大小 | `prj.conf` 的 `CONFIG_COMMON_LIBC_MALLOC_ARENA_SIZE` | `-1` 表示镜像以上全部 RAM |
-| 加载自己的模型 | 自己的应用，通过 `ZEPHYR_EXTRA_MODULES` 引入模块 | 见下 |
-| 子工程的 ncnn 编译选项 | `ext/CMakeLists.txt` | 改 `set(NCNN_xxx …)` |
+| select networks | `CONFIG_NCNN_BENCHMARK_MODELS` | command-line `-D` or `prj.conf`, see above |
+| weight-size limit | `CONFIG_NCNN_BENCHMARK_MAX_WEIGHTS_MB` | same as above |
+| loop count, threads, powersave, GPU, cooling down | `args[]` in `samples/benchmark/src/main.c` | change the strings, see below |
+| vector extension switch | `CONFIG_SUN252I_F101_RVV` in `prj.conf` | `y` / `n` |
+| heap size | `CONFIG_COMMON_LIBC_MALLOC_ARENA_SIZE` in `prj.conf` | `-1` means all RAM above the image |
+| load your own model | your own application, importing the module through `ZEPHYR_EXTRA_MODULES` | see below |
+| ncnn build options of the subproject | `ext/CMakeLists.txt` | change `set(NCNN_xxx …)` |
 
-### 改计时参数
+### Changing the timing parameters
 
-`main()` 里的参数就是 `benchncnn` 的命令行（`main.c` 14–32 行）：
+The arguments in `main()` are exactly `benchncnn`'s command line (`main.c` lines 14–32):
 
 ```c
 int main(void)
@@ -276,9 +276,9 @@ int main(void)
 }
 ```
 
-`args[1..5]` 依次是 `loop_count`、`num_threads`、`powersave`、`gpu_device`、`cooling_down`，`ncnn_bench_main(6, args)` 的 6 是参数个数。想多计几次取平均，把 `"4"` 改成 `"20"`。`benchncnn` 还支持 `param=…` 和 `shape=…` 形式的第 7 个以后的参数，用来测外部 `.param` 文件，但这里 `fopen()` 总是失败，所以不能用。
+`args[1..5]` are, in order, `loop_count`, `num_threads`, `powersave`, `gpu_device` and `cooling_down`; the 6 in `ncnn_bench_main(6, args)` is the number of arguments. To time more runs and average them, change `"4"` to `"20"`. `benchncnn` also accepts arguments from the 7th onward in the form `param=…` and `shape=…`, for testing external `.param` files, but here `fopen()` always fails, so they cannot be used.
 
-`ncnn_bench_main()` 的实现在 `ext/bench_entry.cpp`，只是把 `benchncnn.cpp` 的 `main` 用宏改名后转调：
+`ncnn_bench_main()` is implemented in `ext/bench_entry.cpp`; it simply renames `benchncnn.cpp`'s `main` with a macro and forwards to it:
 
 ```cpp
 /* the main() of benchncnn is built under another name, C++ linkage */
@@ -290,15 +290,15 @@ extern "C" int ncnn_bench_main(int argc, char** argv)
 }
 ```
 
-### 在自己的应用里用 ncnn
+### Using ncnn in your own application
 
-不用 benchmark 示例，直接把模块引进自己的应用。`CMakeLists.txt` 里在 `find_package(Zephyr)` 之前加：
+Instead of the benchmark example, import the module directly into your own application. In `CMakeLists.txt`, before `find_package(Zephyr)`, add:
 
 ```cmake
 list(APPEND ZEPHYR_EXTRA_MODULES /path/to/zephyr-components/ncnn)
 ```
 
-`prj.conf`：
+`prj.conf`:
 
 ```ini
 CONFIG_CPP=y
@@ -307,65 +307,65 @@ CONFIG_SUN252I_F101_RVV=y
 CONFIG_FPU=y
 ```
 
-再加上 `CONFIG_MINIMAL_LIBC=y`。把 `CONFIG_NCNN_BENCHMARK` 设为 `n` 就不会编 benchncnn，只链 `libncnn.a`。之后在 C++ 里包含 `net.h`、用 `ncnn::Net` 加载并推理即可。堆和线程栈的要求同上。
+Also add `CONFIG_MINIMAL_LIBC=y`. Setting `CONFIG_NCNN_BENCHMARK` to `n` stops benchncnn from being built, linking only `libncnn.a`. After that, include `net.h` in C++ and use `ncnn::Net` to load and infer. The heap and thread-stack requirements are the same as above.
 
-## 配置选项
+## Configuration options
 
-| 选项 | 默认 | 说明 |
+| Option | Default | Description |
 | --- | --- | --- |
-| `CONFIG_NCNN` | n | 编 ncnn 并链入固件。依赖 `CPP` 和 `RISCV` |
-| `CONFIG_NCNN_BENCHMARK` | y | 编 benchncnn，入口 `ncnn_bench_main(argc, argv)`，网络内置、权重为空 |
-| `CONFIG_NCNN_BENCHMARK_MODELS` | 空 | 要跑的网络，逗号分隔；空表示全部。int8 网络永远不跑 |
-| `CONFIG_NCNN_BENCHMARK_MAX_WEIGHTS_MB` | 5 | 权重超过这个大小（MB，fp32）的网络不跑；0 表示不限 |
+| `CONFIG_NCNN` | n | build ncnn and link it into the firmware. Depends on `CPP` and `RISCV` |
+| `CONFIG_NCNN_BENCHMARK` | y | build benchncnn, entry `ncnn_bench_main(argc, argv)`, networks built in, weights empty |
+| `CONFIG_NCNN_BENCHMARK_MODELS` | empty | networks to run, comma-separated; empty means all. int8 networks are never run |
+| `CONFIG_NCNN_BENCHMARK_MAX_WEIGHTS_MB` | 5 | networks whose weights exceed this size (MB, fp32) are not run; 0 means no limit |
 
-`prj.conf` 里和本示例有关的主要选项：
+The main options in `prj.conf` that this example uses:
 
-| 选项 | 作用 |
+| Option | Effect |
 | --- | --- |
-| `CONFIG_CPP=y` | C++ 支持（ncnn 是 C++） |
-| `CONFIG_NCNN=y` | 打开 ncnn 模块 |
-| `CONFIG_NCNN_BENCHMARK=y` | 编 benchncnn |
-| `CONFIG_SUN252I_F101_RVV=y` | 打开向量扩展，ncnn 使用 RVV 内核 |
-| `CONFIG_FPU=y` | 硬件浮点 |
-| `CONFIG_FPU_SHARING=y` | 多线程共用浮点寄存器 |
-| `CONFIG_PRINTK=y` | 用 `printk` 输出 |
-| `CONFIG_LOG=n` | 关掉日志子系统，省内存 |
-| `CONFIG_SHELL=n` | 关掉 shell |
-| `CONFIG_DEVMEM_SHELL=n` | 关掉 devmem shell |
-| `CONFIG_MAIN_STACK_SIZE=32768` | 主线程栈 32 KiB（含向量寄存器的中断帧） |
-| `CONFIG_COMMON_LIBC_MALLOC_ARENA_SIZE=-1` | 镜像以上的全部 RAM 作为 `malloc` 堆 |
-| `CONFIG_HEAP_MEM_POOL_SIZE=262144` | 内核堆 256 KiB |
-| `CONFIG_DISPLAY=n` | 关显示，省 1.2 MB 帧缓冲 |
-| `CONFIG_PWM=n`、`CONFIG_DMA=n`、`CONFIG_GPIO=n`、`CONFIG_WATCHDOG=n` | 关用不到的驱动 |
-| `CONFIG_G2D=n`、`CONFIG_USB_PHY_SUNXI=n`、`CONFIG_ADC=n` | 同上 |
-| `CONFIG_SPI=n`、`CONFIG_I2C=n`、`CONFIG_MIPI_DBI=n`、`CONFIG_WDT_SUNXI=n` | 同上 |
+| `CONFIG_CPP=y` | C++ support (ncnn is C++) |
+| `CONFIG_NCNN=y` | enable the ncnn module |
+| `CONFIG_NCNN_BENCHMARK=y` | build benchncnn |
+| `CONFIG_SUN252I_F101_RVV=y` | enable the vector extension, ncnn uses the RVV kernels |
+| `CONFIG_FPU=y` | hardware floating point |
+| `CONFIG_FPU_SHARING=y` | share floating-point registers between threads |
+| `CONFIG_PRINTK=y` | output with `printk` |
+| `CONFIG_LOG=n` | turn off the logging subsystem, saving memory |
+| `CONFIG_SHELL=n` | turn off the shell |
+| `CONFIG_DEVMEM_SHELL=n` | turn off the devmem shell |
+| `CONFIG_MAIN_STACK_SIZE=32768` | main thread stack 32 KiB (interrupt frame including the vector registers) |
+| `CONFIG_COMMON_LIBC_MALLOC_ARENA_SIZE=-1` | all RAM above the image as the `malloc` heap |
+| `CONFIG_HEAP_MEM_POOL_SIZE=262144` | kernel heap 256 KiB |
+| `CONFIG_DISPLAY=n` | turn off the display, saving 1.2 MB of frame buffer |
+| `CONFIG_PWM=n`, `CONFIG_DMA=n`, `CONFIG_GPIO=n`, `CONFIG_WATCHDOG=n` | turn off unused drivers |
+| `CONFIG_G2D=n`, `CONFIG_USB_PHY_SUNXI=n`, `CONFIG_ADC=n` | same as above |
+| `CONFIG_SPI=n`, `CONFIG_I2C=n`, `CONFIG_MIPI_DBI=n`, `CONFIG_WDT_SUNXI=n` | same as above |
 
-## 代码结构
+## Code structure
 
-| 文件 | 内容 |
+| File | Content |
 | --- | --- |
-| `zephyr-components/ncnn/CMakeLists.txt` | 模块入口：算出架构选项，用 `ExternalProject_Add` 编 ncnn 子工程，把生成的库作为导入库链入 |
-| `zephyr-components/ncnn/toolchain.cmake.in` | 子工程工具链文件：交叉编译器、`-march/-mabi`、精简 C 库头文件、`shim/` |
-| `zephyr-components/ncnn/ext/CMakeLists.txt` | 子工程：关掉不用的 ncnn 特性，embed `.param`，调用 `select_bench_models.py`，生成 `libncnn_bench.a` |
-| `zephyr-components/ncnn/ext/weaken.cmake` | 编完后改库里的符号：`operator new/delete` 弱化，向量检测符号改名 |
-| `zephyr-components/ncnn/ext/riscv_cpu.cpp` | 向量单元检测的替代实现 |
-| `zephyr-components/ncnn/ext/bench_entry.cpp` | `ncnn_bench_main()` 入口 |
-| `zephyr-components/ncnn/select_bench_models.py` | 编译期筛选、排序 benchncnn 里的网络 |
-| `zephyr-components/ncnn/ncnn_libc.c` | ncnn 需要而精简 C 库没有的函数 |
-| `zephyr-components/ncnn/shim/` | 补齐的头文件（`setjmp.h`、`fenv.h`、`math.h`、`sys/time.h` 等） |
-| `zephyr-components/ncnn/samples/benchmark/` | 示例：`prj.conf`、`CMakeLists.txt`、`src/main.c` |
+| `zephyr-components/ncnn/CMakeLists.txt` | module entry: works out the architecture options, builds the ncnn subproject with `ExternalProject_Add`, links the produced libraries in as imported libraries |
+| `zephyr-components/ncnn/toolchain.cmake.in` | subproject toolchain file: cross compiler, `-march/-mabi`, minimal C library headers, `shim/` |
+| `zephyr-components/ncnn/ext/CMakeLists.txt` | subproject: turns off unused ncnn features, embeds the `.param`, invokes `select_bench_models.py`, generates `libncnn_bench.a` |
+| `zephyr-components/ncnn/ext/weaken.cmake` | changes symbols in the library after the build: weakens `operator new/delete`, renames the vector-detection symbols |
+| `zephyr-components/ncnn/ext/riscv_cpu.cpp` | replacement implementation of vector-unit detection |
+| `zephyr-components/ncnn/ext/bench_entry.cpp` | the `ncnn_bench_main()` entry |
+| `zephyr-components/ncnn/select_bench_models.py` | filters and sorts the networks in benchncnn at build time |
+| `zephyr-components/ncnn/ncnn_libc.c` | the functions ncnn needs that the minimal C library lacks |
+| `zephyr-components/ncnn/shim/` | the headers filled in (`setjmp.h`, `fenv.h`, `math.h`, `sys/time.h`, etc.) |
+| `zephyr-components/ncnn/samples/benchmark/` | the example: `prj.conf`, `CMakeLists.txt`, `src/main.c` |
 
-### ncnn_libc.c 提供了什么
+### What ncnn_libc.c provides
 
-ncnn 用到、而精简 C 库没有的 C 函数都在这里：
+The C functions that ncnn uses and the minimal C library lacks are all here:
 
-- `sscanf()`：网络描述解析器用，支持 `%d %i %f %s %[集合] %n %%`、宽度、`*` 和 `l`；
-- 时钟（`gettimeofday` 一类）和 `usleep()`（转 `k_usleep()`）；
-- `fopen`、`fclose`、`feof`、`fgetc`、`fgets`、`fscanf` 等文件函数：全是桩，永远失败；
-- `__errno()`：给工具链的 libm 用；
-- `__wrap_malloc()`：链接时用 `-Wl,--wrap=malloc` 把 `malloc` 包起来，失败时记一个标志，供 benchmark 判断“这个网络是不是内存不够”。
+- `sscanf()`: used by the network-description parser, supports `%d %i %f %s %[set] %n %%`, width, `*` and `l`;
+- the clock (`gettimeofday` and the like) and `usleep()` (forwarded to `k_usleep()`);
+- file functions such as `fopen`, `fclose`, `feof`, `fgetc`, `fgets`, `fscanf`: all stubs that always fail;
+- `__errno()`: for the toolchain's libm;
+- `__wrap_malloc()`: wraps `malloc` at link time with `-Wl,--wrap=malloc`, and records a flag on failure so the benchmark can tell "whether this network ran out of memory".
 
-后一项的代码：
+The code of the last item:
 
 ```c
 extern void *__real_malloc(size_t size);
@@ -393,29 +393,29 @@ int ncnn_zephyr_oom_seen(void)
 }
 ```
 
-### 内存
+### Memory
 
-- 权重是 fp32，放在 RAM 里；层在 `create_pipeline` 时会再复制一份（有的还会转成 pack 布局）。
-- `CONFIG_COMMON_LIBC_MALLOC_ARENA_SIZE=-1` 把镜像以上的全部 RAM 给堆；16 MB PSRAM 的板子上约 13 MB，能装下几 MB 参数量级的网络。
-- ncnn 不检查这些分配，装不下的网络会失败或崩溃，所以 benchmark 才按权重大小设了上限并排序。
+- The weights are fp32 and live in RAM; the layers copy them once more during `create_pipeline` (some also convert them to a packed layout).
+- `CONFIG_COMMON_LIBC_MALLOC_ARENA_SIZE=-1` gives all RAM above the image to the heap; on a board with 16 MB of PSRAM that is about 13 MB, enough for networks on the order of a few MB of parameters.
+- ncnn does not check these allocations; a network that does not fit fails or crashes, which is why the benchmark sets a limit by weight size and sorts them.
 
-## 已知限制
+## Known limitations
 
-- <strong>不支持 int8</strong>：`NCNN_INT8=OFF`，名字带 `_int8` 的网络一律不跑。
-- <strong>不支持文件加载</strong>：只能从内存加载网络，`fopen()` 永远返回 NULL。
-- <strong>不支持多线程</strong>：`NCNN_THREADS=OFF`、`NCNN_OPENMP=OFF`，`num_threads` 只能是 1。
-- <strong>不支持 Vulkan/GPU</strong>：`NCNN_VULKAN=OFF`。
-- <strong>不支持 fp16 内核</strong>：`NCNN_ZFH=OFF`，`NCNN_XTHEADVECTOR=OFF`。
-- <strong>benchmark 没有真实权重</strong>，不能得到分类或检测结果，只有耗时。
-- 内存紧：堆约 13 MB，大网络（权重几十 MB 以上）放不下；默认上限 5 MB 的网络中，`nanodet_m`、`squeezenet` 在向量版固件里也因为 `malloc()` 失败没有结果。
-- 必须用精简 C 库（`CONFIG_MINIMAL_LIBC=y`），见编译一节。
+- <strong>No int8 support</strong>: `NCNN_INT8=OFF`, networks with `_int8` in their names are never run.
+- <strong>No file loading</strong>: networks can only be loaded from memory, `fopen()` always returns NULL.
+- <strong>No multithreading</strong>: `NCNN_THREADS=OFF`, `NCNN_OPENMP=OFF`, `num_threads` can only be 1.
+- <strong>No Vulkan/GPU support</strong>: `NCNN_VULKAN=OFF`.
+- <strong>No fp16 kernels</strong>: `NCNN_ZFH=OFF`, `NCNN_XTHEADVECTOR=OFF`.
+- <strong>The benchmark has no real weights</strong>, so it cannot produce classification or detection results, only timing.
+- Memory is tight: the heap is about 13 MB and large networks (tens of MB of weights or more) do not fit; among the networks within the default 5 MB limit, `nanodet_m` and `squeezenet` also have no result in the vector firmware because of a `malloc()` failure.
+- The minimal C library must be used (`CONFIG_MINIMAL_LIBC=y`), see the building section.
 
-## 排错
+## Troubleshooting
 
-| 现象 | 原因 |
+| Symptom | Cause |
 | --- | --- |
-| `ncnn sources missing, run: git submodule update --init` | 子模块没拉，见开头 |
-| 编译 `ncnn_libc.c` 报 `expected ')' before '*' token`（`feof`） | 应用的 `prj.conf` 里没有 `CONFIG_MINIMAL_LIBC=y`，默认的 C 库是 picolibc |
-| 某个网络没有结果行 | 运行期间有 `malloc()` 失败，结果被丢弃；缩小 `MAX_WEIGHTS_MB` 或用 `MODELS` 指定网络 |
-| 串口没有任何输出 | 确认下载方式和 UART1 接线，见 [编译与运行](../zephyr-build-run.md) |
-| 结果比表里慢很多 | 检查启动日志是不是 `no vector extension`，以及 `cooling_down` 是否为 0 |
+| `ncnn sources missing, run: git submodule update --init` | the submodule is not fetched, see the start |
+| build of `ncnn_libc.c` fails with `expected ')' before '*' token` (`feof`) | the application's `prj.conf` has no `CONFIG_MINIMAL_LIBC=y`; the default C library is picolibc |
+| a network has no result line | a `malloc()` failed during the run and the result was discarded; lower `MAX_WEIGHTS_MB` or select networks with `MODELS` |
+| no output on the serial port at all | check the download method and the UART1 wiring, see [Building and running](../zephyr-build-run.md) |
+| the results are much slower than in the table | check whether the boot log says `no vector extension`, and whether `cooling_down` is 0 |

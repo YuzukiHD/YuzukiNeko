@@ -2,43 +2,43 @@
 title: "PWM"
 ---
 
-F101 的通用 PWM 在 Zephyr 里是 `pwm` 设备，4 个通道，接口是标准的 `<zephyr/drivers/pwm.h>`，驱动是 `drivers/pwm/pwm_sunxi.c`。`yuzukineko` 板用它的通道 2（PD22）驱动 DSI 屏的背光。背光专用的 PWM_BL 模块（模拟调光、灌电流）是另一个独立的设备，见 [PWM-BL - 模拟背光](pwm-bl.md)。
+The general-purpose PWM of the F101 is the `pwm` device in Zephyr, with 4 channels, a standard `<zephyr/drivers/pwm.h>` interface and the driver `drivers/pwm/pwm_sunxi.c`. The `yuzukineko` board uses its channel 2 (PD22) to drive the backlight of the DSI display. The backlight-specific PWM_BL module (analog dimming, current sink) is a separate device, see [PWM-BL - analog backlight](pwm-bl.md).
 
-| 项目 | 内容 |
+| Item | Content |
 | --- | --- |
-| 通道 | 0…3 |
-| 参考时钟 | 周期和脉宽的单位是 24 MHz 的周期，`pwm_get_cycles_per_sec` 返回 24000000 |
-| 时钟源 | 周期不超过 334 ns 用 100 MHz，否则用 24 MHz |
-| 分频 | M 分频 1、2、4…256，再加 8 位预分频 1…256，16 位计数 1…65536 |
-| 极性 | `PWM_POLARITY_NORMAL`、`PWM_POLARITY_INVERTED` |
-| 停止 | 脉宽为 0 时关闭输出并关掉该通道的时钟门 |
-| 不支持 | 极性以外的标志（`-ENOTSUP`），输入捕获 |
+| Channels | 0…3 |
+| Reference clock | The unit of the period and the pulse is the cycle of 24 MHz, `pwm_get_cycles_per_sec` returns 24000000 |
+| Clock source | A period of no more than 334 ns uses 100 MHz, otherwise 24 MHz |
+| Divider | M divider 1, 2, 4…256, plus an 8-bit prescaler 1…256 and a 16-bit count 1…65536 |
+| Polarity | `PWM_POLARITY_NORMAL`, `PWM_POLARITY_INVERTED` |
+| Stop | A pulse of 0 turns the output off and gates the clock of that channel |
+| Unsupported | Flags other than the polarity (`-ENOTSUP`), input capture |
 
-## 设备树
+## Devicetree
 
-| 文件 | 作用 |
+| File | Purpose |
 | --- | --- |
-| `dts/bindings/pwm/allwinner,sunxi-pwm.yaml` | 绑定 |
-| `dts/riscv/allwinner/sun252i_f101.dtsi` | SoC 设备树：`pwm`，默认 `disabled` |
-| `boards/yuzukihd/yuzukineko/yuzukineko.dts` | 板级设备树：引脚组，打开 `pwm`，背光节点引用它 |
+| `dts/bindings/pwm/allwinner,sunxi-pwm.yaml` | Binding |
+| `dts/riscv/allwinner/sun252i_f101.dtsi` | SoC devicetree: `pwm`, `disabled` by default |
+| `boards/yuzukihd/yuzukineko/yuzukineko.dts` | Board devicetree: the pin group, enables `pwm`, the backlight node references it |
 
-### SoC 设备树：sun252i_f101.dtsi
+### SoC devicetree: sun252i_f101.dtsi
 
 ```c
 pwm: pwm@2000c00 {
-	/* 匹配驱动 pwm_sunxi.c 里的 DT_DRV_COMPAT allwinner_sunxi_pwm */
+	/* Matches DT_DRV_COMPAT allwinner_sunxi_pwm in the driver pwm_sunxi.c */
 	compatible = "allwinner,sunxi-pwm";
 
-	/* 引用它的 pwms 属性有 3 个格子：通道、周期（纳秒）、标志 */
+	/* A pwms property that references it has 3 cells: channel, period (nanoseconds), flags */
 	#pwm-cells = <3>;
 
-	/* 寄存器窗口：基址 0x02000c00，长度 0x400 */
+	/* Register window: base address 0x02000c00, length 0x400 */
 	reg = <0x02000c00 0x400>;
 
-	/* 通道数，固定为 4 */
+	/* Number of channels, fixed at 4 */
 	channels = <4>;
 
-	/* 总线时钟和复位 */
+	/* Bus clock and reset */
 	clocks = <&cctl CLK_BUS_PWM>;
 	resets = <&rctl RST_BUS_PWM>;
 
@@ -46,11 +46,11 @@ pwm: pwm@2000c00 {
 };
 ```
 
-### 板级设备树：yuzukineko.dts
+### Board devicetree: yuzukineko.dts
 
 ```c
 &pio {
-	/* PWM0-2 在 PD22，复用功能 4，接载板上 DSI 屏的背光 */
+	/* PWM0-2 is on PD22, multiplexing function 4, driving the backlight of the DSI panel on the carrier board */
 	pwm0_pins: pwm0_pins {
 		pwm0_group {
 			pinmux = <ALLWINNER_PINMUX(ALLWINNER_PIO_PD, 22, 4)>;
@@ -65,7 +65,7 @@ pwm: pwm@2000c00 {
 };
 
 / {
-	/* 背光：通道 2，周期 1 ms（1 kHz），极性反相（低电平点亮） */
+	/* Backlight: channel 2, period 1 ms (1 kHz), inverted polarity (lit by a low level) */
 	backlight_dsi: backlight-dsi {
 		compatible = "pwm-backlight";
 		pwms = <&pwm 2 1000000 PWM_POLARITY_INVERTED>;
@@ -75,11 +75,11 @@ pwm: pwm@2000c00 {
 };
 ```
 
-`pwms = <&pwm 2 1000000 PWM_POLARITY_INVERTED>` 里的三个数就是 `#pwm-cells = <3>` 规定的通道、周期（1 000 000 ns）和标志。别的外设用同样的写法引用 PWM，应用里 `PWM_DT_SPEC_GET()` 取出来。
+The three numbers in `pwms = <&pwm 2 1000000 PWM_POLARITY_INVERTED>` are the channel, the period (1 000 000 ns) and the flags that `#pwm-cells = <3>` prescribes. Other peripherals reference the PWM with the same notation, and an application takes it out with `PWM_DT_SPEC_GET()`.
 
-### 绑定
+### Binding
 
-`allwinner,sunxi-pwm.yaml`：
+`allwinner,sunxi-pwm.yaml`:
 
 ```yaml
 # Copyright (c) 2026 Yuzuki Tsuru
@@ -114,38 +114,38 @@ pwm-cells:
   - flags
 ```
 
-| 属性 | 必填 | 含义 |
+| Property | Required | Meaning |
 | --- | --- | --- |
-| `reg` | 是 | 寄存器窗口 |
-| `clocks` | 是 | 总线时钟 |
-| `resets` | 是 | 总线复位 |
-| `channels` | 否 | 通道数，固定为 4 |
-| `#pwm-cells` | 否 | 固定为 3：通道、周期、标志 |
-| `pinctrl-0`、`pinctrl-names` | 否 | 引脚，见 [GPIO 页的 pinctrl 一节](gpio.md#引脚复用pinctrl) |
+| `reg` | Yes | Register window |
+| `clocks` | Yes | Bus clock |
+| `resets` | Yes | Bus reset |
+| `channels` | No | Number of channels, fixed at 4 |
+| `#pwm-cells` | No | Fixed at 3: channel, period, flags |
+| `pinctrl-0`, `pinctrl-names` | No | Pins, see [the pinctrl section of the GPIO page](gpio.md#pin-multiplexing-pinctrl) |
 
-背光节点 `pwm-backlight`（`dts/bindings/display/sunxi/pwm-backlight.yaml`）的属性：
+The properties of the backlight node `pwm-backlight` (`dts/bindings/display/sunxi/pwm-backlight.yaml`):
 
-| 属性 | 必填 | 含义 |
+| Property | Required | Meaning |
 | --- | --- | --- |
-| `pwms` | 是 | PWM 通道、周期（纳秒）、标志 |
-| `max-level` | 否，255 | 最大亮度级 |
-| `default-level` | 否，255 | 启动时的亮度级 |
-| `min-level` | 否，0 | 最低亮度，单位是 1/`max-level` |
-| `enable-gpios` | 否 | 开关背光电源的 GPIO |
+| `pwms` | Yes | PWM channel, period (nanoseconds), flags |
+| `max-level` | No, 255 | Maximum brightness level |
+| `default-level` | No, 255 | Brightness level at boot |
+| `min-level` | No, 0 | Minimum brightness, in units of 1/`max-level` |
+| `enable-gpios` | No | GPIO that switches the backlight power |
 
 ## Kconfig
 
-| 选项 | 默认 | 含义 |
+| Option | Default | Meaning |
 | --- | --- | --- |
-| `CONFIG_PWM` | 板级 defconfig 里是 `y` | 打开 PWM 子系统 |
-| `CONFIG_PWM_SUNXI` | `y`（依赖 `DT_HAS_ALLWINNER_SUNXI_PWM_ENABLED`） | 编译通用 PWM 驱动，并选中 `CONFIG_PINCTRL` |
-| `CONFIG_PWM_SUNXI_INIT_PRIORITY` | 82 | 驱动的初始化优先级 |
+| `CONFIG_PWM` | `y` in the board defconfig | Enables the PWM subsystem |
+| `CONFIG_PWM_SUNXI` | `y` (depends on `DT_HAS_ALLWINNER_SUNXI_PWM_ENABLED`) | Builds the general-purpose PWM driver and selects `CONFIG_PINCTRL` |
+| `CONFIG_PWM_SUNXI_INIT_PRIORITY` | 82 | Initialization priority of the driver |
 
-## 接口详解
+## API reference
 
-下面每个接口一个小标题：原型、驱动的行为、示例函数和它在板子上的输出。演示用通道 2。它就是显示背光的通道，所以每一次调用屏幕亮度都会跟着变：先 10%、50%、90%，再回到默认亮度。示例来自文末的[完整演示程序](#完整演示程序)，里面的 `err()` 把返回值转成名字。
+Each interface below has a subheading of its own: the prototype, what the driver does, the example function and its output on the board. The demos use channel 2. It is the channel of the display backlight, so the screen brightness follows every call: first 10%, 50%, 90%, then back to the default level. The examples come from the [complete demo program](#complete-demo-program) at the end, whose `err()` turns the return value into a name.
 
-每次调用后程序读回通道的寄存器，打印驱动实际编程的值：时钟源、M 分频、预分频、极性、周期计数和有效计数。输出周期 = 时钟源频率 ÷ M 分频 ÷ 预分频 ÷ 周期计数。读寄存器的函数和用到的宏：
+After each call the program reads the registers of the channel back and prints the values the driver actually programmed: the clock source, the M divider, the prescaler, the polarity, the period count and the active count. Output period = clock source frequency ÷ M divider ÷ prescaler ÷ period count. The function that reads the registers and the macros it uses:
 
 ```c
 #define CH	2U
@@ -177,7 +177,7 @@ static void show_regs(void)
 int pwm_get_cycles_per_sec(const struct device *dev, uint32_t channel, uint64_t *cycles);
 ```
 
-返回 `pwm_set_cycles` 里“周期”的单位，每秒多少个周期：24000000。通道号超过 3 返回 `-EINVAL`。
+Returns the unit of "period" in `pwm_set_cycles`, how many cycles per second: 24000000. A channel number above 3 returns `-EINVAL`.
 
 ```c
 /* pwm_get_cycles_per_sec: the unit of the cycles of pwm_set_cycles */
@@ -205,15 +205,15 @@ static void demo_cycles_per_sec(void)
 int pwm_set_cycles(const struct device *dev, uint32_t channel, uint32_t period, uint32_t pulse, pwm_flags_t flags);
 ```
 
-周期和脉宽的单位是 24 MHz 的周期，`24000` 个周期就是 1 ms。`PWM_POLARITY_INVERTED` 时脉宽是周期里的低电平部分。第一次调用同时打开通道。
+The unit of the period and the pulse is the cycle of 24 MHz, so `24000` cycles are 1 ms. With `PWM_POLARITY_INVERTED` the pulse is the low part of the period. The first call also turns the channel on.
 
-| 参数 | 返回 |
+| Argument | Return |
 | --- | --- |
-| 通道 ≥ 4、周期 0、脉宽大于周期 | `-EINVAL` |
-| 极性以外的标志 | `-ENOTSUP` |
-| 周期换算不进 16 位计数加分频 | `-ERANGE` |
+| Channel ≥ 4, period 0, pulse longer than the period | `-EINVAL` |
+| A flag other than the polarity | `-ENOTSUP` |
+| A period that does not fit into the 16-bit count plus divider | `-ERANGE` |
 
-#### 示例：不同的占空比和极性
+#### Example: different duty cycles and polarities
 
 ```c
 /* pwm_set_cycles: period and pulse in cycles of the 24 MHz reference clock. 24000 cycles are
@@ -251,7 +251,7 @@ static void demo_set_cycles(void)
          enabled 1, clock source 0, divider 1/1, prescaler 1, normal, period 24000 counts, active 12000 counts
 ```
 
-#### 示例：驱动拒绝的参数
+#### Example: arguments the driver refuses
 
 ```c
 /* what the driver refuses */
@@ -290,9 +290,9 @@ static void demo_errors(void)
 int pwm_set(const struct device *dev, uint32_t channel, uint32_t period, uint32_t pulse, pwm_flags_t flags);
 ```
 
-周期和脉宽用纳秒，用 `PWM_USEC()`、`PWM_MSEC()`、`PWM_SEC()` 这些宏写。API 先按 24 MHz 换算成周期数（向下取整），再交给 `pwm_set_cycles`，所以短周期会被取整：200 ns 是 4.8 个周期，取整成 4 个周期（166.7 ns）；比一个周期（41.7 ns）还短的周期换算成 0，返回 `-EINVAL`。
+The period and the pulse are in nanoseconds, written with macros such as `PWM_USEC()`, `PWM_MSEC()` and `PWM_SEC()`. The API first converts them to cycles of 24 MHz (rounded down) and hands them to `pwm_set_cycles`, so short periods are rounded: 200 ns is 4.8 cycles, rounded to 4 cycles (166.7 ns); a period shorter than one cycle (41.7 ns) converts to 0 and returns `-EINVAL`.
 
-驱动按周期自动选时钟：周期不超过 334 ns 用 100 MHz 的时钟源，计数更细；否则用 24 MHz，从 M 分频 1 开始，一直到预分频，找到第一个使 16 位计数放得下的组合。50 Hz 的舵机信号用预分频 8，0.5 Hz 用 M 分频 4 加预分频 184。
+The driver picks the clock from the period automatically: a period of no more than 334 ns uses the 100 MHz clock source, which counts more finely; otherwise it uses 24 MHz, searching from M divider 1 up through the prescaler for the first combination into which the 16-bit count fits. A 50 Hz servo signal uses prescaler 8, and 0.5 Hz uses M divider 4 with prescaler 184.
 
 ```c
 /* pwm_set: the same in nanoseconds; the API converts to cycles of the 24 MHz reference, and a period
@@ -337,7 +337,7 @@ static void demo_set(void)
          enabled 1, clock source 1, divider 1/1, prescaler 1, normal, period 17 counts, active 8 counts
 ```
 
-最后一次返回 `-EINVAL`，通道的寄存器保持上一次的值。
+The last call returns `-EINVAL`, and the registers of the channel keep the values of the previous call.
 
 ### pwm_set_dt
 
@@ -345,7 +345,7 @@ static void demo_set(void)
 int pwm_set_dt(const struct pwm_dt_spec *spec, uint32_t period, uint32_t pulse);
 ```
 
-通道、设备和极性来自设备树节点的 `pwms` 属性，应用里不用写死通道号；周期和脉宽用纳秒。`spec` 用 `PWM_DT_SPEC_GET(node)` 取：
+The channel, the device and the polarity come from the `pwms` property of the devicetree node, so an application need not hard-code the channel number; the period and the pulse are in nanoseconds. `spec` is taken with `PWM_DT_SPEC_GET(node)`:
 
 ```c
 static const struct pwm_dt_spec bl = PWM_DT_SPEC_GET(DT_NODELABEL(backlight_dsi));
@@ -372,7 +372,7 @@ static void demo_set_dt(void)
 int pwm_set_pulse_dt(const struct pwm_dt_spec *spec, uint32_t pulse);
 ```
 
-用设备树节点里写的周期（`backlight_dsi` 是 1 ms），只给脉宽。脉宽为 0 是 Zephyr 里停止 PWM 的办法：驱动关掉通道的使能位和时钟门，再设一个非 0 的脉宽就重新打开。
+Uses the period written in the devicetree node (`backlight_dsi` is 1 ms) and gives only the pulse. A pulse of 0 is the way to stop PWM in Zephyr: the driver clears the enable bit of the channel and gates its clock, and a non-zero pulse sets it going again.
 
 ```c
 /* pwm_set_pulse_dt: the channel, period and polarity come from the pwms property of the devicetree
@@ -418,9 +418,9 @@ static void demo_stop(void)
          enabled 1, clock source 0, divider 1/1, prescaler 1, inverted, period 24000 counts, active 9035 counts
 ```
 
-## 完整演示程序
+## Complete demo program
 
-上面所有示例和日志都来自这一个程序。建一个目录，放进下面的文件，就可以像其他 Zephyr 应用一样编译。
+All the examples and logs above come from this one program. Create a directory, put the files below into it, and it builds like any other Zephyr application.
 
 ```text
 pwm_api/
@@ -653,7 +653,7 @@ int main(void)
 }
 ```
 
-### 编译和运行
+### Build and run
 
 ```sh
 . ~/f101-zephyr/env.sh
@@ -663,7 +663,7 @@ west build -b yuzukineko -d build/pwm-api pwm_api
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/drivers-pwm/build.cast" data-speed="6"></div>
 
-下载运行的方法见[编译与运行](../zephyr-build-run.md)。控制台 UART1 上的完整输出（运行期间屏幕亮度会变化）：
+See [Build and run](../zephyr-build-run.md) for how to download and run it. The complete output on the console UART1 (the screen brightness changes while it runs):
 
 ```text
 [clock] pwm_get_cycles_per_sec(channel 2) = 0, 24000000 Hz
