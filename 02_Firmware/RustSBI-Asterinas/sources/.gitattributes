@@ -1,0 +1,4 @@
+# Keep support-file checksums stable on every host.
+* text eol=lf
+# Unified diffs contain significant whitespace.
+*.patch -whitespace

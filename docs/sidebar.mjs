@@ -329,6 +329,18 @@ export const sidebar = [
     ]
   },
   {
+    "label": "Asterinas development",
+    "translations": { "zh-CN": "Asterinas 开发" },
+    "collapsed": false,
+    "items": [
+      {
+        "label": "Build from source",
+        "translations": { "zh-CN": "从源码构建" },
+        "slug": "dev/asterinas/asterinas-build"
+      }
+    ]
+  },
+  {
     "label": "Enclosure",
     "translations": { "zh-CN": "外壳" },
     "collapsed": false,
