@@ -1485,7 +1485,14 @@ int usbh_deinitialize(uint8_t busid);
 
 停止根 hub 线程，从总线链表里摘掉，成功返回 0。流程：往消息队列里发一个空消息，根 hub 线程收到后释放各个端口、`usb_hc_deinit`、删除消息队列、给信号量，自己退出；`usbh_hub_deinitialize` 等到信号量后删除信号量并发 `USBH_EVENT_DEINIT`。
 
-之前 `usbh_hub_deinitialize` 在线程已经删掉消息队列之后又删了一次，同一块内存释放两次，`k_heap_free` 在堆的等待队列上访问到被破坏的数据，板子出现 CPU 异常。现在去掉了 `usbh_hub_deinitialize` 里多余的那一次 `usb_osal_mq_delete`（`modules/lib/cherryusb/class/hub/usbh_hub.c`），调用正常返回。
+<strong>用 `west.yml` 钉住的上游 CherryUSB（`323ade2f`）时，这个函数会让板子崩溃。</strong>`usbh_hub_deinitialize` 在根 hub 线程已经删掉消息队列之后又删了一次，同一块内存释放两次，`k_heap_free` 在堆的等待队列上访问到被破坏的数据（`z_unpend_all`），出现 CPU 异常。这是上游代码的问题，不是移植层的问题。
+
+修法是去掉 `class/hub/usbh_hub.c` 里 `usbh_hub_deinitialize` 中多余的那一行 `usb_osal_mq_delete(bus->hub_mq);`，线程已经删过了。fork 没有带这个修改（`modules/lib/cherryusb` 是 west 拉下来的上游检出），所以：
+
+- 不要在应用里调用 `usbh_deinitialize`，OTG 模式切换角色时也会走到这里；
+- 一定要用，就在本地改上面这一行，或者等上游修复。
+
+下面的输出是本地改了这一行之后抓的。
 
 ```c
 /* usbh_deinitialize: stop the root hub thread and release the controller */
@@ -2191,7 +2198,7 @@ MSPower_DeviceWakeEnable: enabled on 0 instance(s)
 
 验证 `usbh_initialize`、`usbh_event_handler_t`、`usbh_find_hubport`、`lsusb`、`usbh_deinitialize`。换上主机演示的固件（设备树 overlay 关掉 OTG 设备控制器，打开 EHCI/OHCI），板子上看到 EHCI/OHCI 的能力寄存器信息（`n_ports:1`，EHCI 用伴随控制器处理低速和全速设备）、`event INIT`、根 hub 在 480M，端口 1 没有设备；`usbh_deinitialize` 返回 0 并发出 `event DEINIT`。
 
-`usbh_deinitialize` 之前这里会崩溃：根 hub 线程退出时已经把消息队列删了，`usbh_hub_deinitialize` 又删了一次，同一块内存释放两次，`k_heap_free` 里 `z_unpend_all` 访问到被破坏的堆结构，出现 CPU 异常。去掉 `class/hub/usbh_hub.c` 里多余的那次删除后，上面的输出才得到。
+`usbh_deinitialize` 在未修改的上游 CherryUSB 上会崩溃：根 hub 线程退出时已经把消息队列删了，`usbh_hub_deinitialize` 又删了一次，同一块内存释放两次，`k_heap_free` 里 `z_unpend_all` 访问到被破坏的堆结构，出现 CPU 异常。上面 `usbh_deinitialize` 返回 0 的输出，是本地去掉 `class/hub/usbh_hub.c` 里多余的那次删除之后抓的；fork 没有带这个修改，未修改的检出上跑主机演示，到最后一步会崩。
 
 ### 示例工程
 

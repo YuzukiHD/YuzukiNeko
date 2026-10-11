@@ -110,8 +110,48 @@ export const sidebar = [
         "collapsed": true,
         "items": [
           {
-            "label": "MP4 播放器",
+            "label": "MP4 Player - 视频播放器",
             "slug": "dev/zephyr/apps/mp4-player"
+          },
+          {
+            "label": "ncnn - 神经网络推理",
+            "slug": "dev/zephyr/apps/ncnn"
+          },
+          {
+            "label": "Doom - 毁灭战士游戏",
+            "slug": "dev/zephyr/apps/doom"
+          },
+          {
+            "label": "mGBA - GBA 模拟器",
+            "slug": "dev/zephyr/apps/mgba"
+          },
+          {
+            "label": "NES - FC 模拟器",
+            "slug": "dev/zephyr/apps/nes"
+          },
+          {
+            "label": "HTML 渲染器 - LiteHTML",
+            "slug": "dev/zephyr/apps/html"
+          },
+          {
+            "label": "安卓投屏 - Scrcpy",
+            "slug": "dev/zephyr/apps/android-mirror"
+          },
+          {
+            "label": "iOS 投屏 - AirPlay",
+            "slug": "dev/zephyr/apps/ios-mirror"
+          },
+          {
+            "label": "Win95 - Bochs x86 模拟",
+            "slug": "dev/zephyr/apps/win95"
+          },
+          {
+            "label": "LVGL - 图形界面",
+            "slug": "dev/zephyr/apps/lvgl"
+          },
+          {
+            "label": "USB 副屏 - 电脑扩展屏",
+            "slug": "dev/zephyr/apps/usb-display"
           }
         ]
       },

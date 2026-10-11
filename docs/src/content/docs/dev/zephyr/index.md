@@ -28,6 +28,16 @@ Zephyr 的板级和驱动代码在上面这个 fork 里，不在 YuzukiNeko 硬�
 | 页面 | 说明 |
 | --- | --- |
 | [MP4 播放器](apps/mp4-player.md) | 从 TF 卡播放 MP4：H.264 硬解 + AAC 软解 |
+| [ncnn - 神经网络推理](apps/ncnn.md) | ncnn 推理库 + RVV，benchmark |
+| [Doom - 游戏](apps/doom.md) | doomgeneric，触摸屏按键 |
+| [mGBA - GBA 模拟器](apps/mgba.md) | 缩放输出、触摸屏按键、声音 |
+| [NES - FC 模拟器](apps/nes.md) | nofrendo，触摸屏按键 |
+| [HTML 渲染器 - litehtml](apps/html.md) | HTML/CSS 渲染到 RGB565 |
+| [安卓投屏](apps/android-mirror.md) | ADB + scrcpy，H.264 硬解 |
+| [iOS 投屏 - AirPlay](apps/ios-mirror.md) | AirPlay 接收端，H.264 硬解 |
+| [Win95 - Bochs x86 模拟](apps/win95.md) | Bochs 486 模拟器 |
+| [LVGL - 图形界面](apps/lvgl.md) | 显示、触摸接入，demo 与帧率 |
+| [USB 副屏 - 电脑扩展屏](apps/usb-display.md) | 电脑把 USB 当副屏用 |
 | [UF2 拖放烧录](zephyr-uf2.md) | 制作 `.uf2` 与 Flash 布局 |
 | [RVV - RISC-V 向量扩展](zephyr-riscv-vector.md) | 向量扩展的配置、接口和示例 |
 

@@ -5,13 +5,13 @@ title: "MP4 播放器"
 从 TF 卡读取 MP4 文件并播放：H.264 视频由片上视频引擎解码，直接送到显示的视频层；AAC 音频用软件解码，从片上 codec 输出。示例是 `samples/drivers/mp4_player`，放在 F101 的 Zephyr fork 里，不需要 `zephyr-components`。
 
 ```mermaid
-flowchart LR
-    SD["TF 卡<br/>FAT / exFAT"] -->|fs_read| DEMUX["lib/mp4<br/>解封装"]
-    DEMUX -->|H.264 样本| VDEC["vdec<br/>视频引擎"]
-    VDEC -->|NV12 帧| VID["显示视频层"]
-    DEMUX -->|AAC 样本| AAC["OpenCORE<br/>软解码"]
-    AAC -->|PCM| I2S["I2S"] --> CODEC["片上 codec<br/>耳机 / 功放"]
-    I2S -.->|播放位置 = 主时钟| VID
+flowchart TB
+    SD["TF 卡<br/>FAT / exFAT"] -->|"fs_read"| DEMUX["lib/mp4<br/>解封装"]
+    DEMUX -->|"H.264 样本"| VDEC["vdec 视频引擎"]
+    DEMUX -->|"AAC 样本"| AAC["OpenCORE<br/>软解码"]
+    VDEC -->|"NV12 帧"| VID["显示视频层"]
+    AAC -->|"PCM"| I2S["I2S → 片上 codec<br/>耳机 / 功放"]
+    I2S -.->|"播放位置 = 主时钟"| VID
 ```
 
 音频是主时钟：每一帧画面等声音播放到它的时间戳才显示，晚得太多的帧直接丢掉。屏幕左上角叠一块统计面板（帧率、SD 读取速率、解码耗时等），用 LVGL 画在 ARGB 层上。
@@ -308,20 +308,20 @@ west build -b yuzukineko -d build/mp4 zephyr/samples/drivers/mp4_player -- -DCON
 ```mermaid
 flowchart TD
     A["fs_mount<br/>mp4_open"] --> B{"有 AAC 轨道<br/>且 44.1 / 48 kHz?"}
-    B -->|是| C["起音频线程"]
-    B -->|否| D["按无声播放"]
+    B -->|"是"| C["起音频线程"]
+    B -->|"否"| D["按无声播放"]
     C --> E["vdec_stream_open"]
     D --> E
     E --> F["mp4_next<br/>取视频样本"]
     F --> G["长度前缀 → Annex B<br/>vdec_stream_feed"]
     G --> H["vdec_stream_get_frame"]
-    H -->|拿到帧| I{"wait_for<br/>是否太晚?"}
-    H -->|EAGAIN| F
-    I -->|否| J["display_sunxi_show_yuv<br/>释放上一帧"]
-    I -->|晚于 DROP_US| K["丢弃，释放"]
+    H -->|"拿到帧"| I{"wait_for<br/>是否太晚?"}
+    H -->|"EAGAIN"| F
+    I -->|"否"| J["display_sunxi_show_yuv<br/>释放上一帧"]
+    I -->|"晚于 DROP_US"| K["丢弃，释放"]
     J --> F
     K --> F
-    F -->|ENODATA| L["vdec_stream_flush<br/>取空剩余帧，打印汇总"]
+    F -->|"ENODATA"| L["vdec_stream_flush<br/>取空剩余帧，打印汇总"]
 ```
 
 音频线程独立运行：`mp4_next()` 取 AAC 样本 → `PVMP4AudioDecodeFrame()` 解成每帧 1024 个采样的 PCM → 从内存槽 `pcm_slab` 取块 → `i2s_write()` 送进 I2S。先预填 6 块再 `I2S_TRIGGER_START`；`i2s_write()` 返回 `-EIO` 说明数据断了，计一次 underrun 并重新预填。

@@ -671,7 +671,7 @@ static int demo_connect(struct net_if *iface, const char *ssid, const char *psk,
 }
 ```
 
-输出里，请求被接受后接口状态是 `ASSOCIATING`，第二次请求返回 `-EBUSY`。驱动启动 wpa_supplicant 去找这个网络，找不到就一直重试扫描，约 30 秒后 wpa_supplicant 退出；之后驱动再等 40 秒（`JOIN_TIMEOUT_MS`），所以连接结果事件在请求发出约 70 秒后才来，`connect result 3` 即 `WIFI_STATUS_CONN_TIMEOUT`。中间重复的扫描日志（每 2.5 秒一行）在完整日志里略去了。驱动的日志里不打印口令：`Connect Wi-Fi` 那一行和发给 wpa_supplicant 的 `SET_NETWORK 0 psk ...` 命令里，口令都写成 `<hidden>`，SSID 照常打印。
+输出里，请求被接受后接口状态是 `ASSOCIATING`，第二次请求返回 `-EBUSY`。驱动启动 wpa_supplicant 去找这个网络，找不到就一直重试扫描，约 30 秒后 wpa_supplicant 退出；之后驱动再等 40 秒（`JOIN_TIMEOUT_MS`），所以连接结果事件在请求发出约 70 秒后才来，`connect result 3` 即 `WIFI_STATUS_CONN_TIMEOUT`。中间重复的扫描日志（每 2.5 秒一行）在完整日志里略去了。驱动会把 SSID 和口令明文打在日志里：`Connect Wi-Fi: …` 那一行和发给 wpa_supplicant 的 `SET_NETWORK 0 psk "…"` 命令里都能看到。日志里的 `password123` 是示例用的假口令。真实使用时，串口日志贴给别人之前先把这几行抹掉。
 
 ```text
 [connect] CONNECT_SSID is empty, no real network to join
@@ -1134,7 +1134,7 @@ aic8800: wifi_open fail, ret=-1
 下面是程序的完整串口日志，从 Zephyr 的启动横幅开始：前面是芯片启动（上电、SDIO 枚举、芯片识别、固件下载），然后是两次扫描、参数检查、对不存在的网络的连接和断开。
 
 ```text
-*** Booting Zephyr OS build b6f3dfe1a1f4 ***
+*** Booting Zephyr OS build 55f8a211e870 ***
 AIC8800 WiFi demo
 [iface] net_if_get_first_wifi = index 1, name wlan0, is up 0
 [mac] link address 02:00:00:a1:c8:00, length 6
@@ -1147,12 +1147,12 @@ AIC8800 WiFi demo
 [00:00:00.400,000] <inf> aic8800: aic_wifi_reset_power done
 [00:00:01.415,000] <inf> sd: Card does not support CMD8, assuming legacy card
 [00:00:01.426,000] <inf> aic8800: sdio card up: 2 functions
-[00:00:01.426,000] <inf> aic8800: sdio aggr_buf:0x40242090, aggr_buf_align:0x402420c0
+[00:00:01.426,000] <inf> aic8800: sdio aggr_buf:0x40241f90, aggr_buf_align:0x40241fc0
 [00:00:01.426,000] <inf> aic8800: sdio_host_init:enable func1 ok!
 [00:00:01.426,000] <inf> aic8800: sdio_host_init:aic_sdio_set_block_size 512
 [00:00:01.426,000] <inf> aic8800: sdio_host_init:sdio_set_block_size 512
 [00:00:01.426,000] <inf> aic8800: aicwf_sdio_reg_init
-[00:00:01.427,000] <inf> aic8800: sdio_host_init:host_int ok
+[00:00:01.426,000] <inf> aic8800: sdio_host_init:host_int ok
 [00:00:01.427,000] <inf> aic8800: fhost_rx_init
 [00:00:01.427,000] <inf> aic8800: rwnx_fdrv_init enter
 [00:00:01.427,000] <inf> aic8800: chipid 3
@@ -1161,69 +1161,66 @@ AIC8800 WiFi demo
 [00:00:01.428,000] <inf> aic8800: flag:20=88200002
 [00:00:01.428,000] <inf> aic8800: chip_id=c3, chip_sub_id=2
 [00:00:01.428,000] <inf> aic8800: ### Upload firmware, @ = 120000
-[00:00:01.428,000] <inf> aic8800: ### dst=0x400e8e9c, size=336848
-[00:00:01.590,000] <inf> aic8800: rd_version_val=06090101
-[00:00:01.594,000] <inf> aic8800: Read FW mem: 00120000
-[00:00:01.595,000] <inf> aic8800: cfm: [00120000] = 001a0000
-[00:00:01.595,000] <inf> aic8800: Start app: 00120000
-[00:00:01.618,000] <inf> aic8800: get_userconfig_xtal_cap:enable       :1
-[00:00:01.618,000] <inf> aic8800: get_userconfig_xtal_cap:xtal_cap     :24
-[00:00:01.618,000] <inf> aic8800: get_userconfig_xtal_cap:xtal_cap_fine:31
-[00:00:02.610,000] <inf> aic8800: rwnx_fdrv_init exit
-[00:00:02.610,000] <inf> aic8800: aic_cli_cmd_init
-[00:00:02.610,000] <inf> aic8800: use default mac addr, read efuse
-[00:00:02.610,000] <inf> aic8800: fhost_mac_addr cc:4e:6e:6c:47:9d
-[00:00:02.610,000] <inf> aic8800: Connect Wi-Fi: Empty_SSID, <hidden>
-[00:00:02.610,000] <inf> aic8800: net_if_add wl
-[00:00:02.611,000] <inf> aic8800: net_tx_buf_sema initial count:200
-[00:00:02.612,000] <inf> aic8800: cli_cmd_task
-[00:00:02.612,000] <inf> aic8800: wifi open ok
-[00:00:02.612,000] <inf> aic8800: aic_wifi_init ok
-[00:00:02.613,000] <inf> aic8800:  fhost_cntrl_cfgrwnx_scan resp.status 0
-[scan]  1  ch   2  rssi  -77  WPA2-PSK  e8:ac:23:9d:96:c0  "曾雄"
-[scan]  2  ch   6  rssi  -31  WPA2-PSK  98:97:cc:5a:28:b7  "ChinaNet-K5ii"
-[scan]  3  ch   6  rssi  -91  WPA2-PSK  d6:31:27:5a:d1:75  ""
-[scan]  4  ch   6  rssi  -91  WPA2-PSK  80:cf:a2:95:68:94  "Rich_KT"
-[scan]  5  ch   6  rssi  -72  WPA2-PSK  98:97:cc:5a:28:b1  "ChinaNet-K5ii"
-[scan]  6  ch  10  rssi  -84  WPA2-PSK  78:86:b6:bc:73:ce  "ChinaNet-Up3t"
-[scan]  7  ch  11  rssi  -82  WPA2-PSK  50:92:6a:17:9d:c5  "1701"
-[scan]  8  ch  36  rssi  -82  WPA2-PSK  d4:53:2a:ca:97:2e  "1701_5G"
-[scan]  9  ch  36  rssi  -81  WPA2-PSK  de:53:2a:ca:97:2e  ""
-[scan] 10  ch  36  rssi  -87  WPA2-PSK  50:92:6a:17:9d:c6  "1701_5G"
-[scan] 11  ch  36  rssi  -92  WPA2-PSK  4e:f7:70:57:c2:cb  ""
-[scan] 12  ch  36  rssi  -86  WPA2-PSK  5a:92:6a:17:9d:c6  ""
-[scan] 13  ch  48  rssi  -81  WPA2-PSK  98:97:cc:5a:28:b2  "ChinaNet-K5ii"
-[scan] 14  ch  48  rssi  -30  WPA2-PSK  98:97:cc:5a:28:b8  "ChinaNet-K5ii"
-[scan] 14 access points
+[00:00:01.428,000] <inf> aic8800: ### dst=0x400e8d88, size=336848
+[00:00:01.585,000] <inf> aic8800: rd_version_val=06090101
+[00:00:01.589,000] <inf> aic8800: Read FW mem: 00120000
+[00:00:01.590,000] <inf> aic8800: cfm: [00120000] = 001a0000
+[00:00:01.590,000] <inf> aic8800: Start app: 00120000
+[00:00:01.612,000] <inf> aic8800: get_userconfig_xtal_cap:enable       :1
+[00:00:01.612,000] <inf> aic8800: get_userconfig_xtal_cap:xtal_cap     :24
+[00:00:01.612,000] <inf> aic8800: get_userconfig_xtal_cap:xtal_cap_fine:31
+[00:00:02.606,000] <inf> aic8800: rwnx_fdrv_init exit
+[00:00:02.606,000] <inf> aic8800: aic_cli_cmd_init
+[00:00:02.606,000] <inf> aic8800: use default mac addr, read efuse
+[00:00:02.606,000] <inf> aic8800: fhost_mac_addr cc:4e:6e:6c:47:9d
+[00:00:02.606,000] <inf> aic8800: Connect Wi-Fi: Empty_SSID, Empty_Password
+[00:00:02.606,000] <inf> aic8800: net_if_add wl
+[00:00:02.606,000] <inf> aic8800: net_tx_buf_sema initial count:200
+[00:00:02.607,000] <inf> aic8800: cli_cmd_task
+[00:00:02.608,000] <inf> aic8800: wifi open ok
+[00:00:02.608,000] <inf> aic8800: aic_wifi_init ok
+[00:00:02.609,000] <inf> aic8800:  fhost_cntrl_cfgrwnx_scan resp.status 0
+[scan]  1  ch   2  rssi  -63  WPA2-PSK  e8:ac:23:9d:96:c0  "曾雄"
+[scan]  2  ch   1  rssi  -84  WPA2-PSK  f2:74:8d:5b:6a:ba  ""
+[scan]  3  ch   1  rssi  -94  WPA2-PSK  f4:bf:bb:8d:f2:42  "CMCC-2502"
+[scan]  4  ch   1  rssi  -94  WPA2-PSK  a6:1a:3a:af:99:2a  ""
+[scan]  5  ch   1  rssi  -94  WPA2-PSK  08:fa:28:74:ba:e0  "1303"
+[scan]  6  ch   6  rssi  -80  WPA2-PSK  d4:53:2a:ca:97:2f  "1701"
+[scan]  7  ch   6  rssi  -34  WPA2-PSK  98:97:cc:5a:28:b7  "ChinaNet-K5ii"
+[scan]  8  ch   6  rssi  -80  WPA2-PSK  de:53:2a:ca:97:2f  ""
+[scan]  9  ch   6  rssi  -94  WPA2-PSK  6c:d1:e5:e7:4f:10  "2303"
+[scan] 10  ch   6  rssi  -93  WPA2-PSK  2c:a7:9e:ac:60:ac  "1401"
+[scan] 11  ch   6  rssi  -94  WPA2-PSK  82:be:cc:da:62:30  ""
+[scan] 12  ch  10  rssi  -81  WPA2-PSK  78:86:b6:bc:73:ce  "ChinaNet-Up3t"
+[scan] 13  ch  11  rssi  -83  WPA2-PSK  50:92:6a:17:9d:c5  "1701"
+[scan] 14  ch  11  rssi  -92  WPA2-PSK  90:5e:44:21:c9:d4  "曾雄"
+[scan] 15  ch  11  rssi  -92  WPA2-PSK  44:f7:70:57:c2:ca  "Xiaomi_B2DB"
+[scan] 16  ch  11  rssi  -83  UNKNOWN   56:92:6a:17:9d:c5  ""
+[scan] 17  ch  36  rssi  -83  WPA2-PSK  e8:ac:23:9d:96:c4  "曾雄-5G"
+[scan] 18  ch  48  rssi  -86  WPA2-PSK  98:97:cc:5a:28:b2  "ChinaNet-K5ii"
+[scan] 19  ch  48  rssi  -33  WPA2-PSK  98:97:cc:5a:28:b8  "ChinaNet-K5ii"
+[scan] 19 access points
 [mac] link address cc:4e:6e:6c:47:9d, length 6
-[00:00:04.164,000] <inf> aic8800:  fhost_cntrl_cfgrwnx_scan resp.status 0
-[scan]  1  ch   2  rssi  -75  WPA2-PSK  e8:ac:23:9d:96:c0  "曾雄"
-[scan]  2  ch   1  rssi  -91  WPA2-PSK  98:9d:3e:51:bf:96  ""
-[scan]  3  ch   1  rssi  -86  WPA2-PSK  f2:74:8d:5b:6a:ba  ""
-[scan]  4  ch   3  rssi  -91  WPA2-PSK  50:ae:86:95:ff:87  "CMCC-FFJ4"
-[scan]  5  ch   6  rssi  -31  WPA2-PSK  98:97:cc:5a:28:b7  "ChinaNet-K5ii"
-[scan]  6  ch   6  rssi  -72  WPA2-PSK  98:97:cc:5a:28:b1  "ChinaNet-K5ii"
-[scan]  7  ch   6  rssi  -91  WPA2-PSK  d6:31:27:5a:d1:75  ""
-[scan]  8  ch   6  rssi  -92  WPA2-PSK  80:cf:a2:95:68:94  "Rich_KT"
-[scan]  9  ch   6  rssi  -90  WPA2-PSK  2a:17:09:fa:56:84  "Pang"
-[scan] 10  ch   6  rssi  -92  UNKNOWN   92:de:f9:22:36:7e  ""
-[scan] 11  ch  11  rssi  -80  WPA2-PSK  50:92:6a:17:9d:c5  "1701"
-[scan] 12  ch  10  rssi  -83  WPA2-PSK  78:86:b6:bc:73:ce  "ChinaNet-Up3t"
-[scan] 13  ch  11  rssi  -90  WPA2-PSK  f4:e4:51:26:5d:c8  "小扬"
-[scan] 14  ch  11  rssi  -85  WPA2-PSK  90:5e:44:21:c9:d4  "曾雄"
-[scan] 15  ch  11  rssi  -81  UNKNOWN   56:92:6a:17:9d:c5  ""
-[scan] 16  ch  36  rssi  -87  WPA2-PSK  50:92:6a:17:9d:c6  "1701_5G"
-[scan] 17  ch  36  rssi  -92  WPA2-PSK  4e:f7:70:57:c2:cb  ""
-[scan] 18  ch  36  rssi  -87  WPA2-PSK  5a:92:6a:17:9d:c6  ""
-[scan] 19  ch  36  rssi  -92  WPA3-SAE-HNP  14:ea:a2:5f:e6:d4  ""
-[scan] 20  ch  40  rssi  -87  WPA2-PSK  24:5a:5f:51:95:51  "1401卧室5G"
-[scan] 21  ch  44  rssi  -91  WPA2-PSK  68:77:24:7d:ef:c6  "1401-1"
-[scan] 22  ch  48  rssi  -81  WPA2-PSK  98:97:cc:5a:28:b2  "ChinaNet-K5ii"
-[scan] 23  ch  48  rssi  -31  WPA2-PSK  98:97:cc:5a:28:b8  "ChinaNet-K5ii"
-[scan] 24  ch  56  rssi  -94  WPA2-PSK  82:3f:5d:41:52:87  "1201客厅"
-[scan] 25  ch 157  rssi  -95  WPA2-PSK  a4:1a:3a:8f:99:2c  "小仙女家"
-[scan] 26  ch 157  rssi  -96  WPA2-PSK  a6:1a:3a:af:99:2c  ""
-[scan] 26 access points
+[00:00:04.157,000] <inf> aic8800:  fhost_cntrl_cfgrwnx_scan resp.status 0
+[scan]  1  ch   2  rssi  -64  WPA2-PSK  e8:ac:23:9d:96:c0  "曾雄"
+[scan]  2  ch   1  rssi  -93  WPA2-PSK  f4:bf:bb:8d:f2:42  "CMCC-2502"
+[scan]  3  ch   1  rssi  -92  WPA2-PSK  a6:1a:3a:af:99:2a  ""
+[scan]  4  ch   1  rssi  -84  WPA2-PSK  f0:74:8d:ab:6a:ba  "2518819"
+[scan]  5  ch   6  rssi  -78  WPA2-PSK  d4:53:2a:ca:97:2f  "1701"
+[scan]  6  ch   6  rssi  -80  UNKNOWN   da:53:2a:ca:97:2f  ""
+[scan]  7  ch   6  rssi  -79  WPA2-PSK  de:53:2a:ca:97:2f  ""
+[scan]  8  ch   6  rssi  -73  WPA2-PSK  98:97:cc:5a:28:b1  "ChinaNet-K5ii"
+[scan]  9  ch   6  rssi  -93  WPA2-PSK  6c:d1:e5:e7:4f:10  "2303"
+[scan] 10  ch   6  rssi  -93  WPA2-PSK  2c:a7:9e:ac:60:ac  "1401"
+[scan] 11  ch   6  rssi  -94  WPA2-PSK  82:be:cc:da:62:30  ""
+[scan] 12  ch   6  rssi  -34  WPA2-PSK  98:97:cc:5a:28:b7  "ChinaNet-K5ii"
+[scan] 13  ch  10  rssi  -82  WPA2-PSK  78:86:b6:bc:73:ce  "ChinaNet-Up3t"
+[scan] 14  ch  11  rssi  -82  WPA2-PSK  50:92:6a:17:9d:c5  "1701"
+[scan] 15  ch  11  rssi  -83  UNKNOWN   56:92:6a:17:9d:c5  ""
+[scan] 16  ch  36  rssi  -83  WPA2-PSK  e8:ac:23:9d:96:c4  "曾雄-5G"
+[scan] 17  ch  48  rssi  -85  WPA2-PSK  98:97:cc:5a:28:b2  "ChinaNet-K5ii"
+[scan] 18  ch  48  rssi  -33  WPA2-PSK  98:97:cc:5a:28:b8  "ChinaNet-K5ii"
+[scan] 18 access points
 [status] after the scan: state DISCONNECTED, mode STATION
 [connect] passphrase of 5 characters           = -22
 [connect] WPA3 (SAE)                           = -134
@@ -1232,31 +1229,31 @@ AIC8800 WiFi demo
 [connect] "f101-no-such-network": request accepted, waiting up to 90 s
 [status] while connecting: state ASSOCIATING, mode STATION
 [connect] second request while connecting      = -16
-[00:00:05.713,000] <inf> aic8800: Connect Wi-Fi: f101-no-such-network, <hidden>
-[00:00:05.713,000] <inf> aic8800: fhost_wpa_create_network
-[00:00:05.713,000] <inf> aic8800: fhost_wpa_start
-[00:00:05.716,000] <inf> aic8800: target->sem 4027aba0
-[00:00:05.716,000] <inf> aic8800: target.sem 0
-[00:00:05.716,000] <inf> aic8800: WPA task started for interface {FVIF-0}
-[00:00:05.716,000] <inf> aic8800: fhost_wpa_execute_cmd cmd:ADD_NETWORK
-[00:00:05.717,000] <inf> aic8800: fhost_wpa_execute_cmd cmd:SET_NETWORK 0 ssid "f101-no-such-network"
-[00:00:05.717,000] <inf> aic8800: fhost_wpa_execute_cmd cmd:SET_NETWORK 0 key_mgmt WPA-PSK
-[00:00:05.718,000] <inf> aic8800: fhost_wpa_execute_cmd cmd:SET_NETWORK 0 <hidden>
-[00:00:05.948,000] <inf> aic8800: fhost_wpa_execute_cmd cmd:SET_NETWORK 0 ieee80211w 1
-[00:00:05.949,000] <inf> aic8800: fhost_wpa_execute_cmd cmd:SET filter_ssids 1
-[00:00:05.949,000] <inf> aic8800: WPA network 0: created and configured
-[00:00:05.949,000] <inf> aic8800: fhost_wpa_execute_cmd cmd:ENABLE_NETWORK 0
-[00:00:05.950,000] <inf> aic8800:  fhost_cntrl_cfgrwnx_scan resp.status 0
-[00:00:33.983,000] <inf> aic8800:  fhost_cntrl_cfgrwnx_scan resp.status 0
-[00:00:35.951,000] <inf> aic8800: fhost_wpa_execute_cmd cmd:TERMINATE
-[00:00:35.954,000] <inf> aic8800: wpa_supplicant_main end
-[00:00:35.954,000] <inf> aic8800: WPA enter FHOST_WPA_STATE_STOPPED
-[00:00:35.955,000] <inf> aic8800: target->sem 4028e040
-[00:00:35.955,000] <inf> aic8800: fhost_wpa_exit_sema 4028e020
-[00:00:35.955,000] <inf> aic8800: fhost_wpa_kill in
-[00:00:35.955,000] <err> aic8800: [AIC] fhost_sta_cfg fail [-1]
+[00:00:05.705,000] <inf> aic8800: Connect Wi-Fi: f101-no-such-network, password123
+[00:00:05.705,000] <inf> aic8800: fhost_wpa_create_network
+[00:00:05.705,000] <inf> aic8800: fhost_wpa_start
+[00:00:05.708,000] <inf> aic8800: target->sem 4027aaa0
+[00:00:05.708,000] <inf> aic8800: target.sem 0
+[00:00:05.708,000] <inf> aic8800: WPA task started for interface {FVIF-0}
+[00:00:05.708,000] <inf> aic8800: fhost_wpa_execute_cmd cmd:ADD_NETWORK
+[00:00:05.709,000] <inf> aic8800: fhost_wpa_execute_cmd cmd:SET_NETWORK 0 ssid "f101-no-such-network"
+[00:00:05.709,000] <inf> aic8800: fhost_wpa_execute_cmd cmd:SET_NETWORK 0 key_mgmt WPA-PSK
+[00:00:05.710,000] <inf> aic8800: fhost_wpa_execute_cmd cmd:SET_NETWORK 0 psk "password123"
+[00:00:05.942,000] <inf> aic8800: fhost_wpa_execute_cmd cmd:SET_NETWORK 0 ieee80211w 1
+[00:00:05.943,000] <inf> aic8800: fhost_wpa_execute_cmd cmd:SET filter_ssids 1
+[00:00:05.943,000] <inf> aic8800: WPA network 0: created and configured
+[00:00:05.943,000] <inf> aic8800: fhost_wpa_execute_cmd cmd:ENABLE_NETWORK 0 
+[00:00:05.945,000] <inf> aic8800:  fhost_cntrl_cfgrwnx_scan resp.status 0
+[00:00:33.973,000] <inf> aic8800:  fhost_cntrl_cfgrwnx_scan resp.status 0
+[00:00:35.945,000] <inf> aic8800: fhost_wpa_execute_cmd cmd:TERMINATE
+[00:00:35.949,000] <inf> aic8800: wpa_supplicant_main end
+[00:00:35.949,000] <inf> aic8800: WPA enter FHOST_WPA_STATE_STOPPED
+[00:00:35.949,000] <inf> aic8800: target->sem 4028df40
+[00:00:35.949,000] <inf> aic8800: fhost_wpa_exit_sema 4028df20
+[00:00:35.949,000] <inf> aic8800: fhost_wpa_kill in
+[00:00:35.949,000] <err> aic8800: [AIC] fhost_sta_cfg fail [-1]
 [connect] "f101-no-such-network": connect result 3
-[00:01:15.955,000] <inf> aic8800: reord_deinit_sta mac  cc:4e:6e
+[00:01:15.949,000] <inf> aic8800: reord_deinit_sta mac  cc:4e:6e
 [disconnect] request returned 0, no event (nothing was connected)
 [status] after the disconnect: state DISCONNECTED, mode STATION
 done
