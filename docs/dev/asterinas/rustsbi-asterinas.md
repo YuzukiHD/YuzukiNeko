@@ -17,7 +17,7 @@ BROM → SyterKit → RustSBI → Asterinas → BusyBox shell
 | 组件 | 在本镜像中的作用 |
 | --- | --- |
 | BROM | 芯片内置的启动代码，进入 FEL 下载模式或加载启动程序 |
-| SyterKit | 初始化 PSRAM，从 SPI NOR 加载后续镜像并交接执行 |
+| SyterKit | 初始化 RAM，从 SPI NOR 加载后续镜像并交接执行 |
 | RustSBI | 向内核提供 SBI 固件服务接口 |
 | Asterinas | 运行操作系统内核，管理内存、进程等资源 |
 | BusyBox | 提供交互式 shell 和基础命令，供用户运行示例 |
@@ -28,7 +28,7 @@ BROM → SyterKit → RustSBI → Asterinas → BusyBox shell
 
 ### 准备软硬件
 
-- YuzukiNeko F101-S3 开发板，配置为 16 MiB PSRAM 和 16 MiB SPI NOR。
+- YuzukiNeko F101-S3 开发板，配置为 16 MiB RAM 和 16 MiB SPI NOR。
 - 一根可传输数据的 USB 线，用于开发板供电和 FEL 下载。
 - Yuzuki AvaotaUART，或者通用的 <strong>3.3 V 逻辑电平</strong>的 USB 转 TTL 串口适配器、连接线及串口终端软件，用于观察启动日志和输入命令。
 - 一台刷机主机：<strong>Windows、Linux、macOS 都可以。</strong> 先按[FEL 下载模式与工具](../../boot/fel.md)装好 xfel 或 rfel，以及相应的 USB 驱动或访问权限。
@@ -179,7 +179,7 @@ All 9 Asterinas examples completed.
 
 | 文件 | 用途 | 大小（字节） |
 | --- | --- | ---: |
-| `syterkit-3bf4f61f.bin` | 带 eGON 启动头的 SyterKit；初始化 PSRAM 并加载后续镜像 | 49,152 |
+| `syterkit-3bf4f61f.bin` | 带 eGON 启动头的 SyterKit；初始化 RAM 并加载后续镜像 | 49,152 |
 | `rustsbi-0.4.1.bin` | RustSBI 0.4.1，针对 Neko 的 RV32 标量扩展定制，WARN 级日志 | 270,336 |
 | `asterinas.bin` | Asterinas RV32 内核原始镜像 | 2,762,160 |
 | `yuzukineko-rustsbi-asterinas.img` | 完整启动镜像：以上三者 + 设备树 + 含 BusyBox 的 initramfs | 7,143,424 |

@@ -2,6 +2,8 @@
 
 The F101 BROM contains a USB download mode called **FEL**. In FEL, the host can read and write the SPI NOR over USB, load programs into memory and run them. Every download method on this board (xfel, rfel, booting the UF2 loader from FEL) is built on it.
 
+?> **xfel and rfel are the same kind of tool:** both are host-side download tools that talk to the board over FEL, with the same subcommands and the same functionality. **Install either one**; you do not need both. The commands in this site use xfel as the example; with rfel, replace `xfel` with `rfel`.
+
 ## Entering FEL
 
 1. Hold the **FEL** button on the board.
@@ -75,6 +77,8 @@ The source must include commit `11544b3` (`feat(rfel): support F101 chip`) or ne
 
 If the tool cannot open the FEL device, use [Zadig](https://zadig.akeo.ie/) to install the **WinUSB** driver for the **FEL USB device (VID `1f3a`, PID `efe8`)**. Check the VID/PID before selecting the device, and **do not change the driver of your USB serial adapter**.
 
+![Zadig installing the WinUSB driver for the FEL USB device](/assets/images/zadig.png)
+
 ### Linux
 
 When rfel reports insufficient USB permissions, you can run it with administrator rights using its absolute path, or configure a udev rule. On desktop systems using systemd-logind, create `/etc/udev/rules.d/70-allwinner-fel.rules`:
@@ -101,7 +105,7 @@ No WinUSB or udev rules are needed.
 
 The rfel subcommands have the same names; just replace `xfel` with `rfel`.
 
-!> **Limits of some commands**: `xfel ddr f101-s3` (initialize PSRAM) followed by `xfel write` + `xfel exec` loads a program straight into PSRAM and runs it without touching Flash. This is the usual flow when developing bare-metal programs such as Zephyr, and it requires **a fresh power-up into FEL every time**, because FEL is no longer available after `exec`. The Flash-writing flow (the firmware flashing on this site) does **not** need `ddr`.
+!> **Limits of some commands**: `xfel ddr f101-s3` (initialize RAM) followed by `xfel write` + `xfel exec` loads a program straight into RAM and runs it without touching Flash. This is the usual flow when developing bare-metal programs such as Zephyr, and it requires **a fresh power-up into FEL every time**, because FEL is no longer available after `exec`. The Flash-writing flow (the firmware flashing on this site) does **not** need `ddr`.
 
 ## Common Errors
 

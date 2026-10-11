@@ -24,7 +24,7 @@ YuzukiNeko is a development board based on the **Allwinner F101 series SoC**, us
 
 | Item | Specification |
 | --- | --- |
-| SoC | F101S3, XuanTie C907 RISC-V CPU (rv32imac), QFN68 (7 mm × 7 mm) |
+| SoC | F101S3, XuanTie C907 RISC-V CPU (rv32imacfdv, also supports 64-bit), QFN68 (7 mm × 7 mm) |
 | Cache | 32 KB I-cache + 16 KB D-cache |
 | Memory | SiP 16-bit PSRAM, up to 16 MiB (16 MiB on this board; V1.5 targets a 32 MiB configuration) |
 | Storage | 16 MiB external NOR Flash, XIP supported |

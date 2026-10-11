@@ -17,31 +17,21 @@
   - [RustSBI + Asterinas](/dev/asterinas/rustsbi-asterinas.md)
 - 开发
   - [软件方案总览](/dev/overview.md)
-  - Zephyr
+  - Zephyr 开发
     - [简介](/dev/zephyr/index.md)
-    - [板级](/dev/zephyr/boards.md)
-    - [编译与运行](/dev/zephyr/build-run.md)
-    - [引脚冲突](/dev/zephyr/pin-conflicts.md)
-    - [示例](/dev/zephyr/samples.md)
-    - MicroPython
-      - [简介](/dev/zephyr/micropython/index.md)
-    - mGBA
-      - [简介](/dev/zephyr/mgba/index.md)
-    - NES
-      - [简介](/dev/zephyr/nes/index.md)
-    - Doom
-      - [简介](/dev/zephyr/doom/index.md)
-    - UF2 拖放烧录
-      - [简介](/dev/zephyr/uf2/index.md)
-      - [制作 .uf2](/dev/zephyr/uf2/make-uf2.md)
-      - [Flash 布局与首次安装](/dev/zephyr/uf2/flash-layout.md)
+    - [配置开发环境](/dev/zephyr/zephyr-setup-env.md)
+    - [获取 Zephyr 代码](/dev/zephyr/zephyr-get-source.md)
+    - [编译与运行](/dev/zephyr/zephyr-build-run.md)
+    - [UF2 拖放烧录](/dev/zephyr/zephyr-uf2.md)
+    - Zephyr 应用
+      - [MP4 播放器](/dev/zephyr/apps/mp4-player.md)
+    - Zephyr 驱动
+      - [视频引擎 vdec](/dev/zephyr/drivers/vdec.md)
   - Linux 开发
     - [简介](/dev/linux/index.md)
     - [手动构建](/dev/linux/linux-manual.md)
     - [手动构建 RV64I](/dev/linux/linux-manual-rv64.md)
     - [Linux + Buildroot](/dev/linux/linux-buildroot.md)
-  - Asterinas 开发
-    - [简介](/dev/asterinas/index.md)
 - 外壳
   - [3D 打印外壳](/shell.md)
 - 参考

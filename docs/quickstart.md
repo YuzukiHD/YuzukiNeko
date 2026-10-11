@@ -62,5 +62,5 @@
 ## 下一步
 
 - 想接外设 → [引脚排布](hardware/pinout.md)
-- 想拖放 `.uf2` 烧录 → [UF2 拖放烧录](dev/zephyr/uf2/index.md)
+- 想拖放 `.uf2` 烧录 → [UF2 拖放烧录](dev/zephyr/zephyr-uf2.md)
 - 遇到问题 → [常见问题](faq.md)

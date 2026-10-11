@@ -4,17 +4,17 @@ The repository's `03_Shell_3D/` provides an enclosure for the board. The file is
 
 ## Preview
 
-![Assembled enclosure, USB-C end](/assets/shell/assembled.png)
+![Assembled enclosure, USB-C end](/assets/images/shell/assembled.png)
 
-![Assembled enclosure, microSD end](/assets/shell/tf_end.png)
+![Assembled enclosure, microSD end](/assets/images/shell/tf_end.png)
 
-![Inside of the top shell](/assets/shell/inside.png)
+![Inside of the top shell](/assets/images/shell/inside.png)
 
-![Exploded view](/assets/shell/exploded.png)
+![Exploded view](/assets/images/shell/exploded.png)
 
-![Flat bottom shell with chamfered pin tips](/assets/shell/bottom_supports.png)
+![Flat bottom shell with chamfered pin tips](/assets/images/shell/bottom_supports.png)
 
-![Symmetric side grip](/assets/shell/side_grip.png)
+![Symmetric side grip](/assets/images/shell/side_grip.png)
 
 ## Printing Tips
 

@@ -6,7 +6,7 @@ The repository directory `02_Firmware/Linux-Buildroot/` provides SPI NOR boot im
 BROM → SyterKit → OpenSBI → Linux → BusyBox
 ```
 
-Two images are provided, one per CPU mode: **RV32** (C907, `ilp32d`) and **RV64I** (`lp64`). The root filesystem is a SquashFS image with a writable JFFS2 overlay on top, so changes made on the board survive a reboot. The images are built for boards with **16 MiB PSRAM + 16 MiB SPI NOR**.
+Two images are provided, one per CPU mode: **RV32** (C907, `ilp32d`) and **RV64I** (`lp64`). The root filesystem is a SquashFS image with a writable JFFS2 overlay on top, so changes made on the board survive a reboot. The images are built for boards with **16 MiB RAM + 16 MiB SPI NOR**.
 
 To build these images yourself, see [Linux + Buildroot](linux-buildroot.md) (one command) and [Manual Build](linux-manual.md) (step by step).
 

@@ -70,7 +70,7 @@ The full image covers the **whole 16 MiB**, including the overlay partition, so 
 | System program header page (UF2 downloader) | `0x030000` |
 | Application header page (Zephyr application) | `0x200000` (up to about `0x4CF000` bytes) |
 
-See [UF2 Drag-and-Drop Flashing](../dev/zephyr/uf2/index.md) for details.
+See [UF2 Drag-and-Drop Flashing](../dev/zephyr/uf2/make-uf2.md) for details.
 
 ?> The regions in the tables above overlap (for example, they all place SyterKit starting at `0x000000`), so **do not mix them on the same Flash**. When switching from one layout to another, write the complete boot part of the new layout and read it back with `xfel spinor read` to confirm.
 

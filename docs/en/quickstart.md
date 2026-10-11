@@ -57,10 +57,10 @@ For the full description and how to replace individual components, see [RustSBI 
 
 ## Route B: develop with Zephyr
 
-Suited if you need a full RTOS, drivers and multimedia features. The Zephyr `yuzukineko` board support is in the F101 workspace, see [Zephyr](dev/zephyr/index.md).
+Suited if you need a full RTOS, drivers and multimedia features. The Zephyr `yuzukineko` board support is in the F101 workspace, see [Zephyr](dev/zephyr/build-run.md).
 
 ## Next steps
 
 - Want to connect peripherals → [Pinout](hardware/pinout.md)
-- Want to flash by dragging and dropping a `.uf2` → [UF2 Drag-and-Drop Flashing](dev/zephyr/uf2/index.md)
+- Want to flash by dragging and dropping a `.uf2` → [UF2 Drag-and-Drop Flashing](dev/zephyr/uf2/make-uf2.md)
 - Running into problems → [FAQ](faq.md)

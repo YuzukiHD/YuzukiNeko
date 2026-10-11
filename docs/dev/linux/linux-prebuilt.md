@@ -6,7 +6,7 @@
 BROM → SyterKit → OpenSBI → Linux → BusyBox
 ```
 
-按 CPU 模式提供两个镜像：<strong>RV32</strong>（C907，`ilp32d`）和 <strong>RV64I</strong>（`lp64`）。根文件系统是 SquashFS，上面叠一层可写的 JFFS2 overlay，所以在板子上做的改动重启后仍在。镜像针对 <strong>16 MiB PSRAM + 16 MiB SPI NOR</strong> 的板子构建。
+按 CPU 模式提供两个镜像：<strong>RV32</strong>（C907，`ilp32d`）和 <strong>RV64I</strong>（`lp64`）。根文件系统是 SquashFS，上面叠一层可写的 JFFS2 overlay，所以在板子上做的改动重启后仍在。镜像针对 <strong>16 MiB RAM + 16 MiB SPI NOR</strong> 的板子构建。
 
 想自己构建这些镜像，见 [Linux + Buildroot](linux-buildroot.md)（一条命令）和 [手动构建](linux-manual.md)（逐步构建）。
 

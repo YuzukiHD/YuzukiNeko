@@ -24,7 +24,7 @@ YuzukiNeko 是一块基于 <strong>Allwinner F101 系列 SoC</strong> 的开发�
 
 | 项目 | 规格 |
 | --- | --- |
-| SoC | F101S3，XuanTie C907 RISC-V CPU（rv32imac），QFN68（7 mm × 7 mm） |
+| SoC | F101S3，XuanTie C907 RISC-V CPU（rv32imacfdv，同时支持 64 位），QFN68（7 mm × 7 mm） |
 | 缓存 | 32 KB I-cache + 16 KB D-cache |
 | 内存 | SiP 16 位 PSRAM，最大 16 MiB（本板 16 MiB；V1.5 面向 32 MiB 配置） |
 | 存储 | 16 MiB 外部 NOR Flash，支持 XIP |

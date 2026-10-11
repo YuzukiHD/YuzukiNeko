@@ -70,7 +70,7 @@ Flash 的划分取决于你装的是哪套软件。同一块板子可以有以�
 | 系统程序头页（UF2 下载器） | `0x030000` |
 | 应用头页（Zephyr 应用） | `0x200000`（最大约 `0x4CF000` 字节） |
 
-详见 [UF2 拖放烧录](../dev/zephyr/uf2/index.md)。
+详见 [UF2 拖放烧录](../dev/zephyr/zephyr-uf2.md)。
 
 ?> 上面几张表里的区域有重叠（例如都从 `0x000000` 开始放 SyterKit），<strong>不要在同一块 Flash 上混着写</strong>。从一种布局换到另一种时，写入新布局的完整引导部分，并用 `xfel spinor read` 回读确认。
 

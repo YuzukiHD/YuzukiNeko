@@ -2,6 +2,8 @@
 
 F101 的 BROM 里有一个 USB 下载模式，叫 <strong>FEL</strong>。在 FEL 下，主机可以通过 USB 读写 SPI NOR、把程序载入内存并运行。本板的所有下载方式（xfel、rfel、从 FEL 启动 UF2 加载器）都基于它。
 
+?> <strong>xfel 和 rfel 是同一类工具：</strong>都是在主机上通过 FEL 与板子通信的下载工具，子命令同名，功能相同。<strong>二选一安装即可</strong>，不需要两个都装。本站的命令都以 xfel 为例，用 rfel 时把 `xfel` 换成 `rfel`。
+
 ## 进入 FEL
 
 1. 按住板上的 <strong>FEL</strong> 键。
@@ -75,6 +77,8 @@ rfel --help
 
 如果工具打不开 FEL 设备，用 [Zadig](https://zadig.akeo.ie/) 为 <strong>FEL USB 设备（VID `1f3a`，PID `efe8`）</strong> 安装 <strong>WinUSB</strong> 驱动。选设备前先核对 VID/PID，<strong>不要改动你的 USB 串口适配器的驱动</strong>。
 
+![Zadig 为 FEL USB 设备安装 WinUSB 驱动](/assets/images/zadig.png)
+
 ### Linux
 
 rfel 报告 USB 权限不足时，可以用绝对路径加管理员权限运行，或配置 udev 规则。在使用 systemd-logind 的桌面系统上，创建 `/etc/udev/rules.d/70-allwinner-fel.rules`：
@@ -101,7 +105,7 @@ SUBSYSTEM=="usb", ATTR{idVendor}=="1f3a", ATTR{idProduct}=="efe8", TAG+="uaccess
 
 rfel 的子命令与之同名，把 `xfel` 换成 `rfel` 即可。
 
-!> <strong>某些命令的限制</strong>：`xfel ddr f101-s3`（初始化 PSRAM）加 `xfel write` + `xfel exec` 可以把程序直接载入 PSRAM 运行，不经 Flash，是开发 Zephyr 等裸机程序时的常用流程；这条流程需要<strong>每次重新上电进入 FEL</strong>，因为 `exec` 之后 FEL 不再可用。写 Flash 的流程（本站的固件刷写）<strong>不需要</strong>执行 `ddr`。
+!> <strong>某些命令的限制</strong>：`xfel ddr f101-s3`（初始化 RAM）加 `xfel write` + `xfel exec` 可以把程序直接载入 RAM 运行，不经 Flash，是开发 Zephyr 等裸机程序时的常用流程；这条流程需要<strong>每次重新上电进入 FEL</strong>，因为 `exec` 之后 FEL 不再可用。写 Flash 的流程（本站的固件刷写）<strong>不需要</strong>执行 `ddr`。
 
 ## 常见错误
 

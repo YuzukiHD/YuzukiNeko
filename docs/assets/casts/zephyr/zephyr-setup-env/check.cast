@@ -1,0 +1,4 @@
+{"version": 2, "width": 110, "height": 28, "timestamp": 1791686294, "idle_time_limit": 2.0, "env": {"SHELL": "/bin/bash", "TERM": "xterm-256color"}}
+[1e-06, "o", "\u001b[32m$\u001b[0m . ~/f101-zephyr/env.sh\r\n"]
+[0.552422, "o", "\u001b[32m$\u001b[0m which west riscv64-unknown-elf-gcc\r\n"]
+[0.953516, "o", "/home/user/f101-zephyr/.venv/bin/west\r\n/home/user/f101-zephyr/toolchains/Xuantie-900-gcc-elf-newlib-x86_64-V3.2.0/bin/riscv64-unknown-elf-gcc\r\n"]

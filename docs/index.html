@@ -6,9 +6,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
   <meta name="description" content="YuzukiNeko Pico 开发板（Allwinner F101 / XuanTie C907 RISC-V）使用文档">
   <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify@4/lib/themes/vue.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/asciinema-player@3.8.0/dist/bundle/asciinema-player.css">
   <style>
     .markdown-section { max-width: 920px; }
     .markdown-section table { display: table; width: 100%; }
+    .asciinema-cast { margin: 1em 0; }
+    .markdown-section .mermaid { text-align: center; margin: 1em 0; }
   </style>
 </head>
 <body>
@@ -39,9 +42,48 @@
         previousText: '上一页 / Previous',
         nextText: '下一页 / Next',
         crossChapter: true
-      }
+      },
+      plugins: [
+        // Turn ```mermaid code blocks into diagrams.
+        function (hook) {
+          hook.doneEach(function () {
+            if (!window.mermaid) return;
+            var nodes = [];
+            document.querySelectorAll('pre[data-lang="mermaid"]').forEach(function (pre) {
+              var div = document.createElement('div');
+              div.className = 'mermaid';
+              // take the <code> text only: docsify-copy-code adds a button label inside <pre>
+              var code = pre.querySelector('code');
+              div.textContent = (code || pre).textContent;
+              pre.parentNode.replaceChild(div, pre);
+              nodes.push(div);
+            });
+            if (nodes.length) window.mermaid.run({ nodes: nodes });
+          });
+        },
+        // Turn <div class="asciinema-cast" data-src="assets/casts/x.cast"></div>
+        // into an asciinema player. data-src is relative to index.html.
+        function (hook) {
+          hook.doneEach(function () {
+            if (!window.AsciinemaPlayer) return;
+            document.querySelectorAll('.asciinema-cast:not([data-ready])').forEach(function (el) {
+              el.setAttribute('data-ready', '1');
+              window.AsciinemaPlayer.create(el.getAttribute('data-src'), el, {
+                rows: 28,
+                fit: 'width',
+                idleTimeLimit: 2,
+                speed: parseFloat(el.getAttribute('data-speed') || '1'),
+                preload: true
+              });
+            });
+          });
+        }
+      ]
     };
   </script>
+  <script src="//cdn.jsdelivr.net/npm/asciinema-player@3.8.0/dist/bundle/asciinema-player.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/mermaid@12.0.0/dist/mermaid.min.js"></script>
+  <script>if (window.mermaid) window.mermaid.initialize({ startOnLoad: false, securityLevel: 'strict' });</script>
   <script src="//cdn.jsdelivr.net/npm/docsify@4"></script>
   <script src="//cdn.jsdelivr.net/npm/docsify/lib/plugins/search.min.js"></script>
   <script src="//cdn.jsdelivr.net/npm/docsify-copy-code@2"></script>

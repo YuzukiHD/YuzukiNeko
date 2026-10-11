@@ -9,7 +9,7 @@
 | System program (downloader) header page | `0x030000` |
 | Application header page | `0x200000` (up to `0x4CF000` bytes) |
 
-Both programs carry a 4 KiB header page (see `tools/mkuf2.py` and SyterKit's `flash-boot`), which gives the PSRAM address they are loaded to.
+Both programs carry a 4 KiB header page (see `tools/mkuf2.py` and SyterKit's `flash-boot`), which gives the RAM address they are loaded to.
 
 ## First Installation (needs FEL)
 

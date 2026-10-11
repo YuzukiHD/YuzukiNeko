@@ -20,43 +20,119 @@ SyterKit itself is always built with the RV32 config (`yuzukineko_rv32_sram_defc
 
 ```sh
 cd SyterKit
-make -j8 O=../out/syterkit CROSS_COMPILE=/opt/xuantie/Xuantie-900-gcc-elf-newlib-x86_64-V3.2.0/bin/riscv64-unknown-elf- spinor-boot-rv64i
+make -j8 O=../build/syterkit CROSS_COMPILE=$HOME/f101-linux/toolchain/Xuantie-900-gcc-elf-newlib-x86_64-V3.2.0/bin/riscv64-unknown-elf- spinor-boot-rv64i
 cd ..
 ```
 
-If you have not configured it yet, first run the first three commands (`defconfig`, `sed`, `olddefconfig`) from "Building SyterKit" on the RV32 page.
+<div class="asciinema-cast" data-src="assets/casts/linux/linux-manual-rv64/syterkit.cast"></div>
 
-The output is `out/syterkit/build/yuzukineko/app_sram/spinor-boot-rv64i/spinor-boot-rv64i_spi.bin`, 49,152 bytes, in a 64 KiB reserved region.
+If you have not configured it yet, first run the `defconfig` command from "Building SyterKit" on the RV32 page.
 
-### How It Boots into RV64I
+The output is `build/syterkit/build/yuzukineko/app_sram/spinor-boot-rv64i/spinor-boot-rv64i_spi.bin`, 49,152 bytes, in a 64 KiB reserved region.
 
-The C907 always starts in <strong>RV32</strong> mode at power-on: the BROM loads SyterKit into SRAM and runs it, so SyterKit must be linked as RV32, and `spinor-boot-rv64i` is no exception. Its first half is identical to `spinor-boot`; the difference is the last step: instead of jumping straight to OpenSBI, it first restarts the core in RV64 mode. The full sequence is:
+### Boot Code
 
-1. Initialize the serial port, clocks and PSRAM (16 MiB, base address `0x40000000`).
-2. Initialize the SPI NOR controller and identify the flash; the serial port prints `SPI NOR: flash id …`.
-3. Read three fixed-size regions from NOR into PSRAM:
+After SyterKit has read the device tree, `fw_jump` and the kernel into RAM, the following code restarts the core in RV64 mode. The source is `SyterKit/boards/yuzukineko/app_sram/spinor-boot-rv64i/main.c`:
 
-   | Content | NOR offset | Read length | PSRAM address |
-   | --- | --- | --- | --- |
-   | Device tree | `0x010000` | 256 KiB | `0x40f40000` |
-   | OpenSBI `fw_jump` | `0x050000` | 512 KiB | `0x40f80000` |
-   | Linux `Image` | `0x0d0000` | 6 MiB | `0x40000000` |
+```c
+static const uint32_t f101_rv64_entry[] __attribute__((section(".text.rv64_entry"), aligned(4), used)) = {
+	0x00000513U,
+	0x40f405b7U,
+	0x40f802b7U,
+	0x0000100fU,
+	0x00028067U,
+};
 
-   These are the same as the RAM load addresses in the [Flash Layout](linux-manual.md#flash-layout) table. After each region is read, the serial port prints a line `SPI NOR: <name> 0x… -> 0x… (… KiB)`.
-4. Check that the device tree header is valid and that its size does not exceed 256 KiB; if not, boot is aborted.
-5. Flush the data cache so that what was read into PSRAM is visible to the code that runs next.
-6. Switch to RV64: write the C907 reset vector, pointing at a small piece of entry code SyterKit has placed in advance, and set the core's ISA mode to RV64, then reset the core with the RISC-V watchdog. After the reset the core starts executing that entry code in RV64 mode; before this the serial port prints `Booting memory images: Linux=0x40000000 DTB=0x40f40000 SBI firmware=0x40f80000`.
-7. The entry code is only five instructions: set `a0` to 0 (the hart ID), set `a1` to the device tree address `0x40f40000`, execute `fence.i`, and jump to OpenSBI at `0x40f80000`.
-8. OpenSBI (`fw_jump`) hands control to the Linux `Image` at the start of PSRAM, according to `FW_JUMP_ADDR=0x40000000` fixed at build time; the device tree the kernel receives is the one in `a1`.
+static __attribute__((noreturn, noinline)) void f101_boot_sbi_firmware(void)
+{
+	uintptr_t rv64_entry = (uintptr_t)f101_rv64_entry;
 
-This step has two constraints:
+	/* Make images loaded from the SPI NOR visible before the reset. */
+	flush_dcache_all();
+	asm volatile("fence rw, rw\n\tfence.i" ::: "memory");
 
-- <strong>The addresses of the entry code and `fw_jump` are fixed.</strong> SyterKit always puts OpenSBI at `0x40f80000` and the device tree at `0x40f40000`, so OpenSBI's `FW_TEXT_START` must be `0x40f80000` and the kernel must start at `0x40000000`. Building OpenSBI with the `build.sh` in the repository satisfies this.
-- <strong>It must be the RV64I `fw_jump`.</strong> The core has already switched to RV64, and jumping into the 32-bit `fw_jump.bin` built with `--arch rv32` cannot run, which is why the components above cannot be mixed.
+	/*
+	 * C907 latches the ISA mode at reset. Program the reset vector and force
+	 * RV64, then use the RISC-V watchdog to restart the core. The reset lands
+	 * in f101_rv64_entry, which sets a0/a1 and jumps to SBI firmware.
+	 */
+	asm volatile("li t0, 0x02001d0c\n\t"
+		     "li t1, 0x1\n\t"
+		     "sw t1, 0(t0)\n\t"
+		     "li t0, 0x06010100\n\t"
+		     "sw %[entry], 0(t0)\n\t"
+		     "sw zero, 4(t0)\n\t"
+		     "li t1, 0x200\n\t"
+		     "sw t1, 8(t0)\n\t"
+		     "sw zero, 0x6c(t0)\n\t"
+		     "li t0, 0x06011000\n\t"
+		     "li t1, 0x1\n\t"
+		     "sw t1, 0(t0)\n\t"
+		     "li t1, 0x16aa0000\n\t"
+		     "sw t1, 0x14(t0)\n\t"
+		     "li t1, 0x16aa0011\n\t"
+		     "sw t1, 0x18(t0)\n"
+		     "1: wfi\n\t"
+		     "j 1b\n"
+		:
+		: [entry] "r"((uint32_t)rv64_entry)
+		: "t0", "t1", "memory");
+
+	__builtin_unreachable();
+}
+```
+
+### Principle
+
+The C907 always starts in **RV32** mode: the BROM loads SyterKit into SRAM and runs it, so SyterKit itself must be linked as RV32. The ISA mode of the C907, however, is **latched at reset**, so a running core cannot switch from RV32 to RV64 directly. The code above is designed around this: prepare everything first, then reset the core, which restarts in RV64 mode.
+
+Before that, SyterKit has already done the same steps as `spinor-boot`: initialised the serial port, clocks and RAM, detected the SPI NOR, read three regions into RAM and checked the device tree:
+
+| Content | NOR offset | Length read | RAM address |
+| --- | --- | --- | --- |
+| Device tree | `0x010000` | 256 KiB | `0x40f40000` |
+| OpenSBI `fw_jump` | `0x050000` | 512 KiB | `0x40f80000` |
+| Linux `Image` | `0x0d0000` | 6 MiB | `0x40000000` |
+
+`f101_boot_sbi_firmware()` then does the following, in code order:
+
+1. `flush_dcache_all()` plus `fence rw, rw` and `fence.i`: flush what was just read into RAM out of the cache, so that after the reset the core sees complete data and instructions.
+2. Write `1` to `0x02001d0c`: according to the source comment, this forces the core's ISA mode to RV64.
+3. Write the address of `f101_rv64_entry` to `0x06010100`: this is the reset vector, where the core fetches its first instruction after reset. The writes that follow to the same register block (offsets `+4`, `+8`, `+0x6c`) are the rest of the configuration.
+4. Configure the RISC-V watchdog at `0x06011000` and write `0x16aa0000` and `0x16aa0011` at offsets `+0x14` and `+0x18` to trigger a watchdog reset. The core then waits in `wfi` for the reset to happen.
+5. After the reset the core runs `f101_rv64_entry` in RV64 mode. This entry code has to be raw machine instructions, because SyterKit itself is compiled as RV32 and the compiler would not generate RV64 code for it. The five words are:
+
+   | Instruction word | Assembly | Effect |
+   | --- | --- | --- |
+   | `0x00000513` | `addi a0, zero, 0` | `a0 = 0`, the hart ID |
+   | `0x40f405b7` | `lui a1, 0x40f40` | `a1 = 0x40f40000`, the device tree address |
+   | `0x40f802b7` | `lui t0, 0x40f80` | `t0 = 0x40f80000`, the OpenSBI address |
+   | `0x0000100f` | `fence.i` | Synchronise the instruction stream |
+   | `0x00028067` | `jr t0` | Jump to OpenSBI |
+
+6. OpenSBI (`fw_jump`) hands control to the Linux `Image` at the start of RAM, using the `FW_JUMP_ADDR=0x40000000` fixed at build time; the device tree the kernel receives is the one in `a1`.
+
+So the only difference between the RV32 and RV64I versions is the last step: `spinor-boot` jumps straight to OpenSBI, while `spinor-boot-rv64i` goes through one reset first. The device tree and OpenSBI addresses are hard-coded in the entry code, so OpenSBI must be placed at `0x40f80000` and must be the RV64I build.
+
+### How to Boot
+
+1. Build the RV64I `fw_jump`, kernel, device tree and root filesystem following the sections below.
+2. Assemble `yuzukineko-manual-rv64.img` as described in [Packaging and Flashing](#packing-and-flashing) and flash the whole chip, or write the components one by one.
+3. Reset the board and connect to UART1 at 115200 8N1. SyterKit reads the components from NOR and boots automatically; you do not need to type anything on the serial port.
 
 ### When Loading Fails
 
-If identifying the flash, reading a region or checking the device tree fails at any step, SyterKit does not restart the core. Instead it prints `SPI NOR boot failed; load images and run 'boot'` and drops into the command line on the serial port. You can then put the images at the PSRAM addresses in the table above by other means and type `boot` at the command line, which performs steps 4 to 8. `boot` is also run once when the command line exits.
+If the serial port shows `SPI NOR boot failed; load images and run 'boot'`, SyterKit could not read or validate the components from NOR and stops at a command line on the serial port. Put the three files at the following RAM addresses, then type `boot` at the command line:
+
+| Content | RAM address |
+| --- | --- |
+| Device tree | `0x40f40000` |
+| OpenSBI `fw_jump` | `0x40f80000` |
+| Linux `Image` | `0x40000000` |
+
+```text
+boot
+```
 
 ## Building OpenSBI
 
@@ -65,9 +141,11 @@ Change `--arch` to `rv64`; the output goes to `opensbi/build/sun252i-f101-rv64/`
 ```sh
 cd opensbi
 mkdir -p build
-./build.sh --arch rv64 /opt/xuantie/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu-
+./build.sh --arch rv64 $HOME/f101-linux/toolchain/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu-
 cd ..
 ```
+
+<div class="asciinema-cast" data-src="assets/casts/linux/linux-manual-rv64/opensbi.cast" data-speed="0.3"></div>
 
 The output is `opensbi/build/sun252i-f101-rv64/platform/generic/firmware/fw_jump.bin`, 268,728 bytes, in a 512 KiB reserved region. The three parameters `build.sh` passes to OpenSBI are:
 
@@ -79,18 +157,20 @@ The output is `opensbi/build/sun252i-f101-rv64/platform/generic/firmware/fw_jump
 
 ## Building the Kernel
 
-Switch to the RV64 defconfig and device tree, with the output going to `out/kernel-rv64`:
+Switch to the RV64 defconfig and device tree, with the output going to `build/kernel-rv64`:
 
 ```sh
 cd linux-mainline
-make O=../out/kernel-rv64 ARCH=riscv CROSS_COMPILE=/opt/xuantie/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu- sun252i_f101_rv64_yuzukineko_defconfig
-scripts/kconfig/merge_config.sh -m -O ../out/kernel-rv64 ../out/kernel-rv64/.config ../buildroot-external-yuzukihd/board/yuzukihd/yuzukineko/scripts/linux-nor.fragment
-make O=../out/kernel-rv64 ARCH=riscv CROSS_COMPILE=/opt/xuantie/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu- olddefconfig
-make -j8 O=../out/kernel-rv64 ARCH=riscv CROSS_COMPILE=/opt/xuantie/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu- Image allwinner/sun252i-f101-yuzukineko-rv64i.dtb
+make O=../build/kernel-rv64 ARCH=riscv CROSS_COMPILE=$HOME/f101-linux/toolchain/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu- sun252i_f101_rv64_yuzukineko_defconfig
+scripts/kconfig/merge_config.sh -m -O ../build/kernel-rv64 ../build/kernel-rv64/.config ../buildroot-external-yuzukihd/board/yuzukihd/yuzukineko/scripts/linux-nor.fragment
+make O=../build/kernel-rv64 ARCH=riscv CROSS_COMPILE=$HOME/f101-linux/toolchain/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu- olddefconfig
+make -j8 O=../build/kernel-rv64 ARCH=riscv CROSS_COMPILE=$HOME/f101-linux/toolchain/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu- Image allwinner/sun252i-f101-yuzukineko-rv64i.dtb
 cd ..
 ```
 
-The output is in `out/kernel-rv64/arch/riscv/boot/`:
+<div class="asciinema-cast" data-src="assets/casts/linux/linux-manual-rv64/kernel.cast" data-speed="3"></div>
+
+The output is in `build/kernel-rv64/arch/riscv/boot/`:
 
 | File | Size (bytes) | Reserved region |
 | --- | ---: | --- |
@@ -103,27 +183,31 @@ BusyBox has to be rebuilt as 64-bit. The steps are the same as on the RV32 page,
 
 ```sh
 cd busybox-1.38.0
-mkdir -p ../out/busybox-rv64
-make O=../out/busybox-rv64 ARCH=riscv CROSS_COMPILE=/opt/xuantie/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu- defconfig
-sed -i 's/^# CONFIG_STATIC is not set/CONFIG_STATIC=y/' ../out/busybox-rv64/.config
-sed -i 's/^# CONFIG_FLASH_ERASEALL is not set/CONFIG_FLASH_ERASEALL=y/' ../out/busybox-rv64/.config
-sed -i 's/^CONFIG_EXTRA_CFLAGS=""/CONFIG_EXTRA_CFLAGS="-march=rv64imafdc -mabi=lp64d"/' ../out/busybox-rv64/.config
-sed -i 's/^CONFIG_EXTRA_LDFLAGS=""/CONFIG_EXTRA_LDFLAGS="-march=rv64imafdc -mabi=lp64d"/' ../out/busybox-rv64/.config
-make O=../out/busybox-rv64 ARCH=riscv CROSS_COMPILE=/opt/xuantie/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu- oldconfig < /dev/null
-make -j8 O=../out/busybox-rv64 ARCH=riscv CROSS_COMPILE=/opt/xuantie/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu-
+mkdir -p ../build/busybox-rv64
+make O=../build/busybox-rv64 ARCH=riscv CROSS_COMPILE=$HOME/f101-linux/toolchain/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu- defconfig
+sed -i 's/^# CONFIG_STATIC is not set/CONFIG_STATIC=y/' ../build/busybox-rv64/.config
+sed -i 's/^# CONFIG_FLASH_ERASEALL is not set/CONFIG_FLASH_ERASEALL=y/' ../build/busybox-rv64/.config
+sed -i 's/^CONFIG_EXTRA_CFLAGS=""/CONFIG_EXTRA_CFLAGS="-march=rv64imafdc -mabi=lp64d"/' ../build/busybox-rv64/.config
+sed -i 's/^CONFIG_EXTRA_LDFLAGS=""/CONFIG_EXTRA_LDFLAGS="-march=rv64imafdc -mabi=lp64d"/' ../build/busybox-rv64/.config
+make O=../build/busybox-rv64 ARCH=riscv CROSS_COMPILE=$HOME/f101-linux/toolchain/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu- oldconfig < /dev/null
+make -j8 O=../build/busybox-rv64 ARCH=riscv CROSS_COMPILE=$HOME/f101-linux/toolchain/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu-
 cd ..
 ```
 
-`file out/busybox-rv64/busybox` should report 64-bit, statically linked.
+<div class="asciinema-cast" data-src="assets/casts/linux/linux-manual-rv64/busybox.cast"></div>
+
+`file build/busybox-rv64/busybox` should report 64-bit, statically linked.
 
 Apart from the `bin/busybox` binary, the directories and configuration files in the root filesystem are exactly the same as for RV32, so there is no need to do them again. Copy the RV32 directory, replace only the binary, and pack it:
 
 ```sh
-cp -a out/rootfs-rv32 out/rootfs-rv64
-cp out/busybox-rv64/busybox out/rootfs-rv64/bin/busybox
-mksquashfs out/rootfs-rv64 out/rootfs-rv64.squashfs -comp xz -all-root -noappend -no-progress -p "dev/console c 600 0 0 5 1" -p "dev/null c 666 0 0 1 3"
-ls -l out/rootfs-rv64.squashfs
+cp -a build/rootfs-rv32 build/rootfs-rv64
+cp build/busybox-rv64/busybox build/rootfs-rv64/bin/busybox
+mksquashfs build/rootfs-rv64 build/rootfs-rv64.squashfs -comp xz -all-root -noappend -no-progress -p "dev/console c 600 0 0 5 1" -p "dev/null c 666 0 0 1 3"
+ls -l build/rootfs-rv64.squashfs
 ```
+
+<div class="asciinema-cast" data-src="assets/casts/linux/linux-manual-rv64/squashfs.cast"></div>
 
 This step requires that the root filesystem has already been built following the RV32 page. Do not run `make ... install` again for RV64: it would turn the custom `/sbin/init` back into a symlink to BusyBox.
 
@@ -134,17 +218,19 @@ The output is 1,081,344 bytes, in a reserved region of 8,585,216 bytes.
 The offsets are exactly the same as for RV32; only the files are the RV64 ones:
 
 ```sh
-head -c 16777216 /dev/zero | tr '\000' '\377' > out/yuzukineko-manual-rv64.img
-dd if=out/syterkit/build/yuzukineko/app_sram/spinor-boot-rv64i/spinor-boot-rv64i_spi.bin of=out/yuzukineko-manual-rv64.img bs=1 seek=0 conv=notrunc status=none
-dd if=out/kernel-rv64/arch/riscv/boot/dts/allwinner/sun252i-f101-yuzukineko-rv64i.dtb of=out/yuzukineko-manual-rv64.img bs=1 seek=$((0x10000)) conv=notrunc status=none
-dd if=opensbi/build/sun252i-f101-rv64/platform/generic/firmware/fw_jump.bin of=out/yuzukineko-manual-rv64.img bs=1 seek=$((0x50000)) conv=notrunc status=none
-dd if=out/kernel-rv64/arch/riscv/boot/Image of=out/yuzukineko-manual-rv64.img bs=1 seek=$((0xd0000)) conv=notrunc status=none
-dd if=out/rootfs-rv64.squashfs of=out/yuzukineko-manual-rv64.img bs=1 seek=$((0x6d0000)) conv=notrunc status=none
-ls -l out/yuzukineko-manual-rv64.img
-sha256sum out/yuzukineko-manual-rv64.img
+head -c 16777216 /dev/zero | tr '\000' '\377' > build/yuzukineko-manual-rv64.img
+dd if=build/syterkit/build/yuzukineko/app_sram/spinor-boot-rv64i/spinor-boot-rv64i_spi.bin of=build/yuzukineko-manual-rv64.img bs=1 seek=0 conv=notrunc status=none
+dd if=build/kernel-rv64/arch/riscv/boot/dts/allwinner/sun252i-f101-yuzukineko-rv64i.dtb of=build/yuzukineko-manual-rv64.img bs=1 seek=$((0x10000)) conv=notrunc status=none
+dd if=opensbi/build/sun252i-f101-rv64/platform/generic/firmware/fw_jump.bin of=build/yuzukineko-manual-rv64.img bs=1 seek=$((0x50000)) conv=notrunc status=none
+dd if=build/kernel-rv64/arch/riscv/boot/Image of=build/yuzukineko-manual-rv64.img bs=1 seek=$((0xd0000)) conv=notrunc status=none
+dd if=build/rootfs-rv64.squashfs of=build/yuzukineko-manual-rv64.img bs=1 seek=$((0x6d0000)) conv=notrunc status=none
+ls -l build/yuzukineko-manual-rv64.img
+sha256sum build/yuzukineko-manual-rv64.img
 ```
 
-Flashing the full image is the same as on the RV32 page, with the image file name changed to `out/yuzukineko-manual-rv64.img`. When flashing components individually, replace each file with the RV64 file used in the `dd` commands above; the offsets stay the same.
+<div class="asciinema-cast" data-src="assets/casts/linux/linux-manual-rv64/image.cast" data-speed="0.35"></div>
+
+Flashing the full image is the same as on the RV32 page, with the image file name changed to `build/yuzukineko-manual-rv64.img`. When flashing components individually, replace each file with the RV64 file used in the `dd` commands above; the offsets stay the same.
 
 If the board already runs an RV64I image, you can replace just one component; but to go from RV32 to RV64I, flash the full image.
 

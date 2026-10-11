@@ -4,17 +4,17 @@
 
 ## 预览
 
-![组装好的外壳，USB-C 一端](assets/shell/assembled.png)
+![组装好的外壳，USB-C 一端](assets/images/shell/assembled.png)
 
-![组装好的外壳，microSD 一端](assets/shell/tf_end.png)
+![组装好的外壳，microSD 一端](assets/images/shell/tf_end.png)
 
-![上壳内部](assets/shell/inside.png)
+![上壳内部](assets/images/shell/inside.png)
 
-![爆炸图](assets/shell/exploded.png)
+![爆炸图](assets/images/shell/exploded.png)
 
-![平底下壳，针尖带倒角](assets/shell/bottom_supports.png)
+![平底下壳，针尖带倒角](assets/images/shell/bottom_supports.png)
 
-![对称侧边握持](assets/shell/side_grip.png)
+![对称侧边握持](assets/images/shell/side_grip.png)
 
 ## 打印建议
 

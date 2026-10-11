@@ -15,7 +15,7 @@ BROM → SyterKit → OpenSBI → Linux → BusyBox
 下面所有命令都在同一个工作目录 `~/f101-linux` 里执行，需要进入源码目录的地方会写出 `cd`，用完后回到工作目录：
 
 ```sh
-mkdir -p ~/f101-linux/out && cd ~/f101-linux
+mkdir -p ~/f101-linux/build && cd ~/f101-linux
 ```
 
 ### 工具链
@@ -27,9 +27,10 @@ mkdir -p ~/f101-linux/out && cd ~/f101-linux
 | `Xuantie-900-gcc-elf-newlib-x86_64-V3.2.0` | SyterKit | `riscv64-unknown-elf-` |
 | `Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0` | OpenSBI、内核、BusyBox | `riscv64-unknown-linux-gnu-` |
 
-glibc 工具链从平头哥 OCC 下载，约 510 MB。elf-newlib 工具链用同一个版本 `V3.2.0-20250627`，请自行从 OCC 下载页获取。
+两个工具链都从平头哥 OCC 下载，版本都是 `V3.2.0-20250627`：elf-newlib 约 235 MB，glibc 约 510 MB。
 
 ```sh
+curl -fLO 'https://occ-oss-prod.oss-cn-hangzhou.aliyuncs.com/resource//1751370399722/Xuantie-900-gcc-elf-newlib-x86_64-V3.2.0-20250627.tar.gz'
 curl -fLO 'https://occ-oss-prod.oss-cn-hangzhou.aliyuncs.com/resource//1755679709552/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0-20250627.tar.gz'
 sha256sum Xuantie-900-gcc-*.tar.gz
 ```
@@ -41,12 +42,12 @@ sha256sum Xuantie-900-gcc-*.tar.gz
 a5a6a5e517a738baffed091efce984ffa215f78bb11e296d6175bf5896778fdd  Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0-20250627.tar.gz
 ```
 
-校验通过后解压到 `/opt/xuantie`，后面的命令直接引用这个路径：
+校验通过后解压到工作目录下的 `toolchain/`，不需要 root 权限，后面的命令直接引用这个路径（`$HOME` 是你的主目录）：
 
 ```sh
-sudo mkdir -p /opt/xuantie
-sudo tar -xzf Xuantie-900-gcc-elf-newlib-x86_64-V3.2.0-20250627.tar.gz -C /opt/xuantie
-sudo tar -xzf Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0-20250627.tar.gz -C /opt/xuantie
+mkdir -p toolchain
+tar -xzf Xuantie-900-gcc-elf-newlib-x86_64-V3.2.0-20250627.tar.gz -C toolchain
+tar -xzf Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0-20250627.tar.gz -C toolchain
 ```
 
 ### 源码
@@ -56,28 +57,28 @@ git clone https://github.com/YuzukiHD/SyterKit.git
 git clone -b sun252i-f101 https://github.com/YuzukiHD/opensbi.git
 git clone -b sun252i_f101_7.2 https://github.com/YuzukiHD/linux-mainline.git
 git clone https://github.com/YuzukiHD/buildroot-external-yuzukihd.git
+curl -fLO https://busybox.net/downloads/busybox-1.38.0.tar.bz2
+tar -xjf busybox-1.38.0.tar.bz2
 ```
 
-BusyBox 从 [busybox.net](https://busybox.net/downloads/) 下载 `busybox-1.38.0.tar.bz2`，解压成 `busybox-1.38.0/`。`buildroot-external-yuzukihd` 只用来取内核配置片段和根文件系统里的几个文件，不会构建 Buildroot。
+BusyBox 从 [busybox.net](https://busybox.net/downloads/) 下载，解压后是 `busybox-1.38.0/`。`buildroot-external-yuzukihd` 只用来取内核配置片段和根文件系统里的几个文件，不会构建 Buildroot。
 
 本页构建时的版本：SyterKit `main`（`6ef3f27ab`）、OpenSBI `08cbbe0b`、Linux `95cd7466c`、BusyBox 1.38.0。
 
 ## 构建 SyterKit
 
-SyterKit 是 BROM 之后的第一级引导加载器，同时负责从 SPI NOR 读出设备树、OpenSBI 和内核。它用 elf-newlib 工具链，输出放在工作目录的 `out/` 里：
+SyterKit 是 BROM 之后的第一级引导加载器，同时负责从 SPI NOR 读出设备树、OpenSBI 和内核。它用 elf-newlib 工具链，输出放在工作目录的 `build/` 里：
 
 ```sh
 cd SyterKit
-make O=../out/syterkit CROSS_COMPILE=/opt/xuantie/Xuantie-900-gcc-elf-newlib-x86_64-V3.2.0/bin/riscv64-unknown-elf- yuzukineko_rv32_sram_defconfig
-sed -i 's/^CONFIG_RUST_FFI=y$/# CONFIG_RUST_FFI is not set/' ../out/syterkit/.config
-make O=../out/syterkit CROSS_COMPILE=/opt/xuantie/Xuantie-900-gcc-elf-newlib-x86_64-V3.2.0/bin/riscv64-unknown-elf- olddefconfig
-make -j8 O=../out/syterkit CROSS_COMPILE=/opt/xuantie/Xuantie-900-gcc-elf-newlib-x86_64-V3.2.0/bin/riscv64-unknown-elf- spinor-boot
+make O=../build/syterkit CROSS_COMPILE=$HOME/f101-linux/toolchain/Xuantie-900-gcc-elf-newlib-x86_64-V3.2.0/bin/riscv64-unknown-elf- yuzukineko_rv32_sram_defconfig
+make -j8 O=../build/syterkit CROSS_COMPILE=$HOME/f101-linux/toolchain/Xuantie-900-gcc-elf-newlib-x86_64-V3.2.0/bin/riscv64-unknown-elf- spinor-boot
 cd ..
 ```
 
-关掉 `CONFIG_RUST_FFI` 是为了不依赖 Rust 工具链，Buildroot 外部树也这么做。
+<div class="asciinema-cast" data-src="assets/casts/linux/linux-manual/syterkit.cast" data-speed="0.35"></div>
 
-产物是 `out/syterkit/build/yuzukineko/app_sram/spinor-boot/spinor-boot_spi.bin`，49,152 字节，预留区是 64 KiB（65,536 字节），放得下。
+产物是 `build/syterkit/build/yuzukineko/app_sram/spinor-boot/spinor-boot_spi.bin`，49,152 字节，预留区是 64 KiB（65,536 字节），放得下。
 
 ## 构建 OpenSBI
 
@@ -86,9 +87,11 @@ OpenSBI 仓库自带 `build.sh`，已经写好 F101 的各项参数（`sun252i-f
 ```sh
 cd opensbi
 mkdir -p build
-./build.sh --arch rv32 /opt/xuantie/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu-
+./build.sh --arch rv32 $HOME/f101-linux/toolchain/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu-
 cd ..
 ```
+
+<div class="asciinema-cast" data-src="assets/casts/linux/linux-manual/opensbi.cast" data-speed="0.45"></div>
 
 `mkdir -p build` 不能省，`build.sh` 的默认输出目录要求上一级目录已经存在。
 
@@ -102,14 +105,16 @@ cd ..
 
 ```sh
 cd linux-mainline
-make O=../out/kernel-rv32 ARCH=riscv CROSS_COMPILE=/opt/xuantie/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu- sun252i_f101_yuzukineko_defconfig
-scripts/kconfig/merge_config.sh -m -O ../out/kernel-rv32 ../out/kernel-rv32/.config ../buildroot-external-yuzukihd/board/yuzukihd/yuzukineko/scripts/linux-nor.fragment
-make O=../out/kernel-rv32 ARCH=riscv CROSS_COMPILE=/opt/xuantie/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu- olddefconfig
-make -j8 O=../out/kernel-rv32 ARCH=riscv CROSS_COMPILE=/opt/xuantie/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu- Image allwinner/sun252i-f101-yuzukineko.dtb
+make O=../build/kernel-rv32 ARCH=riscv CROSS_COMPILE=$HOME/f101-linux/toolchain/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu- sun252i_f101_yuzukineko_defconfig
+scripts/kconfig/merge_config.sh -m -O ../build/kernel-rv32 ../build/kernel-rv32/.config ../buildroot-external-yuzukihd/board/yuzukihd/yuzukineko/scripts/linux-nor.fragment
+make O=../build/kernel-rv32 ARCH=riscv CROSS_COMPILE=$HOME/f101-linux/toolchain/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu- olddefconfig
+make -j8 O=../build/kernel-rv32 ARCH=riscv CROSS_COMPILE=$HOME/f101-linux/toolchain/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu- Image allwinner/sun252i-f101-yuzukineko.dtb
 cd ..
 ```
 
-产物在 `out/kernel-rv32/arch/riscv/boot/`：
+<div class="asciinema-cast" data-src="assets/casts/linux/linux-manual/kernel.cast" data-speed="3"></div>
+
+产物在 `build/kernel-rv32/arch/riscv/boot/`：
 
 | 文件 | 大小（字节） | 预留区 |
 | --- | ---: | --- |
@@ -128,42 +133,44 @@ RV32 内核由内核配置里的 32 位选项决定，不需要换工具链，�
 
 ```sh
 cd busybox-1.38.0
-mkdir -p ../out/busybox-rv32
-make O=../out/busybox-rv32 ARCH=riscv CROSS_COMPILE=/opt/xuantie/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu- defconfig
-sed -i 's/^# CONFIG_STATIC is not set/CONFIG_STATIC=y/' ../out/busybox-rv32/.config
-sed -i 's/^# CONFIG_FLASH_ERASEALL is not set/CONFIG_FLASH_ERASEALL=y/' ../out/busybox-rv32/.config
-sed -i 's/^CONFIG_EXTRA_CFLAGS=""/CONFIG_EXTRA_CFLAGS="-march=rv32imafdc -mabi=ilp32d"/' ../out/busybox-rv32/.config
-sed -i 's/^CONFIG_EXTRA_LDFLAGS=""/CONFIG_EXTRA_LDFLAGS="-march=rv32imafdc -mabi=ilp32d"/' ../out/busybox-rv32/.config
-make O=../out/busybox-rv32 ARCH=riscv CROSS_COMPILE=/opt/xuantie/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu- oldconfig < /dev/null
-make -j8 O=../out/busybox-rv32 ARCH=riscv CROSS_COMPILE=/opt/xuantie/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu-
-mkdir -p ../out/rootfs-rv32
-make O=../out/busybox-rv32 ARCH=riscv CROSS_COMPILE=/opt/xuantie/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu- CONFIG_PREFIX=../rootfs-rv32 install
+mkdir -p ../build/busybox-rv32
+make O=../build/busybox-rv32 ARCH=riscv CROSS_COMPILE=$HOME/f101-linux/toolchain/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu- defconfig
+sed -i 's/^# CONFIG_STATIC is not set/CONFIG_STATIC=y/' ../build/busybox-rv32/.config
+sed -i 's/^# CONFIG_FLASH_ERASEALL is not set/CONFIG_FLASH_ERASEALL=y/' ../build/busybox-rv32/.config
+sed -i 's/^CONFIG_EXTRA_CFLAGS=""/CONFIG_EXTRA_CFLAGS="-march=rv32imafdc -mabi=ilp32d"/' ../build/busybox-rv32/.config
+sed -i 's/^CONFIG_EXTRA_LDFLAGS=""/CONFIG_EXTRA_LDFLAGS="-march=rv32imafdc -mabi=ilp32d"/' ../build/busybox-rv32/.config
+make O=../build/busybox-rv32 ARCH=riscv CROSS_COMPILE=$HOME/f101-linux/toolchain/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu- oldconfig < /dev/null
+make -j8 O=../build/busybox-rv32 ARCH=riscv CROSS_COMPILE=$HOME/f101-linux/toolchain/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu-
+mkdir -p ../build/rootfs-rv32
+make O=../build/busybox-rv32 ARCH=riscv CROSS_COMPILE=$HOME/f101-linux/toolchain/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu- CONFIG_PREFIX=../rootfs-rv32 install
 cd ..
 ```
 
-`file out/busybox-rv32/busybox` 应显示 32-bit、statically linked。最后一条 `install` 的 `CONFIG_PREFIX` 是相对输出目录的，所以写 `../rootfs-rv32`，装到 `out/rootfs-rv32/`。
+<div class="asciinema-cast" data-src="assets/casts/linux/linux-manual/busybox.cast"></div>
+
+`file build/busybox-rv32/busybox` 应显示 32-bit、statically linked。最后一条 `install` 的 `CONFIG_PREFIX` 是相对输出目录的，所以写 `../rootfs-rv32`，装到 `build/rootfs-rv32/`。
 
 ### 目录与配置文件
 
-下面补 `out/rootfs-rv32/` 里缺的内容。`/sbin/init` 和 `S40network` 取自外部树的 overlay 目录。`install` 之后 `/sbin/init` 是指向 BusyBox 的符号链接，必须先删掉再复制，否则复制会覆盖 BusyBox 本体。
+下面补 `build/rootfs-rv32/` 里缺的内容。`/sbin/init` 和 `S40network` 取自外部树的 overlay 目录。`install` 之后 `/sbin/init` 是指向 BusyBox 的符号链接，必须先删掉再复制，否则复制会覆盖 BusyBox 本体。
 
 ```sh
-mkdir -p out/rootfs-rv32/{proc,sys,dev,tmp,run,root,etc/init.d,mnt/root,mnt/overlay,var/log}
-rm out/rootfs-rv32/sbin/init
-cp buildroot-external-yuzukihd/board/yuzukihd/yuzukineko/overlay/sbin/init out/rootfs-rv32/sbin/init
-cp buildroot-external-yuzukihd/board/yuzukihd/yuzukineko/overlay/etc/init.d/S40network out/rootfs-rv32/etc/init.d/
+mkdir -p build/rootfs-rv32/{proc,sys,dev,tmp,run,root,etc/init.d,mnt/root,mnt/overlay,var/log}
+rm build/rootfs-rv32/sbin/init
+cp buildroot-external-yuzukihd/board/yuzukihd/yuzukineko/overlay/sbin/init build/rootfs-rv32/sbin/init
+cp buildroot-external-yuzukihd/board/yuzukihd/yuzukineko/overlay/etc/init.d/S40network build/rootfs-rv32/etc/init.d/
 ```
 
 BusyBox 带的是 `flash_eraseall`，补一个 `flash_erase` 的简化替身：
 
 ```sh
-printf '#!/bin/sh\nexec /usr/sbin/flash_eraseall "$1"\n' > out/rootfs-rv32/usr/sbin/flash_erase
+printf '#!/bin/sh\nexec /usr/sbin/flash_eraseall "$1"\n' > build/rootfs-rv32/usr/sbin/flash_erase
 ```
 
-创建 `out/rootfs-rv32/etc/inittab`：
+创建 `build/rootfs-rv32/etc/inittab`：
 
 ```sh
-cat > out/rootfs-rv32/etc/inittab <<'EOF'
+cat > build/rootfs-rv32/etc/inittab <<'EOF'
 ::sysinit:/bin/mount -t tmpfs tmpfs /tmp
 ::sysinit:/bin/mount -t tmpfs tmpfs /run
 ::sysinit:/etc/init.d/rcS
@@ -173,10 +180,10 @@ ttyS1::respawn:/sbin/getty -L ttyS1 115200 vt100
 EOF
 ```
 
-创建 `out/rootfs-rv32/etc/init.d/rcS`：
+创建 `build/rootfs-rv32/etc/init.d/rcS`：
 
 ```sh
-cat > out/rootfs-rv32/etc/init.d/rcS <<'EOF'
+cat > build/rootfs-rv32/etc/init.d/rcS <<'EOF'
 #!/bin/sh
 for s in /etc/init.d/S[0-9][0-9]*; do [ -x "$s" ] && "$s" start; done
 EOF
@@ -185,11 +192,11 @@ EOF
 其余几个小文件，以及可执行权限：
 
 ```sh
-echo 'root::0:0:root:/root:/bin/sh' > out/rootfs-rv32/etc/passwd
-echo 'root:x:0:' > out/rootfs-rv32/etc/group
-echo yuzukineko > out/rootfs-rv32/etc/hostname
-echo /dev/ttyS1 > out/rootfs-rv32/etc/securetty
-chmod 755 out/rootfs-rv32/usr/sbin/flash_erase out/rootfs-rv32/etc/init.d/rcS out/rootfs-rv32/etc/init.d/S40network
+echo 'root::0:0:root:/root:/bin/sh' > build/rootfs-rv32/etc/passwd
+echo 'root:x:0:' > build/rootfs-rv32/etc/group
+echo yuzukineko > build/rootfs-rv32/etc/hostname
+echo /dev/ttyS1 > build/rootfs-rv32/etc/securetty
+chmod 755 build/rootfs-rv32/usr/sbin/flash_erase build/rootfs-rv32/etc/init.d/rcS build/rootfs-rv32/etc/init.d/S40network
 ```
 
 `root` 的密码为空，和 Buildroot 版一样。控制台是 UART1（`ttyS1`），`getty` 用 115200 波特。
@@ -199,9 +206,11 @@ chmod 755 out/rootfs-rv32/usr/sbin/flash_erase out/rootfs-rv32/etc/init.d/rcS ou
 用 xz 压缩。设备节点 `/dev/console`、`/dev/null` 用 `-p` 直接写进镜像，不需要 root 权限：
 
 ```sh
-mksquashfs out/rootfs-rv32 out/rootfs-rv32.squashfs -comp xz -all-root -noappend -no-progress -p "dev/console c 600 0 0 5 1" -p "dev/null c 666 0 0 1 3"
-ls -l out/rootfs-rv32.squashfs
+mksquashfs build/rootfs-rv32 build/rootfs-rv32.squashfs -comp xz -all-root -noappend -no-progress -p "dev/console c 600 0 0 5 1" -p "dev/null c 666 0 0 1 3"
+ls -l build/rootfs-rv32.squashfs
 ```
+
+<div class="asciinema-cast" data-src="assets/casts/linux/linux-manual/squashfs.cast"></div>
 
 产物是 1,089,536 字节，预留区是 `0x6d0000` 到 `0xf00000`（8,585,216 字节）。
 
@@ -227,18 +236,18 @@ ls -l out/rootfs-rv32.squashfs
 ```sh
 xfel version
 xfel spinor
-xfel spinor write 0x0 out/syterkit/build/yuzukineko/app_sram/spinor-boot/spinor-boot_spi.bin
-xfel spinor write 0x10000 out/kernel-rv32/arch/riscv/boot/dts/allwinner/sun252i-f101-yuzukineko.dtb
+xfel spinor write 0x0 build/syterkit/build/yuzukineko/app_sram/spinor-boot/spinor-boot_spi.bin
+xfel spinor write 0x10000 build/kernel-rv32/arch/riscv/boot/dts/allwinner/sun252i-f101-yuzukineko.dtb
 xfel spinor write 0x50000 opensbi/build/sun252i-f101/platform/generic/firmware/fw_jump.bin
-xfel spinor write 0xd0000 out/kernel-rv32/arch/riscv/boot/Image
-xfel spinor write 0x6d0000 out/rootfs-rv32.squashfs
+xfel spinor write 0xd0000 build/kernel-rv32/arch/riscv/boot/Image
+xfel spinor write 0x6d0000 build/rootfs-rv32.squashfs
 ```
 
 写完后按文件大小回读并比对，例如内核（`5178200` 是 `Image` 的字节数，换了内核请按 `ls -l` 的实际大小改）：
 
 ```sh
 xfel spinor read 0xd0000 5178200 Image-readback.bin
-cmp Image-readback.bin out/kernel-rv32/arch/riscv/boot/Image
+cmp Image-readback.bin build/kernel-rv32/arch/riscv/boot/Image
 ```
 
 最后复位：
@@ -252,15 +261,17 @@ xfel reset
 分段烧录适合调试。要得到一个能一次写入的 16 MiB 文件，先确认每个组件都没有超过上面的预留区（用 `ls -l` 看大小），再在全 `0xFF` 的底子上按偏移写入：
 
 ```sh
-head -c 16777216 /dev/zero | tr '\000' '\377' > out/yuzukineko-manual-rv32.img
-dd if=out/syterkit/build/yuzukineko/app_sram/spinor-boot/spinor-boot_spi.bin of=out/yuzukineko-manual-rv32.img bs=1 seek=0 conv=notrunc status=none
-dd if=out/kernel-rv32/arch/riscv/boot/dts/allwinner/sun252i-f101-yuzukineko.dtb of=out/yuzukineko-manual-rv32.img bs=1 seek=$((0x10000)) conv=notrunc status=none
-dd if=opensbi/build/sun252i-f101/platform/generic/firmware/fw_jump.bin of=out/yuzukineko-manual-rv32.img bs=1 seek=$((0x50000)) conv=notrunc status=none
-dd if=out/kernel-rv32/arch/riscv/boot/Image of=out/yuzukineko-manual-rv32.img bs=1 seek=$((0xd0000)) conv=notrunc status=none
-dd if=out/rootfs-rv32.squashfs of=out/yuzukineko-manual-rv32.img bs=1 seek=$((0x6d0000)) conv=notrunc status=none
-ls -l out/yuzukineko-manual-rv32.img
-sha256sum out/yuzukineko-manual-rv32.img
+head -c 16777216 /dev/zero | tr '\000' '\377' > build/yuzukineko-manual-rv32.img
+dd if=build/syterkit/build/yuzukineko/app_sram/spinor-boot/spinor-boot_spi.bin of=build/yuzukineko-manual-rv32.img bs=1 seek=0 conv=notrunc status=none
+dd if=build/kernel-rv32/arch/riscv/boot/dts/allwinner/sun252i-f101-yuzukineko.dtb of=build/yuzukineko-manual-rv32.img bs=1 seek=$((0x10000)) conv=notrunc status=none
+dd if=opensbi/build/sun252i-f101/platform/generic/firmware/fw_jump.bin of=build/yuzukineko-manual-rv32.img bs=1 seek=$((0x50000)) conv=notrunc status=none
+dd if=build/kernel-rv32/arch/riscv/boot/Image of=build/yuzukineko-manual-rv32.img bs=1 seek=$((0xd0000)) conv=notrunc status=none
+dd if=build/rootfs-rv32.squashfs of=build/yuzukineko-manual-rv32.img bs=1 seek=$((0x6d0000)) conv=notrunc status=none
+ls -l build/yuzukineko-manual-rv32.img
+sha256sum build/yuzukineko-manual-rv32.img
 ```
+
+<div class="asciinema-cast" data-src="assets/casts/linux/linux-manual/image.cast" data-speed="0.3"></div>
 
 文件应正好是 16,777,216 字节，`0xf00000` 之后全是 `0xFF`，也就是空的 overlay 分区。
 
@@ -271,9 +282,9 @@ sha256sum out/yuzukineko-manual-rv32.img
 ```sh
 xfel version
 xfel spinor
-xfel spinor write 0x0 out/yuzukineko-manual-rv32.img
+xfel spinor write 0x0 build/yuzukineko-manual-rv32.img
 xfel spinor read 0x0 0x1000000 readback.img
-sha256sum out/yuzukineko-manual-rv32.img readback.img
+sha256sum build/yuzukineko-manual-rv32.img readback.img
 ```
 
 两个 SHA-256 一致后再复位：

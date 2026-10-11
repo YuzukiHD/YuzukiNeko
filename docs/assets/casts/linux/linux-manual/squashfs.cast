@@ -1,0 +1,9 @@
+{"version": 2, "width": 110, "height": 28, "timestamp": 1791683344, "idle_time_limit": 2.0, "env": {"SHELL": "/bin/bash", "TERM": "xterm-256color"}}
+[0.3, "o", "\u001b[32m$\u001b[0m mksquashfs build/rootfs-rv32 build/rootfs-rv32.squashfs -comp xz -all-root -noappend -no-progress -p \"dev/console c 600 0 0 5 1\" -p \"dev/null c 666 0 0 1 3\"\r\n"]
+[0.728571, "o", "Parallel mksquashfs: Using 24 processors\r\n"]
+[1.157143, "o", "Creating 4.0 filesystem on build/rootfs-rv32.squashfs, block size 131072.\r\n"]
+[1.585714, "o", "\r\nExportable Squashfs 4.0 filesystem, xz compressed, data block size 131072\r\n\tcompressed data, compressed metadata, compressed fragments,\r\n\tcompressed xattrs, compressed ids\r\n\tduplicates are removed\r\nFilesystem size 1063.32 Kbytes (1.04 Mbytes)\r\n\t60.29% of uncompressed filesystem size (1763.60 Kbytes)\r\nInode table size 1226 bytes (1.20 Kbytes)\r\n\t7.38% of uncompressed inode table size (16617 bytes)\r\nDirectory table size 3582 bytes (3.50 Kbytes)\r\n\t57.30% of uncompressed directory table size (6251 bytes)\r\nNumber of duplicate files found 0\r\nNumber of inodes 439\r\nNumber of files 10\r\nNumber of fragments 1\r\nNumber of symbolic links 408\r\nNumber of device nodes 2\r\nNumber of fifo nodes 0\r\nNumber of socket nodes 0\r\nNumber of directories 19\r\nNumber of hard-links 0\r\n"]
+[2.014286, "o", "Number of ids (unique uids + gids) 1\r\nNumber of uids 1\r\n"]
+[2.442857, "o", "\troot (0)\r\nNumber of gids 1\r\n\troot (0)\r\n"]
+[2.871429, "o", "\u001b[32m$\u001b[0m ls -l build/rootfs-rv32.squashfs\r\n"]
+[3.3, "o", "-rw-r--r-- 1 yuzuki yuzuki 1089536 Oct 11 01:49 build/rootfs-rv32.squashfs\r\n"]

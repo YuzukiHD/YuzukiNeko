@@ -6,13 +6,13 @@ The repository directory `02_Firmware/RustSBI-Asterinas/` provides an SPI NOR bo
 BROM → SyterKit → RustSBI → Asterinas → BusyBox shell
 ```
 
-The image is tested on boards with **16 MiB PSRAM + 16 MiB SPI NOR**.
+The image is tested on boards with **16 MiB RAM + 16 MiB SPI NOR**.
 
 ## File List
 
 | File | Purpose | Size (bytes) |
 | --- | --- | ---: |
-| `syterkit-3bf4f61f.bin` | SyterKit with an eGON boot header; initializes PSRAM and loads the following images | 49,152 |
+| `syterkit-3bf4f61f.bin` | SyterKit with an eGON boot header; initializes RAM and loads the following images | 49,152 |
 | `rustsbi-0.4.1.bin` | RustSBI 0.4.1, customized for the Neko RV32 scalar extensions, WARN-level logging | 270,336 |
 | `asterinas.bin` | Raw Asterinas RV32 kernel image | 2,762,160 |
 | `yuzukineko-rustsbi-asterinas.img` | Complete boot image: the three above + device tree + initramfs containing BusyBox | 7,143,424 |

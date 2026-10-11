@@ -1,0 +1,11 @@
+{"version": 2, "width": 110, "height": 28, "timestamp": 1791683447, "idle_time_limit": 2.0, "env": {"SHELL": "/bin/bash", "TERM": "xterm-256color"}}
+[0.002369, "o", "\u001b[32m$\u001b[0m head -c 16777216 /dev/zero | tr '\\000' '\\377' > build/yuzukineko-manual-rv64.img\r\n"]
+[0.03516, "o", "\u001b[32m$\u001b[0m dd if=build/syterkit/build/yuzukineko/app_sram/spinor-boot-rv64i/spinor-boot-rv64i_spi.bin of=build/yuzukineko-manual-rv64.img bs=1 seek=0 conv=notrunc status=none\r\n"]
+[0.059674, "o", "\u001b[32m$\u001b[0m dd if=build/kernel-rv64/arch/riscv/boot/dts/allwinner/sun252i-f101-yuzukineko-rv64i.dtb of=build/yuzukineko-manual-rv64.img bs=1 seek=$((0x10000)) conv=notrunc status=none\r\n"]
+[0.064777, "o", "\u001b[32m$\u001b[0m dd if=opensbi/build/sun252i-f101-rv64/platform/generic/firmware/fw_jump.bin of=build/yuzukineko-manual-rv64.img bs=1 seek=$((0x50000)) conv=notrunc status=none\r\n"]
+[0.203974, "o", "\u001b[32m$\u001b[0m dd if=build/kernel-rv64/arch/riscv/boot/Image of=build/yuzukineko-manual-rv64.img bs=1 seek=$((0xd0000)) conv=notrunc status=none\r\n"]
+[2.96613, "o", "\u001b[32m$\u001b[0m dd if=build/rootfs-rv64.squashfs of=build/yuzukineko-manual-rv64.img bs=1 seek=$((0x6d0000)) conv=notrunc status=none\r\n"]
+[3.477777, "o", "\u001b[32m$\u001b[0m ls -l build/yuzukineko-manual-rv64.img\r\n"]
+[3.478577, "o", "-rw-rw-r-- 1 yuzuki yuzuki 16777216 Oct 11 01:50 build/yuzukineko-manual-rv64.img\r\n"]
+[3.478715, "o", "\u001b[32m$\u001b[0m sha256sum build/yuzukineko-manual-rv64.img\r\n"]
+[3.488571, "o", "7c868d2a4bb18d189b01c1c5d072e33d1abca6805c1ef85bd51345ab03d4805d  build/yuzukineko-manual-rv64.img\r\n"]

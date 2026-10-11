@@ -15,7 +15,7 @@ The host needs `gcc`, `make`, `bison`, `flex`, `bc`, `git` and `squashfs-tools`,
 All commands below run from one working directory, `~/f101-linux`. Where a command has to be run inside a source directory, a `cd` is shown, and you return to the working directory afterwards:
 
 ```sh
-mkdir -p ~/f101-linux/out && cd ~/f101-linux
+mkdir -p ~/f101-linux/build && cd ~/f101-linux
 ```
 
 ### Toolchains
@@ -27,9 +27,10 @@ Two Xuantie toolchains are needed:
 | `Xuantie-900-gcc-elf-newlib-x86_64-V3.2.0` | SyterKit | `riscv64-unknown-elf-` |
 | `Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0` | OpenSBI, kernel, BusyBox | `riscv64-unknown-linux-gnu-` |
 
-The glibc toolchain is downloaded from T-Head OCC and is about 510 MB. The elf-newlib toolchain is the same release, `V3.2.0-20250627`; get it yourself from the OCC download page.
+Both toolchains are downloaded from T-Head OCC, in the same release `V3.2.0-20250627`: elf-newlib is about 235 MB and glibc about 510 MB.
 
 ```sh
+curl -fLO 'https://occ-oss-prod.oss-cn-hangzhou.aliyuncs.com/resource//1751370399722/Xuantie-900-gcc-elf-newlib-x86_64-V3.2.0-20250627.tar.gz'
 curl -fLO 'https://occ-oss-prod.oss-cn-hangzhou.aliyuncs.com/resource//1755679709552/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0-20250627.tar.gz'
 sha256sum Xuantie-900-gcc-*.tar.gz
 ```
@@ -41,12 +42,12 @@ The SHA-256 values of the two archives should be:
 a5a6a5e517a738baffed091efce984ffa215f78bb11e296d6175bf5896778fdd  Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0-20250627.tar.gz
 ```
 
-Once the checksums match, extract both to `/opt/xuantie`; the commands that follow refer to this path directly:
+Once the checksums match, extract both into `toolchain/` under the working directory (no root needed); the commands that follow refer to this path directly (`$HOME` is your home directory):
 
 ```sh
-sudo mkdir -p /opt/xuantie
-sudo tar -xzf Xuantie-900-gcc-elf-newlib-x86_64-V3.2.0-20250627.tar.gz -C /opt/xuantie
-sudo tar -xzf Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0-20250627.tar.gz -C /opt/xuantie
+mkdir -p toolchain
+tar -xzf Xuantie-900-gcc-elf-newlib-x86_64-V3.2.0-20250627.tar.gz -C toolchain
+tar -xzf Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0-20250627.tar.gz -C toolchain
 ```
 
 ### Source Code
@@ -56,28 +57,28 @@ git clone https://github.com/YuzukiHD/SyterKit.git
 git clone -b sun252i-f101 https://github.com/YuzukiHD/opensbi.git
 git clone -b sun252i_f101_7.2 https://github.com/YuzukiHD/linux-mainline.git
 git clone https://github.com/YuzukiHD/buildroot-external-yuzukihd.git
+curl -fLO https://busybox.net/downloads/busybox-1.38.0.tar.bz2
+tar -xjf busybox-1.38.0.tar.bz2
 ```
 
-Download `busybox-1.38.0.tar.bz2` for BusyBox from [busybox.net](https://busybox.net/downloads/) and extract it to `busybox-1.38.0/`. `buildroot-external-yuzukihd` is used only to fetch the kernel config fragment and a few files for the root filesystem; Buildroot itself is not built.
+BusyBox is downloaded from [busybox.net](https://busybox.net/downloads/) and extracts to `busybox-1.38.0/`. `buildroot-external-yuzukihd` is used only to fetch the kernel config fragment and a few files for the root filesystem; Buildroot itself is not built.
 
 Versions used when this page was built: SyterKit `main` (`6ef3f27ab`), OpenSBI `08cbbe0b`, Linux `95cd7466c`, BusyBox 1.38.0.
 
 ## Building SyterKit
 
-SyterKit is the first-stage bootloader after the BROM, and it also reads the device tree, OpenSBI and the kernel out of the SPI NOR. It uses the elf-newlib toolchain, and its output goes into `out/` in the working directory:
+SyterKit is the first-stage bootloader after the BROM, and it also reads the device tree, OpenSBI and the kernel out of the SPI NOR. It uses the elf-newlib toolchain, and its output goes into `build/` in the working directory:
 
 ```sh
 cd SyterKit
-make O=../out/syterkit CROSS_COMPILE=/opt/xuantie/Xuantie-900-gcc-elf-newlib-x86_64-V3.2.0/bin/riscv64-unknown-elf- yuzukineko_rv32_sram_defconfig
-sed -i 's/^CONFIG_RUST_FFI=y$/# CONFIG_RUST_FFI is not set/' ../out/syterkit/.config
-make O=../out/syterkit CROSS_COMPILE=/opt/xuantie/Xuantie-900-gcc-elf-newlib-x86_64-V3.2.0/bin/riscv64-unknown-elf- olddefconfig
-make -j8 O=../out/syterkit CROSS_COMPILE=/opt/xuantie/Xuantie-900-gcc-elf-newlib-x86_64-V3.2.0/bin/riscv64-unknown-elf- spinor-boot
+make O=../build/syterkit CROSS_COMPILE=$HOME/f101-linux/toolchain/Xuantie-900-gcc-elf-newlib-x86_64-V3.2.0/bin/riscv64-unknown-elf- yuzukineko_rv32_sram_defconfig
+make -j8 O=../build/syterkit CROSS_COMPILE=$HOME/f101-linux/toolchain/Xuantie-900-gcc-elf-newlib-x86_64-V3.2.0/bin/riscv64-unknown-elf- spinor-boot
 cd ..
 ```
 
-`CONFIG_RUST_FFI` is turned off so that no Rust toolchain is required; the Buildroot external tree does the same.
+<div class="asciinema-cast" data-src="assets/casts/linux/linux-manual/syterkit.cast" data-speed="0.35"></div>
 
-The output is `out/syterkit/build/yuzukineko/app_sram/spinor-boot/spinor-boot_spi.bin`, 49,152 bytes. The reserved region is 64 KiB (65,536 bytes), so it fits.
+The output is `build/syterkit/build/yuzukineko/app_sram/spinor-boot/spinor-boot_spi.bin`, 49,152 bytes. The reserved region is 64 KiB (65,536 bytes), so it fits.
 
 ## Building OpenSBI
 
@@ -86,9 +87,11 @@ The OpenSBI repository ships a `build.sh` that already sets the F101 parameters 
 ```sh
 cd opensbi
 mkdir -p build
-./build.sh --arch rv32 /opt/xuantie/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu-
+./build.sh --arch rv32 $HOME/f101-linux/toolchain/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu-
 cd ..
 ```
+
+<div class="asciinema-cast" data-src="assets/casts/linux/linux-manual/opensbi.cast" data-speed="0.45"></div>
 
 `mkdir -p build` cannot be skipped: the default output directory of `build.sh` requires its parent directory to exist already.
 
@@ -102,14 +105,16 @@ The kernel uses the RV32 defconfig, then merges `linux-nor.fragment` from the ex
 
 ```sh
 cd linux-mainline
-make O=../out/kernel-rv32 ARCH=riscv CROSS_COMPILE=/opt/xuantie/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu- sun252i_f101_yuzukineko_defconfig
-scripts/kconfig/merge_config.sh -m -O ../out/kernel-rv32 ../out/kernel-rv32/.config ../buildroot-external-yuzukihd/board/yuzukihd/yuzukineko/scripts/linux-nor.fragment
-make O=../out/kernel-rv32 ARCH=riscv CROSS_COMPILE=/opt/xuantie/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu- olddefconfig
-make -j8 O=../out/kernel-rv32 ARCH=riscv CROSS_COMPILE=/opt/xuantie/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu- Image allwinner/sun252i-f101-yuzukineko.dtb
+make O=../build/kernel-rv32 ARCH=riscv CROSS_COMPILE=$HOME/f101-linux/toolchain/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu- sun252i_f101_yuzukineko_defconfig
+scripts/kconfig/merge_config.sh -m -O ../build/kernel-rv32 ../build/kernel-rv32/.config ../buildroot-external-yuzukihd/board/yuzukihd/yuzukineko/scripts/linux-nor.fragment
+make O=../build/kernel-rv32 ARCH=riscv CROSS_COMPILE=$HOME/f101-linux/toolchain/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu- olddefconfig
+make -j8 O=../build/kernel-rv32 ARCH=riscv CROSS_COMPILE=$HOME/f101-linux/toolchain/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu- Image allwinner/sun252i-f101-yuzukineko.dtb
 cd ..
 ```
 
-The output is in `out/kernel-rv32/arch/riscv/boot/`:
+<div class="asciinema-cast" data-src="assets/casts/linux/linux-manual/kernel.cast" data-speed="3"></div>
+
+The output is in `build/kernel-rv32/arch/riscv/boot/`:
 
 | File | Size (bytes) | Reserved region |
 | --- | ---: | --- |
@@ -128,42 +133,44 @@ Four changes are made on top of the default config: static linking, enabling `fl
 
 ```sh
 cd busybox-1.38.0
-mkdir -p ../out/busybox-rv32
-make O=../out/busybox-rv32 ARCH=riscv CROSS_COMPILE=/opt/xuantie/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu- defconfig
-sed -i 's/^# CONFIG_STATIC is not set/CONFIG_STATIC=y/' ../out/busybox-rv32/.config
-sed -i 's/^# CONFIG_FLASH_ERASEALL is not set/CONFIG_FLASH_ERASEALL=y/' ../out/busybox-rv32/.config
-sed -i 's/^CONFIG_EXTRA_CFLAGS=""/CONFIG_EXTRA_CFLAGS="-march=rv32imafdc -mabi=ilp32d"/' ../out/busybox-rv32/.config
-sed -i 's/^CONFIG_EXTRA_LDFLAGS=""/CONFIG_EXTRA_LDFLAGS="-march=rv32imafdc -mabi=ilp32d"/' ../out/busybox-rv32/.config
-make O=../out/busybox-rv32 ARCH=riscv CROSS_COMPILE=/opt/xuantie/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu- oldconfig < /dev/null
-make -j8 O=../out/busybox-rv32 ARCH=riscv CROSS_COMPILE=/opt/xuantie/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu-
-mkdir -p ../out/rootfs-rv32
-make O=../out/busybox-rv32 ARCH=riscv CROSS_COMPILE=/opt/xuantie/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu- CONFIG_PREFIX=../rootfs-rv32 install
+mkdir -p ../build/busybox-rv32
+make O=../build/busybox-rv32 ARCH=riscv CROSS_COMPILE=$HOME/f101-linux/toolchain/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu- defconfig
+sed -i 's/^# CONFIG_STATIC is not set/CONFIG_STATIC=y/' ../build/busybox-rv32/.config
+sed -i 's/^# CONFIG_FLASH_ERASEALL is not set/CONFIG_FLASH_ERASEALL=y/' ../build/busybox-rv32/.config
+sed -i 's/^CONFIG_EXTRA_CFLAGS=""/CONFIG_EXTRA_CFLAGS="-march=rv32imafdc -mabi=ilp32d"/' ../build/busybox-rv32/.config
+sed -i 's/^CONFIG_EXTRA_LDFLAGS=""/CONFIG_EXTRA_LDFLAGS="-march=rv32imafdc -mabi=ilp32d"/' ../build/busybox-rv32/.config
+make O=../build/busybox-rv32 ARCH=riscv CROSS_COMPILE=$HOME/f101-linux/toolchain/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu- oldconfig < /dev/null
+make -j8 O=../build/busybox-rv32 ARCH=riscv CROSS_COMPILE=$HOME/f101-linux/toolchain/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu-
+mkdir -p ../build/rootfs-rv32
+make O=../build/busybox-rv32 ARCH=riscv CROSS_COMPILE=$HOME/f101-linux/toolchain/Xuantie-900-gcc-linux-6.6.0-glibc-x86_64-V3.2.0/bin/riscv64-unknown-linux-gnu- CONFIG_PREFIX=../rootfs-rv32 install
 cd ..
 ```
 
-`file out/busybox-rv32/busybox` should report 32-bit, statically linked. In the final `install` command, `CONFIG_PREFIX` is relative to the output directory, which is why it is written as `../rootfs-rv32`; the files are installed to `out/rootfs-rv32/`.
+<div class="asciinema-cast" data-src="assets/casts/linux/linux-manual/busybox.cast"></div>
+
+`file build/busybox-rv32/busybox` should report 32-bit, statically linked. In the final `install` command, `CONFIG_PREFIX` is relative to the output directory, which is why it is written as `../rootfs-rv32`; the files are installed to `build/rootfs-rv32/`.
 
 ### Directories and Configuration Files
 
-Next, add what is missing from `out/rootfs-rv32/`. `/sbin/init` and `S40network` come from the overlay directory of the external tree. After `install`, `/sbin/init` is a symlink to BusyBox, so it must be deleted before copying; otherwise the copy would overwrite BusyBox itself.
+Next, add what is missing from `build/rootfs-rv32/`. `/sbin/init` and `S40network` come from the overlay directory of the external tree. After `install`, `/sbin/init` is a symlink to BusyBox, so it must be deleted before copying; otherwise the copy would overwrite BusyBox itself.
 
 ```sh
-mkdir -p out/rootfs-rv32/{proc,sys,dev,tmp,run,root,etc/init.d,mnt/root,mnt/overlay,var/log}
-rm out/rootfs-rv32/sbin/init
-cp buildroot-external-yuzukihd/board/yuzukihd/yuzukineko/overlay/sbin/init out/rootfs-rv32/sbin/init
-cp buildroot-external-yuzukihd/board/yuzukihd/yuzukineko/overlay/etc/init.d/S40network out/rootfs-rv32/etc/init.d/
+mkdir -p build/rootfs-rv32/{proc,sys,dev,tmp,run,root,etc/init.d,mnt/root,mnt/overlay,var/log}
+rm build/rootfs-rv32/sbin/init
+cp buildroot-external-yuzukihd/board/yuzukihd/yuzukineko/overlay/sbin/init build/rootfs-rv32/sbin/init
+cp buildroot-external-yuzukihd/board/yuzukihd/yuzukineko/overlay/etc/init.d/S40network build/rootfs-rv32/etc/init.d/
 ```
 
 BusyBox provides `flash_eraseall`, so add a simple stand-in for `flash_erase`:
 
 ```sh
-printf '#!/bin/sh\nexec /usr/sbin/flash_eraseall "$1"\n' > out/rootfs-rv32/usr/sbin/flash_erase
+printf '#!/bin/sh\nexec /usr/sbin/flash_eraseall "$1"\n' > build/rootfs-rv32/usr/sbin/flash_erase
 ```
 
-Create `out/rootfs-rv32/etc/inittab`:
+Create `build/rootfs-rv32/etc/inittab`:
 
 ```sh
-cat > out/rootfs-rv32/etc/inittab <<'EOF'
+cat > build/rootfs-rv32/etc/inittab <<'EOF'
 ::sysinit:/bin/mount -t tmpfs tmpfs /tmp
 ::sysinit:/bin/mount -t tmpfs tmpfs /run
 ::sysinit:/etc/init.d/rcS
@@ -173,10 +180,10 @@ ttyS1::respawn:/sbin/getty -L ttyS1 115200 vt100
 EOF
 ```
 
-Create `out/rootfs-rv32/etc/init.d/rcS`:
+Create `build/rootfs-rv32/etc/init.d/rcS`:
 
 ```sh
-cat > out/rootfs-rv32/etc/init.d/rcS <<'EOF'
+cat > build/rootfs-rv32/etc/init.d/rcS <<'EOF'
 #!/bin/sh
 for s in /etc/init.d/S[0-9][0-9]*; do [ -x "$s" ] && "$s" start; done
 EOF
@@ -185,11 +192,11 @@ EOF
 The remaining small files, plus the executable permissions:
 
 ```sh
-echo 'root::0:0:root:/root:/bin/sh' > out/rootfs-rv32/etc/passwd
-echo 'root:x:0:' > out/rootfs-rv32/etc/group
-echo yuzukineko > out/rootfs-rv32/etc/hostname
-echo /dev/ttyS1 > out/rootfs-rv32/etc/securetty
-chmod 755 out/rootfs-rv32/usr/sbin/flash_erase out/rootfs-rv32/etc/init.d/rcS out/rootfs-rv32/etc/init.d/S40network
+echo 'root::0:0:root:/root:/bin/sh' > build/rootfs-rv32/etc/passwd
+echo 'root:x:0:' > build/rootfs-rv32/etc/group
+echo yuzukineko > build/rootfs-rv32/etc/hostname
+echo /dev/ttyS1 > build/rootfs-rv32/etc/securetty
+chmod 755 build/rootfs-rv32/usr/sbin/flash_erase build/rootfs-rv32/etc/init.d/rcS build/rootfs-rv32/etc/init.d/S40network
 ```
 
 The `root` password is empty, as in the Buildroot version. The console is UART1 (`ttyS1`), and `getty` uses 115200 baud.
@@ -199,9 +206,11 @@ The `root` password is empty, as in the Buildroot version. The console is UART1 
 Compress with xz. The device nodes `/dev/console` and `/dev/null` are written straight into the image with `-p`, so no root privileges are needed:
 
 ```sh
-mksquashfs out/rootfs-rv32 out/rootfs-rv32.squashfs -comp xz -all-root -noappend -no-progress -p "dev/console c 600 0 0 5 1" -p "dev/null c 666 0 0 1 3"
-ls -l out/rootfs-rv32.squashfs
+mksquashfs build/rootfs-rv32 build/rootfs-rv32.squashfs -comp xz -all-root -noappend -no-progress -p "dev/console c 600 0 0 5 1" -p "dev/null c 666 0 0 1 3"
+ls -l build/rootfs-rv32.squashfs
 ```
+
+<div class="asciinema-cast" data-src="assets/casts/linux/linux-manual/squashfs.cast"></div>
 
 The output is 1,089,536 bytes, and the reserved region runs from `0x6d0000` to `0xf00000` (8,585,216 bytes).
 
@@ -227,18 +236,18 @@ First install xfel as described in [FEL Download Mode and Tools](../../boot/fel.
 ```sh
 xfel version
 xfel spinor
-xfel spinor write 0x0 out/syterkit/build/yuzukineko/app_sram/spinor-boot/spinor-boot_spi.bin
-xfel spinor write 0x10000 out/kernel-rv32/arch/riscv/boot/dts/allwinner/sun252i-f101-yuzukineko.dtb
+xfel spinor write 0x0 build/syterkit/build/yuzukineko/app_sram/spinor-boot/spinor-boot_spi.bin
+xfel spinor write 0x10000 build/kernel-rv32/arch/riscv/boot/dts/allwinner/sun252i-f101-yuzukineko.dtb
 xfel spinor write 0x50000 opensbi/build/sun252i-f101/platform/generic/firmware/fw_jump.bin
-xfel spinor write 0xd0000 out/kernel-rv32/arch/riscv/boot/Image
-xfel spinor write 0x6d0000 out/rootfs-rv32.squashfs
+xfel spinor write 0xd0000 build/kernel-rv32/arch/riscv/boot/Image
+xfel spinor write 0x6d0000 build/rootfs-rv32.squashfs
 ```
 
 After writing, read back according to the file size and compare. For example for the kernel (`5178200` is the byte size of `Image`; if you use a different kernel, change it to the actual size shown by `ls -l`):
 
 ```sh
 xfel spinor read 0xd0000 5178200 Image-readback.bin
-cmp Image-readback.bin out/kernel-rv32/arch/riscv/boot/Image
+cmp Image-readback.bin build/kernel-rv32/arch/riscv/boot/Image
 ```
 
 Finally, reset:
@@ -252,15 +261,17 @@ xfel reset
 Flashing components individually suits debugging. To get a single 16 MiB file that can be written in one go, first confirm that no component exceeds its reserved region above (check sizes with `ls -l`), then write each one at its offset onto a base of all `0xFF`:
 
 ```sh
-head -c 16777216 /dev/zero | tr '\000' '\377' > out/yuzukineko-manual-rv32.img
-dd if=out/syterkit/build/yuzukineko/app_sram/spinor-boot/spinor-boot_spi.bin of=out/yuzukineko-manual-rv32.img bs=1 seek=0 conv=notrunc status=none
-dd if=out/kernel-rv32/arch/riscv/boot/dts/allwinner/sun252i-f101-yuzukineko.dtb of=out/yuzukineko-manual-rv32.img bs=1 seek=$((0x10000)) conv=notrunc status=none
-dd if=opensbi/build/sun252i-f101/platform/generic/firmware/fw_jump.bin of=out/yuzukineko-manual-rv32.img bs=1 seek=$((0x50000)) conv=notrunc status=none
-dd if=out/kernel-rv32/arch/riscv/boot/Image of=out/yuzukineko-manual-rv32.img bs=1 seek=$((0xd0000)) conv=notrunc status=none
-dd if=out/rootfs-rv32.squashfs of=out/yuzukineko-manual-rv32.img bs=1 seek=$((0x6d0000)) conv=notrunc status=none
-ls -l out/yuzukineko-manual-rv32.img
-sha256sum out/yuzukineko-manual-rv32.img
+head -c 16777216 /dev/zero | tr '\000' '\377' > build/yuzukineko-manual-rv32.img
+dd if=build/syterkit/build/yuzukineko/app_sram/spinor-boot/spinor-boot_spi.bin of=build/yuzukineko-manual-rv32.img bs=1 seek=0 conv=notrunc status=none
+dd if=build/kernel-rv32/arch/riscv/boot/dts/allwinner/sun252i-f101-yuzukineko.dtb of=build/yuzukineko-manual-rv32.img bs=1 seek=$((0x10000)) conv=notrunc status=none
+dd if=opensbi/build/sun252i-f101/platform/generic/firmware/fw_jump.bin of=build/yuzukineko-manual-rv32.img bs=1 seek=$((0x50000)) conv=notrunc status=none
+dd if=build/kernel-rv32/arch/riscv/boot/Image of=build/yuzukineko-manual-rv32.img bs=1 seek=$((0xd0000)) conv=notrunc status=none
+dd if=build/rootfs-rv32.squashfs of=build/yuzukineko-manual-rv32.img bs=1 seek=$((0x6d0000)) conv=notrunc status=none
+ls -l build/yuzukineko-manual-rv32.img
+sha256sum build/yuzukineko-manual-rv32.img
 ```
+
+<div class="asciinema-cast" data-src="assets/casts/linux/linux-manual/image.cast" data-speed="0.3"></div>
 
 The file should be exactly 16,777,216 bytes, with everything after `0xf00000` being `0xFF`, that is, an empty overlay partition.
 
@@ -271,9 +282,9 @@ Writing the full image <strong>overwrites the entire Flash</strong>, including a
 ```sh
 xfel version
 xfel spinor
-xfel spinor write 0x0 out/yuzukineko-manual-rv32.img
+xfel spinor write 0x0 build/yuzukineko-manual-rv32.img
 xfel spinor read 0x0 0x1000000 readback.img
-sha256sum out/yuzukineko-manual-rv32.img readback.img
+sha256sum build/yuzukineko-manual-rv32.img readback.img
 ```
 
 Reset once the two SHA-256 values match:

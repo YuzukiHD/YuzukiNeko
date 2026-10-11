@@ -4,7 +4,7 @@
 
 | Item | Description |
 | --- | --- |
-| SoC | F101S3 (QFN68, 7 mm × 7 mm), single-core XuanTie C907, rv32imac; has an MMU, but common software does not enable it |
+| SoC | F101S3 (QFN68, 7 mm × 7 mm), single-core XuanTie C907, rv32imacfdv, also supports 64-bit; has an MMU, but common software does not enable it |
 | Cache | 32 KB I-cache + 16 KB D-cache (64-byte cache line) |
 | PSRAM | SiP 16-bit PSRAM, 16 MiB on this board; V1.5 targets a 32 MiB configuration (F101S4) |
 | NOR Flash | 16 MiB, XIP supported; the onboard Flash is a system resource and holds the boot loader |
@@ -33,7 +33,7 @@ The following is how existing software uses the header pins. It is **not a fixed
 | `PB0` / `PB1` | UART1 TX / RX, console of the Zephyr `yuzukineko` board | Zephyr board configuration |
 | `PE2` | VBUS switch in USB host mode | Zephyr USB host driver |
 | `PE10` | Speaker amplifier enable for onboard audio (configurations with an amplifier) | Zephyr audio |
-| `PD5` | UF2 downloader button (active low, internal pull-up): hold it at power-up to enter `F101BOOT` | UF2 loader, see [UF2](../dev/zephyr/uf2/index.md) |
+| `PD5` | UF2 downloader button (active low, internal pull-up): hold it at power-up to enter `F101BOOT` | UF2 loader, see [UF2](../dev/zephyr/uf2/make-uf2.md) |
 | `PD0`–`PD22` | RGB LCD data/timing lines | Display stack, occupied once display is enabled |
 
 !> Which pin group the console serial port actually uses depends on the software (Zephyr `yuzukineko`: UART1 `PB0/PB1`). Before wiring, rely on the [schematic](files.md) and the notes of the firmware you flashed.
