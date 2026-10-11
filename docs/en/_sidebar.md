@@ -17,13 +17,6 @@
   - [RustSBI + Asterinas](/en/dev/asterinas/rustsbi-asterinas.md)
 - Development
   - [Software Overview](/en/dev/overview.md)
-  - Arduino
-    - [Introduction](/en/dev/arduino/index.md)
-    - [Installation](/en/dev/arduino/install.md)
-    - [First Sketch](/en/dev/arduino/first-sketch.md)
-    - [Writing Sketches and APIs](/en/dev/arduino/api.md)
-    - [Peripheral Libraries](/en/dev/arduino/libraries.md)
-    - [How It Runs and Hardware Notes](/en/dev/arduino/internals.md)
   - Zephyr
     - [Introduction](/en/dev/zephyr/index.md)
     - [Boards](/en/dev/zephyr/boards.md)
@@ -38,6 +31,10 @@
       - [Introduction](/en/dev/zephyr/nes/index.md)
     - Doom
       - [Introduction](/en/dev/zephyr/doom/index.md)
+    - UF2 Drag-and-Drop Flashing
+      - [Introduction](/en/dev/zephyr/uf2/index.md)
+      - [Making a .uf2](/en/dev/zephyr/uf2/make-uf2.md)
+      - [Flash Layout and First Installation](/en/dev/zephyr/uf2/flash-layout.md)
   - Linux Development
     - [Introduction](/en/dev/linux/index.md)
     - [Manual Build](/en/dev/linux/linux-manual.md)
@@ -45,14 +42,6 @@
     - [Linux + Buildroot](/en/dev/linux/linux-buildroot.md)
   - Asterinas Development
     - [Introduction](/en/dev/asterinas/index.md)
-  - UF2 Drag-and-Drop Flashing
-    - [Introduction](/en/dev/uf2/index.md)
-    - [Making a .uf2](/en/dev/uf2/make-uf2.md)
-    - [Flash Layout and First Installation](/en/dev/uf2/flash-layout.md)
-  - RT-Thread
-    - [Introduction](/en/dev/rt-thread/index.md)
-  - ESP-IDF
-    - [Introduction](/en/dev/esp-idf/index.md)
 - Enclosure
   - [3D-Printed Enclosure](/en/shell.md)
 - Reference

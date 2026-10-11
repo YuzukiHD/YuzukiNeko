@@ -41,8 +41,5 @@ The serial input of this image is sensitive to long strings; set the terminal's 
 
 ## Software
 
-**Clicking "Upload" in Arduino fails with `Request 'upload' failed`.**
-Use **Sketch → Upload Using Programmer** and select the programmer `xfel (USB FEL)` first.
-
 **Why can't USB device/host functions and downloading be used at the same time?**
 The board has only one USB-C port, which is also the FEL download port. Download first, then switch to the peripheral.

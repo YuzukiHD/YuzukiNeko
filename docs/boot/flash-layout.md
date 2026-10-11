@@ -61,17 +61,16 @@ Flash 的划分取决于你装的是哪套软件。同一块板子可以有以�
 
 完整镜像覆盖<strong>整片 16 MiB</strong>，包括 overlay 分区，所以写入会丢掉板上已经持久化的改动。详见 [预编译镜像](../dev/linux/linux-prebuilt.md)。
 
-### Arduino / UF2 布局
+### UF2 布局
 
 | 内容 | NOR 偏移 |
 | --- | --- |
 | SyterKit 加载器（三份） | `0x000000` / `0x010000` / `0x020000` |
 | 已保存的 Flash 采样点参数 | `0x02f000` |
 | 系统程序头页（UF2 下载器） | `0x030000` |
-| 应用头页（Arduino 核心/Zephyr 应用） | `0x200000`（最大约 `0x4CF000` 字节） |
-| Arduino 草图 | `0x400000` |
+| 应用头页（Zephyr 应用） | `0x200000`（最大约 `0x4CF000` 字节） |
 
-详见 [Arduino](../dev/arduino/index.md) 与 [UF2 拖放烧录](../dev/uf2/index.md)。
+详见 [UF2 拖放烧录](../dev/zephyr/uf2/index.md)。
 
 ?> 上面几张表里的区域有重叠（例如都从 `0x000000` 开始放 SyterKit），<strong>不要在同一块 Flash 上混着写</strong>。从一种布局换到另一种时，写入新布局的完整引导部分，并用 `xfel spinor read` 回读确认。
 

@@ -61,17 +61,16 @@ The full image is written to `0x000000..0x6d0000`; `0x6d0000..0x1000000` is not 
 
 The full image covers the **whole 16 MiB**, including the overlay partition, so writing it discards changes already persisted on the board. See [Prebuilt Images](../dev/linux/linux-prebuilt.md) for details.
 
-### Arduino / UF2 layout
+### UF2 layout
 
 | Content | NOR offset |
 | --- | --- |
 | SyterKit loader (three copies) | `0x000000` / `0x010000` / `0x020000` |
 | Saved Flash sample point parameters | `0x02f000` |
 | System program header page (UF2 downloader) | `0x030000` |
-| Application header page (Arduino core / Zephyr application) | `0x200000` (up to about `0x4CF000` bytes) |
-| Arduino sketch | `0x400000` |
+| Application header page (Zephyr application) | `0x200000` (up to about `0x4CF000` bytes) |
 
-See [Arduino](../dev/arduino/index.md) and [UF2 Drag-and-Drop Flashing](../dev/uf2/index.md) for details.
+See [UF2 Drag-and-Drop Flashing](../dev/zephyr/uf2/index.md) for details.
 
 ?> The regions in the tables above overlap (for example, they all place SyterKit starting at `0x000000`), so **do not mix them on the same Flash**. When switching from one layout to another, write the complete boot part of the new layout and read it back with `xfel spinor read` to confirm.
 

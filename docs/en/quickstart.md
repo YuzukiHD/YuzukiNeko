@@ -1,6 +1,6 @@
 # Quick Start
 
-This page takes the shortest path to getting the board running. Pick any one of the three routes; **all of them require that you can first put the board into FEL download mode**.
+This page takes the shortest path to getting the board running. Pick any one of the two routes; **all of them require that you can first put the board into FEL download mode**.
 
 ## What you need
 
@@ -55,27 +55,12 @@ For the full description and how to replace individual components, see [RustSBI 
 
 ?> If you want changes to persist (a writable root filesystem that survives a reboot), or you need the RV64I variant, use a Linux image from [Prebuilt Images](dev/linux/linux-prebuilt.md) instead. The steps are the same, but that image covers the whole 16 MiB, so writing it also overwrites the data persisted on the board.
 
-## Route B: write a first Blink with Arduino
-
-Suited if you are familiar with Arduino; no toolchain setup is needed.
-
-1. In Arduino IDE 2.x go to **File → Preferences** and add the following to "Additional boards manager URLs":
-   ```
-   https://github.com/YuzukiHD/Arduino/releases/latest/download/package_yuzukihd_index.json
-   ```
-2. In the Boards Manager install **YuzukiHD Boards**, then select the board **YuzukiNeko**.
-3. **Tools → Programmer → xfel (USB FEL)** (this board has no serial bootloader, so the normal "Upload" arrow cannot be used).
-4. On first use install the FEL USB driver (on Windows install WinUSB with Zadig, on Linux add a udev rule), see [FEL Download Mode and Tools](boot/fel.md#usb-drivers-and-permissions).
-5. Open the **Blink** example, compile, put the board into FEL, then use **Sketch → Upload Using Programmer**.
-
-For detailed steps, API coverage and limitations see [Arduino](dev/arduino/index.md).
-
-## Route C: develop with Zephyr
+## Route B: develop with Zephyr
 
 Suited if you need a full RTOS, drivers and multimedia features. The Zephyr `yuzukineko` board support is in the F101 workspace, see [Zephyr](dev/zephyr/index.md).
 
 ## Next steps
 
 - Want to connect peripherals → [Pinout](hardware/pinout.md)
-- Want to flash by dragging and dropping a `.uf2` → [UF2 Drag-and-Drop Flashing](dev/uf2/index.md)
+- Want to flash by dragging and dropping a `.uf2` → [UF2 Drag-and-Drop Flashing](dev/zephyr/uf2/index.md)
 - Running into problems → [FAQ](faq.md)

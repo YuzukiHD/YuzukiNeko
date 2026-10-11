@@ -41,8 +41,5 @@ SoC 只给出逻辑电平，要外置 CAN 收发器和终端电阻。
 
 ## 软件
 
-<strong>Arduino 里点“上传”失败，提示 `Request 'upload' failed`。</strong>
-应使用<strong>项目 → 使用编程器上传</strong>，并先选好编程器 `xfel (USB FEL)`。
-
 <strong>为什么 USB 设备/主机功能和下载不能同时用？</strong>
 板子只有一个 USB-C 口，它同时是 FEL 下载口。先下载，再换接外设。

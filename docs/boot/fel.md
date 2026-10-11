@@ -1,6 +1,6 @@
 # FEL 下载模式与工具
 
-F101 的 BROM 里有一个 USB 下载模式，叫 <strong>FEL</strong>。在 FEL 下，主机可以通过 USB 读写 SPI NOR、把程序载入内存并运行。本板的所有下载方式（xfel、rfel、Arduino 上传、从 FEL 启动 UF2 加载器）都基于它。
+F101 的 BROM 里有一个 USB 下载模式，叫 <strong>FEL</strong>。在 FEL 下，主机可以通过 USB 读写 SPI NOR、把程序载入内存并运行。本板的所有下载方式（xfel、rfel、从 FEL 启动 UF2 加载器）都基于它。
 
 ## 进入 FEL
 
@@ -83,7 +83,7 @@ rfel 报告 USB 权限不足时，可以用绝对路径加管理员权限运行�
 SUBSYSTEM=="usb", ATTR{idVendor}=="1f3a", ATTR{idProduct}=="efe8", TAG+="uaccess"
 ```
 
-然后执行 `sudo udevadm control --reload-rules` 并重新插拔设备。没有桌面会话的系统请按本地用户组配置 USB 权限。Arduino 文档给出的另一种写法是 `MODE="0666"`，对所有用户开放，按需选择。
+然后执行 `sudo udevadm control --reload-rules` 并重新插拔设备。没有桌面会话的系统请按本地用户组配置 USB 权限。
 
 ### macOS
 

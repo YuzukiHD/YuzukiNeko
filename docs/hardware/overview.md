@@ -32,11 +32,11 @@
 | --- | --- | --- |
 | `PB0` / `PB1` | UART1 TX / RX，Zephyr 的 `yuzukineko` 板控制台 | Zephyr 板级配置 |
 | `PE2` | USB 主机模式下的 VBUS 开关 | Zephyr USB 主机驱动 |
-| `PE10` | 板载音频的喇叭功放使能（有功放的配置） | Zephyr / Arduino 音频 |
-| `PD5` | UF2 下载器按键（接地有效，内部上拉）：上电时按住进入 `F101BOOT` | UF2 加载器，见 [UF2](../dev/uf2/index.md) |
+| `PE10` | 板载音频的喇叭功放使能（有功放的配置） | Zephyr 音频 |
+| `PD5` | UF2 下载器按键（接地有效，内部上拉）：上电时按住进入 `F101BOOT` | UF2 加载器，见 [UF2](../dev/zephyr/uf2/index.md) |
 | `PD0`–`PD22` | RGB LCD 数据/时序线 | 显示栈，启用显示后占用 |
 
-!> 控制台串口究竟接在哪组脚上，随所用软件而定（Zephyr `yuzukineko`：UART1 `PB0/PB1`；Arduino 的 `Serial`：按该板核心的配置）。接线前以[原理图](files.md)和你所刷固件的说明为准。
+!> 控制台串口究竟接在哪组脚上，随所用软件而定（Zephyr `yuzukineko`：UART1 `PB0/PB1`）。接线前以[原理图](files.md)和你所刷固件的说明为准。
 
 ## 电源
 

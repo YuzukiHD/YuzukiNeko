@@ -52,6 +52,5 @@ YuzukiNeko 是一块基于 <strong>Allwinner F101 系列 SoC</strong> 的开发�
 ## 相关项目
 
 - 开发板仓库：<https://github.com/YuzukiHD/YuzukiNeko>
-- Arduino 支持：<https://github.com/YuzukiHD/Arduino>
 - SyterKit（启动加载器）：<https://github.com/YuzukiHD/SyterKit>
 - xfel：<https://github.com/xboot/xfel>　rfel：<https://github.com/rustsbi/allwinner-hal/tree/main/rfel>

@@ -1,6 +1,6 @@
 # 快速开始
 
-本页带你用最短路径让板子跑起来。三条路线任选其一，<strong>都需要先能让板子进入 FEL 下载模式</strong>。
+本页带你用最短路径让板子跑起来。两条路线任选其一，<strong>都需要先能让板子进入 FEL 下载模式</strong>。
 
 ## 你需要准备
 
@@ -55,27 +55,12 @@
 
 ?> 想要改动能保留（可写根文件系统，重启后仍在），或者需要 RV64I 版本，可以改用[预编译镜像](dev/linux/linux-prebuilt.md)里的 Linux 镜像。流程一样，但那个镜像覆盖整片 16 MiB，写入时会一并覆盖板上持久化的数据。
 
-## 路线 B：用 Arduino 写第一个 Blink
-
-适合熟悉 Arduino 的用户，无需自己搭工具链。
-
-1. Arduino IDE 2.x → <strong>文件 → 首选项</strong>，在“其他开发板管理器地址”里加入
-   ```
-   https://github.com/YuzukiHD/Arduino/releases/latest/download/package_yuzukihd_index.json
-   ```
-2. 开发板管理器中安装 <strong>YuzukiHD Boards</strong>，选择开发板 <strong>YuzukiNeko</strong>。
-3. <strong>工具 → 编程器 → xfel (USB FEL)</strong>（这块板没有串口 bootloader，不能用普通的“上传”箭头）。
-4. 首次需要安装 FEL 的 USB 驱动（Windows 用 Zadig 装 WinUSB，Linux 加 udev 规则），见 [FEL 下载模式与工具](boot/fel.md#usb-驱动与权限)。
-5. 打开示例 <strong>Blink</strong>，编译，让板子进入 FEL，然后 <strong>项目 → 使用编程器上传</strong>。
-
-详细步骤、API 支持范围和限制见 [Arduino](dev/arduino/index.md)。
-
-## 路线 C：用 Zephyr 开发
+## 路线 B：用 Zephyr 开发
 
 适合需要完整 RTOS、驱动和多媒体功能的用户。Zephyr 的 `yuzukineko` 板级支持在 F101 工作区内，见 [Zephyr](dev/zephyr/index.md)。
 
 ## 下一步
 
 - 想接外设 → [引脚排布](hardware/pinout.md)
-- 想拖放 `.uf2` 烧录 → [UF2 拖放烧录](dev/uf2/index.md)
+- 想拖放 `.uf2` 烧录 → [UF2 拖放烧录](dev/zephyr/uf2/index.md)
 - 遇到问题 → [常见问题](faq.md)

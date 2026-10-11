@@ -1,6 +1,6 @@
 # FEL Download Mode and Tools
 
-The F101 BROM contains a USB download mode called **FEL**. In FEL, the host can read and write the SPI NOR over USB, load programs into memory and run them. Every download method on this board (xfel, rfel, Arduino upload, booting the UF2 loader from FEL) is built on it.
+The F101 BROM contains a USB download mode called **FEL**. In FEL, the host can read and write the SPI NOR over USB, load programs into memory and run them. Every download method on this board (xfel, rfel, booting the UF2 loader from FEL) is built on it.
 
 ## Entering FEL
 
@@ -83,7 +83,7 @@ When rfel reports insufficient USB permissions, you can run it with administrato
 SUBSYSTEM=="usb", ATTR{idVendor}=="1f3a", ATTR{idProduct}=="efe8", TAG+="uaccess"
 ```
 
-Then run `sudo udevadm control --reload-rules` and replug the device. On systems without a desktop session, configure USB permissions according to your local user groups. The Arduino documentation gives an alternative form, `MODE="0666"`, which opens the device to all users; choose as needed.
+Then run `sudo udevadm control --reload-rules` and replug the device. On systems without a desktop session, configure USB permissions according to your local user groups.
 
 ### macOS
 

@@ -52,6 +52,5 @@ YuzukiNeko is a development board based on the **Allwinner F101 series SoC**, us
 ## Related projects
 
 - Board repository: <https://github.com/YuzukiHD/YuzukiNeko>
-- Arduino support: <https://github.com/YuzukiHD/Arduino>
 - SyterKit (boot loader): <https://github.com/YuzukiHD/SyterKit>
 - xfel: <https://github.com/xboot/xfel>　rfel: <https://github.com/rustsbi/allwinner-hal/tree/main/rfel>

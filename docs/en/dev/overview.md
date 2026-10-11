@@ -4,14 +4,11 @@ YuzukiNeko is a single-core RISC-V (rv32imac) board that can run a variety of so
 
 | Option | Suited for | Status and notes | Docs |
 | --- | --- | --- | --- |
-| **Arduino** | Writing sketches quickly, getting familiar with the Arduino API | Prebuilt core (Zephyr inside), no toolchain setup; several examples verified on the EVB | [Arduino](arduino/index.md) |
 | **Zephyr** | A full RTOS using display, audio, USB, G2D, video decoding, etc. | Board `yuzukineko`, complete peripheral drivers | [Zephyr](zephyr/index.md) |
-| **UF2 downloader** | Flashing applications by dropping a `.uf2` file, no tools to install | The board runs a USB drive `F101BOOT` | [UF2 Drag-and-Drop Flashing](uf2/index.md) |
+| **UF2 downloader** | Flashing applications by dropping a `.uf2` file, no tools to install | The board runs a USB drive `F101BOOT` | [UF2 Drag-and-Drop Flashing](zephyr/uf2/index.md) |
 | **RustSBI + Asterinas** | A system with a Linux-style shell right away | Ready-made image, nine BusyBox demos | [RustSBI + Asterinas](asterinas/rustsbi-asterinas.md) |
 | **Linux + Buildroot** | A full Linux with a writable, persistent root filesystem | Ready-made images (RV32 / RV64I), SquashFS + JFFS2 overlay | [Linux + Buildroot](linux/linux-buildroot.md) |
 | **MicroPython** | Upstream Zephyr port as the application, plus an `f101` module (G2D, audio, chip ID); REPL on the console | Verified on the EVB: floating point, `machine` Pin/SPI/ADC/PWM/WDT, SD mount, display writes, G2D, tone output | [MicroPython](zephyr/micropython/index.md) |
-| **RT-Thread** | v5.3.0, BSP `sun252iw2`, entirely on the device model and a built-in device tree | Drivers ported and tested on the EVB; USB host not run (the single port is taken by the download cable) | [RT-Thread](rt-thread/index.md) |
-| **ESP-IDF** | v6.1 port, target `sun252i-f101` | In progress: gpio/uart/i2c/spi/adc/ledc/sdmmc, esp_lcd RGB panel, DMA and audio (on-chip codec) pass EVB tests; USB and WiFi not done | [ESP-IDF](esp-idf/index.md) |
 | **mGBA** | Game Boy Advance emulator port | Runs | [mGBA](zephyr/mgba/index.md) |
 | **NES** | NES emulator port | Builds and links; not yet run on the board | [NES](zephyr/nes/index.md) |
 | **Doom** | Doom port | Builds and links; not yet run on the board | [Doom](zephyr/doom/index.md) |
@@ -28,7 +25,7 @@ The two Linux-style routes are kept apart:
 Two common methods:
 
 1. **Load and run directly from FEL** (during development): the board enters FEL, the host writes the program into memory and runs it, leaving Flash untouched. Suited for debugging bare-metal programs such as Zephyr; **it needs a fresh power-up every time**.
-2. **Boot from SPI NOR** (for deployment): Flash holds a loader such as SyterKit, the BROM loads it at power-up, and the loader then loads the system into PSRAM. Arduino, UF2 and RustSBI + Asterinas all take this route.
+2. **Boot from SPI NOR** (for deployment): Flash holds a loader such as SyterKit, the BROM loads it at power-up, and the loader then loads the system into PSRAM. UF2 and RustSBI + Asterinas all take this route.
 
 Once Flash holds a valid loader, the board no longer enters FEL by itself; you must power up while holding the **FEL** button. See [FEL Download Mode and Tools](../boot/fel.md).
 
