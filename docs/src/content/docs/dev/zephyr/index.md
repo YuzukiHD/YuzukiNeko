@@ -48,6 +48,17 @@ Zephyr 的板级和驱动代码在上面这个 fork 里，不在 YuzukiNeko 硬�
 | [G2D 2D 加速器](drivers/g2d.md) | 填充、搬运、旋转、YUV、混合 |
 | [视频引擎 vdec](drivers/vdec.md) | JPEG、PNG、MJPEG、H.264 解码 |
 
+组件页（同样的规格，讲协议栈和库，每页都有架构图、数据流图和上板日志）：
+
+| 页面 | 内容 |
+| --- | --- |
+| [CherryUSB - USB 协议栈](components/cherryusb.md) | 设备栈、主机栈、CDC ACM、MSC |
+| [SD - SD 卡协议栈](components/sd.md) | SD 子系统、磁盘访问、FAT 文件系统 |
+| [AIC8800 WIFI - 无线网卡驱动](components/aic8800-wifi.md) | SDIO、固件下载、扫描、连接 |
+| [AIC8800 蓝牙 - 蓝牙驱动](components/aic8800-bt.md) | HCI、广播、扫描、连接 |
+| [AAC - AAC 解码器](components/aac.md) | OpenCORE AAC 解码 |
+| [MP4 - MP4 解封装](components/mp4.md) | moov 解析、sample 读取、seek |
+
 ## 驱动支持情况
 
 驱动按 Zephyr 自己的 API 编写，设备树 binding 在 `dts/bindings/*/allwinner,sunxi-*.yaml`。

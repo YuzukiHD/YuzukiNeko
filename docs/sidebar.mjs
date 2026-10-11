@@ -168,6 +168,36 @@ export const sidebar = [
             "slug": "dev/zephyr/drivers/vdec"
           }
         ]
+      },
+      {
+        "label": "Zephyr 组件",
+        "collapsed": true,
+        "items": [
+          {
+            "label": "CherryUSB - USB 协议栈",
+            "slug": "dev/zephyr/components/cherryusb"
+          },
+          {
+            "label": "SD - SD 卡协议栈",
+            "slug": "dev/zephyr/components/sd"
+          },
+          {
+            "label": "AIC8800 WIFI - 无线网卡驱动",
+            "slug": "dev/zephyr/components/aic8800-wifi"
+          },
+          {
+            "label": "AIC8800 蓝牙 - 蓝牙驱动",
+            "slug": "dev/zephyr/components/aic8800-bt"
+          },
+          {
+            "label": "AAC - AAC 解码器",
+            "slug": "dev/zephyr/components/aac"
+          },
+          {
+            "label": "MP4 - MP4 解封装",
+            "slug": "dev/zephyr/components/mp4"
+          }
+        ]
       }
     ]
   },
