@@ -1,34 +1,34 @@
 ---
-title: "USB 副屏 - 电脑扩展屏"
+title: "USB secondary display - a second screen for a computer"
 ---
 
-把 F101 板子接到 Windows 电脑的 USB 口上，电脑就多出一块显示器：桌面画面被主机端驱动压成 JPEG，经 USB 批量端点发给板子，板子用片上视频引擎解码，直接放到显示的视频层上。同一个 USB 设备里还带一个 HID 多点触摸屏接口，板上的触摸屏可以回传触摸。示例是工作区里的 `samples/drivers/usb/cherryusb_display`，用的是 CherryUSB 的 vendor display 类，不需要 `zephyr-components`。
+Plug the F101 board into a USB port of a Windows computer and the computer gains another display: the host-side driver compresses the desktop picture into JPEG, sends it to the board over a USB bulk endpoint, and the board decodes it with the on-chip video engine and puts it straight onto the video layer of the display. The same USB device also carries a HID multi-touch screen interface, so the touch screen on the board can send touches back. The example is `samples/drivers/usb/cherryusb_display` in the workspace; it uses the vendor display class of CherryUSB and does not need `zephyr-components`.
 
-开始前请先完成 [配置开发环境](../zephyr-setup-env.md) 和 [获取 Zephyr 代码](../zephyr-get-source.md)。
+Before you start, complete [Set up the development environment](../zephyr-setup-env.md) and [Get the Zephyr source](../zephyr-get-source.md).
 
-本文讲板子这一端的代码。电脑这一端是现成的第三方 Windows 驱动，不在本仓库里编译，这里只讲怎么装和怎么用。
+This page covers the code on the board side. The computer side is an off-the-shelf third-party Windows driver that is not built from this repository, so only how to install and use it is covered here.
 
-## 准备
+## Preparation
 
-### 主机端驱动
+### Host-side driver
 
-板子对外是一个<strong>厂商自定义类</strong>设备（接口类 0xff），Windows 自带的显示驱动不认它，需要装第三方的 usb graphic 虚拟显示驱动。CherryUSB 仓库里带了签名好的安装程序：
+To the host the board is a <strong>vendor-defined class</strong> device (interface class 0xff). The display driver that ships with Windows does not recognize it, so the third-party usb graphic virtual display driver has to be installed. The CherryUSB repository carries a signed installer:
 
 ```text
 ~/f101-zephyr/modules/lib/cherryusb/tools/display/xfz1986_usb_graphic_250224_rc_sign.exe
 ```
 
-驱动出处是 [chuanjinpang/win10_idd_xfz1986_usb_graphic_driver_display](https://github.com/chuanjinpang/win10_idd_xfz1986_usb_graphic_driver_display)，要求是“使用前先在 Windows 里安装这个 exe”。步骤：
+The driver comes from [chuanjinpang/win10_idd_xfz1986_usb_graphic_driver_display](https://github.com/chuanjinpang/win10_idd_xfz1986_usb_graphic_driver_display), and the requirement is to "install this exe in Windows before use". Steps:
 
-1. 把 exe 拷到 Windows 电脑上，运行安装。
-2. 安装完后，把板子用 USB-C 线接到电脑。板子要先跑起来，见 [运行](#运行)。
-3. 电脑端“显示设置”里出现新的显示器，分辨率就是板子报的分辨率，当作扩展屏使用。
+1. Copy the exe to the Windows computer and run the installer.
+2. When the installation is done, connect the board to the computer with a USB-C cable. The board has to be running first; see [Run](#run).
+3. A new display appears in the display settings of the computer, with the resolution the board reports; use it as an extended screen.
 
-协议和驱动内部细节不在本仓库，后面的协议一节只写板子这边处理的部分。
+The protocol and the internals of the driver are not in this repository; the protocol section below covers only the part handled on the board.
 
-## 编译
+## Build
 
-在工作区里执行：
+Run this in the workspace:
 
 ```sh
 . ~/f101-zephyr/env.sh
@@ -38,24 +38,24 @@ west build -b yuzukineko -d build/usbdisp zephyr/samples/drivers/usb/cherryusb_d
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/apps-usb-display/build.cast" data-speed="6"></div>
 
-不需要加任何 `-D` 参数。`prj.conf` 已经带了触摸需要的 `CONFIG_INPUT=y` 和 `CONFIG_INPUT_GT967_MAX_TOUCH_POINTS=5`，生成的 `.config` 里 `CONFIG_SAMPLE_USB_DISPLAY_CTP=y`、`CONFIG_INPUT_GT967=y`。
+No `-D` option is needed. `prj.conf` already carries the `CONFIG_INPUT=y` and `CONFIG_INPUT_GT967_MAX_TOUCH_POINTS=5` that touch needs, and the generated `.config` has `CONFIG_SAMPLE_USB_DISPLAY_CTP=y` and `CONFIG_INPUT_GT967=y`.
 
-产物是 `build/usbdisp/zephyr/zephyr.bin`，约 295 KB，链接地址 `0x40010000`。
+The artifact is `build/usbdisp/zephyr/zephyr.bin`, about 295 KB, linked at `0x40010000`.
 
-## 运行
+## Run
 
-用 [编译与运行](../zephyr-build-run.md) 里的任一种方式下载，控制台是 UART1（PB00/PB01，115200 8N1）。
+Download it with any of the methods in [Building and running](../zephyr-build-run.md); the console is UART1 (PB00/PB01, 115200 8N1).
 
-- 调试时用<strong>方式一</strong>：`xfel ddr f101-s3`、`xfel write 0x40010000 build/usbdisp/zephyr/zephyr.bin`、`xfel exec 0x40010000`。
-- 要脱机用<strong>方式三</strong>：`mkuf2.py app build/usbdisp/zephyr/zephyr.bin -o out/usbdisp.uf2`，拖进 `F101BOOT` 盘。
+- For debugging use <strong>method one</strong>: `xfel ddr f101-s3`, `xfel write 0x40010000 build/usbdisp/zephyr/zephyr.bin`, `xfel exec 0x40010000`.
+- For stand-alone use <strong>method three</strong>: `mkuf2.py app build/usbdisp/zephyr/zephyr.bin -o out/usbdisp.uf2`, then drag it onto the `F101BOOT` drive.
 
 :::caution
-板子只有一个 USB-C 口，既是 xfel 下载口，也是这个示例的 USB 设备口。用方式一时，`xfel exec` 之后保持这根线不动，程序起来后同一个口就枚举成显示设备，电脑装了驱动就能看到新显示器。
+The board has only one USB-C port, and it is both the xfel download port and the USB device port of this example. With method one, leave the cable in place after `xfel exec`; once the program starts, the same port enumerates as the display device, and the computer sees the new display once the driver is installed.
 :::
 
-### 串口输出：启动和触摸屏就绪
+### Serial output: boot and touch screen ready
 
-下载运行后读 UART1 控制台，输出如下：
+After downloading and running, the UART1 console reads as follows:
 
 ```text
 *** Booting Zephyr OS build b6f3dfe1a1f4 ***
@@ -69,11 +69,11 @@ usb display: 0 frames (0.00 fps), 0 KB/s, 0 bad, decode 0 us, show 0 us per fram
 usb display: 0 frames (0.00 fps), 0 KB/s, 0 bad, decode 0 us, show 0 us per frame
 ```
 
-`usb ctp: touch panel touch@5d, 1024x768` 说明 `touch` 节点的 GT967 驱动初始化成功，而且 `screen-width`、`screen-height` 取到了面板的 1024 x 768，触摸坐标按这个尺寸缩放。`waiting for the host` 里的串就是主机看到的产品字符串。
+`usb ctp: touch panel touch@5d, 1024x768` shows that the GT967 driver of the `touch` node initialized successfully and that `screen-width` and `screen-height` picked up 1024 x 768 from the panel, so touch coordinates are scaled to that size. The string inside `waiting for the host` is the product string the host sees.
 
-### 电脑上：枚举
+### On the computer: enumeration
 
-板子的 USB-C 线接着电脑，板子起来后在 Windows 上用 `Get-PnpDevice -PresentOnly` 查 `VID_303A` 的设备：
+With the USB-C cable of the board connected to the computer, once the board is up, look up the `VID_303A` device on Windows with `Get-PnpDevice -PresentOnly`:
 
 ```text
 Status Class    FriendlyName                          InstanceId
@@ -83,62 +83,62 @@ OK     HIDClass (中文名，控制台编码乱码)                     USB\VID_
 OK     HIDClass (中文名，控制台编码乱码)                                   HID\VID_303A&PID_2986&MI_01\...
 ```
 
-- 设备以 `VID_303A&PID_2986` 出现，是组合设备（接口 0 显示，接口 1 HID），串口号 `2022123456` 和字符串描述符一致。板子打印 `configured by the host`。
-- 接口 0 的名字就是产品字符串 `cherryusb_R1024x768_Ejpg9_Fps60_Bl500`。没装 usb graphic 驱动时状态是 `Error`。
-- 接口 1 被系统的 HID 类驱动认领，状态 `OK`，不需要装驱动。
+- The device appears as `VID_303A&PID_2986` and is a composite device (interface 0 display, interface 1 HID); the serial number `2022123456` matches the string descriptor. The board prints `configured by the host`.
+- The name of interface 0 is the product string `cherryusb_R1024x768_Ejpg9_Fps60_Bl500`. Without the usb graphic driver installed its status is `Error`.
+- Interface 1 is claimed by the HID class driver of the system, its status is `OK`, and no driver has to be installed.
 
-### 电脑上：显示设置里的新显示器
+### On the computer: the new display in display settings
 
-装好主机端驱动后，电脑“显示设置”里多出一块 1024x768 的显示器，板子屏幕显示电脑桌面；串口每隔一段时间打印一行统计（帧数、fps、KB/s、坏帧数、解码和显示耗时）。
+Once the host-side driver is installed, the display settings of the computer gain a 1024x768 display and the screen of the board shows the computer desktop; from time to time the serial port prints one line of statistics (frame count, fps, KB/s, bad frames, decode and show time).
 
-![设备管理器显示适配器下的 xfz1986_usb_graphic(demo)](figures/usb-display-device-manager.png)
+![xfz1986_usb_graphic(demo) under display adapters in Device Manager](figures/usb-display-device-manager.webp)
 
-设备管理器的“显示适配器”下多出 `xfz1986_usb_graphic(demo)`，就是板子这块屏。
+Under "Display adapters" in Device Manager there is now an `xfz1986_usb_graphic(demo)`, which is this screen of the board.
 
-![Windows 显示设置里的两块显示器](figures/usb-display-settings.png)
+![The two displays in the Windows display settings](figures/usb-display-settings.webp)
 
-“系统 → 屏幕”里出现标号 2 的显示器，和主显示器 1 并排，模式是“扩展这些显示器”。
+Under "System → Display" a display numbered 2 appears next to the main display 1, with the mode "Extend these displays".
 
-![板子屏幕上显示的 Windows 桌面](figures/usb-display-board.png)
+![The Windows desktop shown on the screen of the board](figures/usb-display-board.webp)
 
-板子的屏幕上是电脑的桌面：任务栏、浏览器窗口和右下角的时钟都显示出来了。
+The screen of the board shows the desktop of the computer: the taskbar, a browser window and the clock in the bottom right corner are all visible.
 
-## 协议
+## Protocol
 
-### 设备怎么告诉主机“我是什么屏”
+### How the device tells the host what screen it is
 
-主机靠<strong>产品字符串</strong>（USB product string）得知屏的参数，没有额外的控制请求。`main.c` 第 64–65 行定义格式：
+The host learns the panel parameters from the <strong>product string</strong> (USB product string); there is no extra control request. `main.c` defines the format on lines 64–65:
 
 ```c
 /* name, size, encoding (jpg quality 1..10), frame rate, frame limit in KB */
 #define PRODUCT_FORMAT  "cherryusb_R%ux%u_Ejpg%u_Fps%u_Bl%u"
 ```
 
-`main()` 在第 358–359 行把面板尺寸和 Kconfig 的值填进去：
+`main()` fills in the panel size and the Kconfig values on lines 358–359:
 
 ```c
 	snprintk(product_string, sizeof(product_string), PRODUCT_FORMAT, w, h,
 		 CONFIG_SAMPLE_USB_DISPLAY_QUALITY, CONFIG_SAMPLE_USB_DISPLAY_FPS, FRAME_LIMIT_KB);
 ```
 
-默认配置下得到的串，和板子实际启动日志一致：
+With the default configuration the resulting string matches the actual boot log of the board:
 
 ```text
 cherryusb_R1024x768_Ejpg9_Fps60_Bl500
 ```
 
-| 字段 | 含义 | 来源 |
+| Field | Meaning | Source |
 | --- | --- | --- |
-| `R1024x768` | 屏的宽x高 | `CONFIG_SAMPLE_USB_DISPLAY_WIDTH/HEIGHT`，为 0 时取面板尺寸 |
-| `Ejpg9` | 编码 JPEG，质量 9（范围 1–10） | `CONFIG_SAMPLE_USB_DISPLAY_QUALITY` |
-| `Fps60` | 主机端的目标帧率 | `CONFIG_SAMPLE_USB_DISPLAY_FPS` |
-| `Bl500` | 单帧上限 500 KB | 宏 `FRAME_LIMIT_KB` |
+| `R1024x768` | Width x height of the screen | `CONFIG_SAMPLE_USB_DISPLAY_WIDTH/HEIGHT`, 0 takes the panel size |
+| `Ejpg9` | JPEG encoding, quality 9 (range 1–10) | `CONFIG_SAMPLE_USB_DISPLAY_QUALITY` |
+| `Fps60` | Target frame rate on the host side | `CONFIG_SAMPLE_USB_DISPLAY_FPS` |
+| `Bl500` | 500 KB limit per frame | The `FRAME_LIMIT_KB` macro |
 
-字符串里的字段由主机端驱动解析，字段的确切语义以驱动为准。板子这边只保证：宽高是 64–1920 x 64–1080 的偶数，否则 `main()` 报错退出（第 352–356 行）。
+The fields of the string are parsed by the host-side driver, and the exact meaning of each field is defined by the driver. On the board side only this is guaranteed: the width and height are even numbers in 64–1920 x 64–1080, otherwise `main()` reports an error and exits (lines 352–356).
 
-### USB 描述符
+### USB descriptors
 
-设备描述符的 VID/PID 是 `0x303A` / `0x2987`（只有显示）；开了触摸后变成组合设备，PID `0x2986`。配置描述符由 `build_config_descriptor()`（第 79–102 行）拼出来：
+The VID/PID of the device descriptor is `0x303A` / `0x2987` (display only); with touch enabled it becomes a composite device with PID `0x2986`. The configuration descriptor is assembled by `build_config_descriptor()` (lines 79–102):
 
 ```c
 static void build_config_descriptor(void)
@@ -157,15 +157,15 @@ static void build_config_descriptor(void)
 	}
 ```
 
-| 接口 | 端点 | 类型 | 用途 |
+| Interface | Endpoint | Type | Purpose |
 | --- | --- | --- | --- |
-| 0：vendor（0xff） | `0x02` OUT | 批量，512 字节 | 主机发来的帧 |
-| 0：vendor（0xff） | `0x81` IN | 批量，512 字节 | 保留，板子不往里写 |
-| 1：HID（可选） | `0x83` IN | 中断，64 字节 | 触摸报告 |
+| 0: vendor (0xff) | `0x02` OUT | Bulk, 512 bytes | Frames sent by the host |
+| 0: vendor (0xff) | `0x81` IN | Bulk, 512 bytes | Reserved, the board does not write to it |
+| 1: HID (optional) | `0x83` IN | Interrupt, 64 bytes | Touch reports |
 
-### 帧格式
+### Frame format
 
-每帧是一个 16 字节的帧头加载荷，帧头结构在 CherryUSB 的 `class/vendor/display/usbd_display.h`：
+Each frame is a 16 byte frame header plus a payload; the header structure is in `class/vendor/display/usbd_display.h` of CherryUSB:
 
 ```c
 struct usbd_disp_frame_header {
@@ -181,15 +181,15 @@ struct usbd_disp_frame_header {
 } __PACKED;
 ```
 
-| 字段 | 说明 |
+| Field | Description |
 | --- | --- |
-| `type` | 载荷类型：0 RGB565、1 RGB888、2 YUV420、3 JPEG。本示例只处理 3，其余的丢掉 |
-| `x`、`y`、`width`、`height` | 本帧的位置和尺寸。示例只用 `width`、`height`，把整张图当全屏 |
-| `frame_id` | 10 位的帧序号，只用于日志 |
-| `payload_total` | 载荷字节数（22 位，最大 4 MB） |
-| `crc16` | 载荷的 CRC16。<strong>示例不校验</strong> |
+| `type` | Payload type: 0 RGB565, 1 RGB888, 2 YUV420, 3 JPEG. This example handles only 3 and drops the rest |
+| `x`, `y`, `width`, `height` | Position and size of this frame. The example uses only `width` and `height` and treats the whole picture as the full screen |
+| `frame_id` | 10 bit frame sequence number, used only in the log |
+| `payload_total` | Payload size in bytes (22 bits, 4 MB maximum) |
+| `crc16` | CRC16 of the payload. <strong>The example does not check it</strong> |
 
-帧怎么切开靠<strong>短包</strong>：批量传输的帧不定长，一帧发完的标志是一个不足 512 字节的包（或者零长度包）。类驱动 `usbd_display_bulk_out()` 每次把 16384 字节的读请求挂到当前帧缓冲后面，收到的字节数不是 512 的整数倍就认为帧结束（`class/vendor/display/usbd_display.c` 第 100–119 行）：
+Frames are separated by <strong>short packets</strong>: bulk frames are not fixed length, and the end of a frame is marked by a packet shorter than 512 bytes (or a zero length packet). Each time, the class driver `usbd_display_bulk_out()` hangs a 16384 byte read request after the current frame buffer, and when the number of bytes received is not a multiple of 512 the frame is taken to be complete (`class/vendor/display/usbd_display.c`, lines 100–119):
 
 ```c
         if ((nbytes % usbd_get_ep_mps(0, g_usbd_display.out_ep.ep_addr)) || (nbytes == 0)) {
@@ -201,78 +201,78 @@ struct usbd_disp_frame_header {
             usbd_display_frame_send(frame);
 ```
 
-帧恰好填满最后一个包时，主机会再补一个空帧，类型是 `0xff`，`main.c` 的 `handle_frame()` 遇到类型不是 JPEG 或大小为 0 的帧直接返回。设备被主机配置完（`USBD_EVENT_CONFIGURED`）时，类驱动先丢弃数据，直到见到第一个短包才开始接帧，这样接上线时正处于一帧中间也能重新对齐。
+When a frame exactly fills the last packet, the host sends one more empty frame with type `0xff`, and `handle_frame()` in `main.c` returns at once for a frame whose type is not JPEG or whose size is 0. When the device has just been configured by the host (`USBD_EVENT_CONFIGURED`), the class driver discards data until it sees the first short packet, so a connection made in the middle of a frame realigns itself.
 
-收到的帧长度超过缓冲时，类驱动打印 `frame overflow, drop it` 并丢帧。
+When a received frame is longer than the buffer, the class driver prints `frame overflow, drop it` and drops the frame.
 
-## 架构与数据流
+## Architecture and data flow
 
-### 架构
+### Architecture
 
 ```mermaid
 flowchart TB
-    subgraph APP["应用 samples/drivers/usb/cherryusb_display"]
-        MAIN["main.c<br/>描述符 · 帧循环 · 解码显示"]
-        TOUCH["usb_touch.c<br/>HID 触摸报告"]
-        CTP["usb_ctp.c<br/>input 回调 → 触摸报告"]
+    subgraph APP["Application samples/drivers/usb/cherryusb_display"]
+        MAIN["main.c<br/>descriptors · frame loop · decode and show"]
+        TOUCH["usb_touch.c<br/>HID touch reports"]
+        CTP["usb_ctp.c<br/>input callback → touch reports"]
     end
-    subgraph CU["CherryUSB 模块"]
+    subgraph CU["CherryUSB module"]
         CORE["usbd_core"]
         DISP["class/vendor/display<br/>usbd_display.c"]
         HIDC["class/hid<br/>usbd_hid.c"]
     end
-    subgraph DRV["Zephyr 驱动"]
-        MUSB["drivers/usb/cherryusb<br/>MUSB 胶水 + PHY"]
+    subgraph DRV["Zephyr drivers"]
+        MUSB["drivers/usb/cherryusb<br/>MUSB glue + PHY"]
         VDEC["drivers/vdec/sunxi"]
         DSP["drivers/display/sunxi"]
     end
     MAIN --> DISP --> CORE --> MUSB
     TOUCH --> HIDC --> CORE
     CTP --> TOUCH
-    INP["input 子系统<br/>drivers/input/input_gt967.c"] --> CTP
+    INP["input subsystem<br/>drivers/input/input_gt967.c"] --> CTP
     MAIN --> VDEC
     MAIN --> DSP
 ```
 
-线程分工：USB 中断里的回调只做指针搬运和重新挂读请求；`main()` 所在的主线程循环阻塞取帧、解码、显示；触摸事件由 input 子系统的线程调用 `usb_ctp.c` 的回调，回调里直接发 HID 报告，示例自己不另起线程。
+Threading: the callback in the USB interrupt only moves pointers and re-hangs the read request; the main thread that runs `main()` blocks in a loop taking frames, decoding and showing them; touch events arrive on a thread of the input subsystem, which calls the callback in `usb_ctp.c`, and that callback sends a HID report directly; the example starts no thread of its own.
 
-### 数据流
+### Data flow
 
 ```mermaid
 sequenceDiagram
-    participant H as 主机驱动
-    participant U as display 类
-    participant M as main 线程
+    participant H as Host driver
+    participant U as display class
+    participant M as main thread
     participant V as vdec
-    participant D as 显示视频层
-    H->>U: 批量 OUT：帧头 + JPEG，按 16 KB 一次接收
-    U->>U: 短包 = 帧结束，帧入队，换下一个帧缓冲
+    participant D as Display video layer
+    H->>U: Bulk OUT: frame header + JPEG, received 16 KB at a time
+    U->>U: short packet = end of frame, frame queued, next frame buffer
     M->>U: usbd_display_dequeue
-    M->>M: jpeg_complete：FFD8 开头、FFD9 结尾
+    M->>M: jpeg_complete: starts with FFD8, ends with FFD9
     M->>V: vdec_stream_feed
-    V-->>M: vdec_stream_get_frame：NV12
+    V-->>M: vdec_stream_get_frame: NV12
     M->>D: display_sunxi_show_yuv
-    M->>V: 释放前前一帧
-    M->>U: usbd_display_enqueue：缓冲还给类驱动
+    M->>V: release the frame before the previous one
+    M->>U: usbd_display_enqueue: the buffer goes back to the class driver
 ```
 
-两个帧缓冲轮流用：一个在接收时，另一个在解码。解码慢于接收时，类驱动分不到空帧缓冲，就丢掉后面的数据直到下一个短包（`drop_frame` 分支），也就是丢帧，不会堵住主机。
+The two frame buffers take turns: one receives while the other is decoded. When decoding is slower than receiving, the class driver cannot get a free frame buffer and throws away the following data until the next short packet (the `drop_frame` branch); that is a dropped frame, and it does not block the host.
 
-## 功能与修改位置
+## Features and where to change them
 
-`main.c` 的行号以当前源码为准。需要改的地方：
+The line numbers of `main.c` refer to the current source. What can be changed:
 
-- 告诉主机的分辨率、帧率、JPEG 质量：`Kconfig` 里的 `SAMPLE_USB_DISPLAY_WIDTH/HEIGHT/FPS/QUALITY`，宽高为 0 时取面板尺寸。
-- 单帧上限：`main.c` 第 53–55 行的 `FRAME_BUF_SIZE`、`FRAME_COUNT`、`FRAME_LIMIT_KB`，缓冲大小必须是 16384 的倍数。
-- 解码缓冲：第 58 行的 `JPEG_VBV_SIZE`。
-- 保留的解码帧数：`stream_open()`（第 204–231 行）里 `jpeg_hold` 的起始值。
-- 统计打印间隔：第 56 行的 `REPORT_MS`。
-- 开关触摸：`CONFIG_SAMPLE_USB_DISPLAY_TOUCH`，关掉后设备只有显示接口，PID 为 `0x2987`。
-- 触摸方向：`CONFIG_SAMPLE_USB_DISPLAY_CTP_SWAP/FLIP_X/FLIP_Y`。
+- The resolution, frame rate and JPEG quality told to the host: `SAMPLE_USB_DISPLAY_WIDTH/HEIGHT/FPS/QUALITY` in `Kconfig`; a width or height of 0 takes the panel size.
+- The per-frame limit: `FRAME_BUF_SIZE`, `FRAME_COUNT` and `FRAME_LIMIT_KB` on lines 53–55 of `main.c`; the buffer size must be a multiple of 16384.
+- The decode buffer: `JPEG_VBV_SIZE` on line 58.
+- The number of decoded frames kept: the initial value of `jpeg_hold` in `stream_open()` (lines 204–231).
+- The statistics print interval: `REPORT_MS` on line 56.
+- Turning touch on and off: `CONFIG_SAMPLE_USB_DISPLAY_TOUCH`; turned off, the device has only the display interface and its PID is `0x2987`.
+- The touch orientation: `CONFIG_SAMPLE_USB_DISPLAY_CTP_SWAP/FLIP_X/FLIP_Y`.
 
-### 解码和显示
+### Decoding and showing
 
-`show_jpeg()`（第 234–295 行）是核心。收到的 JPEG 先喂给一个常开的 MJPEG 解码流，取回 NV12 帧，再交给显示的视频层：
+`show_jpeg()` (lines 234–295) is the core. A received JPEG is first fed to an always-open MJPEG decode stream, an NV12 frame is taken back, and it is handed to the video layer of the display:
 
 ```c
 	ret = vdec_stream_feed(vdec_dev, jpeg_stream, jpeg, len, 0, &used);
@@ -288,7 +288,7 @@ sequenceDiagram
 	}
 ```
 
-解码器只在尺寸变化时重开（第 242–244 行），省掉每帧重建的开销。取到的帧直接当显示层的输入，全量程（JPEG 的 0–255）：
+The decoder is reopened only when the size changes (lines 242–244), which saves the cost of rebuilding it every frame. The frame that comes back is used directly as the input of the display layer, full range (0–255 of JPEG):
 
 ```c
 	yuv.y = f.plane[0];
@@ -302,20 +302,20 @@ sequenceDiagram
 	ret = display_sunxi_show_yuv(disp, &yuv);
 ```
 
-视频层负责缩放：电脑发来的图大小和面板不同时，按比例缩放到面板，保持长宽比。
+The video layer does the scaling: when the picture sent by the computer differs in size from the panel, it is scaled proportionally to the panel with the aspect ratio kept.
 
-帧的显示和释放有时序要求：显示层可能还在扫描上一帧，所以保留的帧数 `jpeg_hold` 越大越好。`stream_open()` 从 3 往下试（第 209 行），内存不够就降级：
+Showing and releasing frames have timing constraints: the display layer may still be scanning the previous frame, so the larger the number of frames kept, `jpeg_hold`, the better. `stream_open()` tries from 3 downwards (line 209) and steps down when memory runs out:
 
-| `jpeg_hold` | 显示方式 | 释放时机 |
+| `jpeg_hold` | How it is shown | When it is released |
 | --- | --- | --- |
-| 3 或 2 | `nonblock`，不等刷新 | 前前一帧晚一步释放 |
-| 1 | 阻塞，等刷新 | 显示完后释放前一帧 |
+| 3 or 2 | `nonblock`, does not wait for the refresh | The frame before the previous one is released one step later |
+| 1 | Blocking, waits for the refresh | The previous frame is released after showing |
 
-打开解码流时打印 `usb display: WxH decoder, N pictures kept (no-wait/waiting show)`，说明用的是哪档。
+When the decode stream is opened it prints `usb display: WxH decoder, N pictures kept (no-wait/waiting show)`, which says which step is in use.
 
-### 帧合法性检查
+### Frame validity check
 
-`jpeg_complete()`（第 297–307 行）要求头是 `FF D8`、尾是 `FF D9`，末尾可以带零填充。不完整的帧计入 `frames_bad`，只打印前 12 次：
+`jpeg_complete()` (lines 297–307) requires the head to be `FF D8` and the tail `FF D9`, with zero padding allowed at the end. An incomplete frame counts into `frames_bad` and is printed only for the first 12 times:
 
 ```c
 static bool jpeg_complete(const uint8_t *d, uint32_t n)
@@ -330,9 +330,9 @@ static bool jpeg_complete(const uint8_t *d, uint32_t n)
 }
 ```
 
-### 主循环
+### Main loop
 
-`main()` 初始化设备、分配两个 544 KiB（34 x 16384 字节）的帧缓冲、注册描述符，再进主循环（第 383–411 行）：
+`main()` initializes the device, allocates two 544 KiB (34 x 16384 byte) frame buffers, registers the descriptors and then enters the main loop (lines 383–411):
 
 ```c
 	for (;;) {
@@ -353,15 +353,15 @@ static bool jpeg_complete(const uint8_t *d, uint32_t n)
 			       "show %u us per frame\n", ...);
 ```
 
-## HID 触摸屏
+## HID touch screen
 
-开着 `CONFIG_SAMPLE_USB_DISPLAY_TOUCH`（默认开）时，设备多一个 HID 接口，在 Windows 里是一个<strong>多点触摸屏</strong>，用系统自带驱动，不需要装东西。实现在 `usb_touch.c`：
+With `CONFIG_SAMPLE_USB_DISPLAY_TOUCH` on (the default), the device has one more HID interface, which in Windows is a <strong>multi-touch screen</strong> using the driver that ships with the system, so nothing has to be installed. It is implemented in `usb_touch.c`:
 
-- 报告描述符：5 个手指，每个手指有 tip switch、contact id、X、Y，外加 contact count 和一个 contact count maximum 的 feature 报告（`usbd_hid_get_report()` 里回答）。
-- 坐标是 0–32767 的绝对值（`USB_TOUCH_MAX`），由电脑映射到屏幕。物理尺寸写成 154 x 86 mm（`PHYS_X`/`PHYS_Y`，单位 0.01 cm）。
-- `usb_touch_send()` 把最多 5 个点打成一个报告发到 `0x83`，上一个报告还没发完时返回 `-EBUSY`。
+- Report descriptor: 5 fingers, each with a tip switch, contact id, X and Y, plus contact count and a contact count maximum feature report (answered in `usbd_hid_get_report()`).
+- The coordinates are absolute values from 0–32767 (`USB_TOUCH_MAX`) that the computer maps onto the screen. The physical size is written as 154 x 86 mm (`PHYS_X`/`PHYS_Y`, in units of 0.01 cm).
+- `usb_touch_send()` packs at most 5 points into one report sent to `0x83`, and returns `-EBUSY` while the previous report has not finished being sent.
 
-触摸点来自板上的触摸屏。`yuzukineko` 的触摸屏是 GT967，设备树里是 `touch@5d`（节点标签 `touch`），由 `drivers/input/input_gt967.c` 驱动，通过 Zephyr 的 input 子系统上报事件：每个变化的手指依次是 `INPUT_ABS_MT_SLOT`、`INPUT_ABS_X`、`INPUT_ABS_Y`、`INPUT_BTN_TOUCH`，最后一个事件带 `sync`。`usb_ctp.c` 用 `INPUT_CALLBACK_DEFINE` 接这个设备，按槽位记下每个手指的状态：
+The touch points come from the touch screen on the board. The touch screen of the `yuzukineko` is a GT967, `touch@5d` in the devicetree (node label `touch`), driven by `drivers/input/input_gt967.c`, which reports events through the input subsystem of Zephyr: for each finger that changes, `INPUT_ABS_MT_SLOT`, `INPUT_ABS_X`, `INPUT_ABS_Y` and `INPUT_BTN_TOUCH` in turn, with the last event carrying `sync`. `usb_ctp.c` attaches to this device with `INPUT_CALLBACK_DEFINE` and records the state of each finger by slot:
 
 ```c
 static void ctp_event(struct input_event *evt, void *user_data)
@@ -392,7 +392,7 @@ static void ctp_event(struct input_event *evt, void *user_data)
 INPUT_CALLBACK_DEFINE(DEVICE_DT_GET(TOUCH_NODE), ctp_event, NULL);
 ```
 
-遇到 `sync` 就把所有槽位打成一个报告发出去，抬起的手指发一次 tip switch 为 0 的报告：
+On `sync` it packs every slot into one report and sends it; a finger that is lifted is sent once with its tip switch 0:
 
 ```c
 /* one report with the slots 0..count-1, a lifted finger once with its tip switch off */
@@ -420,7 +420,7 @@ static void ctp_send(void)
 }
 ```
 
-坐标按设备树里 `touch` 节点的 `screen-width`、`screen-height`（`yuzukineko` 上是 1024 x 768）缩放到 0–32767，不写死分辨率：
+The coordinates are scaled to 0–32767 from `screen-width` and `screen-height` of the `touch` node in the devicetree (1024 x 768 on the `yuzukineko`), with no hard-coded resolution:
 
 ```c
 #define TOUCH_NODE	DT_NODELABEL(touch)
@@ -428,91 +428,91 @@ static void ctp_send(void)
 #define CTP_MAX_Y	DT_PROP(TOUCH_NODE, screen_height)
 ```
 
-GT967 驱动最多报多少个点由 `CONFIG_INPUT_GT967_MAX_TOUCH_POINTS` 决定，默认 1，`prj.conf` 里设成了 5。`CONFIG_SAMPLE_USB_DISPLAY_TOUCH_DEMO` 不用触摸屏，设备配置完 3 秒后自动画一条两指对角线拖动（`usb_touch_demo()`）。
+How many points the GT967 driver reports at most is set by `CONFIG_INPUT_GT967_MAX_TOUCH_POINTS`, default 1, and `prj.conf` sets it to 5. `CONFIG_SAMPLE_USB_DISPLAY_TOUCH_DEMO` does not use the touch screen: 3 seconds after the device is configured it draws a two-finger diagonal drag by itself (`usb_touch_demo()`).
 
-## 配置选项
+## Configuration options
 
-示例自己的选项（`Kconfig`）：
+Options of the example itself (`Kconfig`):
 
-| 选项 | 默认 | 说明 |
+| Option | Default | Description |
 | --- | --- | --- |
-| `CONFIG_SAMPLE_USB_DISPLAY_WIDTH` | 0 | 告诉主机的宽度，0 取面板宽度 |
-| `CONFIG_SAMPLE_USB_DISPLAY_HEIGHT` | 0 | 告诉主机的高度，0 取面板高度 |
-| `CONFIG_SAMPLE_USB_DISPLAY_FPS` | 60 | 告诉主机的帧率，范围 1–120 |
-| `CONFIG_SAMPLE_USB_DISPLAY_QUALITY` | 9 | 告诉主机的 JPEG 质量，范围 1–10 |
-| `CONFIG_SAMPLE_USB_DISPLAY_TOUCH` | y | 加一个 HID 多点触摸屏接口，设备变成组合设备 |
-| `CONFIG_SAMPLE_USB_DISPLAY_TOUCH_DEMO` | n | 设备被配置 3 秒后发一次合成的两指拖动，依赖 `TOUCH` |
-| `CONFIG_SAMPLE_USB_DISPLAY_CTP` | y | 触摸点取自板子的触摸屏（input 子系统，节点标签 `touch`），依赖 `TOUCH` 和设备树里有启用的 `touch` 节点 |
-| `CONFIG_SAMPLE_USB_DISPLAY_CTP_SWAP` | n | 触摸屏 X、Y 互换，依赖 `CTP` |
-| `CONFIG_SAMPLE_USB_DISPLAY_CTP_FLIP_X` | n | 触摸屏 X 镜像，依赖 `CTP` |
-| `CONFIG_SAMPLE_USB_DISPLAY_CTP_FLIP_Y` | n | 触摸屏 Y 镜像，依赖 `CTP` |
+| `CONFIG_SAMPLE_USB_DISPLAY_WIDTH` | 0 | Width told to the host; 0 takes the panel width |
+| `CONFIG_SAMPLE_USB_DISPLAY_HEIGHT` | 0 | Height told to the host; 0 takes the panel height |
+| `CONFIG_SAMPLE_USB_DISPLAY_FPS` | 60 | Frame rate told to the host, range 1–120 |
+| `CONFIG_SAMPLE_USB_DISPLAY_QUALITY` | 9 | JPEG quality told to the host, range 1–10 |
+| `CONFIG_SAMPLE_USB_DISPLAY_TOUCH` | y | Adds a HID multi-touch screen interface and turns the device into a composite device |
+| `CONFIG_SAMPLE_USB_DISPLAY_TOUCH_DEMO` | n | 3 seconds after the device is configured, sends one synthetic two-finger drag; depends on `TOUCH` |
+| `CONFIG_SAMPLE_USB_DISPLAY_CTP` | y | Touch points come from the touch screen of the board (input subsystem, node label `touch`); depends on `TOUCH` and an enabled `touch` node in the devicetree |
+| `CONFIG_SAMPLE_USB_DISPLAY_CTP_SWAP` | n | Swaps the X and Y of the touch screen; depends on `CTP` |
+| `CONFIG_SAMPLE_USB_DISPLAY_CTP_FLIP_X` | n | Mirrors the X of the touch screen; depends on `CTP` |
+| `CONFIG_SAMPLE_USB_DISPLAY_CTP_FLIP_Y` | n | Mirrors the Y of the touch screen; depends on `CTP` |
 
-这些选项改 `prj.conf`，或者在 `west build` 命令最后加 `-- -DCONFIG_xxx=值`。
+Change these options in `prj.conf`, or append `-- -DCONFIG_xxx=value` to the `west build` command.
 
-`prj.conf` 里和功能相关的选项：
+The options in `prj.conf` related to the functionality:
 
-| 选项 | 作用 |
+| Option | Purpose |
 | --- | --- |
-| `CONFIG_CHERRYUSB` | CherryUSB 协议栈 |
-| `CONFIG_CHERRYUSB_DEVICE` | 设备模式 |
-| `CONFIG_CHERRYUSB_DEVICE_SPEED_HS` | 高速（480 Mbit/s），批量包 512 字节 |
-| `CONFIG_CHERRYUSB_DEVICE_MUSB_SUNXI` | F101 的 MUSB 控制器 |
-| `CONFIG_CHERRYUSB_DEVICE_DISPLAY` | vendor display 类 |
-| `CONFIG_CHERRYUSB_DEVICE_HID` | HID 类，触摸屏接口用 |
-| `CONFIG_DISPLAY` | 显示驱动 |
-| `CONFIG_VDEC` | 视频引擎，解 JPEG |
-| `CONFIG_FPU`、`CONFIG_FPU_SHARING` | 硬件浮点，允许多线程使用 |
-| `CONFIG_MAIN_STACK_SIZE=8192` | 主线程栈 |
-| `CONFIG_SYSTEM_WORKQUEUE_STACK_SIZE=2048` | 系统工作队列栈 |
-| `CONFIG_COMMON_LIBC_MALLOC_ARENA_SIZE=-1` | libc 堆用剩余的全部内存。两个帧缓冲 `aligned_alloc()` 共 1088 KiB，解码流缓冲 1 MiB 也从这里来 |
-| `CONFIG_HEAP_MEM_POOL_SIZE=65536` | 内核堆 64 KiB |
-| `CONFIG_LOG=n` | 关日志，减小镜像；驱动错误不打印 |
-| `CONFIG_SIZE_OPTIMIZATIONS=y` | 按体积优化 |
-| `CONFIG_DISPLAY_SUNXI_FB_ALLOC=y` | 显示的帧缓冲从堆里分，不占镜像 |
-| `CONFIG_G2D=n`、`CONFIG_ADC=n`、`CONFIG_SPI=n`、`CONFIG_MIPI_DBI=n`、`CONFIG_WDT_SUNXI=n` | 不用的驱动 |
-| `CONFIG_I2C=y`、`CONFIG_GPIO=y` | GT967 触摸屏在 I2C1，中断脚是 GPIO |
-| `CONFIG_INPUT=y` | input 子系统 |
-| `CONFIG_INPUT_GT967_MAX_TOUCH_POINTS=5` | GT967 驱动上报 5 个点，默认只有 1 |
+| `CONFIG_CHERRYUSB` | The CherryUSB stack |
+| `CONFIG_CHERRYUSB_DEVICE` | Device mode |
+| `CONFIG_CHERRYUSB_DEVICE_SPEED_HS` | High speed (480 Mbit/s), 512 byte bulk packets |
+| `CONFIG_CHERRYUSB_DEVICE_MUSB_SUNXI` | The MUSB controller of the F101 |
+| `CONFIG_CHERRYUSB_DEVICE_DISPLAY` | The vendor display class |
+| `CONFIG_CHERRYUSB_DEVICE_HID` | The HID class, used by the touch screen interface |
+| `CONFIG_DISPLAY` | The display driver |
+| `CONFIG_VDEC` | The video engine, decodes JPEG |
+| `CONFIG_FPU`, `CONFIG_FPU_SHARING` | Hardware floating point, allowed to be used from several threads |
+| `CONFIG_MAIN_STACK_SIZE=8192` | Main thread stack |
+| `CONFIG_SYSTEM_WORKQUEUE_STACK_SIZE=2048` | System work queue stack |
+| `CONFIG_COMMON_LIBC_MALLOC_ARENA_SIZE=-1` | The libc heap uses all the remaining memory. The two frame buffers `aligned_alloc()` 1088 KiB in all, and the 1 MiB decode stream buffer also comes from here |
+| `CONFIG_HEAP_MEM_POOL_SIZE=65536` | Kernel heap of 64 KiB |
+| `CONFIG_LOG=n` | Logging off, smaller image; driver errors are not printed |
+| `CONFIG_SIZE_OPTIMIZATIONS=y` | Optimize for size |
+| `CONFIG_DISPLAY_SUNXI_FB_ALLOC=y` | The display frame buffer is allocated from the heap and takes no space in the image |
+| `CONFIG_G2D=n`, `CONFIG_ADC=n`, `CONFIG_SPI=n`, `CONFIG_MIPI_DBI=n`, `CONFIG_WDT_SUNXI=n` | Drivers that are not used |
+| `CONFIG_I2C=y`, `CONFIG_GPIO=y` | The GT967 touch screen is on I2C1 and its interrupt pin is a GPIO |
+| `CONFIG_INPUT=y` | The input subsystem |
+| `CONFIG_INPUT_GT967_MAX_TOUCH_POINTS=5` | The GT967 driver reports 5 points; the default is only 1 |
 
-## 代码结构
+## Code structure
 
-| 文件 | 内容 |
+| File | Contents |
 | --- | --- |
-| `samples/drivers/usb/cherryusb_display/src/main.c` | 描述符、帧循环、解码显示、统计 |
-| `samples/drivers/usb/cherryusb_display/src/usb_touch.c`、`usb_touch.h` | HID 触摸屏接口 |
-| `samples/drivers/usb/cherryusb_display/src/usb_ctp.c`、`usb_ctp.h` | 接 input 子系统的触摸事件，转成 HID 报告 |
-| `drivers/input/input_gt967.c` | GT967 触摸屏驱动 |
-| `modules/lib/cherryusb/class/vendor/display/` | CherryUSB 的 display 类：帧队列、切帧 |
-| `modules/lib/cherryusb/demo/display/usbdisplay_template.c` | CherryUSB 自带的 display 模板 |
-| `zephyr/drivers/usb/cherryusb/usb_glue_sunxi.c` | MUSB 胶水，提供 `usb_sunxi_otg_base()` |
-| `zephyr/drivers/vdec/`、`include/zephyr/drivers/vdec.h` | 视频引擎，见 [视频引擎](../drivers/vdec.md) |
+| `samples/drivers/usb/cherryusb_display/src/main.c` | Descriptors, frame loop, decode and show, statistics |
+| `samples/drivers/usb/cherryusb_display/src/usb_touch.c`, `usb_touch.h` | The HID touch screen interface |
+| `samples/drivers/usb/cherryusb_display/src/usb_ctp.c`, `usb_ctp.h` | Takes touch events from the input subsystem and turns them into HID reports |
+| `drivers/input/input_gt967.c` | The GT967 touch screen driver |
+| `modules/lib/cherryusb/class/vendor/display/` | The display class of CherryUSB: frame queue, frame separation |
+| `modules/lib/cherryusb/demo/display/usbdisplay_template.c` | The display template shipped with CherryUSB |
+| `zephyr/drivers/usb/cherryusb/usb_glue_sunxi.c` | MUSB glue, provides `usb_sunxi_otg_base()` |
+| `zephyr/drivers/vdec/`, `include/zephyr/drivers/vdec.h` | The video engine, see [Video engine](../drivers/vdec.md) |
 | `zephyr/include/zephyr/drivers/display/display_sunxi.h` | `display_sunxi_show_yuv()` |
 
-USB 栈本身见 [CherryUSB](../components/cherryusb.md) 和 [USB](../drivers/usb.md)，显示见 [显示](../drivers/display.md)。
+For the USB stack itself see [CherryUSB](../components/cherryusb.md) and [USB](../drivers/usb.md); for the display see [Display](../drivers/display.md).
 
-## 功能范围
+## Scope
 
-- <strong>只支持 JPEG 帧</strong>。`type` 不是 3 的帧（RGB565、RGB888、YUV420）一律丢弃。
-- <strong>不校验 CRC16</strong>，只检查 JPEG 的头尾标记。
-- 帧头里的 `x`、`y` 不用，不支持局部刷新；每帧都当整屏处理。
-- 单帧上限 `FRAME_LIMIT_KB` 为 500 KB，缓冲区也只够这么大；超出的帧被类驱动丢掉。
-- 分辨率限制：宽高 64–1920 x 64–1080，且必须是偶数。
-- 不支持音频；输入只有 HID 多点触摸，最多 5 点，没有键盘鼠标。
-- 主机拔线后只打印 `usb display: disconnected`，示例没有清屏的代码，屏上保留最后一帧。
-- 主机驱动只有 Windows 版；不支持 Linux、macOS。
-- 板子不提供微软 OS 字符串描述符（索引 0xEE）。Windows 枚举时会读它，CherryUSB 打印一条 `descriptor <type:3,index:ee> not found!`，设备照常枚举。
-- 触摸点数受 `CONFIG_INPUT_GT967_MAX_TOUCH_POINTS` 限制，`prj.conf` 里是 5，和 HID 描述符里的 5 指一致。
+- <strong>Only JPEG frames are supported</strong>. Frames whose `type` is not 3 (RGB565, RGB888, YUV420) are all dropped.
+- <strong>CRC16 is not checked</strong>; only the head and tail markers of the JPEG are checked.
+- The `x` and `y` of the frame header are not used and partial updates are not supported; every frame is treated as the whole screen.
+- The per-frame limit `FRAME_LIMIT_KB` is 500 KB and the buffers hold no more than that; a frame over the limit is dropped by the class driver.
+- Resolution limit: width and height 64–1920 x 64–1080, and both must be even.
+- No audio; the only input is HID multi-touch with up to 5 points, there is no keyboard or mouse.
+- When the host unplugs the cable it only prints `usb display: disconnected`; the example has no code to clear the screen, so the last frame stays on it.
+- The host driver exists only for Windows; Linux and macOS are not supported.
+- The board does not provide the Microsoft OS string descriptor (index 0xEE). Windows reads it during enumeration and CherryUSB prints a `descriptor <type:3,index:ee> not found!`, and the device enumerates as usual.
+- The number of touch points is limited by `CONFIG_INPUT_GT967_MAX_TOUCH_POINTS`, 5 in `prj.conf`, matching the 5 fingers of the HID descriptor.
 
-## 排错
+## Troubleshooting
 
-| 现象 | 原因与处理 |
+| Symptom | Cause and what to do |
 | --- | --- |
-| 日志一直停在 `waiting for the host` | USB 线没接到电脑，或线只能充电。注意用方式一下载时 USB 口同时是 xfel 口 |
-| 电脑里没有新显示器 | 没装驱动，见 [主机端驱动](#主机端驱动) |
-| `usb display: ... not possible` | 面板或 Kconfig 的尺寸不在 64–1920 x 64–1080 的偶数范围内 |
-| `usb display: no memory for the frame buffers` | 堆不够 1088 KiB；检查 `CONFIG_COMMON_LIBC_MALLOC_ARENA_SIZE=-1` 没有被改 |
-| `broken frame N: size S` | JPEG 头尾不对，多半是传输中丢了包 |
-| `frame N (WxH, S bytes) failed: <错误码>` | 解码失败，错误码是 vdec 或显示返回的 |
-| `frame overflow, drop it` | 一帧的载荷超过帧缓冲（544 KiB） |
-| 启动时打印 `usb ctp: the touch panel is not ready` | GT967 驱动没起来，检查设备树 `touch@5d` 和 I2C1 |
-| 触摸方向不对 | 打开 `CONFIG_SAMPLE_USB_DISPLAY_CTP_SWAP` 或 `_FLIP_X`、`_FLIP_Y` |
+| The log stays at `waiting for the host` | The USB cable is not connected to the computer, or the cable is charge-only. Note that with method one the USB port is also the xfel port |
+| No new display appears on the computer | The driver is not installed, see [Host-side driver](#host-side-driver) |
+| `usb display: ... not possible` | The panel or Kconfig size is not an even number in 64–1920 x 64–1080 |
+| `usb display: no memory for the frame buffers` | The heap is below 1088 KiB; check that `CONFIG_COMMON_LIBC_MALLOC_ARENA_SIZE=-1` has not been changed |
+| `broken frame N: size S` | The JPEG head or tail is wrong, most likely a packet was lost in transfer |
+| `frame N (WxH, S bytes) failed: <error code>` | Decoding failed; the error code comes back from vdec or the display |
+| `frame overflow, drop it` | The payload of one frame is larger than the frame buffer (544 KiB) |
+| At boot it prints `usb ctp: the touch panel is not ready` | The GT967 driver did not come up; check the devicetree `touch@5d` and I2C1 |
+| The touch orientation is wrong | Turn on `CONFIG_SAMPLE_USB_DISPLAY_CTP_SWAP` or `_FLIP_X`, `_FLIP_Y` |

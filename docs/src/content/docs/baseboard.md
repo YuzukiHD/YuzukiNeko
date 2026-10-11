@@ -1,83 +1,83 @@
 ---
-title: "YuzukiCube-M 底板"
+title: "YuzukiCube-M Base Board"
 ---
 
-`04_BaseBoard/V1.0/` 是 YuzukiNeko 的底板（载板）。底板上没有 SoC：YuzukiNeko 模块本身以 `U1`（BOM 中的 `YuzukiNeko-SMT`，49 个焊盘）装在底板上，底板把模块的 MIPI DSI、SDIO、UART、TWI、CAN 等信号接到实际器件和连接器上。
+`04_BaseBoard/V1.0/` is the base board (carrier board) for the YuzukiNeko. There is no SoC on the base board: the YuzukiNeko module itself is fitted on the base board as `U1` (`YuzukiNeko-SMT` in the BOM, 49 pads), and the base board routes the module's MIPI DSI, SDIO, UART, TWI, CAN and other signals to the actual devices and connectors.
 
 :::tip
-工程文件名为 `YuzukiCube-M`，原理图的标题栏写的还是 `YuzukiNeko`（`REV: V1.0`，2026-10-09）。两者指的是同一块底板。
+The project file name is `YuzukiCube-M`, while the title block of the schematic still says `YuzukiNeko` (`REV: V1.0`, 2026-10-09). Both refer to the same base board.
 :::
 
 :::caution
-本文的引脚对应是从底板原理图 `04_BaseBoard/V1.0/01_SCH/SCH_Schematic2_2026-10-10.pdf` 的网表读出的，接线前请以该原理图为准。网络名用的是<strong>模块的实际 GPIO 名</strong>；如果你插的是 V1.3 模块，丝印要按[勘误](hardware/errata.md#v13pd-丝印编号错误)换算。
+The pin mapping in this page is read from the netlist of the base board schematic `04_BaseBoard/V1.0/01_SCH/SCH_Schematic2_2026-10-10.pdf`; before wiring anything, treat that schematic as authoritative. The net names use the <strong>module's actual GPIO names</strong>; if you have fitted a V1.3 module, convert the silkscreen labels using the [errata](hardware/errata.md#v13-pd-silkscreen-numbering-error).
 :::
 
-## 板载器件
+## Onboard devices
 
-| 位号 | 器件 | 作用 |
+| Designator | Device | Function |
 | --- | --- | --- |
-| `U1` | YuzukiNeko-SMT | 模块本体，49 个焊盘；底板其余电路都挂在它上面 |
-| `U3` | AIC8800D80 | Wi-Fi / 蓝牙模块（LGA-44），天线经 `RF1` |
-| `U5` | TJA1051T/3/1J | CAN 收发器，接 CAN0，引出 `CANH` / `CANL` |
-| `U2` | LPA4890MSF | 音频功放，输入取自 `HPOUT`，输出 `SPKR+` / `SPKR-` |
-| `U4` | RY3730 | 背光升压（`L1` 4.7 µH、`D1` B5819WS），输出 `VLED-A` / `VLED-K` |
-| `U10` | MT3520B | 降压，`VSYS-5V` → `VCC-3V3`（`L2` 2.2 µH） |
-| `FPC1` | FPC-05F-40PH20 | 40 脚 0.5 mm FPC：MIPI DSI + 背光 + 电容触摸 |
-| `CN1` | HC-1.25-2PLT | 2 脚 1.25 mm，`HPOUT` 模拟音频 |
-| `CN2` | 1.25-5P WT | 5 脚 1.25 mm，引出 `UART1-RX` / `UART1-TX` 与 `UART4-RX` / `UART4-TX` |
-| `CN3` | HC-1.25-2PLT | 2 脚 1.25 mm，`SPKR+` / `SPKR-` 扬声器 |
-| `RF1` | BWIPX-1-001E | IPEX / u.FL 天线座（Wi-Fi / 蓝牙） |
-| `H1` | 2.54 mm 2 脚排针 | 引出 `VSYS-5V` 与 `GND` |
-| `SW1` | TC-6615-5-260G | 轻触开关，接 `PD5`（`DOWN` 网络） |
+| `U1` | YuzukiNeko-SMT | The module itself, 49 pads; every other circuit on the base board hangs off it |
+| `U3` | AIC8800D80 | Wi-Fi / Bluetooth module (LGA-44), antenna via `RF1` |
+| `U5` | TJA1051T/3/1J | CAN transceiver, connected to CAN0, with `CANH` / `CANL` broken out |
+| `U2` | LPA4890MSF | Audio amplifier, input taken from `HPOUT`, output `SPKR+` / `SPKR-` |
+| `U4` | RY3730 | Backlight boost (`L1` 4.7 µH, `D1` B5819WS), output `VLED-A` / `VLED-K` |
+| `U10` | MT3520B | Buck converter, `VSYS-5V` → `VCC-3V3` (`L2` 2.2 µH) |
+| `FPC1` | FPC-05F-40PH20 | 40-pin 0.5 mm FPC: MIPI DSI + backlight + capacitive touch |
+| `CN1` | HC-1.25-2PLT | 2-pin 1.25 mm, `HPOUT` analog audio |
+| `CN2` | 1.25-5P WT | 5-pin 1.25 mm, breaks out `UART1-RX` / `UART1-TX` and `UART4-RX` / `UART4-TX` |
+| `CN3` | HC-1.25-2PLT | 2-pin 1.25 mm, `SPKR+` / `SPKR-` speaker |
+| `RF1` | BWIPX-1-001E | IPEX / u.FL antenna socket (Wi-Fi / Bluetooth) |
+| `H1` | 2.54 mm 2-pin header | Breaks out `VSYS-5V` and `GND` |
+| `SW1` | TC-6615-5-260G | Tactile switch, connected to `PD5` (`DOWN` net) |
 
-## 占用的模块引脚
+## Module pins used
 
-| 模块引脚 | 底板网络 | 用途 |
+| Module pin | Base board net | Purpose |
 | --- | --- | --- |
-| `PD0` / `PD1` | `CTP-SCK` / `CTP-SDA` | 电容触摸的 TWI1（F4） |
-| `PD2` / `PD3` | `CTP-INT` / `CTP-RST` | 触摸中断与复位 |
-| `PD4` | `PA-SHDN` | 音频功放使能 |
-| `PD5` | `DOWN` | 按键 `SW1`，与模块的 UF2 下载器按键是同一引脚 |
-| `PD6` / `PD7` | `UART4-TX` / `UART4-RX` | 串口，引到 `CN2`（F5） |
-| `PD8` | `BT-RST-N` | 蓝牙复位 |
-| `PD9` | `DSI-RST` | 显示复位 |
-| `PD12`–`PD21` | `DSI-D0P/N`、`DSI-D1P/N`、`DSI-CKP/N`、`DSI-D2P/N`、`DSI-D3P/N` | MIPI DSI，4 条数据通道加时钟（F4） |
-| `PD22` | `DSI-PWM` | 背光调光（F4 PWM0-2） |
-| `PB0` / `PB1` | `UART1-TX` / `UART1-RX` | 串口，引到 `CN2`（F4） |
-| `PB2` / `PB3` | `CAN-TX` / `CAN-RX` | CAN0，接 `U5`（F6） |
-| `PE0`–`PE5` | `SDC2-D1`、`SDC2-D0`、`SDC2-CLK`、`SDC2-CMD`、`SDC2-D3`、`SDC2-D2` | Wi-Fi 的 SDIO（F9） |
-| `PE6`–`PE9` | `UART2-TX`、`UART2-RX`、`UART2-RTS`、`UART2-CTS` | 蓝牙 HCI 串口（F3） |
-| `PE10` | `WL-REG-ON` | Wi-Fi 模块上电使能 |
+| `PD0` / `PD1` | `CTP-SCK` / `CTP-SDA` | TWI1 for capacitive touch (F4) |
+| `PD2` / `PD3` | `CTP-INT` / `CTP-RST` | Touch interrupt and reset |
+| `PD4` | `PA-SHDN` | Audio amplifier enable |
+| `PD5` | `DOWN` | Button `SW1`, the same pin as the module's UF2 downloader button |
+| `PD6` / `PD7` | `UART4-TX` / `UART4-RX` | Serial port, brought out to `CN2` (F5) |
+| `PD8` | `BT-RST-N` | Bluetooth reset |
+| `PD9` | `DSI-RST` | Display reset |
+| `PD12`–`PD21` | `DSI-D0P/N`, `DSI-D1P/N`, `DSI-CKP/N`, `DSI-D2P/N`, `DSI-D3P/N` | MIPI DSI, four data lanes plus clock (F4) |
+| `PD22` | `DSI-PWM` | Backlight dimming (F4 PWM0-2) |
+| `PB0` / `PB1` | `UART1-TX` / `UART1-RX` | Serial port, brought out to `CN2` (F4) |
+| `PB2` / `PB3` | `CAN-TX` / `CAN-RX` | CAN0, connected to `U5` (F6) |
+| `PE0`–`PE5` | `SDC2-D1`, `SDC2-D0`, `SDC2-CLK`, `SDC2-CMD`, `SDC2-D3`, `SDC2-D2` | SDIO for Wi-Fi (F9) |
+| `PE6`–`PE9` | `UART2-TX`, `UART2-RX`, `UART2-RTS`, `UART2-CTS` | Bluetooth HCI serial port (F3) |
+| `PE10` | `WL-REG-ON` | Wi-Fi module power enable |
 
 :::tip
-`PB0` / `PB1` 也是模块文档里 Zephyr `yuzukineko` 板级的控制台 UART1，所以在底板上接 `CN2` 就能看控制台输出。
+`PB0` / `PB1` are also the console UART1 of the Zephyr `yuzukineko` board in the module documentation, so on the base board you can connect `CN2` to see the console output.
 :::
 
-## 显示与触摸
+## Display and touch
 
-`FPC1` 一根 40 脚排线同时带三组信号：
+`FPC1` is a single 40-pin ribbon that carries three signal groups at once:
 
-- **MIPI DSI**：`DSI-D0P/N`、`DSI-D1P/N`、`DSI-CKP/N`、`DSI-D2P/N`、`DSI-D3P/N`，复位由 `PD9` 的 `DSI-RST` 控制。
-- **背光**：`VLED-A` 取自 `U4` 升压输出，回路为 `VLED-K`，亮度由 `PD22` 的 `DSI-PWM` 调光。
-- **电容触摸**：`CTP-SCK` / `CTP-SDA` 走 TWI1，中断与复位是 `CTP-INT` / `CTP-RST`。
+- **MIPI DSI**: `DSI-D0P/N`, `DSI-D1P/N`, `DSI-CKP/N`, `DSI-D2P/N`, `DSI-D3P/N`, with reset controlled by `DSI-RST` on `PD9`.
+- **Backlight**: `VLED-A` comes from the `U4` boost output, its return is `VLED-K`, and brightness is dimmed by `DSI-PWM` on `PD22`.
+- **Capacitive touch**: `CTP-SCK` / `CTP-SDA` go over TWI1, with interrupt and reset on `CTP-INT` / `CTP-RST`.
 
-## 电源
+## Power
 
-- `VSYS-5V`：来自模块的 `5V` 脚（USB-C VBUS）。降压 `U10`、CAN 收发器 `U5`、音频功放 `U2` 和 `H1` 都取这条轨道。
-- `VCC-3V3`：`U10` 从 `VSYS-5V` 降压得到。
-- `VSYS-3V3`：模块的 `3V3` 输出。
-- `VLED-A` / `VLED-K`：`U4` 升压，专供背光。
+- `VSYS-5V`: comes from the module's `5V` pin (USB-C VBUS). The buck converter `U10`, the CAN transceiver `U5`, the audio amplifier `U2` and `H1` all draw from this rail.
+- `VCC-3V3`: produced by `U10` stepping down `VSYS-5V`.
+- `VSYS-3V3`: the module's `3V3` output.
+- `VLED-A` / `VLED-K`: the `U4` boost, dedicated to the backlight.
 
-底板没有电池和充电电路，`VSYS-5V` 全部来自模块的 USB-C。
+The base board has no battery or charging circuit; `VSYS-5V` comes entirely from the module's USB-C.
 
-## 装上底板后的引脚冲突
+## Pin conflicts with the base board fitted
 
-- `PE0`–`PE5` 被 Wi-Fi 的 SDIO 占用，而模块的 I2S0 要用到 `PE4`，`PD6`–`PD9` 也被 `UART4`、`BT-RST-N`、`DSI-RST` 占住，所以<strong>底板上 I2S0 不可用</strong>。
-- 模块文档里 `PE10` 是板载音频功放使能；底板的功放使能改用 `PD4`（`PA-SHDN`），`PE10` 让给了 `WL-REG-ON`。
-- `PD0`–`PD3` 在模块上是普通 GPIO 或 SPI1，底板上用于触摸。
+- `PE0`–`PE5` are taken by the Wi-Fi SDIO, and the module's I2S0 needs `PE4`, while `PD6`–`PD9` are also taken by `UART4`, `BT-RST-N` and `DSI-RST`, so <strong>I2S0 is unavailable on the base board</strong>.
+- In the module documentation `PE10` is the onboard audio amplifier enable; the base board uses `PD4` (`PA-SHDN`) for amplifier enable instead and gives `PE10` to `WL-REG-ON`.
+- On the module `PD0`–`PD3` are ordinary GPIO or SPI1; on the base board they are used for touch.
 
-## 文件
+## Files
 
-`04_BaseBoard/V1.0/` 的结构与 `01_Hardware/` 的七个条目相同：`01_SCH`、`02_PCB`、`03_Gerber`、`04_3D`、`05_BOM`、`06_PickAndPlace`、`07_Project`。其中 `04_3D/` 除 PCB 模型外还有一份外壳 `3DShell_PCB2.zip`，与[模块的 3D 打印外壳](shell.md)是两回事。
+`04_BaseBoard/V1.0/` has the same structure as the seven entries under `01_Hardware/`: `01_SCH`, `02_PCB`, `03_Gerber`, `04_3D`, `05_BOM`, `06_PickAndPlace`, `07_Project`. Besides the PCB model, `04_3D/` also contains an enclosure, `3DShell_PCB2.zip`, which is a different thing from the [module's 3D-printed enclosure](shell.md).
 
-目录总览见[硬件文件说明](hardware/files.md)，协议见[许可证](license.md)。
+For an overview of the directories see [Hardware file list](hardware/files.md), and for licensing see [License](license.md).

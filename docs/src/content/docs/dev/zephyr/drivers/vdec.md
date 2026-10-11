@@ -1,85 +1,85 @@
 ---
-title: "视频引擎 vdec"
+title: "Video engine vdec"
 ---
 
-F101 片上的视频引擎（video engine）可以用硬件解码 <strong>JPEG</strong>、<strong>PNG</strong> 和 <strong>H.264</strong>。Zephyr 里把它做成一个设备，接口是 `<zephyr/drivers/vdec.h>`，驱动在 `drivers/vdec/sunxi/`。
+The video engine on the F101 can decode <strong>JPEG</strong>, <strong>PNG</strong> and <strong>H.264</strong> in hardware. In Zephyr it is made into a device whose interface is `<zephyr/drivers/vdec.h>`, with the driver under `drivers/vdec/sunxi/`.
 
-| 编码 | 用法 | 输出格式 |
+| Codec | Usage | Output format |
 | --- | --- | --- |
-| JPEG | 单张图片，`vdec_decode_image()` | `VDEC_FORMAT_NV12` 或 `VDEC_FORMAT_NV21` |
-| PNG | 单张图片，`vdec_decode_image()` | `VDEC_FORMAT_RGBA8888` |
-| MJPEG | 一连串 JPEG，`vdec_stream_*()`，`codec` 用 `VDEC_CODEC_JPEG` | `VDEC_FORMAT_NV12` 或 `VDEC_FORMAT_NV21` |
-| H.264 | 视频流，`vdec_stream_*()` | `VDEC_FORMAT_NV12` 或 `VDEC_FORMAT_NV21` |
+| JPEG | Single image, `vdec_decode_image()` | `VDEC_FORMAT_NV12` or `VDEC_FORMAT_NV21` |
+| PNG | Single image, `vdec_decode_image()` | `VDEC_FORMAT_RGBA8888` |
+| MJPEG | A series of JPEGs, `vdec_stream_*()`, with `codec` set to `VDEC_CODEC_JPEG` | `VDEC_FORMAT_NV12` or `VDEC_FORMAT_NV21` |
+| H.264 | Video stream, `vdec_stream_*()` | `VDEC_FORMAT_NV12` or `VDEC_FORMAT_NV21` |
 
-输出格式的含义：
+What the output formats mean:
 
-| 格式 | 内存布局 |
+| Format | Memory layout |
 | --- | --- |
-| `VDEC_FORMAT_NV12` | 8 位亮度平面，后面接半分辨率的 Cb/Cr 交错平面 |
-| `VDEC_FORMAT_NV21` | 同上，但交错顺序是 Cr/Cb |
-| `VDEC_FORMAT_RGBA8888` | 32 位小端字，R 在最高字节、A 在最低字节（内存里的字节顺序是 A、B、G、R） |
+| `VDEC_FORMAT_NV12` | 8-bit luma plane followed by a half-resolution interleaved Cb/Cr plane |
+| `VDEC_FORMAT_NV21` | Same, but the interleaving order is Cr/Cb |
+| `VDEC_FORMAT_RGBA8888` | 32-bit little-endian word with R in the most significant byte and A in the least significant byte (the byte order in memory is A, B, G, R) |
 
-## 设备树
+## Devicetree
 
-视频引擎涉及三个文件，从下到上依次是：
+The video engine involves three files, from the bottom up:
 
-| 文件 | 作用 |
+| File | Role |
 | --- | --- |
-| `dts/bindings/video/allwinner,sunxi-ve.yaml` | 绑定：规定 `allwinner,sunxi-ve` 节点必须有哪些属性 |
-| `dts/riscv/allwinner/sun252i_f101.dtsi` | SoC 的设备树：定义 `ve` 节点和它的寄存器、中断、时钟、复位，默认 `disabled` |
-| `boards/yuzukihd/yuzukineko/yuzukineko.dts`、`boards/yuzukihd/f101_evb/f101_evb.dts` | 板级设备树：把 `ve` 改成 `okay` |
+| `dts/bindings/video/allwinner,sunxi-ve.yaml` | Binding: specifies which properties an `allwinner,sunxi-ve` node must have |
+| `dts/riscv/allwinner/sun252i_f101.dtsi` | SoC devicetree: defines the `ve` node and its registers, interrupt, clocks and reset, `disabled` by default |
+| `boards/yuzukihd/yuzukineko/yuzukineko.dts`, `boards/yuzukihd/f101_evb/f101_evb.dts` | Board devicetrees: change `ve` to `okay` |
 
-`ve` 节点不启用，`CONFIG_VDEC_SUNXI` 就不会被选中（它依赖 `DT_HAS_ALLWINNER_SUNXI_VE_ENABLED`），驱动不会编进去。
+If the `ve` node is not enabled, `CONFIG_VDEC_SUNXI` is not selected (it depends on `DT_HAS_ALLWINNER_SUNXI_VE_ENABLED`) and the driver is not compiled in.
 
-### SoC 设备树：sun252i_f101.dtsi
+### SoC devicetree: sun252i_f101.dtsi
 
-下面是 `sun252i_f101.dtsi` 里的 `ve` 节点，说明写在注释里（这些中文注释是加的，节点内容和源文件一致）：
+Below is the `ve` node in `sun252i_f101.dtsi`, with the explanations in comments (these comments were added; the node content matches the source file):
 
 ```c
-/* 在 soc 节点下，464–474 行 */
+/* Under the soc node, lines 464–474 */
 ve: video-codec@1c0e000 {
-	/* 标签 ve：应用里用 DT_NODELABEL(ve) 取这个设备 */
+	/* Label ve: applications get this device with DT_NODELABEL(ve) */
 
-	/* 匹配驱动 vdec_sunxi.c 里的 DT_DRV_COMPAT allwinner_sunxi_ve */
+	/* Matches DT_DRV_COMPAT allwinner_sunxi_ve in the driver vdec_sunxi.c */
 	compatible = "allwinner,sunxi-ve";
 
-	/* 寄存器窗口：基址 0x01c0e000，长度 0x1000（4 KiB） */
+	/* Register window: base 0x01c0e000, length 0x1000 (4 KiB) */
 	reg = <0x01c0e000 0x1000>;
 
-	/* 中断：PLIC 的 66 号，优先级 1。PLIC 的 #interrupt-cells 是 2，两个格子依次是 irq、priority */
+	/* Interrupt: PLIC number 66, priority 1. The PLIC #interrupt-cells is 2, and the two cells are irq then priority */
 	interrupts = <66 1>;
 	interrupt-parent = <&plic>;
 
-	/* 三个时钟，顺序和 clock-names 一一对应：模块时钟、总线时钟、MBUS 时钟 */
+	/* Three clocks, in one-to-one order with clock-names: module clock, bus clock, MBUS clock */
 	clocks = <&cctl CLK_VE>, <&cctl CLK_BUS_VE>, <&cctl CLK_BUS_VE_M>;
 	clock-names = "mod", "bus", "mbus";
 
-	/* 总线复位 */
+	/* Bus reset */
 	resets = <&rctl RST_BUS_VE>;
 
-	/* 模块时钟寄存器在 CCU 里的偏移：时钟源选择、分频和门控都在这个寄存器 */
+	/* Offset of the module clock register in the CCU: clock source select, divider and gate are all in this register */
 	clock-reg = <0x690>;
 
-	/* 系统控制块的基址，里面有把共享 SRAM 交给视频引擎的控制位 */
+	/* Base of the system control block, which holds the control bits that hand the shared SRAM to the video engine */
 	sram-ctrl-reg = <0x03000000>;
 
-	/* 默认关闭，由板级打开 */
+	/* Disabled by default, enabled by the board */
 	status = "disabled";
 };
 ```
 
-`CLK_VE` 这些宏定义在 `include/zephyr/dt-bindings/clock/sun252i-f101-ccu.h`，由 `ALLWINNER_CCU_ID(base, reg, bit)` 把“哪个 CCU、寄存器偏移、位”打包成一个整数，打包方式是 `(base << 20) | (reg << 8) | bit`：
+Macros such as `CLK_VE` are defined in `include/zephyr/dt-bindings/clock/sun252i-f101-ccu.h`; `ALLWINNER_CCU_ID(base, reg, bit)` packs "which CCU, register offset, bit" into a single integer, as `(base << 20) | (reg << 8) | bit`:
 
-| 宏 | CCU | 寄存器偏移 | 位 |
+| Macro | CCU | Register offset | Bit |
 | --- | --- | --- | --- |
 | `CLK_VE` | `ALLWINNER_CCU_MAIN` | `0x0690` | 31 |
 | `CLK_BUS_VE` | `ALLWINNER_CCU_MAIN` | `0x069c` | 0 |
 | `RST_BUS_VE` | `ALLWINNER_CCU_MAIN` | `0x069c` | 16 |
 | `CLK_BUS_VE_M` | `ALLWINNER_CCU_MAIN` | `0x0804` | 1 |
 
-### 板级设备树：yuzukineko.dts 与 f101_evb.dts
+### Board devicetrees: yuzukineko.dts and f101_evb.dts
 
-两个板级都只做一件事，把节点打开。`yuzukineko.dts` 第 409–412 行：
+Both boards do one thing only: enable the node. `yuzukineko.dts` lines 409–412:
 
 ```c
 /* Video engine: hardware JPEG, PNG and H.264 decoder */
@@ -88,9 +88,9 @@ ve: video-codec@1c0e000 {
 };
 ```
 
-`f101_evb.dts` 第 278–281 行写法完全一样。`&ve` 是按标签引用 SoC 设备树里的 `ve` 节点，`status = "okay"` 把 `disabled` 覆盖掉，其余属性继承自 dtsi。
+`f101_evb.dts` lines 278–281 are written exactly the same way. `&ve` references the `ve` node of the SoC devicetree by label; `status = "okay"` overrides `disabled`, and the remaining properties are inherited from the dtsi.
 
-在自己的板子或应用里使用，同样的覆盖写在应用的 `boards/<板级>.overlay` 里即可：
+To use it on your own board or in an application, put the same override in the application's `boards/<board>.overlay`:
 
 ```c
 &ve {
@@ -98,9 +98,9 @@ ve: video-codec@1c0e000 {
 };
 ```
 
-### 绑定：allwinner,sunxi-ve.yaml
+### Binding: allwinner,sunxi-ve.yaml
 
-绑定文件规定了节点必须有哪些属性，缺一个编译就会报错：
+The binding file specifies which properties the node must have; a missing one fails the build:
 
 ```yaml
 # Copyright (c) 2026 Yuzuki Tsuru
@@ -144,16 +144,16 @@ properties:
       hand the shared SRAM to the video engine.
 ```
 
-| 属性 | 类型 | 必需 | 说明 |
+| Property | Type | Required | Description |
 | --- | --- | --- | --- |
-| `reg` | 来自 `base.yaml` | 是 | 寄存器窗口 |
-| `interrupts` | 来自 `base.yaml` | 是 | 中断 |
-| `clocks`、`clock-names` | 来自 `base.yaml` | 是 | 三个时钟及名字 |
-| `resets` | phandle 数组 | 是 | 复位 |
-| `clock-reg` | int | 是 | 模块时钟寄存器在主 CCU 里的偏移 |
-| `sram-ctrl-reg` | int | 是 | 系统控制块基址，里面有 SRAM 归属位 |
+| `reg` | From `base.yaml` | Yes | Register window |
+| `interrupts` | From `base.yaml` | Yes | Interrupt |
+| `clocks`, `clock-names` | From `base.yaml` | Yes | The three clocks and their names |
+| `resets` | phandle array | Yes | Reset |
+| `clock-reg` | int | Yes | Offset of the module clock register in the main CCU |
+| `sram-ctrl-reg` | int | Yes | Base of the system control block, which holds the SRAM ownership bits |
 
-在应用里取设备：
+Getting the device in an application:
 
 ```c
 const struct device *dev = DEVICE_DT_GET(DT_NODELABEL(ve));
@@ -161,45 +161,41 @@ const struct device *dev = DEVICE_DT_GET(DT_NODELABEL(ve));
 
 ## Kconfig
 
-应用的 `prj.conf` 里打开 `CONFIG_VDEC=y`。视频引擎驱动 `CONFIG_VDEC_SUNXI` 在设备树节点启用时默认打开，并且要求 `CONFIG_FPU`。播放视频的应用一般还需要 `CONFIG_FPU_SHARING`。
+Enable `CONFIG_VDEC=y` in the application's `prj.conf`. The video engine driver, `CONFIG_VDEC_SUNXI`, is on by default when the devicetree node is enabled and requires `CONFIG_FPU`. Applications that play video generally also need `CONFIG_FPU_SHARING`.
 
-| 选项 | 默认 | 说明 |
+| Option | Default | Description |
 | --- | --- | --- |
-| `CONFIG_VDEC` | n | 总开关 |
-| `CONFIG_VDEC_INIT_PRIORITY` | 90 | 驱动的初始化优先级 |
-| `CONFIG_VDEC_SUNXI` | y | 视频引擎驱动。依赖设备树里 `ve` 启用，并依赖 `CONFIG_FPU` |
-| `CONFIG_VDEC_SUNXI_JPEG` | y | JPEG 解码 |
-| `CONFIG_VDEC_SUNXI_PNG` | y | PNG 解码 |
-| `CONFIG_VDEC_SUNXI_H264` | y | H.264 解码（只支持帧图像，不支持场编码和宏块自适应帧场编码） |
-| `CONFIG_VDEC_SUNXI_RVV` | y | 用向量扩展加速 CPU 一侧的字节循环：PNG 的滤波、校验和像素转换，NV21 的色度交换，H.264 起始码查找。依赖 `CONFIG_SUN252I_F101_RVV`，引擎解码本身不受影响 |
-| `CONFIG_VDEC_SUNXI_H264_DIRECT_NV12` | n | 实验性：H.264 由引擎通过第二路输出直接写线性 NV12，省掉单独的转换。依赖 `CONFIG_VDEC_SUNXI_H264` |
-| `CONFIG_VDEC_SUNXI_H264_DIRECT_CHECK` | n | 调试用：对流的前几张图再做一次转换，并打印两张线性图有多少字节不同。依赖上一项 |
-| `CONFIG_VDEC_SUNXI_MEM_TRACE` | n | 调试用：打印每一次图片和工作缓冲的分配 |
-| `CONFIG_VDEC_SUNXI_CLOCK_MHZ` | 300 | 模块时钟的目标频率（MHz），实际取时钟分频器能产生的、不超过源频率的最接近值 |
-| `CONFIG_VDEC_SUNXI_STREAM_BUFFER_KB` | 512 | 压缩数据缓冲区大小（KiB）。一张 JPEG 或 PNG 必须放得下；应用打开流时可以要更大的 |
-| `CONFIG_VDEC_SUNXI_MAX_MEMORY_KB` | 12288 | 一个解码器可用的内存上限（KiB），包括图片和流缓冲，决定一个流能拿到几个帧缓冲（不会少于 H.264 参考帧数加 3） |
-| `CONFIG_VDEC_SUNXI_MEM_ALIGN` | 4096 | 交给视频引擎的每块缓冲的对齐 |
-| `CONFIG_VDEC_SUNXI_LOG_LEVEL` | 3 | 驱动的日志级别 |
+| `CONFIG_VDEC` | n | Master switch |
+| `CONFIG_VDEC_INIT_PRIORITY` | 90 | Driver initialization priority |
+| `CONFIG_VDEC_SUNXI` | y | Video engine driver. Depends on `ve` being enabled in the devicetree and on `CONFIG_FPU` |
+| `CONFIG_VDEC_SUNXI_JPEG` | y | JPEG decode |
+| `CONFIG_VDEC_SUNXI_PNG` | y | PNG decode |
+| `CONFIG_VDEC_SUNXI_H264` | y | H.264 decode (frame pictures only; field coding and macroblock-adaptive frame/field coding are not supported) |
+| `CONFIG_VDEC_SUNXI_RVV` | y | Uses the vector extension to accelerate the CPU-side byte loops: PNG filtering, checksum and pixel conversion, the NV21 chroma swap, and H.264 start-code search. Depends on `CONFIG_SUN252I_F101_RVV`; engine decoding itself is unaffected |
+| `CONFIG_VDEC_SUNXI_H264_DIRECT_NV12` | n | Experimental: for H.264 the engine writes linear NV12 directly through its second output path, doing away with a separate conversion. Depends on `CONFIG_VDEC_SUNXI_H264` |
+| `CONFIG_VDEC_SUNXI_H264_DIRECT_CHECK` | n | For debugging: converts the first few pictures of the stream a second time and prints how many bytes differ between the two linear pictures. Depends on the previous option |
+| `CONFIG_VDEC_SUNXI_MEM_TRACE` | n | For debugging: prints every picture and work-buffer allocation |
+| `CONFIG_VDEC_SUNXI_CLOCK_MHZ` | 300 | Target frequency of the module clock (MHz); the actual value is the closest one the clock divider can produce that does not exceed the source frequency |
+| `CONFIG_VDEC_SUNXI_STREAM_BUFFER_KB` | 512 | Size of the compressed-data buffer (KiB). One JPEG or PNG must fit; an application can ask for a larger one when opening a stream |
+| `CONFIG_VDEC_SUNXI_MAX_MEMORY_KB` | 12288 | Memory limit available to one decoder (KiB), pictures and stream buffer included; it determines how many frame buffers a stream gets (never fewer than the H.264 reference-frame count plus 3) |
+| `CONFIG_VDEC_SUNXI_MEM_ALIGN` | 4096 | Alignment of every buffer handed to the video engine |
+| `CONFIG_VDEC_SUNXI_LOG_LEVEL` | 3 | Driver log level |
 
-:::note
-驱动全部是 C 源码，不依赖预编译库：`ve_hw.c` 管视频引擎（时钟、复位、中断、图片转换），`ve_pool.c` 和 `ve_stream.c` 管图片和压缩数据，`ve_session.c` 把它们接到各个解码器（`ve_jpeg*.c`、`ve_h264*.c`、`ve_png.c`）。JPEG 的标记由软件解析，寄存器由 `ve_jpeg_hw.c` 配置；H.264 的语法解析、参考帧管理和引擎配置在 `ve_h264*.c`；PNG 完全由软件解码（全部颜色类型和位深、tRNS、Adam7）。
-:::
+## Interface reference
 
-## 接口详解
+`<zephyr/drivers/vdec.h>` has seven functions in all. Each function below is written out as "prototype → parameters → return value → description → example code → log". <strong>The logs are real output from running the demo program on `yuzukineko`</strong>; the complete source of the demo program is in [Complete demo program](#complete-demo-program) at the end.
 
-`<zephyr/drivers/vdec.h>` 一共 7 个函数。下面每个函数按“原型 → 参数 → 返回值 → 说明 → 示例代码 → 日志”写。<strong>日志是演示程序在 `yuzukineko` 上跑出来的真实输出</strong>，演示程序的完整源码在文末的 [完整演示程序](#完整演示程序)。
+The `err()`, `show_frame()` and `luma_crc()` in the examples are small helpers in the demo program; their source is at the end.
 
-示例里的 `err()`、`show_frame()`、`luma_crc()` 是演示程序里的小工具，源码在文末。
-
-演示程序的测试数据：JPEG、PNG 和 H.264 用的是 `samples/drivers/vdec/` 里三个示例内嵌的图片（都是 320×240）；MJPEG 用 ffmpeg 生成了 5 张 320×240 的 JPEG。
+The demo program's test data: for JPEG, PNG and H.264 it uses the pictures embedded in the three samples under `samples/drivers/vdec/` (all 320×240); for MJPEG, five 320×240 JPEGs were generated with ffmpeg.
 
 :::caution
-解码失败时驱动会打印 `<err>` 日志。日志是延迟输出的，会和演示程序的 `printk` 输出交错，所以下面贴的日志只保留演示程序自己打印的行，驱动日志见 [驱动日志](#驱动日志)。
+On a decode failure the driver prints an `<err>` log. Logs are emitted from a deferred context and interleave with the demo program's `printk` output, so the logs pasted below keep only the lines the demo program itself prints; for the driver logs see [Driver logs](#driver-logs).
 :::
 
 ### vdec_decode_image
 
-解码一张 JPEG 或 PNG。
+Decode one JPEG or PNG.
 
 ```c
 int vdec_decode_image(const struct device *dev, enum vdec_codec codec,
@@ -207,35 +203,35 @@ int vdec_decode_image(const struct device *dev, enum vdec_codec codec,
                       struct vdec_frame *frame);
 ```
 
-| 参数 | 说明 |
+| Parameter | Description |
 | --- | --- |
-| `dev` | 视频引擎设备，`DEVICE_DT_GET(DT_NODELABEL(ve))` |
-| `codec` | `VDEC_CODEC_JPEG` 或 `VDEC_CODEC_PNG` |
-| `data`、`len` | 压缩后的整张图片。返回后驱动不再引用，调用者可以立刻释放或复用这块内存 |
-| `format` | 想要的帧格式。JPEG 用 `VDEC_FORMAT_NV12` 或 `VDEC_FORMAT_NV21`，PNG 用 `VDEC_FORMAT_RGBA8888` |
-| `frame` | 输出，成功时被填好 |
+| `dev` | Video engine device, `DEVICE_DT_GET(DT_NODELABEL(ve))` |
+| `codec` | `VDEC_CODEC_JPEG` or `VDEC_CODEC_PNG` |
+| `data`, `len` | The whole compressed picture. The driver no longer references it after returning, so the caller can free or reuse this memory immediately |
+| `format` | The desired frame format. JPEG uses `VDEC_FORMAT_NV12` or `VDEC_FORMAT_NV21`, PNG uses `VDEC_FORMAT_RGBA8888` |
+| `frame` | Output, filled in on success |
 
-返回值，下表最后一栏是演示程序在板子上得到的结果：
+Return values; the last column of the table below is what the demo program got on the board:
 
-| 返回值 | 头文件注释里的含义 | 示例中的情形 |
+| Return value | Meaning in the header comment | What happened in the example |
 | --- | --- | --- |
-| `0` | 成功 | JPEG→NV12、JPEG→NV21、PNG→RGBA8888 |
-| `-ENOTSUP` | 编码、格式或图片不支持 | PNG→NV12；JPEG→RGBA8888；`VDEC_CODEC_H264` 传给本函数 |
-| `-EINVAL` | 参数错误，或图片已损坏 | 16 个 `0x55` 当 JPEG |
-| `-ENOMEM` | 图片放不进解码器内存 | 没有触发 |
-| `-EIO` | 硬件解码失败 | 只有半张的 JPEG |
+| `0` | Success | JPEG→NV12, JPEG→NV21, PNG→RGBA8888 |
+| `-ENOTSUP` | Codec, format or picture not supported | PNG→NV12; JPEG→RGBA8888; `VDEC_CODEC_H264` passed to this function |
+| `-EINVAL` | Bad parameters, or the picture is corrupt | 16 bytes of `0x55` as a JPEG |
+| `-ENOMEM` | The picture does not fit in decoder memory | Not triggered |
+| `-EIO` | Hardware decode failed | Half a JPEG |
 
-要点：
+Key points:
 
-- <strong>阻塞</strong>到解码完成。320×240 的 JPEG 约 2 ms，PNG 约 28 ms（PNG 由软件解码）。
-- 成功之后，解码器被这一帧<strong>占用</strong>，直到 `vdec_frame_release()`。期间别的 `vdec_decode_image()` 和 `vdec_stream_open()` 都会等待。所以拿到帧、用完、释放，不要长期持有。
-- 失败时不占用，不需要释放；出错后解码器可以继续用（演示里半张 JPEG 失败后，一张正常的 JPEG 立刻解码成功）。
-- JPEG 和 PNG 帧的 `pts` 都是 `-1`（没有时间戳）。
-- PNG 是 `RGBA8888`：`plane[0]` 是像素，`stride[0]` 是每行字节数（320×4=1280），`plane[1]` 是 NULL，`stride[1]` 为 0。内存里的字节顺序是 A、B、G、R。
+- <strong>Blocks</strong> until decoding finishes. A 320×240 JPEG takes about 2 ms, a PNG about 28 ms (PNG is decoded in software).
+- After success the decoder is <strong>occupied</strong> by this frame until `vdec_frame_release()`. Other `vdec_decode_image()` and `vdec_stream_open()` calls wait during that time. So take the frame, use it and release it; do not hold it for long.
+- A failure does not occupy the decoder and needs no release; after an error the decoder remains usable (in the demo, after the half-JPEG failure a normal JPEG decoded successfully right away).
+- The `pts` of JPEG and PNG frames is `-1` (there is no timestamp).
+- PNG is `RGBA8888`: `plane[0]` is the pixels, `stride[0]` is the bytes per row (320×4=1280), `plane[1]` is NULL and `stride[1]` is 0. The byte order in memory is A, B, G, R.
 
-#### 示例：JPEG
+#### Example: JPEG
 
-演示程序依次请求 NV21、NV12、NV21，把每个调用的返回值打印出来，验证两种格式都能解码。成功时再打印帧信息和亮度平面的 CRC，最后释放。
+The demo program requests NV21, NV12, NV21 in turn and prints each call's return value, verifying that both formats decode. On success it also prints the frame info and the CRC of the luma plane, then releases it.
 
 ```c
 static void demo_jpeg(void)
@@ -261,7 +257,7 @@ static void demo_jpeg(void)
 }
 ```
 
-日志：
+Log:
 
 ```text
 [jpeg] vdec_decode_image(format 2) = 0, 2 ms
@@ -278,9 +274,9 @@ static void demo_jpeg(void)
 [jpeg] vdec_frame_release done
 ```
 
-`format 2` 是 `VDEC_FORMAT_NV21`，`format 1` 是 `VDEC_FORMAT_NV12`，三次都成功。帧是 320×240，亮度和色度的 `stride` 都是 320，`pts` 为 -1。NV21 和 NV12 是同一张图，只是色度的字节顺序对调，所以三次的亮度 CRC 相同。
+`format 2` is `VDEC_FORMAT_NV21` and `format 1` is `VDEC_FORMAT_NV12`, and all three succeeded. The frame is 320×240, both the luma and chroma `stride` are 320, and `pts` is -1. NV21 and NV12 are the same picture with the chroma byte order swapped, so the luma CRC is the same all three times.
 
-#### 示例：PNG
+#### Example: PNG
 
 ```c
 static void demo_png(void)
@@ -304,7 +300,7 @@ static void demo_png(void)
 }
 ```
 
-日志：
+Log:
 
 ```text
 [png] vdec_decode_image(RGBA8888) = 0, 28 ms
@@ -313,9 +309,9 @@ static void demo_png(void)
 [png] vdec_frame_release done
 ```
 
-`format 3` 是 `VDEC_FORMAT_RGBA8888`，`stride` 的第一项是 1280（320 像素 × 4 字节），第二项是 0。测试图的第一个像素四个字节全是 `ff`。
+`format 3` is `VDEC_FORMAT_RGBA8888`; the first `stride` entry is 1280 (320 pixels × 4 bytes) and the second is 0. The first pixel of the test picture has `ff` in all four bytes.
 
-#### 示例：各种错误
+#### Example: the various errors
 
 ```c
 static void demo_image_errors(void)
@@ -353,7 +349,7 @@ static void demo_image_errors(void)
 }
 ```
 
-日志：
+Log:
 
 ```text
 [error] PNG as NV12             = -ENOTSUP
@@ -364,32 +360,32 @@ static void demo_image_errors(void)
 [error] a good JPEG afterwards  = 0
 ```
 
-每种错误的返回值见上面的返回值表。最后一行说明出错之后解码器仍然可以使用。
+The return value of each error is in the return-value table above. The last line shows that the decoder is still usable after the errors.
 
 ### vdec_frame_release
 
-归还一帧。
+Give a frame back.
 
 ```c
 void vdec_frame_release(const struct device *dev, struct vdec_frame *frame);
 ```
 
-| 参数 | 说明 |
+| Parameter | Description |
 | --- | --- |
-| `dev` | 视频引擎设备 |
-| `frame` | 要归还的帧，必须是 `vdec_decode_image()` 或 `vdec_stream_get_frame()` 给出的 |
+| `dev` | Video engine device |
+| `frame` | The frame to give back; must be one handed out by `vdec_decode_image()` or `vdec_stream_get_frame()` |
 
-没有返回值。
+No return value.
 
-- 对 `vdec_decode_image()` 的帧：释放后解码器才能再被使用。
-- 对流里的帧：这张图片回到解码器的图片池。解码器只有几张图片，不释放就会让 `vdec_stream_get_frame()` 返回 `-EBUSY`。
-- 释放后，`frame->plane[]` 指向的内存不再属于你，不能再读。
-- 显示引擎或 2D 加速器还在读这一帧时不能释放。MP4 播放器的做法是“晚一帧再释放”。
-- 每一帧只能释放一次。
+- For a frame from `vdec_decode_image()`: only after the release can the decoder be used again.
+- For a frame from a stream: the picture goes back into the decoder's picture pool. The decoder has only a few pictures, so not releasing makes `vdec_stream_get_frame()` return `-EBUSY`.
+- After the release the memory pointed to by `frame->plane[]` no longer belongs to you and must not be read.
+- Do not release a frame while the display engine or the 2D accelerator is still reading it. What the MP4 player does is "release one frame late".
+- Each frame may be released only once.
 
-#### 示例：解码单张图片后释放
+#### Example: decode one picture and release it
 
-解码一张 JPEG，释放，立刻再解码一次。两次返回的 `plane` 地址相同，说明解码器把同一块图片内存重新拿去用了，所以释放之后原来的指针不能再读：
+Decode a JPEG, release it, then decode again right away. The `plane` address returned both times is the same, showing that the decoder took the same picture memory back into use, so the original pointer must not be read after the release:
 
 ```c
 static void demo_frame_release(void)
@@ -417,7 +413,7 @@ static void demo_frame_release(void)
 }
 ```
 
-日志：
+Log:
 
 ```text
 [release] first decode = 0, plane 0x4029f000
@@ -426,9 +422,9 @@ static void demo_frame_release(void)
 [release] vdec_frame_release done
 ```
 
-#### 示例：流里的帧
+#### Example: frames from a stream
 
-`holding_frames` 设成 2，只取帧、不释放，直到被挡住（`-EBUSY`）；再把拿着的帧全部释放，解码器就恢复可用：
+With `holding_frames` set to 2, take frames without releasing any until it is blocked off (`-EBUSY`); then release all the frames held and the decoder becomes usable again:
 
 ```c
 static void demo_hold(void)
@@ -477,7 +473,7 @@ static void demo_hold(void)
 }
 ```
 
-日志：
+Log:
 
 ```text
 [hold] vdec_stream_open(holding_frames 2) = 0
@@ -486,38 +482,38 @@ static void demo_hold(void)
 [hold] vdec_stream_close done
 ```
 
-`3 frames held, get_frame = -EBUSY` 是释放之前的状态；释放之后变成 `-EAGAIN`（要更多数据，因为这个函数没有再喂数据），不再是 `-EBUSY`。
+`3 frames held, get_frame = -EBUSY` is the state before the release; after the release it becomes `-EAGAIN` (it wants more data, since this function feeds no more), no longer `-EBUSY`.
 
 ### vdec_stream_open
 
-打开一个解码流。
+Open a decode stream.
 
 ```c
 int vdec_stream_open(const struct device *dev, const struct vdec_stream_config *config,
                      struct vdec_stream **stream);
 ```
 
-| 参数 | 说明 |
+| Parameter | Description |
 | --- | --- |
-| `dev` | 视频引擎设备 |
-| `config` | 流的配置，字段见 [struct vdec_stream_config](#struct-vdec_stream_config) |
-| `stream` | 输出，成功时得到流句柄 |
+| `dev` | Video engine device |
+| `config` | Stream configuration; for the fields see [struct vdec_stream_config](#struct-vdec-stream_config) |
+| `stream` | Output; on success this receives the stream handle |
 
-| 返回值 | 含义 |
+| Return value | Meaning |
 | --- | --- |
-| `0` | 成功 |
-| `-ENOTSUP` | 编码或格式不支持：PNG 不能做流；H.264 流不能输出 RGBA8888 |
-| `-EINVAL` | 参数不对：JPEG 流没有给 `width`、`height` |
-| `-ENOMEM` | 内存不够 |
+| `0` | Success |
+| `-ENOTSUP` | Codec or format not supported: PNG cannot be a stream; an H.264 stream cannot output RGBA8888 |
+| `-EINVAL` | Bad parameters: a JPEG stream was given no `width` or `height` |
+| `-ENOMEM` | Not enough memory |
 
-- 一个流<strong>独占解码器</strong>，到 `vdec_stream_close()` 才让出。期间其他流和 `vdec_decode_image()` 会等。
-- H.264 流用 `VDEC_CODEC_H264`；motion JPEG（一连串 JPEG）用 `VDEC_CODEC_JPEG`，并且<strong>必须给出 `width`、`height`</strong>，因为引擎要提前知道图片大小。
-- `buffer_size` 是压缩数据缓冲区，要装得下一次 `feed` 的最大一组 NAL；不确定就给 1 MiB（MP4 播放器就是这么做的），0 为默认值。
-- `holding_frames` 决定应用能同时持有多少帧，见 `-EBUSY` 的示例。
+- A stream <strong>owns the decoder exclusively</strong> and yields it only at `vdec_stream_close()`. Other streams and `vdec_decode_image()` wait during that time.
+- An H.264 stream uses `VDEC_CODEC_H264`; motion JPEG (a series of JPEGs) uses `VDEC_CODEC_JPEG` and <strong>must be given `width` and `height`</strong>, because the engine needs to know the picture size in advance.
+- `buffer_size` is the compressed-data buffer and must hold the largest group of NAL units of one `feed`; if unsure, give 1 MiB (which is what the MP4 player does); 0 is the default value.
+- `holding_frames` determines how many frames the application can hold at once; see the `-EBUSY` example.
 
-#### 示例
+#### Example
 
-下面的函数用同一个 `open_and_close()` 试了六种配置：三种正常的，三种有问题的。成功的流立刻关闭，避免占着解码器。
+The function below tries six configurations through the same `open_and_close()`: three normal and three problematic. A successful stream is closed immediately so it does not tie up the decoder.
 
 ```c
 static void open_and_close(const char *what, const struct vdec_stream_config *cfg)
@@ -572,7 +568,7 @@ static void demo_stream_open(void)
 }
 ```
 
-日志：
+Log:
 
 ```text
 [open] MJPEG 320x240                      = 0
@@ -583,40 +579,40 @@ static void demo_stream_open(void)
 [open] H.264 as RGBA8888                  = -ENOTSUP
 ```
 
-- `JPEG without width/height`：JPEG 流没有给 `width`、`height`，返回 `-EINVAL`。
-- `PNG as a stream`：PNG 不能作为流，返回 `-ENOTSUP`。
-- `H.264 as RGBA8888`：H.264 流不能输出 RGBA8888，返回 `-ENOTSUP`。
+- `JPEG without width/height`: the JPEG stream was given no `width` or `height` and returns `-EINVAL`.
+- `PNG as a stream`: PNG cannot be a stream and returns `-ENOTSUP`.
+- `H.264 as RGBA8888`: an H.264 stream cannot output RGBA8888 and returns `-ENOTSUP`.
 
 ### vdec_stream_feed
 
-把压缩数据放进流的缓冲区。
+Put compressed data into the stream's buffer.
 
 ```c
 int vdec_stream_feed(const struct device *dev, struct vdec_stream *stream,
                      const void *data, size_t len, int64_t pts, size_t *consumed);
 ```
 
-| 参数 | 说明 |
+| Parameter | Description |
 | --- | --- |
-| `stream` | `vdec_stream_open()` 得到的句柄 |
-| `data`、`len` | 压缩数据。H.264 必须是 <strong>Annex B</strong> 字节流，由完整的 NAL 单元组成；MJPEG 每次是<strong>一整张</strong> JPEG |
-| `pts` | 这块数据的时间戳，原样带到对应的帧；没有就传 `-1` |
-| `consumed` | 输出，实际收下的字节数 |
+| `stream` | The handle from `vdec_stream_open()` |
+| `data`, `len` | Compressed data. H.264 must be an <strong>Annex B</strong> byte stream made of complete NAL units; MJPEG is <strong>one whole</strong> JPEG per call |
+| `pts` | Timestamp of this data, carried unchanged to the corresponding frame; pass `-1` if there is none |
+| `consumed` | Output, the number of bytes actually taken |
 
-| 返回值 | 含义 |
+| Return value | Meaning |
 | --- | --- |
-| `0` | 至少收下了一个 NAL 单元 |
-| `-EAGAIN` | 流缓冲区满了，先用 `vdec_stream_get_frame()` 取走帧 |
-| `-EINVAL` | 数据里一个 NAL 单元都没有（长度为 0 也是） |
+| `0` | At least one NAL unit was taken |
+| `-EAGAIN` | The stream buffer is full; take frames out first with `vdec_stream_get_frame()` |
+| `-EINVAL` | There is not a single NAL unit in the data (so length 0 too) |
 
-- 这个函数<strong>只存数据，不解码</strong>，解码在 `vdec_stream_get_frame()` 里进行。
-- 收多少由 `consumed` 返回。`len` 可能放不下，没收完的部分要在取走帧之后接着喂。
-- 演示程序里每次都是“全部收下”（`used` 等于 `len`）。
-- MJPEG 的 `pts` 原样回到帧上（见日志：0、100、…、400）。H.264 逐块喂入时不是这样：日志里第一帧的 `pts` 是 1，而喂入时第一个切片块带的是 2，所以不要假设帧的 `pts` 等于刚喂入的那一块。
+- This function <strong>only stores data and does not decode</strong>; decoding happens in `vdec_stream_get_frame()`.
+- How much was taken is returned in `consumed`. `len` may not fit; the part not taken must be fed again after taking frames out.
+- In the demo program every call takes everything (`used` equals `len`).
+- MJPEG's `pts` comes back on the frame unchanged (see the log: 0, 100, …, 400). With H.264 fed block by block this is not the case: in the log the first frame's `pts` is 1, while the first slice block fed carried 2, so do not assume a frame's `pts` equals the block just fed.
 
-#### 示例
+#### Example
 
-下面的函数试了三种输入：16 个 `0x55`（没有 NAL）、长度为 0、以及整段 H.264 码流（21745 字节）一次喂入。
+The function below tries three inputs: 16 bytes of `0x55` (no NAL), length 0, and the whole H.264 bitstream (21745 bytes) fed in one call.
 
 ```c
 static void demo_stream_feed(void)
@@ -655,7 +651,7 @@ static void demo_stream_feed(void)
 }
 ```
 
-日志：
+Log:
 
 ```text
 [feed] vdec_stream_open = 0
@@ -665,34 +661,34 @@ static void demo_stream_feed(void)
 [feed] vdec_stream_close done
 ```
 
-- 没有 NAL 的数据和长度为 0 都返回 `-EINVAL`，`used` 为 0。
-- 整段码流一次喂入，全部被收下（`used` 等于 `len`）。
-- 逐块喂入的完整例子（把码流按起始码切成块，一块一个 `pts`）见 [vdec_stream_get_frame](#vdec_stream_get_frame) 一节的 `demo_stream_get_frame_h264()`；MJPEG 一次一张的例子见同一节的 `demo_stream_get_frame_mjpeg()`。
+- Data with no NAL and length 0 both return `-EINVAL` with `used` 0.
+- The whole bitstream fed in one call is taken in full (`used` equals `len`).
+- For a complete example of block-by-block feeding (splitting the bitstream at start codes, one `pts` per block) see `demo_stream_get_frame_h264()` in the [vdec_stream_get_frame](#vdec_stream_get_frame) section; for the one-picture-at-a-time MJPEG example see `demo_stream_get_frame_mjpeg()` in the same section.
 
 ### vdec_stream_get_frame
 
-取下一帧；解码在这里完成。
+Get the next frame; decoding is done here.
 
 ```c
 int vdec_stream_get_frame(const struct device *dev, struct vdec_stream *stream,
                           struct vdec_frame *frame);
 ```
 
-| 返回值 | 含义 | 应该怎么做 |
+| Return value | Meaning | What to do |
 | --- | --- | --- |
-| `0` | 拿到了一帧 | 显示或处理，然后 `vdec_frame_release()` |
-| `-EAGAIN` | 数据不够 | 用 `vdec_stream_feed()` 喂数据；没有数据了就 `vdec_stream_flush()` |
-| `-EBUSY` | 所有帧都被应用占着 | 释放一些帧，或者稍等 |
-| `-ENODATA` | 已经 flush，并且帧全部取完 | 结束，关闭流 |
-| `-EIO` | 硬件出错 | 关闭流 |
+| `0` | Got a frame | Display or process it, then `vdec_frame_release()` |
+| `-EAGAIN` | Not enough data | Feed data with `vdec_stream_feed()`; when there is no data left, `vdec_stream_flush()` |
+| `-EBUSY` | All frames are held by the application | Release some frames, or wait a moment |
+| `-ENODATA` | Already flushed and all frames taken | Finish and close the stream |
+| `-EIO` | Hardware error | Close the stream |
 
-- 每次调用最多给出一帧。
-- 解码器只持有几张图片，帧要及时 `vdec_frame_release()`，否则就会 `-EBUSY`。
-- 取出的帧里 `pts` 是 `feed` 时给的时间戳，但 H.264 逐块喂入时和喂入的块不是一一对应，见 `vdec_stream_feed` 一节。
+- Each call gives out at most one frame.
+- The decoder holds only a few pictures; release frames promptly with `vdec_frame_release()` or you get `-EBUSY`.
+- A frame taken carries the timestamp given at `feed`, but with H.264 fed block by block it does not correspond one-to-one with the block fed; see the `vdec_stream_feed` section.
 
-#### 示例：MJPEG
+#### Example: MJPEG
 
-每张图喂进去，立刻 `get_frame` 取出一帧，`pts` 原样回来：
+Each picture is fed in and a frame is taken out with `get_frame` right away, with `pts` coming back unchanged:
 
 ```c
 static void demo_stream_get_frame_mjpeg(void)
@@ -734,7 +730,7 @@ static void demo_stream_get_frame_mjpeg(void)
 }
 ```
 
-日志：
+Log:
 
 ```text
 [mjpeg] vdec_stream_open = 0
@@ -758,9 +754,9 @@ static void demo_stream_get_frame_mjpeg(void)
 [mjpeg] vdec_stream_close done
 ```
 
-#### 示例：H.264 的完整循环
+#### Example: the full H.264 loop
 
-把 `open`、`feed`、`get_frame`、`flush`、`close` 串在一个循环里。循环的节奏由 `get_frame` 的返回值决定：`-EAGAIN` 时喂数据，数据喂完就 flush，拿到帧就校验 CRC 并释放，`-ENODATA` 时退出。码流按起始码 `00 00 00 01` 切块，`next_start_code()` 找下一个起始码的位置。
+`open`, `feed`, `get_frame`, `flush` and `close` are strung together in one loop. The loop's rhythm is decided by `get_frame`'s return value: on `-EAGAIN` feed data, when the data runs out flush, on a frame validate the CRC and release, and exit on `-ENODATA`. The bitstream is split at the start code `00 00 00 01`, and `next_start_code()` finds the position of the next start code.
 
 ```c
 static size_t next_start_code(const uint8_t *d, size_t len, size_t from)
@@ -852,7 +848,7 @@ static void demo_stream_get_frame_h264(void)
 }
 ```
 
-日志（前 12 次 `get_frame`，以及帧信息）：
+Log (the first 12 `get_frame` calls, and the frame info):
 
 ```text
 [h264] vdec_stream_open = 0
@@ -883,11 +879,11 @@ static void demo_stream_get_frame_h264(void)
 [h264] vdec_stream_close done
 ```
 
-前几行能看出节奏：打开之后 `get_frame` 先是 `-EAGAIN`；喂了 SPS（类型 7）、PPS（类型 8）、第一个切片（类型 1）之后，第一帧出来；之后大体是“喂一个块，出一帧”。第 2 块长 5650 字节，是按四字节起始码切出来的，里面还夹着用三字节起始码分隔的其他 NAL，这对解码没有影响。最后喂完 33 个块，flush，剩下的帧被取空。30 帧都通过了 CRC 校验（有错会打印 `bad crc`，日志里没有）。
+The first few lines show the rhythm: after opening, `get_frame` is first `-EAGAIN`; after feeding the SPS (type 7), the PPS (type 8) and the first slice (type 1), the first frame comes out; after that it is roughly "feed a block, get a frame". Block 2, 5650 bytes long, was cut out at a four-byte start code and also contains other NAL units separated by three-byte start codes, which does not affect decoding. At the end, after 33 blocks fed, it flushes and the remaining frames are drained. All 30 frames passed the CRC check (an error would print `bad crc`, and there is none in the log).
 
-#### 示例：-EBUSY
+#### Example: -EBUSY
 
-`holding_frames` 设成 2，然后只取帧、不释放：
+`holding_frames` is set to 2, and then frames are taken without releasing:
 
 ```c
 static void demo_hold(void)
@@ -936,7 +932,7 @@ static void demo_hold(void)
 }
 ```
 
-日志：
+Log:
 
 ```text
 [hold] vdec_stream_open(holding_frames 2) = 0
@@ -945,27 +941,27 @@ static void demo_hold(void)
 [hold] vdec_stream_close done
 ```
 
-拿到 3 帧才返回 `-EBUSY`（解码器的帧缓冲不会少于 3 张，所以 `holding_frames` 设成 2 也能多拿一帧）。释放之后恢复，见 [vdec_frame_release](#vdec_frame_release) 一节。
+It returns `-EBUSY` only after 3 frames have been taken (the decoder never has fewer than 3 frame buffers, so with `holding_frames` set to 2 one extra frame can still be taken). It recovers after the release; see the [vdec_frame_release](#vdec_frame_release) section.
 
 ### vdec_stream_flush
 
-告诉流“不会再有数据了”。
+Tell the stream "there will be no more data".
 
 ```c
 int vdec_stream_flush(const struct device *dev, struct vdec_stream *stream);
 ```
 
-| 返回值 | 含义 |
+| Return value | Meaning |
 | --- | --- |
-| `0` | 成功 |
+| `0` | Success |
 
-- 调用之后，`vdec_stream_get_frame()` 会把解码器里还没吐出来的帧依次给出，最后返回 `-ENODATA`。
-- 只需要调用一次。演示程序用 `flushed` 变量保证这一点。
-- 头文件的说明是：flush 之后，解码器里还没吐出的帧才会交出来。不 flush，视频末尾的几帧就取不到。
+- After the call, `vdec_stream_get_frame()` hands out the frames the decoder has not yet emitted, in turn, and finally returns `-ENODATA`.
+- It need only be called once. The demo program guarantees this with the `flushed` variable.
+- The header says: only after a flush are the frames not yet emitted by the decoder handed over. Without a flush, the last few frames of the video cannot be obtained.
 
-#### 示例
+#### Example
 
-MJPEG 流：先喂 3 张图，一张都不取，然后 flush，再把帧逐个取空，直到 `-ENODATA`：
+MJPEG stream: feed 3 pictures without taking any, then flush, then drain the frames one by one until `-ENODATA`:
 
 ```c
 static void demo_stream_flush(void)
@@ -1010,7 +1006,7 @@ static void demo_stream_flush(void)
 }
 ```
 
-日志：
+Log:
 
 ```text
 [flush] vdec_stream_open = 0
@@ -1025,24 +1021,24 @@ static void demo_stream_flush(void)
 [flush] vdec_stream_close done
 ```
 
-flush 之后 `get_frame` 依次给出 3 帧（`pts` 为 0、100、200），再返回 `-ENODATA`。H.264 流里 flush 的位置（数据喂完后调用一次）见 `demo_stream_get_frame_h264()`，日志里的 `flush = 0 (after 33 NAL units)`。
+After the flush `get_frame` hands out 3 frames in turn (`pts` 0, 100, 200), then returns `-ENODATA`. For where the flush sits in an H.264 stream (called once after the data is fed) see `demo_stream_get_frame_h264()`, and `flush = 0 (after 33 NAL units)` in the log.
 
 ### vdec_stream_close
 
-结束一个流，让出解码器。
+End a stream and yield the decoder.
 
 ```c
 void vdec_stream_close(const struct device *dev, struct vdec_stream *stream);
 ```
 
-没有返回值。
+No return value.
 
-- 调用前，这个流的<strong>所有帧都必须已经释放</strong>。
-- 关闭后 `stream` 句柄作废，解码器可以被别的流和 `vdec_decode_image()` 使用。
+- Before the call, <strong>all frames of this stream must already be released</strong>.
+- After the close the `stream` handle is void, and the decoder can be used by other streams and `vdec_decode_image()`.
 
-#### 示例
+#### Example
 
-打开 MJPEG 流，取一帧，释放，关闭；再打开一个 H.264 流，证明解码器已经让出：
+Open an MJPEG stream, take a frame, release it, close; then open an H.264 stream to show that the decoder has been yielded:
 
 ```c
 static void demo_stream_close(void)
@@ -1087,7 +1083,7 @@ static void demo_stream_close(void)
 }
 ```
 
-日志：
+Log:
 
 ```text
 [close] open the MJPEG stream = 0
@@ -1097,63 +1093,63 @@ static void demo_stream_close(void)
 [close] vdec_stream_close done
 ```
 
-关闭之后，下一个流可以正常打开。
+After the close the next stream can be opened normally.
 
 ### struct vdec_stream_config
 
-| 字段 | 说明 |
+| Field | Description |
 | --- | --- |
-| `codec` | `VDEC_CODEC_H264`（流）、`VDEC_CODEC_JPEG`（motion JPEG） |
-| `format` | 想要的帧格式。JPEG 只支持 `VDEC_FORMAT_NV12`；H.264 用 `VDEC_FORMAT_NV12` |
-| `buffer_size` | 压缩数据缓冲区的字节数，要能装下一次 `feed` 的最大一组 NAL；0 为默认值 |
-| `no_cache_ops` | CPU 不会读这些帧（只给显示引擎或 2D 加速器读）时设为 true，省掉缓存维护 |
-| `holding_frames` | 应用同时持有的帧数；0 为默认的 3，`VDEC_HOLD_NONE` 为不持有。解码器会分配 2 张加上这个数量的图片。实际的帧缓冲数不会少于 3 张，所以设为 2 时，在 MJPEG 流上拿 3 帧不放才会 `-EBUSY` |
-| `width`、`height` | 图片尺寸，只有 JPEG 流需要 |
+| `codec` | `VDEC_CODEC_H264` (stream), `VDEC_CODEC_JPEG` (motion JPEG) |
+| `format` | The desired frame format. JPEG supports only `VDEC_FORMAT_NV12`; H.264 uses `VDEC_FORMAT_NV12` |
+| `buffer_size` | Size of the compressed-data buffer in bytes; it must hold the largest group of NAL units of one `feed`; 0 is the default |
+| `no_cache_ops` | Set to true when the CPU will not read these frames (only the display engine or 2D accelerator reads them), saving cache maintenance |
+| `holding_frames` | Number of frames the application holds at once; 0 means the default of 3, and `VDEC_HOLD_NONE` means none. The decoder allocates 2 pictures plus this number. The real frame-buffer count is never below 3, so with it set to 2 you get `-EBUSY` only after holding 3 frames on an MJPEG stream |
+| `width`, `height` | Picture dimensions, needed only for a JPEG stream |
 
 ### struct vdec_frame
 
-| 字段 | 说明 |
+| Field | Description |
 | --- | --- |
-| `format` | 帧格式 |
-| `width`、`height` | 可见区域的像素尺寸 |
-| `plane[2]` | 每个平面第一个可见像素的指针，没有用到的平面是 NULL |
-| `stride[2]` | 每个平面相邻两行之间的字节数 |
-| `pts` | `feed` 时给的时间戳 |
-| `priv` | 驱动私有，不要碰。播放器用 `priv != NULL` 判断一个 `vdec_frame` 变量里有没有持有帧 |
+| `format` | Frame format |
+| `width`, `height` | Pixel dimensions of the visible area |
+| `plane[2]` | Pointer to the first visible pixel of each plane; an unused plane is NULL |
+| `stride[2]` | Bytes between two adjacent rows of each plane |
+| `pts` | The timestamp given at `feed` |
+| `priv` | Driver-private; do not touch. The player uses `priv != NULL` to tell whether a `vdec_frame` variable holds a frame |
 
-### 帧格式
+### Frame formats
 
-| 格式 | 值 | 内存布局 |
+| Format | Value | Memory layout |
 | --- | --- | --- |
-| `VDEC_FORMAT_NV12` | 1 | 8 位亮度平面，后面接半分辨率的 Cb/Cr 交错平面 |
-| `VDEC_FORMAT_NV21` | 2 | 同上，但交错顺序是 Cr/Cb |
-| `VDEC_FORMAT_RGBA8888` | 3 | 32 位小端字，R 在最高字节、A 在最低字节（内存里的字节顺序是 A、B、G、R） |
+| `VDEC_FORMAT_NV12` | 1 | 8-bit luma plane followed by a half-resolution interleaved Cb/Cr plane |
+| `VDEC_FORMAT_NV21` | 2 | Same, but the interleaving order is Cr/Cb |
+| `VDEC_FORMAT_RGBA8888` | 3 | 32-bit little-endian word with R in the most significant byte and A in the least significant byte (the byte order in memory is A, B, G, R) |
 
-## 驱动日志
+## Driver logs
 
-驱动在出错时打印下面这些 `<err>` 级别的日志。正常解码不会打印 `<err>` 日志，不再有预编译库留下的 `cedarc` 日志。
+The driver prints the following `<err>`-level logs on an error. Normal decoding prints no `<err>` logs.
 
-| 日志 | 说明 |
+| Log | Description |
 | --- | --- |
-| `vdec_sunxi: not a valid picture` | 输入的数据不是合法图片。演示程序里是 16 个 `0x55` 当 JPEG 的那一步 |
-| `vdec_sunxi: decoding failed: 1` | 解码失败，数字是内部状态码。演示程序里是只有半张的 JPEG 那一步，调用返回 `-EIO` |
-| `vdec_sunxi: not enough memory to decode`、`out of memory for N bytes` | 图片放不进解码器的内存预算，调用返回 `-ENOMEM`。演示程序没有触发 |
-| `vdec_sunxi: stream buffer is full`、`the picture does not fit in the stream buffer` | 压缩数据缓冲放不下，见 `CONFIG_VDEC_SUNXI_STREAM_BUFFER_KB`。演示程序没有触发 |
-| `vdec_sunxi: interrupt timeout: top …`（`<wrn>`） | 引擎一直没有产生中断。演示程序没有触发 |
+| `vdec_sunxi: not a valid picture` | The input data is not a valid picture. In the demo program this is the step that passes 16 bytes of `0x55` as a JPEG |
+| `vdec_sunxi: decoding failed: 1` | Decoding failed; the number is an internal status code. In the demo program this is the half-JPEG step, where the call returns `-EIO` |
+| `vdec_sunxi: not enough memory to decode`, `out of memory for N bytes` | The picture does not fit in the decoder's memory budget; the call returns `-ENOMEM`. Not triggered by the demo program |
+| `vdec_sunxi: stream buffer is full`, `the picture does not fit in the stream buffer` | The compressed-data buffer does not fit it; see `CONFIG_VDEC_SUNXI_STREAM_BUFFER_KB`. Not triggered by the demo program |
+| `vdec_sunxi: interrupt timeout: top …` (`<wrn>`) | The engine never raised an interrupt. Not triggered by the demo program |
 
-这些日志是延迟输出的，会和演示程序的 `printk` 交错，这里只列出现的现象。前两行是在板子上跑演示程序时实际出现的，其余几行来自驱动源码。
+These logs are emitted from a deferred context and interleave with the demo program's `printk`; only the observations are listed here. The first two lines really appeared when the demo program ran on the board; the remaining lines come from the driver source.
 
-## 示例
+## Examples
 
-| 示例 | 路径 | 内容 |
+| Example | Path | Content |
 | --- | --- | --- |
-| JPEG | `samples/drivers/vdec/jpeg` | 解码内嵌的 JPEG 三次，打印耗时和各平面校验值，最后显示。`CONFIG_SAMPLE_VDEC_DUMP` 可在控制台导出 NV12 数据，用来和主机解码结果对比 |
-| PNG | `samples/drivers/vdec/png` | 解码内嵌的 PNG，输出 RGBA8888，打印耗时和像素的 CRC（PNG 无损，应与主机解码结果一致），然后叠在黑底上显示 |
-| H.264 | `samples/drivers/vdec/h264` | 解码内嵌的 H.264 片段，每一帧都和主机解码的 CRC32 对比（H.264 的解码过程是严格规定的，结果必须一致），并按片段的帧率显示 |
-| H.264 播放器 | `samples/drivers/vdec/h264_player` | 播放 TF 卡上的 Annex B H.264 裸流（默认 `/SD:/badapple.h264`），按帧率显示，带统计叠加层 |
-| MP4 播放器 | `samples/drivers/mp4_player` | 视频加声音，见 [MP4 播放器](../apps/mp4-player.md) |
+| JPEG | `samples/drivers/vdec/jpeg` | Decodes the embedded JPEG three times, prints the elapsed time and each plane's checksum, and displays it at the end. `CONFIG_SAMPLE_VDEC_DUMP` can export the NV12 data on the console for comparison with a host decoder's result |
+| PNG | `samples/drivers/vdec/png` | Decodes the embedded PNG, outputs RGBA8888, prints the elapsed time and the CRC of the pixels (PNG is lossless, so it should match a host decoder's result), then displays it composited on a black background |
+| H.264 | `samples/drivers/vdec/h264` | Decodes an embedded H.264 clip, compares every frame against the CRC32 of a host decode (the H.264 decoding process is strictly specified, so the results must match), and displays it at the clip's frame rate |
+| H.264 player | `samples/drivers/vdec/h264_player` | Plays an Annex B H.264 raw stream from the TF card (default `/SD:/badapple.h264`), displaying at the frame rate with a statistics overlay |
+| MP4 player | `samples/drivers/mp4_player` | Video plus sound; see [MP4 player](../apps/mp4-player.md) |
 
-编译示例（以 JPEG 为例）：
+Building an example (JPEG here):
 
 ```sh
 . ~/f101-zephyr/env.sh
@@ -1163,18 +1159,18 @@ west build -b yuzukineko -d build/vdec-jpeg zephyr/samples/drivers/vdec/jpeg
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/drivers-vdec/build.cast" data-speed="6"></div>
 
-下载和运行的方法见 [编译与运行](../zephyr-build-run.md)。
+For how to download and run it see [Build and run](../zephyr-build-run.md).
 
-## 在自己的应用里使用
+## Using it in your own application
 
-1. `prj.conf`：`CONFIG_VDEC=y`、`CONFIG_FPU=y`、`CONFIG_FPU_SHARING=y`。需要大块缓冲时设置 `CONFIG_COMMON_LIBC_MALLOC_ARENA_SIZE=-1` 和足够的 `CONFIG_HEAP_MEM_POOL_SIZE`（示例里分别是 -1 和 65536 起）。
-2. 板级设备树里 `ve` 要是 `okay`。`yuzukineko` 和 `f101_evb` 都已经打开。
-3. 用 `device_is_ready()` 检查设备再使用。
-4. 帧给显示用：`display_sunxi_show_yuv()` 直接接收 `vdec_frame` 的两个平面，不需要拷贝，见 [MP4 播放器](../apps/mp4-player.md)。
+1. `prj.conf`: `CONFIG_VDEC=y`, `CONFIG_FPU=y`, `CONFIG_FPU_SHARING=y`. When large buffers are needed, set `CONFIG_COMMON_LIBC_MALLOC_ARENA_SIZE=-1` and a sufficient `CONFIG_HEAP_MEM_POOL_SIZE` (in the example these are -1 and from 65536 respectively).
+2. `ve` must be `okay` in the board devicetree. It is already enabled on `yuzukineko` and `f101_evb`.
+3. Check the device with `device_is_ready()` before using it.
+4. To hand a frame to the display: `display_sunxi_show_yuv()` takes the two planes of a `vdec_frame` directly, with no copy; see [MP4 player](../apps/mp4-player.md).
 
-## 完整演示程序
+## Complete demo program
 
-上面所有示例和日志都来自这一个程序。建一个目录，放进下面的文件，就可以像其他 Zephyr 应用一样编译。
+Every example and log above comes from this one program. Create a directory, put the files below into it, and it builds like any other Zephyr application.
 
 ```text
 vdec_api/
@@ -1182,16 +1178,16 @@ vdec_api/
 ├── prj.conf
 └── src/
     ├── main.c
-    └── test_mjpeg.h      用 ffmpeg 生成，见下
+    └── test_mjpeg.h      generated with ffmpeg, see below
 ```
 
-`test_mjpeg.h` 是 5 张 320×240 的 JPEG 转成的 C 数组，生成命令：
+`test_mjpeg.h` is a C array converted from 5 320×240 JPEGs; the command that generates it:
 
 ```sh
 ffmpeg -f lavfi -i testsrc2=size=320x240:rate=10 -frames:v 5 -q:v 5 f%d.jpg
 ```
 
-JPEG、PNG、H.264 的测试数据直接用 `samples/drivers/vdec/` 里三个示例的头文件，`CMakeLists.txt` 里把它们的目录加进了头文件搜索路径。
+The test data for JPEG, PNG and H.264 uses the header files of the three samples under `samples/drivers/vdec/` directly, and `CMakeLists.txt` adds their directories to the header search path.
 
 ### CMakeLists.txt
 
@@ -1766,7 +1762,7 @@ int main(void)
 }
 ```
 
-### 编译和运行
+### Build and run
 
 ```sh
 . ~/f101-zephyr/env.sh
@@ -1774,7 +1770,7 @@ cd ~/f101-zephyr
 west build -b yuzukineko -d build/vdec-api vdec_api
 ```
 
-下载运行的方法见 [编译与运行](../zephyr-build-run.md)。控制台 UART1 上输出的演示程序自己的行如下（驱动的 `<err>` 日志已去掉，见 [驱动日志](#驱动日志)）：
+For how to download and run it see [Build and run](../zephyr-build-run.md). The demo program's own lines printed on console UART1 are as follows (the driver's `<err>` logs have been removed; see [Driver logs](#driver-logs)):
 
 ```text
 [jpeg] vdec_decode_image(format 2) = 0, 2 ms

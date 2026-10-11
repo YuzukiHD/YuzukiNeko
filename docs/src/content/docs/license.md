@@ -1,54 +1,54 @@
 ---
-title: "许可证"
+title: "License"
 ---
 
-| 内容 | 许可证 |
+| Content | License |
 | --- | --- |
-| 硬件设计文件（原理图、PCB、BOM、Gerber 等） | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)，另有说明的除外 |
-| 本文档（文档站里的文字、图片、录像和图表） | [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh-hans) |
-| 固件与软件、第三方文件 | 遵循各自目录里声明的许可证 |
-| 3D 外壳 | 改自 dj.santos 的 Pico 外壳（BY-NC-SA），请遵守其条款 |
+| Hardware design files (schematic, PCB, BOM, Gerber, etc.) | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/), unless stated otherwise |
+| This documentation (the text, images, videos and diagrams on the documentation site) | [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh-hans) |
+| Firmware and software, third-party files | Follow the license declared in their respective directories |
+| 3D enclosure | Adapted from dj.santos's Pico enclosure (BY-NC-SA), follow its terms |
 
-## 本文档的许可
+## License of this documentation
 
-本文档（文档站里的文字、图片、录像和图表）采用 <strong>知识共享 署名-非商业性使用-相同方式共享 4.0 国际许可协议（CC BY-NC-SA 4.0）</strong>，协议全文见 [法律文本](https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode.zh-hans)，简要说明见 [许可协议摘要](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh-hans)。
+This documentation (the text, images, videos and diagrams on the documentation site) is released under the <strong>Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License (CC BY-NC-SA 4.0)</strong>; the full text of the license is in the [Legal Code](https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode.zh-hans), and a summary is in the [license deed](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh-hans).
 
-| 要求 | 含义 |
+| Requirement | Meaning |
 | --- | --- |
-| 署名（BY） | 使用时要注明出处，给出许可协议的链接，并说明是否做过修改 |
-| 非商业性使用（NC） | 不得用于商业目的 |
-| 相同方式共享（SA） | 如果基于本文档修改、转载或再创作，要用相同的许可协议发布 |
+| Attribution (BY) | You must credit the source, give a link to the license, and state whether you made changes |
+| NonCommercial (NC) | You may not use it for commercial purposes |
+| ShareAlike (SA) | If you modify, republish or build on this documentation, you must release it under the same license |
 
-这个许可只管文档本身，<strong>不改变</strong>上表里硬件设计文件的 CC0 声明，也不改变固件、软件和第三方文件各自的许可证。另外：
+This license covers the documentation only; it <strong>does not change</strong> the CC0 declaration for the hardware design files in the table above, nor the licenses of the firmware, software and third-party files. In addition:
 
-- 文档里引用的源码片段（例如 Zephyr 的示例和驱动）仍然遵循原项目的许可证，不因为出现在本文档里而改变。
-- 文档里提到或展示的第三方内容（例如 MP4 播放器页的示例视频，来自 Pixabay）不属于本文档的许可范围，请遵守它们各自的条款。
+- Source snippets quoted in the documentation (for example Zephyr samples and drivers) still follow the license of the original project, which does not change because they appear in this documentation.
+- Third-party content mentioned or shown in the documentation (for example the sample video on the MP4 player page, from Pixabay) is outside the scope of this documentation's license; follow its own terms.
 
-## 固件包里的第三方软件
+## Third-party software in the firmware packages
 
-固件包里的每个组件都遵循自己的许可证，CC0 声明<strong>不适用于</strong>它们。
+Every component in the firmware packages follows its own license; the CC0 declaration <strong>does not apply to</strong> them.
 
-`02_Firmware/RustSBI-Asterinas/` 里的四个组件：
+The four components in `02_Firmware/RustSBI-Asterinas/`:
 
-| 组件 | 许可证文本位置 |
+| Component | License text location |
 | --- | --- |
 | SyterKit | `licenses/syterkit/` |
-| RustSBI | `licenses/rustsbi/`（MIT、Mulan） |
-| Asterinas | `licenses/asterinas/`（MPL） |
+| RustSBI | `licenses/rustsbi/` (MIT, Mulan) |
+| Asterinas | `licenses/asterinas/` (MPL) |
 | BusyBox 1.37.0 | `licenses/busybox/` |
 
-`02_Firmware/Linux-Buildroot/` 里的组件：
+Components in `02_Firmware/Linux-Buildroot/`:
 
-| 组件 | 许可证 | 许可证文本位置 |
+| Component | License | License text location |
 | --- | --- | --- |
 | SyterKit | GPL-2.0-or-later | `licenses/syterkit/` |
 | OpenSBI | BSD-2-Clause | `licenses/opensbi/` |
-| Linux 7.2.0 内核与设备树 | GPL-2.0 WITH Linux-syscall-note | `licenses/linux/` |
+| Linux 7.2.0 kernel and devicetree | GPL-2.0 WITH Linux-syscall-note | `licenses/linux/` |
 | BusyBox 1.38.0 | GPL-2.0 | `licenses/busybox/` |
 | musl 1.2.6 | MIT | `licenses/musl/` |
 | Buildroot | GPL-2.0-or-later | `licenses/buildroot/` |
-| GCC / binutils 工具链 | GPL-3.0-or-later（含 GCC Runtime Library Exception） | `licenses/toolchain/` |
+| GCC / binutils toolchain | GPL-3.0-or-later (with the GCC Runtime Library Exception) | `licenses/toolchain/` |
 
-每个包中 `licenses/README.md` 记录了这些许可证文本的来源和校验方式。
+In each package, `licenses/README.md` records where these license texts came from and how they are verified.
 
-仓库根目录的 [LICENSE](https://github.com/YuzukiHD/YuzukiNeko/blob/main/LICENSE) 是总的声明。
+The [LICENSE](https://github.com/YuzukiHD/YuzukiNeko/blob/main/LICENSE) at the repository root is the overall declaration.

@@ -1,42 +1,42 @@
 ---
-title: "勘误与版本差异"
+title: "Errata and revision differences"
 ---
 
-## 版本一览
+## Revision overview
 
-| 版本 | 变化 |
+| Revision | Changes |
 | --- | --- |
-| <strong>V1.5</strong> | 新增 PSRAM 专用 LDO 供电，使 <strong>32 MiB PSRAM</strong> 配置可用，本版面向 32 MiB 版本；microSD 检测下拉电阻 `R11` 由 10 kΩ 改为 <strong>1 kΩ</strong>（`PF6`）。 |
-| <strong>V1.4</strong> | 修正 PD 脚丝印编号，见下方 V1.3 勘误。只用 16 MiB 配置时，V1.4 把 `R11` 换成 1 kΩ 即可。 |
-| <strong>V1.3</strong> | 初始版本。 |
+| <strong>V1.5</strong> | Adds a dedicated PSRAM LDO rail, which makes the <strong>32 MiB PSRAM</strong> configuration possible; this revision targets the 32 MiB build; the microSD card-detect pull-down `R11` changed from 10 kΩ to <strong>1 kΩ</strong> (`PF6`). |
+| <strong>V1.4</strong> | Corrects the PD pin silkscreen numbering, see the V1.3 errata below. When using only the 16 MiB configuration, changing `R11` to 1 kΩ on V1.4 is enough. |
+| <strong>V1.3</strong> | Initial release. |
 
 :::caution
-<strong>该选哪个版本？</strong> 如果只需要 F101S3 + 16 MiB PSRAM，V1.4 就够用：把 `R11` 换成 1 kΩ，microSD 检测问题就消失了。V1.5 是专门为 32 MiB PSRAM 配置准备的，它需要额外的 PSRAM LDO 电源轨。
+<strong>Which revision do I need?</strong> If you only need the F101S3 + 16 MiB PSRAM, V1.4 is enough: change `R11` to 1 kΩ and the microSD detect problem is gone. V1.5 exists specifically for the 32 MiB PSRAM configuration, which needs the additional PSRAM LDO rail.
 :::
 
-## V1.3：PD 丝印编号错误
+## V1.3: PD silkscreen numbering error
 
-F101S3 <strong>没有</strong> `PD10` 和 `PD11`。V1.3 的 PCB 在 `PD9` 之后继续顺序编号，导致从 `PD10` 开始的所有 PD 丝印都<strong>比真实 SoC GPIO 编号小 2</strong>。这是 V1.3 丝印的识别错误，V1.4 已更正。做 pinmux、写软件、看原理图时，请使用下表中的“<strong>实际 GPIO / V1.4 丝印</strong>”。
+F101S3 has <strong>no</strong> `PD10` and `PD11`. The V1.3 PCB kept numbering consecutively after `PD9`, which makes every PD silkscreen label from `PD10` onwards <strong>two lower than the real SoC GPIO number</strong>. This is an identification error in the V1.3 silkscreen, and V1.4 corrects it. When doing pinmux, writing software or reading the schematic, use the "<strong>Actual SoC GPIO / V1.4 silkscreen</strong>" column in the table below.
 
-| V1.3 丝印 | 实际 GPIO / V1.4 丝印 | 影响 |
+| V1.3 silkscreen | Actual SoC GPIO / V1.4 silkscreen | Effect |
 | --- | --- | --- |
-| `PD10` | `PD12` | MUX 选择必须用 `PD12` |
-| `PD11` | `PD13` | MUX 选择必须用 `PD13` |
-| `PD12`–`PD20` | `PD14`–`PD22` | 每个对应标号都偏移 +2 |
+| `PD10` | `PD12` | MUX selection must use `PD12` |
+| `PD11` | `PD13` | MUX selection must use `PD13` |
+| `PD12`–`PD20` | `PD14`–`PD22` | Each corresponding label is offset by +2 |
 
-在 V1.3 板上配置显示、LVDS/DSI、UART2/4/5 等经过这些脚的功能时，尤其要注意这一点。整张对照表见[引脚排布](pinout.md#排针总表)。
+Pay particular attention to this on V1.3 boards when configuring functions that pass through these pins, such as display, LVDS/DSI and UART2/4/5. The full mapping table is in [Pinout](pinout.md#header-pinout-table).
 
-## V1.4 及更早：microSD 卡检测 (CD) 下拉偏大
+## V1.4 and earlier: microSD card-detect (CD) pull-down too large
 
-microSD 卡检测信号是 `PF6`，由 `R11` 下拉。V1.4 及更早的板子上 `R11` 是 <strong>10 kΩ</strong>，阻值偏大，引脚无法稳定地降到逻辑低阈值以下，插卡可能检测不到。
+The microSD card-detect signal is `PF6`, pulled down by `R11`. On V1.4 and earlier boards `R11` is <strong>10 kΩ</strong>, which is too high for the pin to settle reliably below the logic-low threshold, so card insertion may not be detected.
 
-- <strong>软件规避</strong>：在 pinctrl 里把 `PF6` 的<strong>输出驱动强度设为最低</strong>。
-- <strong>硬件修复</strong>：把 `R11` 换成 <strong>1 kΩ</strong>（V1.5 已经这样做）。
+- <strong>Software workaround</strong>: set `PF6`'s <strong>output drive strength to its lowest setting</strong> in pinctrl.
+- <strong>Hardware fix</strong>: change `R11` to <strong>1 kΩ</strong> (V1.5 already does this).
 
-## 遇到问题先看这里
+## Look here first when something goes wrong
 
-| 现象 | 可能原因 |
+| Symptom | Possible cause |
 | --- | --- |
-| 在 V1.3 上 `PD12`–`PD20` 配置后没有反应 | 丝印偏移，实际应使用 `PD14`–`PD22` |
-| 插入 microSD 卡但系统认不到 | `PF6` 卡检测问题，按上面方法处理 |
-| 想上 32 MiB PSRAM 但不稳定 | 需要 V1.5 的 PSRAM LDO，V1.4 及以前不行 |
+| On V1.3, nothing happens after configuring `PD12`–`PD20` | Silkscreen offset; you should actually use `PD14`–`PD22` |
+| The microSD card is inserted but the system does not see it | `PF6` card-detect problem; handle it as described above |
+| Want 32 MiB PSRAM but it is unstable | Needs the V1.5 PSRAM LDO; V1.4 and earlier will not work |

@@ -2,55 +2,55 @@
 title: "USB"
 ---
 
-F101 有一个 USB 2.0 OTG 控制器（Mentor MUSB 内核）和一个 EHCI/OHCI 主机控制器，共用同一个 UTMI PHY。Zephyr 里没有走上游的 USB 设备栈，而是用 [CherryUSB](https://github.com/cherry-embedded/CherryUSB) 协议栈，F101 这边提供板级胶水（`drivers/usb/cherryusb/`）和 PHY 驱动（`drivers/usb/phy/usb_phy_sunxi.c`）。
+F101 has one USB 2.0 OTG controller (a Mentor MUSB core) and one EHCI/OHCI host controller, sharing the same UTMI PHY. Zephyr does not use the upstream USB device stack here but the [CherryUSB](https://github.com/cherry-embedded/CherryUSB) stack, with F101 providing the board-level glue (`drivers/usb/cherryusb/`) and the PHY driver (`drivers/usb/phy/usb_phy_sunxi.c`).
 
 ```mermaid
 flowchart TB
-    APP["应用<br/>usbd_* 接口，CDC ACM 类"] --> CHERRY["CherryUSB 协议栈<br/>modules/lib/cherryusb"]
-    CHERRY --> GLUE["usb_glue_sunxi.c<br/>时钟、复位、中断、缓存"]
-    GLUE --> MUSB["OTG 控制器 usbotg<br/>allwinner,sunxi-musb"]
+    APP["application<br/>usbd_* API, CDC ACM class"] --> CHERRY["CherryUSB stack<br/>modules/lib/cherryusb"]
+    CHERRY --> GLUE["usb_glue_sunxi.c<br/>clocks, reset, interrupts, cache"]
+    GLUE --> MUSB["OTG controller usbotg<br/>allwinner,sunxi-musb"]
     GLUE --> PHY["USB PHY usbphy<br/>sunxi_usb_phy_acquire"]
     MUSB --- PHY
-    HCI["EHCI / OHCI usbhci<br/>主机模式"] --- PHY
+    HCI["EHCI / OHCI usbhci<br/>host mode"] --- PHY
 ```
 
-| 项目 | 内容 |
+| Item | Content |
 | --- | --- |
-| 设备模式 | OTG 控制器，高速（480 Mbit/s）或全速，CherryUSB 的 CDC ACM、MSC、HID、音频、视频、RNDIS/ECM/NCM、DFU 类，以及 F101 自己的 vendor display 类 |
-| 主机模式 | EHCI（高速）加 OHCI（低速、全速）；CherryUSB 主机的 CDC ACM、HID、MSC 等类 |
-| PHY | 同一时间只给一个角色用：设备或主机。`sunxi_usb_phy_acquire()` 取，`sunxi_usb_phy_release()` 放，另一个角色占着时返回 `-EBUSY` |
-| `yuzukineko` | 只开设备模式。VBUS 开关用的 PE2 被 WiFi 的 SDIO 时钟占了，没有给主机口供电的开关，所以 EHCI/OHCI 不开 |
-| 传输 | 设备模式由 CPU 搬运 FIFO 数据（`VEND0` 寄存器的 PIO 位），不用 USB 自带的 DMA |
+| Device mode | OTG controller, high speed (480 Mbit/s) or full speed; CherryUSB's CDC ACM, MSC, HID, audio, video, RNDIS/ECM/NCM and DFU classes, and F101's own vendor display class |
+| Host mode | EHCI (high speed) plus OHCI (low speed, full speed); CherryUSB host classes such as CDC ACM, HID and MSC |
+| PHY | Serves only one role at a time: device or host. `sunxi_usb_phy_acquire()` takes it, `sunxi_usb_phy_release()` releases it; returns `-EBUSY` while the other role holds it |
+| `yuzukineko` | Device mode only. PE2, the VBUS switch, is taken by the WiFi SDIO clock, and there is no switch to power the host port, so EHCI/OHCI is not enabled |
+| Transfer | In device mode the CPU moves the FIFO data (the PIO bit of the `VEND0` register); the USB block's own DMA is not used |
 
-本文演示的是设备模式：一个 CDC ACM 虚拟串口，主机往里写什么，板子就原样回什么。
+This page demonstrates device mode: a CDC ACM virtual serial port that sends back exactly what the host writes to it.
 
-## 设备树
+## Devicetree
 
-| 文件 | 作用 |
+| File | Purpose |
 | --- | --- |
-| `dts/bindings/usb/allwinner,sunxi-musb.yaml` | OTG 设备控制器的绑定 |
-| `dts/bindings/usb/allwinner,sunxi-usb-phy.yaml` | PHY 的绑定 |
-| `dts/bindings/usb/allwinner,sunxi-ehci.yaml` | 主机控制器的绑定 |
-| `dts/riscv/allwinner/sun252i_f101.dtsi` | SoC 设备树：`usbphy`、`usbotg`、`usbhci`，默认 `disabled` |
-| `boards/yuzukihd/yuzukineko/yuzukineko.dts` | 板级设备树：打开 `usbphy` 和 `usbotg` |
+| `dts/bindings/usb/allwinner,sunxi-musb.yaml` | Binding of the OTG device controller |
+| `dts/bindings/usb/allwinner,sunxi-usb-phy.yaml` | Binding of the PHY |
+| `dts/bindings/usb/allwinner,sunxi-ehci.yaml` | Binding of the host controller |
+| `dts/riscv/allwinner/sun252i_f101.dtsi` | SoC devicetree: `usbphy`, `usbotg`, `usbhci`, `disabled` by default |
+| `boards/yuzukihd/yuzukineko/yuzukineko.dts` | Board devicetree: enables `usbphy` and `usbotg` |
 
-### SoC 设备树：sun252i_f101.dtsi
+### SoC devicetree: sun252i_f101.dtsi
 
 ```c
 usbphy: usb-phy@4100400 {
-	/* 匹配 usb_phy_sunxi.c */
+	/* matches usb_phy_sunxi.c */
 	compatible = "allwinner,sunxi-usb-phy";
 	#phy-cells = <0>;
 
-	/* 两块寄存器：OTG 里的 PHY 胶水逻辑，以及主机窗口里的 PHY/SIE */
+	/* two register blocks: the PHY glue logic in the OTG block, and the PHY/SIE in the host window */
 	reg = <0x04100400 0x40>, <0x04101800 0x40>;
 	reg-names = "otg", "hci";
 
-	/* USB 总线时钟同时给 PHY 供时钟，PHY 复位 */
+	/* the USB bus clock also clocks the PHY, and the PHY reset */
 	clocks = <&cctl CLK_BUS_USB>;
 	resets = <&rctl RST_USB_PHY0>;
 
-	/* 系统寄存器 0x03000004 里的这些位，把 FIFO 用的 SRAM 交给 USB 控制器 */
+	/* these bits of system register 0x03000004 hand the FIFO SRAM to the USB controller */
 	sram-remap-reg = <0x03000004>;
 	sram-remap-clear = <0x0a000000>;
 
@@ -58,25 +58,25 @@ usbphy: usb-phy@4100400 {
 };
 
 usbotg: usb@4100000 {
-	/* 匹配 CherryUSB 胶水 usb_glue_sunxi.c 里的 DT_DRV_COMPAT allwinner_sunxi_musb */
+	/* matches DT_DRV_COMPAT allwinner_sunxi_musb in the CherryUSB glue usb_glue_sunxi.c */
 	compatible = "allwinner,sunxi-musb";
 	reg = <0x04100000 0x400>;
 
-	/* 中断：PLIC 的 29 号，优先级 1 */
+	/* interrupt: PLIC number 29, priority 1 */
 	interrupts = <29 1>;
 	interrupt-parent = <&plic>;
 
 	clocks = <&cctl CLK_BUS_USB_OTG>;
 	resets = <&rctl RST_BUS_USB_OTG>;
 
-	/* 用哪个 PHY */
+	/* which PHY to use */
 	phys = <&usbphy>;
 	status = "disabled";
 };
 
 usbhci: usb@4101000 {
 	compatible = "allwinner,sunxi-ehci";
-	/* EHCI 和 OHCI 各一个寄存器窗口，各一个中断 */
+	/* EHCI and OHCI each have a register window and an interrupt */
 	reg = <0x04101000 0x100>, <0x04101400 0x100>;
 	reg-names = "ehci", "ohci";
 	interrupts = <30 1>, <31 1>;
@@ -90,12 +90,12 @@ usbhci: usb@4101000 {
 };
 ```
 
-### 板级设备树：yuzukineko.dts
+### Board devicetree: yuzukineko.dts
 
 ```c
 /*
- * USB 2.0 口只做设备：OTG 控制器加 PHY。PE2 是 WiFi 的 SDIO 时钟，没有 VBUS 开关，
- * 所以 EHCI/OHCI 主机控制器不打开。
+ * The USB 2.0 port is device only: the OTG controller plus the PHY. PE2 is the WiFi SDIO clock,
+ * and there is no VBUS switch, so the EHCI/OHCI host controller is not enabled.
  */
 &usbphy {
 	status = "okay";
@@ -106,12 +106,12 @@ usbhci: usb@4101000 {
 };
 ```
 
-要在自己的板子上用主机模式，在 `usbphy` 里写 `vbus-gpios`（驱动在主机运行期间拉高它），并打开 `usbhci`：
+To use host mode on your own board, write `vbus-gpios` in `usbphy` (the driver drives it high while the host runs) and enable `usbhci`:
 
 ```c
 &usbphy {
 	status = "okay";
-	vbus-gpios = <&gpioe 2 GPIO_ACTIVE_HIGH>;	/* 你的板子上给 USB 口供电的开关 */
+	vbus-gpios = <&gpioe 2 GPIO_ACTIVE_HIGH>;	/* the switch on your board that powers the USB port */
 };
 
 &usbhci {
@@ -119,62 +119,62 @@ usbhci: usb@4101000 {
 };
 ```
 
-### 绑定的属性
+### Binding properties
 
-`allwinner,sunxi-usb-phy`：
+`allwinner,sunxi-usb-phy`:
 
-| 属性 | 必填 | 含义 |
+| Property | Required | Meaning |
 | --- | --- | --- |
-| `reg`、`reg-names` | 是 | `otg` 和 `hci` 两块寄存器 |
-| `clocks`、`resets` | 是 | USB 总线时钟（同时给 PHY 供时钟）、PHY 复位 |
-| `sram-remap-reg`、`sram-remap-clear` | 是 | 系统寄存器地址，以及要清掉的位，把 FIFO 用的 SRAM 交给 USB 控制器 |
-| `vbus-gpios` | 否 | 主机控制器运行期间拉高的 VBUS 开关 |
+| `reg`, `reg-names` | Yes | The two register blocks `otg` and `hci` |
+| `clocks`, `resets` | Yes | USB bus clock (which also clocks the PHY), PHY reset |
+| `sram-remap-reg`, `sram-remap-clear` | Yes | System register address and the bits to clear, handing the FIFO SRAM to the USB controller |
+| `vbus-gpios` | No | VBUS switch driven high while the host controller runs |
 
-`allwinner,sunxi-musb`：
+`allwinner,sunxi-musb`:
 
-| 属性 | 必填 | 含义 |
+| Property | Required | Meaning |
 | --- | --- | --- |
-| `reg`、`interrupts` | 是 | 寄存器窗口、中断 |
-| `clocks`、`resets` | 是 | OTG 总线时钟和复位 |
-| `phys` | 是 | 用的 PHY |
+| `reg`, `interrupts` | Yes | Register window, interrupt |
+| `clocks`, `resets` | Yes | OTG bus clock and reset |
+| `phys` | Yes | The PHY used |
 
-`allwinner,sunxi-ehci`：`reg`、`reg-names`（`ehci`、`ohci`）、`interrupts`、`interrupt-names`、`clocks`、`clock-names`、`resets`、`phys`，含义和上面类似。
+`allwinner,sunxi-ehci`: `reg`, `reg-names` (`ehci`, `ohci`), `interrupts`, `interrupt-names`, `clocks`, `clock-names`, `resets`, `phys`, with meanings similar to the above.
 
 ## Kconfig
 
-| 选项 | 默认 | 含义 |
+| Option | Default | Meaning |
 | --- | --- | --- |
-| `CONFIG_USB_PHY_SUNXI` | `y`（依赖 `DT_HAS_ALLWINNER_SUNXI_USB_PHY_ENABLED`） | PHY 驱动 |
-| `CONFIG_USB_PHY_SUNXI_INIT_PRIORITY` | 40 | PHY 的初始化优先级，必须早于用它的控制器 |
-| `CONFIG_CHERRYUSB` | `n` | 打开 CherryUSB 协议栈 |
-| `CONFIG_CHERRYUSB_DEVICE` | `n` | 设备模式 |
-| `CONFIG_CHERRYUSB_DEVICE_SPEED_HS` | 速度选项三选一，默认 `SPEED_FS` | 高速。另外两个是 `CONFIG_CHERRYUSB_DEVICE_SPEED_FS` 全速、`CONFIG_CHERRYUSB_DEVICE_SPEED_AUTO` 自动 |
-| `CONFIG_CHERRYUSB_DEVICE_MUSB_SUNXI` | 控制器类型选一个 | 全志的 MUSB 控制器 |
-| `CONFIG_CHERRYUSB_DEVICE_CDC_ACM` | `n` | CDC ACM 类 |
-| `CONFIG_CHERRYUSB_DEVICE_MSC`、`_HID`、`_AUDIO`、`_VIDEO`、`_CDC_RNDIS`、`_CDC_ECM`、`_CDC_NCM`、`_DFU`、`_DISPLAY` | `n` | 其他设备类 |
-| `CONFIG_CHERRYUSB_HOST` | `n` | 主机模式 |
-| `CONFIG_CHERRYUSB_HOST_EHCI_CUSTOM` | 主机控制器类型选一个 | 本移植的 EHCI/OHCI 胶水 |
-| `CONFIG_CHERRYUSB_HOST_CDC_ACM`、`_HID`、`_MSC` 等 | `n` | 主机模式的类驱动 |
-| `CONFIG_SYSTEM_WORKQUEUE_STACK_SIZE` | 应用里设 2048 | CherryUSB 的底半部在系统工作队列里跑 |
-| `CONFIG_HEAP_MEM_POOL_SIZE` | 应用里设 65536 | CherryUSB 用内核堆 |
+| `CONFIG_USB_PHY_SUNXI` | `y` (depends on `DT_HAS_ALLWINNER_SUNXI_USB_PHY_ENABLED`) | PHY driver |
+| `CONFIG_USB_PHY_SUNXI_INIT_PRIORITY` | 40 | Initialization priority of the PHY; it must be earlier than the controller that uses it |
+| `CONFIG_CHERRYUSB` | `n` | Enable the CherryUSB stack |
+| `CONFIG_CHERRYUSB_DEVICE` | `n` | Device mode |
+| `CONFIG_CHERRYUSB_DEVICE_SPEED_HS` | one of three speed options, default `SPEED_FS` | High speed. The other two are `CONFIG_CHERRYUSB_DEVICE_SPEED_FS` full speed and `CONFIG_CHERRYUSB_DEVICE_SPEED_AUTO` auto |
+| `CONFIG_CHERRYUSB_DEVICE_MUSB_SUNXI` | pick one controller type | The Allwinner MUSB controller |
+| `CONFIG_CHERRYUSB_DEVICE_CDC_ACM` | `n` | CDC ACM class |
+| `CONFIG_CHERRYUSB_DEVICE_MSC`, `_HID`, `_AUDIO`, `_VIDEO`, `_CDC_RNDIS`, `_CDC_ECM`, `_CDC_NCM`, `_DFU`, `_DISPLAY` | `n` | Other device classes |
+| `CONFIG_CHERRYUSB_HOST` | `n` | Host mode |
+| `CONFIG_CHERRYUSB_HOST_EHCI_CUSTOM` | pick one host controller type | The EHCI/OHCI glue of this port |
+| `CONFIG_CHERRYUSB_HOST_CDC_ACM`, `_HID`, `_MSC` and so on | `n` | Class drivers for host mode |
+| `CONFIG_SYSTEM_WORKQUEUE_STACK_SIZE` | set to 2048 in the application | CherryUSB's bottom half runs in the system work queue |
+| `CONFIG_HEAP_MEM_POOL_SIZE` | set to 65536 in the application | CherryUSB uses the kernel heap |
 
-## 接口详解
+## API reference
 
-CherryUSB 的接口是 `usbd_*`（设备）和 `usbh_*`（主机）。设备的使用顺序是：注册描述符，添加接口和端点，初始化控制器。下面每个接口一个小标题：原型、行为和示例函数。示例来自文末的[完整演示程序](#完整演示程序)。
+CherryUSB's API is `usbd_*` (device) and `usbh_*` (host). The order of use for a device is: register the descriptors, add the interfaces and endpoints, initialize the controller. Below, each API gets a heading: prototype, behaviour, and an example function. The examples come from the [complete demo program](#complete-demo-program) at the end of the page.
 
-演示由两个源文件组成。CherryUSB 的头文件和 Zephyr 的头文件有同名的宏（比如 `__PACKED`），不能放在同一个源文件里包含，所以 CherryUSB 相关的代码在 `cdc_echo.c`，Zephyr 相关的在 `main.c`，两边用几个外部函数连接。CherryUSB 的日志宏 `USB_LOG_RAW` 被板子的 `usb_config.h` 映射到 `printk`。
+The demo is made of two source files. The CherryUSB headers and the Zephyr headers define macros with the same names (such as `__PACKED`) and cannot be included in the same source file, so the CherryUSB code is in `cdc_echo.c` and the Zephyr code in `main.c`, connected by a few external functions. CherryUSB's log macro `USB_LOG_RAW` is mapped to `printk` by the board's `usb_config.h`.
 
-### 描述符
+### Descriptors
 
-主机靠描述符认识设备：设备描述符（VID/PID 和类）、配置描述符（接口和端点）、字符串描述符。高速设备还要提供设备限定描述符和“另一种速度”的配置描述符。描述符放在 `config_descriptor_hs`、`config_descriptor_fs` 等数组里，用 CherryUSB 的宏拼出来：`USB_DEVICE_DESCRIPTOR_INIT`、`USB_CONFIG_DESCRIPTOR_INIT`、`CDC_ACM_DESCRIPTOR_INIT`。三个端点：
+The host knows a device through its descriptors: the device descriptor (VID/PID and class), the configuration descriptor (interfaces and endpoints), and the string descriptors. A high speed device also provides a device qualifier descriptor and the configuration descriptor of the "other speed". The descriptors live in arrays such as `config_descriptor_hs` and `config_descriptor_fs`, assembled with CherryUSB's macros: `USB_DEVICE_DESCRIPTOR_INIT`, `USB_CONFIG_DESCRIPTOR_INIT`, `CDC_ACM_DESCRIPTOR_INIT`. Three endpoints:
 
-| 端点 | 地址 | 类型 | 用途 |
+| Endpoint | Address | Type | Purpose |
 | --- | --- | --- | --- |
-| IN | `0x81` | 批量 | 设备到主机的数据 |
-| OUT | `0x02` | 批量 | 主机到设备的数据 |
-| IN | `0x83` | 中断 | CDC 的通知 |
+| IN | `0x81` | Bulk | Data from device to host |
+| OUT | `0x02` | Bulk | Data from host to device |
+| IN | `0x83` | Interrupt | CDC notifications |
 
-批量端点的最大包长高速是 512 字节（`USB_BULK_EP_MPS_HS`），全速是 64 字节（`USB_BULK_EP_MPS_FS`）。栈在需要的时候调用下面这些回调取描述符，它们收集在一个 `struct usb_descriptor` 里：
+The maximum packet size of the bulk endpoints is 512 bytes at high speed (`USB_BULK_EP_MPS_HS`) and 64 bytes at full speed (`USB_BULK_EP_MPS_FS`). The stack calls the callbacks below when it needs a descriptor; they are collected in a `struct usb_descriptor`:
 
 ```c
 static const uint8_t *device_descriptor_callback(uint8_t speed)
@@ -214,7 +214,7 @@ static const char *string_descriptor_callback(uint8_t speed, uint8_t index)
 void usbd_desc_register(uint8_t busid, const struct usb_descriptor *desc);
 ```
 
-把上面那组描述符回调交给栈。`busid` 是 USB 总线的编号，只有一个控制器，是 0。
+Hands that group of descriptor callbacks to the stack. `busid` is the USB bus number; there is only one controller, so it is 0.
 
 ```c
 /* usbd_desc_register: hand the descriptors to the stack */
@@ -230,7 +230,7 @@ static void cdc_register_descriptors(void)
 void usbd_add_interface(uint8_t busid, struct usbd_interface *intf);
 ```
 
-登记一个接口。CDC ACM 有两个接口（控制接口和数据接口），所以 `usbd_cdc_acm_init_intf` 调用两次，它初始化接口并返回它，交给 `usbd_add_interface`。
+Registers an interface. A CDC ACM has two interfaces (the control interface and the data interface), so `usbd_cdc_acm_init_intf` is called twice; it initializes the interface and returns it, to be handed to `usbd_add_interface`.
 
 ```c
 /* usbd_add_interface: the two interfaces of a CDC function, control and data */
@@ -247,7 +247,7 @@ static void cdc_add_interfaces(void)
 void usbd_add_endpoint(uint8_t busid, struct usbd_endpoint *ep);
 ```
 
-登记端点和它的完成回调：`ep_addr` 是端点地址，`ep_cb` 在这个端点上的一次传输完成时调用，参数里有实际传输的字节数。演示登记批量 OUT 和批量 IN。
+Registers an endpoint and its completion callback: `ep_addr` is the endpoint address, and `ep_cb` is called when one transfer on this endpoint finishes, with the number of bytes actually transferred as an argument. The demo registers the bulk OUT and the bulk IN endpoint.
 
 ```c
 /* usbd_add_endpoint: the callbacks of the bulk endpoints */
@@ -264,7 +264,7 @@ static void cdc_add_endpoints(void)
 int usbd_initialize(uint8_t busid, uintptr_t reg_base, usbd_event_handler_t event_handler);
 ```
 
-启动控制器；从这里开始主机可以枚举设备。`reg_base` 是 OTG 寄存器基址，由板子的胶水函数 `usb_sunxi_otg_base()` 给出。它调用 `usb_dc_low_level_init()`：打开时钟、释放复位、取得 PHY、设置 PIO 模式、连接并打开中断。`event_handler` 接收总线事件。
+Starts the controller; from here on the host can enumerate the device. `reg_base` is the OTG register base, given by the board's glue function `usb_sunxi_otg_base()`. It calls `usb_dc_low_level_init()`: enable the clocks, release the reset, acquire the PHY, set PIO mode, connect and enable the interrupt. `event_handler` receives bus events.
 
 ```c
 /* usbd_initialize: start the controller; from here on the host can enumerate the device */
@@ -282,7 +282,7 @@ void cdc_echo_init(uintptr_t reg_base)
 }
 ```
 
-`main.c` 里调用它的地方：
+Where `main.c` calls it:
 
 ```c
 int main(void)
@@ -317,7 +317,7 @@ int main(void)
 typedef void (*usbd_event_handler_t)(uint8_t busid, uint8_t event);
 ```
 
-总线事件：`USBD_EVENT_RESET`、`CONNECTED`、`DISCONNECTED`、`SUSPEND`、`RESUME`、`CONFIGURED` 等。收到 `CONFIGURED` 就是主机选定了配置，端点可以用了，演示在这里发出第一次读。
+Bus events: `USBD_EVENT_RESET`, `CONNECTED`, `DISCONNECTED`, `SUSPEND`, `RESUME`, `CONFIGURED` and so on. Receiving `CONFIGURED` means the host has selected a configuration and the endpoints are usable; the demo issues its first read here.
 
 ```c
 /* the events of the bus */
@@ -358,7 +358,7 @@ static void usbd_event_handler(uint8_t busid, uint8_t event)
 int usbd_ep_start_read(uint8_t busid, const uint8_t ep, uint8_t *data, uint32_t data_len);
 ```
 
-在 OUT 端点上等主机发数据，最多 `data_len` 个字节，收到后调用这个端点的回调。缓冲区放在非缓存的内存里并对齐（`USB_NOCACHE_RAM_SECTION USB_MEM_ALIGNX`）。
+Waits for the host to send data on the OUT endpoint, at most `data_len` bytes, and calls this endpoint's callback when they arrive. The buffer lives in non-cached memory and is aligned (`USB_NOCACHE_RAM_SECTION USB_MEM_ALIGNX`).
 
 ```c
 USB_NOCACHE_RAM_SECTION USB_MEM_ALIGNX static uint8_t read_buffer[BUF_SIZE];
@@ -389,7 +389,7 @@ static void usbd_cdc_acm_bulk_out(uint8_t busid, uint8_t ep, uint32_t nbytes)
 int usbd_ep_start_write(uint8_t busid, const uint8_t ep, const uint8_t *data, uint32_t data_len);
 ```
 
-在 IN 端点上把数据发给主机，发完调用这个端点的回调。写的数据正好是整数个最大包长时，要再发一个长度为 0 的包告诉主机这次传输结束，这就是 `usbd_cdc_acm_bulk_in` 里 `nbytes % mps == 0` 的分支。
+Sends data to the host on the IN endpoint and calls this endpoint's callback when it is out. When the data written is exactly a whole number of maximum-size packets, a further zero length packet must be sent to tell the host the transfer is over; that is the `nbytes % mps == 0` branch in `usbd_cdc_acm_bulk_in`.
 
 ```c
 /* usbd_ep_start_write: send nbytes of the write buffer to the host; the IN endpoint callback runs
@@ -420,7 +420,7 @@ static void usbd_cdc_acm_bulk_in(uint8_t busid, uint8_t ep, uint32_t nbytes)
 void usbd_cdc_acm_set_dtr(uint8_t busid, uint8_t intf, bool state);
 ```
 
-主机设置 DTR 控制线（串口工具打开端口时置位）时，类驱动调用它；应用定义这个函数即可。
+Called by the class driver when the host sets the DTR control line (asserted when a serial tool opens the port); the application just defines this function.
 
 ```c
 /* the class driver calls these when the host sets the control lines and the line coding */
@@ -437,7 +437,7 @@ void usbd_cdc_acm_set_dtr(uint8_t busid, uint8_t intf, bool state)
 void usbd_cdc_acm_set_rts(uint8_t busid, uint8_t intf, bool state);
 ```
 
-主机设置 RTS 控制线时调用。
+Called when the host sets the RTS control line.
 
 ```c
 void usbd_cdc_acm_set_rts(uint8_t busid, uint8_t intf, bool state)
@@ -452,7 +452,7 @@ void usbd_cdc_acm_set_rts(uint8_t busid, uint8_t intf, bool state)
 void usbd_cdc_acm_set_line_coding(uint8_t busid, uint8_t intf, struct cdc_line_coding *line_coding);
 ```
 
-主机设置线路参数（波特率、数据位、校验、停止位）时调用。CDC ACM 的“波特率”只是主机和设备之间约定的数字，对 USB 传输速度没有影响。
+Called when the host sets the line parameters (baud rate, data bits, parity, stop bits). The "baud rate" of CDC ACM is only a number agreed between the host and the device and has no effect on the USB transfer speed.
 
 ```c
 void usbd_cdc_acm_set_line_coding(uint8_t busid, uint8_t intf, struct cdc_line_coding *line_coding)
@@ -463,9 +463,9 @@ void usbd_cdc_acm_set_line_coding(uint8_t busid, uint8_t intf, struct cdc_line_c
 }
 ```
 
-## 在主机上验证
+## Verifying on the host
 
-主机是一台 Windows 电脑，板子的 USB 口接在它上面（和 xfel 下载用的是同一个口）。程序运行后，板子的 USB 口重新枚举，主机上出现一个新的 COM 口。下面的 PowerShell 脚本等设备出现，打开这个 COM 口，发 19 个字节和 1000 个字节，检查原样回来的数据：
+The host is a Windows PC with the board's USB port plugged into it (the same port used for xfel download). After the program runs, the board's USB port re-enumerates and a new COM port appears on the host. The PowerShell script below waits for the device to appear, opens this COM port, sends 19 bytes and 1000 bytes, and checks that the same bytes come back:
 
 ```powershell
 # Windows PowerShell: wait for the YuzukiNeko CDC ACM device (VID 1209, PID 0001), then send text
@@ -496,7 +496,7 @@ Write-Output ("echo 2: sent " + $big.Length + " bytes, got " + $back.Length + " 
 $p.Close()
 ```
 
-主机一侧的输出：
+Output on the host side:
 
 ```text
 device: USB 串行设备 (COM12) / USB\VID_1209&PID_0001&MI_00\A&29BE0475&0&0000
@@ -504,7 +504,7 @@ echo 1: hello from the host
 echo 2: sent 1000 bytes, got 1000 bytes, same = True
 ```
 
-板子一侧（控制台 UART1）的输出：
+Output on the board side (console UART1):
 
 ```text
 usb_api started
@@ -534,29 +534,29 @@ usb_api started
 usb_api done
 ```
 
-| 行 | 说明 |
+| Line | Explanation |
 | --- | --- |
-| `[usb] reset` | 主机复位总线 |
-| `[E/usbd_core] descriptor <type:3,index:ee> not found!` 这三行 | Windows 会请求一个字符串索引 `0xEE`（微软的 OS 字符串描述符），设备没有，所以 CherryUSB 记一条错误并让这次请求失败。设备照常工作 |
-| `[usb] configured, bulk packet size 512` | 主机选了配置，协商到高速，批量包长 512 |
-| `[cdc] line coding: 2000000 baud ...` 与 `115200 baud` 交替出现 | Windows 的串口驱动打开端口时设置线路参数，COM 口工具设了 115200；CDC ACM 的“波特率”只是主机和设备之间约定的数字，对 USB 传输速度没有影响 |
-| `[cdc] DTR 1`、`RTS 1` | 脚本设了 `DtrEnable`、`RtsEnable` |
-| `[echo] received 1019 bytes in 2 transfer(s)` | 19 字节和 1000 字节各一次传输，一共收到 1019 字节并全部发回 |
-| 最后的 `DTR 0` | 脚本关闭了端口 |
+| `[usb] reset` | The host resets the bus |
+| The three lines `[E/usbd_core] descriptor <type:3,index:ee> not found!` | Windows requests a string index `0xEE` (Microsoft's OS string descriptor), the device does not have it, so CherryUSB logs an error and fails this request. The device works normally |
+| `[usb] configured, bulk packet size 512` | The host selected a configuration, negotiated high speed, and the bulk packet size is 512 |
+| `[cdc] line coding: 2000000 baud ...` alternating with `115200 baud` | Windows's serial driver sets the line parameters when it opens the port; the COM port tool set 115200. The "baud rate" of CDC ACM is only a number agreed between the host and the device and has no effect on the USB transfer speed |
+| `[cdc] DTR 1`, `RTS 1` | The script set `DtrEnable` and `RtsEnable` |
+| `[echo] received 1019 bytes in 2 transfer(s)` | The 19 bytes and the 1000 bytes are one transfer each; 1019 bytes were received in total and all sent back |
+| The final `DTR 0` | The script closed the port |
 
-## 完整演示程序
+## Complete demo program
 
-上面所有示例和日志都来自这一个程序。建一个目录，放进下面的文件，就可以像其他 Zephyr 应用一样编译。
+All the examples and logs above come from this one program. Create a directory, put the files below in it, and it builds like any other Zephyr application.
 
 ```text
 usb_api/
 ├── CMakeLists.txt
 ├── prj.conf
 ├── src/
-│   ├── cdc_echo.c        CherryUSB：描述符、端点、类回调
-│   └── main.c            Zephyr：启动和统计
+│   ├── cdc_echo.c        CherryUSB: descriptors, endpoints, class callbacks
+│   └── main.c            Zephyr: start and statistics
 └── host/
-    └── usbtest.ps1       主机一侧的验证脚本，见上
+    └── usbtest.ps1       verification script for the host side, see above
 ```
 
 ### CMakeLists.txt
@@ -894,7 +894,7 @@ int main(void)
 }
 ```
 
-### 编译和运行
+### Build and run
 
 ```sh
 . ~/f101-zephyr/env.sh
@@ -904,6 +904,6 @@ west build -b yuzukineko -d build/usb-api usb_api
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/drivers-usb/build.cast" data-speed="6"></div>
 
-下载运行的方法见[编译与运行](../zephyr-build-run.md)。注意：用 xfel 下载到 RAM 时，板子是通过同一个 USB 口进入 FEL 的；程序一运行，这个口就变成了 CDC ACM 设备，FEL 设备消失。
+For how to download and run, see [Build and run](../zephyr-build-run.md). Note: when you download to RAM with xfel, the board enters FEL through the same USB port; as soon as the program runs, this port becomes a CDC ACM device and the FEL device disappears.
 
-另外还有三个示例：`samples/drivers/usb/cherryusb_cdc_acm`（CherryUSB 自带的 CDC ACM 演示）、`cherryusb_display`（vendor display 类，把屏幕投给主机上的程序）、`cherryusb_host`（主机模式，读 U 盘等；需要有 VBUS 开关的板子，如 `f101_evb`）。
+There are three more examples: `samples/drivers/usb/cherryusb_cdc_acm` (the CDC ACM demo that ships with CherryUSB), `cherryusb_display` (the vendor display class, which mirrors the screen to a program on the host), `cherryusb_host` (host mode, reading USB drives and so on; needs a board with a VBUS switch, such as `f101_evb`).

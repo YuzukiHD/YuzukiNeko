@@ -4,7 +4,7 @@
 
 <div align="center">
     <img width="380" height="409" alt="3D_PCB1_2026-09" 
-         src="https://github.com/user-attachments/assets/650270c6-b822-48ad-bceb-6358ae01c4cd" />
+         src="docs/public/figures/yuzukineko-3d-render.webp" />
 </div>
 
 This compact development board is based on the **F101 Series SoC**. It follows the Raspberry Pi Pico form factor with two 20-pin rows, and includes 16 MiB of PSRAM (F101S3) or 32 MiB PSRAM (F101S4)  plus 16 MiB of NOR Flash with XIP (execute-in-place) support. It is a capable hardware platform for RISC-V graphics, display, audio, and general-purpose I/O projects.

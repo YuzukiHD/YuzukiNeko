@@ -1,36 +1,36 @@
 ---
-title: "MP4 播放器"
+title: "MP4 Player"
 ---
 
-从 TF 卡读取 MP4 文件并播放：H.264 视频由片上视频引擎解码，直接送到显示的视频层；AAC 音频用软件解码，从片上 codec 输出。示例是 `samples/drivers/mp4_player`，放在 F101 的 Zephyr fork 里，不需要 `zephyr-components`。
+Read an MP4 file from the TF card and play it: H.264 video is decoded by the on-chip video engine and sent straight to the display's video layer; AAC audio is decoded in software and output through the on-chip codec. The example is `samples/drivers/mp4_player`, in the F101 Zephyr fork; it does not need `zephyr-components`.
 
 ```mermaid
 flowchart TB
-    SD["TF 卡<br/>FAT / exFAT"] -->|"fs_read"| DEMUX["lib/mp4<br/>解封装"]
-    DEMUX -->|"H.264 样本"| VDEC["vdec 视频引擎"]
-    DEMUX -->|"AAC 样本"| AAC["OpenCORE<br/>软解码"]
-    VDEC -->|"NV12 帧"| VID["显示视频层"]
-    AAC -->|"PCM"| I2S["I2S → 片上 codec<br/>耳机 / 功放"]
-    I2S -.->|"播放位置 = 主时钟"| VID
+    SD["TF card<br/>FAT / exFAT"] -->|"fs_read"| DEMUX["lib/mp4<br/>demux"]
+    DEMUX -->|"H.264 samples"| VDEC["vdec video engine"]
+    DEMUX -->|"AAC samples"| AAC["OpenCORE<br/>software decode"]
+    VDEC -->|"NV12 frame"| VID["display video layer"]
+    AAC -->|"PCM"| I2S["I2S → on-chip codec<br/>headphones / speaker"]
+    I2S -.->|"playback position = master clock"| VID
 ```
 
-音频是主时钟：每一帧画面等声音播放到它的时间戳才显示，晚得太多的帧直接丢掉。屏幕左上角叠一块统计面板（帧率、SD 读取速率、解码耗时等），用 LVGL 画在 ARGB 层上。
+Audio is the master clock: each video frame is shown only once the sound has played up to its timestamp, and frames that are too late are dropped outright. A statistics panel (frame rate, SD read rate, decode time, and so on) is overlaid in the top-left corner of the screen, drawn with LVGL on the ARGB layer.
 
-开始前请先完成 [配置开发环境](../zephyr-setup-env.md) 和 [获取 Zephyr 代码](../zephyr-get-source.md)。
+Before starting, complete [Setting up the development environment](../zephyr-setup-env.md) and [Getting the Zephyr source](../zephyr-get-source.md).
 
-## 准备视频
+## Preparing the video
 
-示例默认播放 TF 卡根目录下的 `video540p.mp4`。播放器对文件有这些要求：
+By default the example plays `video540p.mp4` in the root directory of the TF card. The player has these requirements for the file:
 
-| 项 | 要求 |
+| Item | Requirement |
 | --- | --- |
-| 容器 | MP4（ISO base media file） |
-| 视频 | 第一条 H.264 轨道，4:2:0 |
-| 音频 | 第一条 AAC 轨道（AAC-LC）；采样率只支持 <strong>44100 Hz</strong> 和 <strong>48000 Hz</strong>，输出按双声道 |
-| 其他轨道 | 忽略 |
-| 文件系统 | TF 卡为 FAT 或 exFAT，支持长文件名 |
+| Container | MP4 (ISO base media file) |
+| Video | First H.264 track, 4:2:0 |
+| Audio | First AAC track (AAC-LC); only <strong>44100 Hz</strong> and <strong>48000 Hz</strong> sample rates are supported, output is stereo |
+| Other tracks | Ignored |
+| Filesystem | TF card is FAT or exFAT, long file names supported |
 
-手头的视频不一定符合，用 ffmpeg 转一遍就行：
+The video you have may not match; just convert it once with ffmpeg:
 
 ```sh
 ffmpeg -i input.mp4 \
@@ -40,27 +40,27 @@ ffmpeg -i input.mp4 \
   -movflags +faststart video540p.mp4
 ```
 
-| 参数 | 作用 |
+| Option | Effect |
 | --- | --- |
-| `-vf scale=…,pad=…` | 缩放到 960×540，比例不对时补黑边。分辨率越大，解码和读卡的压力越大 |
-| `-c:v libx264 -profile:v main -pix_fmt yuv420p` | H.264 Main 档、4:2:0 像素格式 |
-| `-r 30` | 帧率 30 fps |
-| `-c:a aac -ar 44100 -ac 2` | AAC-LC，44.1 kHz，双声道。48 kHz 源可改成 `-ar 48000` |
-| `-movflags +faststart` | 把索引放到文件开头 |
+| `-vf scale=…,pad=…` | Scale to 960×540, padding with black bars when the aspect ratio does not match. The larger the resolution, the heavier the load on decoding and card reads |
+| `-c:v libx264 -profile:v main -pix_fmt yuv420p` | H.264 Main profile, 4:2:0 pixel format |
+| `-r 30` | Frame rate 30 fps |
+| `-c:a aac -ar 44100 -ac 2` | AAC-LC, 44.1 kHz, stereo. A 48 kHz source can use `-ar 48000` instead |
+| `-movflags +faststart` | Put the index at the start of the file |
 
-用 `ffprobe` 检查结果：
+Check the result with `ffprobe`:
 
 ```sh
 ffprobe -v error -show_entries stream=codec_name,profile,width,height,r_frame_rate,sample_rate,channels -of compact video540p.mp4
 ```
 
-应看到一条 `h264`（`Main`）和一条 `aac`（`LC`，`sample_rate=44100`，`channels=2`）。
+You should see one `h264` (`Main`) and one `aac` (`LC`, `sample_rate=44100`, `channels=2`).
 
-### 示例视频
+### Example video
 
-本文的照片和日志用的是 Pixabay 上的一段风景视频：[旅行、自然、景观](https://pixabay.com/zh/videos/travel-nature-landscape-vacation-363550/)，作者 Hoangbuifilms。该页面标明“在 Pixabay 内容许可下免费使用”，是否需要署名、能否商用等具体条款以页面链接的 [Pixabay 许可摘要](https://pixabay.com/service/license-summary/) 为准。视频文件本身不随文档分发，请自行从 Pixabay 下载。
+The photos and logs in this article use a landscape video from Pixabay: [Travel, nature, landscape](https://pixabay.com/zh/videos/travel-nature-landscape-vacation-363550/), by Hoangbuifilms. That page states it is "free to use under the Pixabay Content License"; the specific terms such as whether attribution is required and whether commercial use is allowed are governed by the [Pixabay license summary](https://pixabay.com/service/license-summary/) linked from that page. The video file itself is not distributed with the documentation; download it from Pixabay yourself.
 
-原片是 3840×2160、24 fps、HEVC Main 10（10 位）、AAC 48 kHz，约 10.7 秒、208 MiB，播放器不能直接播。用下面的命令转成 960×540、H.264 Main、AAC 44.1 kHz：
+The original is 3840×2160, 24 fps, HEVC Main 10 (10-bit), AAC 48 kHz, about 10.7 seconds and 208 MiB, and the player cannot play it directly. Use the command below to convert it to 960×540, H.264 Main, AAC 44.1 kHz:
 
 ```sh
 ffmpeg -i 363550.mp4 -map 0:v:0 -map 0:a:0 \
@@ -70,11 +70,11 @@ ffmpeg -i 363550.mp4 -map 0:v:0 -map 0:a:0 \
   -movflags +faststart video540p.mp4
 ```
 
-和前面的通用命令相比多了两处：`-map 0:v:0 -map 0:a:0` 只取第一条视频和第一条音频，丢掉原片里的数据轨道；`-pix_fmt yuv420p` 同时把 10 位转成 8 位。转出来的文件约 3.3 MiB，`ffprobe` 看到 `h264`（`Main`，960×540，30 fps）和 `aac`（`LC`，44100 Hz，双声道）。
+Compared with the generic command above there are two differences: `-map 0:v:0 -map 0:a:0` takes only the first video and first audio track, dropping the data track in the original; and `-pix_fmt yuv420p` also converts 10-bit to 8-bit. The converted file is about 3.3 MiB, and `ffprobe` shows `h264` (`Main`, 960×540, 30 fps) and `aac` (`LC`, 44100 Hz, stereo).
 
-然后把 `video540p.mp4` 拷到 TF 卡的<strong>根目录</strong>，插进板子的卡槽。想换文件名或放进子目录，见下面的 [配置选项](#配置选项)。
+Then copy `video540p.mp4` to the <strong>root directory</strong> of the TF card and insert it into the board's card slot. To change the file name or put it in a subdirectory, see [Configuration options](#configuration-options) below.
 
-## 编译
+## Build
 
 ```sh
 . ~/f101-zephyr/env.sh
@@ -84,44 +84,44 @@ west build -b yuzukineko -d build/mp4 zephyr/samples/drivers/mp4_player
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/apps-mp4-player/build.cast" data-speed="6"></div>
 
-产物是 `build/mp4/zephyr/zephyr.bin`，约 4.2 MB，链接地址 `0x40010000`，和其他 Zephyr 程序一样。
+The artifact is `build/mp4/zephyr/zephyr.bin`, about 4.2 MB, linked at `0x40010000`, just like other Zephyr programs.
 
-## 运行
+## Running
 
-用 [编译与运行](../zephyr-build-run.md) 里的任一种方式下载，控制台是 UART1（PB00/PB01，115200 8N1）。
+Download it with any of the methods in [Build and run](../zephyr-build-run.md); the console is UART1 (PB00/PB01, 115200 8N1).
 
-- 调试时用<strong>方式一</strong>：`xfel ddr f101-s3`、`xfel write 0x40010000 build/mp4/zephyr/zephyr.bin`、`xfel exec 0x40010000`。
-- 要脱机播放用<strong>方式三</strong>：`mkuf2.py app build/mp4/zephyr/zephyr.bin -o out/mp4.uf2`，拖进 `F101BOOT` 盘。
+- For debugging, use <strong>method one</strong>: `xfel ddr f101-s3`, `xfel write 0x40010000 build/mp4/zephyr/zephyr.bin`, `xfel exec 0x40010000`.
+- For standalone playback, use <strong>method three</strong>: `mkuf2.py app build/mp4/zephyr/zephyr.bin -o out/mp4.uf2`, and drag it onto the `F101BOOT` drive.
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/apps-mp4-player/run.cast" data-speed="4"></div>
 
-![](figures/mp4-player.jpg)
+![](figures/mp4-player.webp)
 
-照片里屏幕是 1024×768，960×540 的视频缩放后居中，上下留黑边。左上角的 “Stats for nerds” 是叠加在视频上的统计面板，面板底下透出视频画面，原理见 [界面叠加原理](#界面叠加原理)。面板里的 “Decoder time” 恒为 0，原因见那一节末尾的提示。
+In the photo the screen is 1024×768; the 960×540 video is scaled and centred with black bars top and bottom. The "Stats for nerds" in the top-left is the statistics panel overlaid on the video; the video shows through beneath the panel, see [How the UI overlay works](#how-the-ui-overlay-works) for the principle. The "Decoder time" in the panel is always 0; the reason is in the note at the end of that section.
 
 :::caution
-板子只有一个 USB-C 口，既是 xfel 下载口，也是 UF2 盘的口。先下载，再接别的设备。
+The board has only one USB-C port, which is both the xfel download port and the UF2 drive port. Download first, then connect other devices.
 :::
 
-## 功能与修改位置
+## Features and where to change them
 
-下表列出各项功能在 `main.c` 里的位置，每一项的细节在后面各小节。`main.c` 的行号对应 fork 里现在的版本，它在 AAC 头文件之前带有 `#include <zephyr/kernel.h>`（解决 picolibc 的编译冲突）。
+The table below lists where each feature lives in `main.c`; the details of each are in the subsections that follow. The line numbers in `main.c` correspond to the current version in the fork, which carries `#include <zephyr/kernel.h>` before the AAC headers (to work around a picolibc build conflict).
 
-| 功能 | 位置 | 怎么改 |
+| Feature | Location | How to change it |
 | --- | --- | --- |
-| 打开文件 | `main.c` 404–426 行，路径来自 `CONFIG_SAMPLE_MP4_FILE` | 编译时改路径，见下 |
-| 音量 | `main.c` 的 `audio_main()`，174–179 行 | 改 `.vol` 的值（0–255） |
-| seek | <strong>示例没有实现</strong>；库里有 `mp4_seek_sync()` 和 `mp4_seek_time()` | 需要自己在 `main()` 里加，见下 |
-| 叠加层 | 启动在 `main.c` 467 行；实现在 `h264_player/src/overlay.c` | 删掉启动那一行，或改 `overlay.c` 里的常量 |
-| 音视频同步阈值 | `main.c` 开头的 `DROP_US`、`LEAD_US` | 改宏的值 |
-| 统计打印间隔 | `main.c` 开头的 `REPORT_MS` | 改宏的值 |
-| 读文件窗口 | `main.c` 410–411 行 | 改 `win_size` |
+| Open the file | `main.c` lines 404–426, the path comes from `CONFIG_SAMPLE_MP4_FILE` | Change the path at build time, see below |
+| Volume | `audio_main()` in `main.c`, lines 174–179 | Change the `.vol` value (0–255) |
+| seek | <strong>Not implemented in the example</strong>; the library has `mp4_seek_sync()` and `mp4_seek_time()` | You need to add it yourself in `main()`, see below |
+| Overlay | Started at `main.c` line 467; implemented in `h264_player/src/overlay.c` | Delete the start line, or change the constants in `overlay.c` |
+| A/V sync thresholds | `DROP_US`, `LEAD_US` at the top of `main.c` | Change the macro values |
+| Stats print interval | `REPORT_MS` at the top of `main.c` | Change the macro value |
+| File read window | `main.c` lines 410–411 | Change `win_size` |
 
-示例是“放一遍就停”的播放器：从头播到尾，播完停在最后一帧（`k_sleep(K_FOREVER)`）。<strong>没有</strong>暂停、seek、循环和切换文件。
+The example is a "play once and stop" player: it plays from start to finish and stops on the last frame when done (`k_sleep(K_FOREVER)`). It has <strong>no</strong> pause, seek, looping, or file switching.
 
-### 在哪里打开文件
+### Where the file is opened
 
-TF 卡的挂载点是 `/SD:`，由开头的 `mp` 结构指定（用 FatFs）：
+The TF card mount point is `/SD:`, specified by the `mp` structure at the top (which uses FatFs):
 
 ```c
 static struct fs_mount_t mp = {
@@ -131,7 +131,7 @@ static struct fs_mount_t mp = {
 };
 ```
 
-`main()` 里依次挂载、取文件大小、打开文件（404–426 行）：
+In `main()`, it mounts, gets the file size, and opens the file in turn (lines 404–426):
 
 ```c
 	ret = fs_mount(&mp);
@@ -159,16 +159,16 @@ static struct fs_mount_t mp = {
 	}
 ```
 
-要点：
+Key points:
 
-- 文件路径是 `CONFIG_SAMPLE_MP4_FILE`（默认 `/SD:/video540p.mp4`），编译时改，见 [配置选项](#配置选项)。
-- 文件被打开<strong>两次</strong>：`vfile` 给视频用，`afile` 给音频用，各有自己的读位置，互不干扰。读的时候按窗口取：视频窗口 256 KiB，音频窗口 64 KiB（410–411 行）。
-- 挂载、`fs_stat`、分配窗口、打开文件，任何一步失败，`ret` 都不为 0，统一在 423 行报 `cannot open …` 并退出。
-- 文件打开之后才交给 `mp4_open()` 解析，见 `main()` 详解里的“解析 MP4”。
+- The file path is `CONFIG_SAMPLE_MP4_FILE` (default `/SD:/video540p.mp4`); change it at build time, see [Configuration options](#configuration-options).
+- The file is opened <strong>twice</strong>: `vfile` for video and `afile` for audio, each with its own read position, independent of the other. Reads are taken window by window: a 256 KiB window for video and a 64 KiB window for audio (lines 410–411).
+- If any step fails — mount, `fs_stat`, window allocation, or open — `ret` is non-zero and line 423 reports `cannot open …` and exits.
+- The file is handed to `mp4_open()` for parsing only after it is opened, see "Parsing the MP4" in the `main()` walkthrough.
 
-### 在哪里调整音量
+### Where the volume is adjusted
 
-音量在音频线程 `audio_main()` 里，音频输出一启动就设置（174–179 行）：
+The volume is set in the audio thread `audio_main()` as soon as the audio output starts (lines 174–179):
 
 ```c
 	{
@@ -179,11 +179,11 @@ static struct fs_mount_t mp = {
 	}
 ```
 
-- <strong>范围是 0–255</strong>，超出范围 codec 驱动返回 `-EINVAL`。这个值写进 DAC 的音量寄存器。
-- codec 的默认值来自设备树属性 `dac-volume`，绑定里的默认是 130。示例把它改成了 140，注释说是“louder than the codec default”。
-- 要调大调小，改 `.vol`。想让整个应用统一改，也可以在板级设备树里写 `&codec_analog { dac-volume = <…>; };`，这样示例里的这几行就可以去掉。
-- 第三个参数选声道：`AUDIO_CHANNEL_ALL` 是左右一起；`AUDIO_CHANNEL_FRONT_LEFT`、`AUDIO_CHANNEL_FRONT_RIGHT`（或 `AUDIO_CHANNEL_HEADPHONE_LEFT`、`AUDIO_CHANNEL_HEADPHONE_RIGHT`）可以分别设左右。
-- 静音用另一个属性：
+- <strong>The range is 0–255</strong>; out of range the codec driver returns `-EINVAL`. The value is written to the DAC's volume register.
+- The codec default comes from the devicetree property `dac-volume`; the default in the binding is 130. The example changes it to 140, and the comment says "louder than the codec default".
+- To raise or lower it, change `.vol`. To change it for the whole application, you can also write `&codec_analog { dac-volume = <…>; };` in the board devicetree, and then these lines in the example can be removed.
+- The third argument selects the channel: `AUDIO_CHANNEL_ALL` is left and right together; `AUDIO_CHANNEL_FRONT_LEFT` and `AUDIO_CHANNEL_FRONT_RIGHT` (or `AUDIO_CHANNEL_HEADPHONE_LEFT` and `AUDIO_CHANNEL_HEADPHONE_RIGHT`) set left and right separately.
+- Muting uses another property:
 
 ```c
 audio_property_value_t mute = {.mute = true};
@@ -191,35 +191,35 @@ audio_property_value_t mute = {.mute = true};
 audio_codec_set_property(codec_ctl, AUDIO_PROPERTY_OUTPUT_MUTE, AUDIO_CHANNEL_ALL, mute);
 ```
 
-`codec_ctl` 是 `main.c` 开头定义的模拟部分设备，`audio_codec_start_output()` 之后任何线程都可以调用 `audio_codec_set_property()`，驱动里有互斥锁保护，调用后立即写寄存器。示例没有加按键或命令行去触发它，要运行时调音量，需要自己加一个调用的地方。
+`codec_ctl` is the analog-part device defined at the top of `main.c`. After `audio_codec_start_output()`, any thread can call `audio_codec_set_property()`; the driver protects it with a mutex and writes the register immediately on return. The example adds no button or command line to trigger it, so to adjust the volume at runtime you need to add a place that calls it.
 
-### seek：示例里没有，库里有什么
+### seek: not in the example, what the library has
 
-<strong>示例没有 seek。</strong>视频和音频都是从头顺序读到尾，`main.c` 里没有任何跳转的代码。解封装库里有两个定位函数，在 `lib/mp4/mp4.c` 的 628 行和 652 行：
+<strong>The example has no seek.</strong> Both video and audio are read sequentially from start to finish, and there is no jump code anywhere in `main.c`. The demux library has two positioning functions, at lines 628 and 652 of `lib/mp4/mp4.c`:
 
 ```c
 int mp4_seek_sync(const struct mp4_track *t, struct mp4_iter *it, uint32_t index);
 int mp4_seek_time(const struct mp4_track *t, struct mp4_iter *it, int64_t time);
 ```
 
-`mp4_seek_sync()` 把迭代器放到 `index` 之前（含）最近的一个关键帧上；`mp4_seek_time()` 按播放时间（轨道 timescale 的刻度，0 是开头，内部会加上 `media_start`）找到要显示的那一帧，再定位到它之前的关键帧。注意：
+`mp4_seek_sync()` places the iterator on the nearest keyframe at or before `index`; `mp4_seek_time()` finds the frame to display by playback time (in ticks of the track timescale, 0 being the start, with `media_start` added internally) and then positions on the keyframe before it. Note:
 
-- 两个函数都是从轨道开头一个样本一个样本扫过去的，所以目标越靠后越慢。
-- `mp4_seek_sync()` 只认<strong>样本序号</strong>；`index` 超过末尾时定位到最后一个关键帧。
-- `mp4_seek_time()` 的时间超过最后一个样本时，迭代器放在最后一个关键帧上，返回 `-ERANGE`。
-- 轨道不存在（`codec` 是 `MP4_CODEC_NONE`）或没有样本表时，两个函数都返回 `-EINVAL`；其余情况返回 0。
+- Both functions scan sample by sample from the start of the track, so the further back the target, the slower they are.
+- `mp4_seek_sync()` works only with a <strong>sample index</strong>; when `index` is past the end it positions on the last keyframe.
+- When the time passed to `mp4_seek_time()` is past the last sample, the iterator is placed on the last keyframe and it returns `-ERANGE`.
+- When the track does not exist (`codec` is `MP4_CODEC_NONE`) or has no sample table, both functions return `-EINVAL`; otherwise they return 0.
 
-要给播放器加 seek，`main()` 里至少要改这几处。下面是设计思路，示例里没有这些代码：
+To add seek to the player, you have to change at least these places in `main()`. Below is the design outline; the example has none of this code:
 
-1. 选定目标时间。
-2. 对视频轨道调 `mp4_seek_time(v, &it, time)`（已经知道样本序号时用 `mp4_seek_sync(v, &it, index)`），之后的 `mp4_next()` 就从关键帧开始读。视频循环里已经有 `first || s.sync` 的判断，会在关键帧前补上 SPS/PPS。
-3. 解码器里还有跳转之前的数据和参考帧，要让它丢掉。比较稳妥的做法是释放所有帧、关闭解码流再重新打开。
-4. 音频轨道也要跳到对应的时间，并把 I2S 重新启动。
-5. 音频时钟 `audio_clock_us()` 是从流开始算的，跳转后会从 0 重新计时，而视频的时间戳是文件里的绝对时间，所以 `wait_for()` 比较前要加上跳转的偏移。
+1. Choose the target time.
+2. Call `mp4_seek_time(v, &it, time)` on the video track (use `mp4_seek_sync(v, &it, index)` when the sample index is already known); afterwards `mp4_next()` reads from the keyframe. The video loop already has the `first || s.sync` test, which prepends SPS/PPS before a keyframe.
+3. The decoder still holds data and reference frames from before the jump, and you must make it discard them. The safer approach is to release all frames, close the decode stream, and open it again.
+4. The audio track must also jump to the corresponding time, and I2S must be restarted.
+5. The audio clock `audio_clock_us()` is measured from the start of the stream, so after a jump it counts from 0 again, while the video timestamps are absolute times in the file, so the jump offset must be added before the comparison in `wait_for()`.
 
-### 在哪里显示叠加层
+### Where the overlay is displayed
 
-叠加层的启动只有一行，在 `main()` 里，把分辨率交给它之后（465–467 行）：
+Starting the overlay is a single line in `main()`, after the resolution is handed to it (lines 465–467):
 
 ```c
 	play_stats.width = v->width;
@@ -227,130 +227,130 @@ int mp4_seek_time(const struct mp4_track *t, struct mp4_iter *it, int64_t time);
 	overlay_start();
 ```
 
-- <strong>启动</strong>：`overlay_start()` 起一个线程 `overlay_main()`，之后它自己每 40 毫秒调一次 LVGL，每 250 毫秒采样一次。
-- <strong>实现</strong>：在 `samples/drivers/vdec/h264_player/src/overlay.c`，和 H.264 裸流播放器共用，`CMakeLists.txt` 里把它加进了编译。
-- <strong>显示在哪</strong>：LVGL 画在显示引擎的 ARGB 帧缓冲层上，叠在视频层之上，原理见 [界面叠加原理](#界面叠加原理)，效果见上面的照片。
-- <strong>数据来源</strong>：播放器往 `play_stats` 里写计数。`main.c` 里写这些字段的地方：`sd_bytes`（190、539 行）、`width`/`height`（465、466 行）、`frames`（494 行）、`late`（499 行）。`decode_us` 没有人写，所以面板里 “Decoder time” 恒为 0。
+- <strong>Start</strong>: `overlay_start()` starts a thread `overlay_main()`, which then calls LVGL every 40 milliseconds and samples every 250 milliseconds on its own.
+- <strong>Implementation</strong>: in `samples/drivers/vdec/h264_player/src/overlay.c`, shared with the H.264 raw-stream player; `CMakeLists.txt` adds it to the build.
+- <strong>Where it is displayed</strong>: LVGL draws on the display engine's ARGB framebuffer layer, on top of the video layer; for the principle see [How the UI overlay works](#how-the-ui-overlay-works), and for the result see the photo above.
+- <strong>Data source</strong>: the player writes counters into `play_stats`. The places in `main.c` that write these fields: `sd_bytes` (lines 190, 539), `width`/`height` (lines 465, 466), `frames` (line 494), `late` (line 499). Nothing writes `decode_us`, so the "Decoder time" in the panel is always 0.
 
-`overlay.c` 里可以调的常量：
+Constants in `overlay.c` you can adjust:
 
-| 常量 | 默认 | 作用 |
+| Constant | Default | Effect |
 | --- | --- | --- |
-| `PANEL_W` | 380 | 面板宽度。面板位置是 `LV_ALIGN_TOP_LEFT` 偏移 (12, 12)，所以 `PANEL_W + 12` 必须不超过帧缓冲窗口宽度 400（`CONFIG_DISPLAY_SUNXI_FB_WINDOW_WIDTH`） |
-| `CHART_H` | 46 | 每条折线图的高度 |
-| `SAMPLE_MS` | 250 | 采样间隔 |
-| `POINTS` | 60 | 每条折线保留的点数，按 250 ms 一个点就是 15 秒 |
+| `PANEL_W` | 380 | Panel width. The panel is positioned with `LV_ALIGN_TOP_LEFT` offset (12, 12), so `PANEL_W + 12` must not exceed the framebuffer window width 400 (`CONFIG_DISPLAY_SUNXI_FB_WINDOW_WIDTH`) |
+| `CHART_H` | 46 | Height of each line chart |
+| `SAMPLE_MS` | 250 | Sampling interval |
+| `POINTS` | 60 | Number of points kept per line, 15 seconds at one point per 250 ms |
 
-要改面板的位置或大小，同时检查帧缓冲窗口 `CONFIG_DISPLAY_SUNXI_FB_WINDOW_WIDTH/HEIGHT`（现在是 400×400）是否还罩得住它，罩不住的部分不会显示。
+If you change the panel's position or size, also check that the framebuffer window `CONFIG_DISPLAY_SUNXI_FB_WINDOW_WIDTH/HEIGHT` (now 400×400) still covers it; the part that is not covered is not displayed.
 
-不想要叠加层：把 `overlay_start();` 这一行删掉，叠加层线程就不会启动。要彻底去掉，还要从 `CMakeLists.txt` 里删掉 `overlay.c`，并去掉 `prj.conf` 里的 LVGL 相关选项。这样改没有编译验证过。
+To drop the overlay: delete the `overlay_start();` line and the overlay thread will not start. To remove it entirely, also delete `overlay.c` from `CMakeLists.txt` and drop the LVGL options from `prj.conf`. This change has not been verified by building.
 
-## 配置选项
+## Configuration options
 
-| 选项 | 默认 | 说明 |
+| Option | Default | Description |
 | --- | --- | --- |
-| `CONFIG_SAMPLE_MP4_FILE` | `"/SD:/video540p.mp4"` | 要播放的文件。TF 卡挂载在 `/SD:` |
-| `CONFIG_SAMPLE_MP4_INFO_ONLY` | 否 | 只列出轨道并检查样本表，不播放 |
+| `CONFIG_SAMPLE_MP4_FILE` | `"/SD:/video540p.mp4"` | The file to play. The TF card is mounted at `/SD:` |
+| `CONFIG_SAMPLE_MP4_INFO_ONLY` | no | List the tracks and check the sample tables only, without playing |
 
-改法有两种，任选一种。编译时覆盖：
+There are two ways to change it, pick either. Override it at build time:
 
 ```sh
 west build -b yuzukineko -d build/mp4 zephyr/samples/drivers/mp4_player -- -DCONFIG_SAMPLE_MP4_FILE='"/SD:/movie/demo.mp4"'
 ```
 
-或者写进应用目录的 `prj.conf`。注意字符串要带引号。
+Or write it into the application's `prj.conf`. Note that the string needs quotes.
 
-`prj.conf` 里和播放有关的主要选项：
+The main playback-related options in `prj.conf`:
 
-| 选项 | 作用 |
+| Option | Effect |
 | --- | --- |
-| `CONFIG_MP4_DEMUX` | MP4 解封装库 `lib/mp4` |
-| `CONFIG_VDEC` | 视频引擎驱动 |
-| `CONFIG_OPENCORE_AAC` | OpenCORE AAC 软解码器 |
-| `CONFIG_I2S` | I2S 驱动，PCM 数据经它送到 codec |
-| `CONFIG_AUDIO` | Zephyr 音频子系统 |
-| `CONFIG_AUDIO_CODEC` | codec 接口，用来开关输出、设置音量 |
-| `CONFIG_DISPLAY` | 显示驱动 |
-| `CONFIG_DISPLAY_SUNXI_ARGB8888` | ARGB8888 叠加层，统计面板画在这一层 |
-| `CONFIG_SDHC` | SD 主机控制器驱动 |
-| `CONFIG_DISK_DRIVER_SDMMC` | 把 SD/MMC 卡作为磁盘访问 |
-| `CONFIG_FAT_FILESYSTEM_ELM` | FatFs 文件系统 |
-| `CONFIG_FS_FATFS_EXFAT` | 支持 exFAT 格式的卡 |
-| `CONFIG_FS_FATFS_LFN` | 支持长文件名 |
-| `CONFIG_FPU` | 启用硬件浮点（AAC 解码用） |
-| `CONFIG_FPU_SHARING` | 允许多个线程使用浮点，主线程和音频线程都要用 |
-| `CONFIG_HEAP_MEM_POOL_SIZE=262144` | 堆大小，播放器按最大样本大小分配缓冲 |
-| `CONFIG_DISPLAY_SUNXI_FB_WINDOW_WIDTH=400` | ARGB 层的宽度，只有左上角的统计面板在这一层，不扫描整屏 |
-| `CONFIG_DISPLAY_SUNXI_FB_WINDOW_HEIGHT=400` | ARGB 层的高度，同上 |
+| `CONFIG_MP4_DEMUX` | MP4 demux library `lib/mp4` |
+| `CONFIG_VDEC` | Video engine driver |
+| `CONFIG_OPENCORE_AAC` | OpenCORE AAC software decoder |
+| `CONFIG_I2S` | I2S driver, PCM data goes through it to the codec |
+| `CONFIG_AUDIO` | Zephyr audio subsystem |
+| `CONFIG_AUDIO_CODEC` | Codec interface, used to turn the output on and off and set the volume |
+| `CONFIG_DISPLAY` | Display driver |
+| `CONFIG_DISPLAY_SUNXI_ARGB8888` | ARGB8888 overlay layer, the statistics panel is drawn on this layer |
+| `CONFIG_SDHC` | SD host controller driver |
+| `CONFIG_DISK_DRIVER_SDMMC` | Access the SD/MMC card as a disk |
+| `CONFIG_FAT_FILESYSTEM_ELM` | FatFs filesystem |
+| `CONFIG_FS_FATFS_EXFAT` | Support exFAT-formatted cards |
+| `CONFIG_FS_FATFS_LFN` | Support long file names |
+| `CONFIG_FPU` | Enable hardware floating point (used by AAC decoding) |
+| `CONFIG_FPU_SHARING` | Allow multiple threads to use floating point; both the main thread and the audio thread need it |
+| `CONFIG_HEAP_MEM_POOL_SIZE=262144` | Heap size; the player allocates buffers according to the largest sample size |
+| `CONFIG_DISPLAY_SUNXI_FB_WINDOW_WIDTH=400` | Width of the ARGB layer; only the statistics panel in the top-left is on this layer, so it does not scan the whole screen |
+| `CONFIG_DISPLAY_SUNXI_FB_WINDOW_HEIGHT=400` | Height of the ARGB layer, same as above |
 
-## 代码结构
+## Code structure
 
-| 文件 | 内容 |
+| File | Contents |
 | --- | --- |
-| `samples/drivers/mp4_player/src/main.c` | 播放器主体：读文件、音频线程、视频循环、音视频同步 |
-| `samples/drivers/vdec/h264_player/src/overlay.c` | 统计面板，与 H.264 裸流播放器共用 |
-| `lib/mp4/mp4.c`、`include/zephyr/mp4.h` | MP4 解封装库 |
-| `drivers/vdec/`、`include/zephyr/drivers/vdec.h` | 视频引擎驱动和 API |
-| `lib/opencore_aac/` | AAC 解码器（OpenCORE） |
+| `samples/drivers/mp4_player/src/main.c` | The player body: file reads, audio thread, video loop, A/V sync |
+| `samples/drivers/vdec/h264_player/src/overlay.c` | Statistics panel, shared with the H.264 raw-stream player |
+| `lib/mp4/mp4.c`, `include/zephyr/mp4.h` | MP4 demux library |
+| `drivers/vdec/`, `include/zephyr/drivers/vdec.h` | Video engine driver and API |
+| `lib/opencore_aac/` | AAC decoder (OpenCORE) |
 
-### 运行流程
+### Flow of execution
 
-`main()` 做的事，按顺序：
+What `main()` does, in order:
 
-1. 取设备：视频引擎 `ve`、显示、音频 codec，任一没准备好就退出。
-2. `fs_mount()` 挂载 TF 卡，`fs_stat()` 取文件大小。
-3. `mp4_open()` 解析文件头，取得视频轨道的分辨率、帧数和 avcC 记录；`avcc_parameter_sets()` 把 SPS/PPS 转成 Annex B。
-4. 如果有 AAC 轨道且采样率是 44100 或 48000 Hz，起<strong>音频线程</strong>；否则按没有声音播放。
-5. `vdec_stream_open()` 打开 H.264 解码流，格式 NV12。
-6. 视频循环：从 `mp4_next()` 取一个样本 → 读出来 → 把 avcC 的长度前缀转成 Annex B 起始码 → `vdec_stream_feed()` 喂给引擎 → `vdec_stream_get_frame()` 取解码好的帧 → `wait_for()` 等到它的时间 → `display_sunxi_show_yuv()` 显示 → 释放上一帧。
-7. 文件读完后 `vdec_stream_flush()` 把引擎里剩下的帧取空，最后打印汇总。
+1. Get the devices: the video engine `ve`, the display, and the audio codec; if any is not ready, exit.
+2. `fs_mount()` mounts the TF card, `fs_stat()` gets the file size.
+3. `mp4_open()` parses the file header and gets the video track's resolution, frame count, and avcC record; `avcc_parameter_sets()` converts the SPS/PPS into Annex B.
+4. If there is an AAC track with a 44100 or 48000 Hz sample rate, start the <strong>audio thread</strong>; otherwise play with no sound.
+5. `vdec_stream_open()` opens the H.264 decode stream, format NV12.
+6. Video loop: take a sample from `mp4_next()` → read it out → convert the avcC length prefixes into Annex B start codes → `vdec_stream_feed()` to feed the engine → `vdec_stream_get_frame()` to take the decoded frame → `wait_for()` to wait for its time → `display_sunxi_show_yuv()` to display → release the previous frame.
+7. After the file is read, `vdec_stream_flush()` drains the frames left in the engine, and finally the summary is printed.
 
 ```mermaid
 flowchart TD
-    A["fs_mount<br/>mp4_open"] --> B{"有 AAC 轨道<br/>且 44.1 / 48 kHz?"}
-    B -->|"是"| C["起音频线程"]
-    B -->|"否"| D["按无声播放"]
+    A["fs_mount<br/>mp4_open"] --> B{"AAC track present<br/>and 44.1 / 48 kHz?"}
+    B -->|"yes"| C["start audio thread"]
+    B -->|"no"| D["play with no sound"]
     C --> E["vdec_stream_open"]
     D --> E
-    E --> F["mp4_next<br/>取视频样本"]
-    F --> G["长度前缀 → Annex B<br/>vdec_stream_feed"]
+    E --> F["mp4_next<br/>take video sample"]
+    F --> G["length prefix → Annex B<br/>vdec_stream_feed"]
     G --> H["vdec_stream_get_frame"]
-    H -->|"拿到帧"| I{"wait_for<br/>是否太晚?"}
+    H -->|"frame obtained"| I{"wait_for<br/>too late?"}
     H -->|"EAGAIN"| F
-    I -->|"否"| J["display_sunxi_show_yuv<br/>释放上一帧"]
-    I -->|"晚于 DROP_US"| K["丢弃，释放"]
+    I -->|"no"| J["display_sunxi_show_yuv<br/>release previous frame"]
+    I -->|"later than DROP_US"| K["drop, release"]
     J --> F
     K --> F
-    F -->|"ENODATA"| L["vdec_stream_flush<br/>取空剩余帧，打印汇总"]
+    F -->|"ENODATA"| L["vdec_stream_flush<br/>drain remaining frames, print summary"]
 ```
 
-音频线程独立运行：`mp4_next()` 取 AAC 样本 → `PVMP4AudioDecodeFrame()` 解成每帧 1024 个采样的 PCM → 从内存槽 `pcm_slab` 取块 → `i2s_write()` 送进 I2S。先预填 6 块再 `I2S_TRIGGER_START`；`i2s_write()` 返回 `-EIO` 说明数据断了，计一次 underrun 并重新预填。
+The audio thread runs independently: `mp4_next()` takes an AAC sample → `PVMP4AudioDecodeFrame()` decodes it into PCM of 1024 samples per frame → a block is taken from the memory slab `pcm_slab` → `i2s_write()` sends it into I2S. It pre-fills six blocks and then does `I2S_TRIGGER_START`; when `i2s_write()` returns `-EIO` the data has run out, so it counts one underrun and pre-fills again.
 
-### 音视频同步
+### A/V sync
 
-音频时钟由 `audio_clock_us()` 给出：已经播完的 I2S 块数乘以每块时长，再加上最后一块完成后经过的时间。
+The audio clock is given by `audio_clock_us()`: the number of I2S blocks already played times the duration of one block, plus the time elapsed since the last block completed.
 
-| 常量 | 值 | 含义 |
+| Constant | Value | Meaning |
 | --- | --- | --- |
-| `DROP_US` | 2 × 33367 μs | 画面比声音晚超过这个值就不显示，计入 dropped |
-| `LEAD_US` | 8000 μs | 画面提前这么多放上去，让显示在下一次刷新时就位 |
-| `REPORT_MS` | 5000 ms | 统计输出的间隔 |
+| `DROP_US` | 2 × 33367 μs | If the picture is later than the sound by more than this, it is not shown and counts as dropped |
+| `LEAD_US` | 8000 μs | The picture is put up this much early, so the display is in place on the next refresh |
+| `REPORT_MS` | 5000 ms | Interval between stats output |
 
-没有音频轨道（或采样率不支持）时，时钟退化为从开始播放起算的系统时间。
+When there is no audio track (or the sample rate is unsupported), the clock degrades to system time counted from the start of playback.
 
-## main() 代码详解
+## The main() code in detail
 
-下面是 `samples/drivers/mp4_player/src/main.c` 里完整的 `main()`（第 377–582 行），说明直接写在代码的注释里：每条语句上面的 `/* … */` 说的是它做什么、为什么这样做。除了这些中文注释和分段用的空行，代码和源文件逐字一致。它用到的 `file_read()`、`audio_main()`、`avcc_parameter_sets()`、`avcc_to_annexb()`、`show()`、`wait_for()` 在同一个文件里。
+Below is the complete `main()` from `samples/drivers/mp4_player/src/main.c` (lines 377–582), with the explanation written directly in the code's comments: the `/* … */` above each statement says what it does and why. Apart from these comments and the blank lines used for grouping, the code is word-for-word identical to the source file. The `file_read()`, `audio_main()`, `avcc_parameter_sets()`, `avcc_to_annexb()`, `show()`, and `wait_for()` it uses are in the same file.
 
 ```c
 int main(void)
 {
-	/* ---- 变量声明 ---- */
-	/* 指向视频轨道的指针，后面读分辨率、帧数、样本表都通过它。 */
+	/* ---- Variable declarations ---- */
+	/* Pointer to the video track; resolution, frame count and sample table are read through it. */
 	const struct mp4_track *v;
 	/*
-	 * 解码流配置：编码是 H.264，要求输出 NV12，压缩数据缓冲区 1 MiB（要装得下一次 feed 的
-	 * 最大一组 NAL）。
+	 * Decode stream configuration: the codec is H.264, the requested output is NV12, and the
+	 * compressed-data buffer is 1 MiB (it must hold the largest group of NALs of one feed).
 	 */
 	const struct vdec_stream_config scfg = {
 		.codec = VDEC_CODEC_H264,
@@ -358,249 +358,273 @@ int main(void)
 		.buffer_size = 1024 * 1024,
 	};
 	/*
-	 * frame 是刚取到的帧；shown 是现在正在屏幕上的帧；older 是再前一帧（可能还在被扫描输出，
-	 * 晚一步才释放）。{0} 让 priv 为 NULL，表示“没有”。
+	 * frame is the frame just taken; shown is the frame currently on screen; older is the one
+	 * before that (it may still be being scanned out, and is released one step later). {0} makes
+	 * priv NULL, meaning "none".
 	 */
 	struct vdec_frame frame, shown = {0}, older = {0};
-	/* 解码流句柄。 */
+	/* Decode stream handle. */
 	struct vdec_stream *stream;
-	/* 文件信息，只用来取文件大小。 */
+	/* File information, used only to get the file size. */
 	struct fs_dirent st;
-	/* 视频轨道的样本迭代器。 */
+	/* Sample iterator for the video track. */
 	struct mp4_iter it;
-	/* 当前样本。 */
+	/* The current sample. */
 	struct mp4_sample s;
 	/*
-	 * raw 放从文件读出的原始样本（AVCC 格式，每个 NAL 前是长度）；ab 放转换成 Annex B（起
-	 * 始码）之后的数据。
+	 * raw holds the raw sample read from the file (AVCC format, each NAL prefixed with its
+	 * length); ab holds the data after conversion to Annex B (start codes).
 	 */
 	uint8_t *raw, *ab;
-	/* ab 里有多少字节、已经喂给解码器多少字节。feed 一次可能收不完，所以要记进度。 */
+	/* How many bytes are in ab and how many have been fed to the decoder. One feed may not
+	 * consume it all, so the progress is tracked. */
 	size_t ab_len = 0, ab_used = 0;
 	/*
-	 * pending_pts 是 ab 里这块数据的显示时间（微秒）；start_ms 是开始播放的时刻；
-	 * last_report 是上次打印统计的时刻。
+	 * pending_pts is the display time (microseconds) of this block of data in ab; start_ms is
+	 * the moment playback started; last_report is the moment the stats were last printed.
 	 */
 	int64_t pending_pts = -1, start_ms, last_report;
 	/*
-	 * eof 样本已经读完；flushed 已经调过 flush；first 当前是不是第一个样本（第一个样本前要
-	 * 补 SPS/PPS）。
+	 * eof: the samples have all been read; flushed: flush has been called; first: whether this
+	 * is the first sample (SPS/PPS must be prepended before the first sample).
 	 */
 	bool eof = false, flushed = false, first = true;
-	/* 当前统计周期里显示和丢掉的帧数。 */
+	/* Frames shown and dropped in the current stats period. */
 	uint32_t report_frames = 0, report_drop = 0;
-	/* 返回值。 */
+	/* Return value. */
 	int ret;
 
-	/* ---- 取设备 ---- */
-	/* 按设备树节点标签 ve 取视频引擎。 */
+	/* ---- Get the devices ---- */
+	/* Get the video engine by devicetree node label ve. */
 	vdec_dev = DEVICE_DT_GET(DT_NODELABEL(ve));
-	/* 取 chosen 里的 zephyr,display，也就是板子的显示设备。 */
+	/* Get zephyr,display from chosen, that is, the board's display device. */
 	disp = DEVICE_DT_GET(DT_CHOSEN(zephyr_display));
-	/* 视频引擎、显示、音频 I2S、codec 模拟部分，任何一个没初始化好就不往下走。 */
+	/* If any of the video engine, display, audio I2S or codec analog part is not initialized,
+	 * do not go on. */
 	if (!device_is_ready(vdec_dev) || !device_is_ready(disp) || !device_is_ready(codec_i2s) ||
 	    !device_is_ready(codec_ctl)) {
-		/* 打印原因并退出。main 返回后程序不再做事。 */
+		/* Print the reason and exit. After main returns the program does nothing more. */
 		printk("a device is not ready\n");
 		return 0;
 	}
 
-	/* ---- 挂载 TF 卡并打开文件 ---- */
-	/* 把 TF 卡挂载到 /SD:（mp 里指定了 FATFS 和挂载点）。 */
+	/* ---- Mount the TF card and open the file ---- */
+	/* Mount the TF card at /SD: (mp names FATFS and the mount point). */
 	ret = fs_mount(&mp);
-	/* 挂载成功才用 fs_stat 取文件信息，后面需要文件大小。 */
+	/* Only on a successful mount, use fs_stat to get the file information; the file size is
+	 * needed later. */
 	if (ret == 0) {
 		ret = fs_stat(CONFIG_SAMPLE_MP4_FILE, &st);
 	}
-	/* 初始化两个文件对象。视频和音频各用一个，位置互不干扰。 */
+	/* Initialise the two file objects. One for video and one for audio, with positions that do
+	 * not interfere. */
 	fs_file_t_init(&vfile.f);
 	fs_file_t_init(&afile.f);
 	/*
-	 * 读窗口的大小：视频 256 KiB，音频 64 KiB。窗口的作用见 file_read()：样本很小而且散在
-	 * 文件里，一次读一整块，再从块里切样本。
+	 * Read window sizes: 256 KiB for video, 64 KiB for audio. See file_read() for what the
+	 * window does: samples are small and scattered through the file, so a whole block is read
+	 * at once and samples are cut from the block.
 	 */
 	vfile.win_size = 256 * 1024;
 	afile.win_size = 64 * 1024;
-	/* 按 64 字节对齐分配窗口缓冲。 */
+	/* Allocate the window buffers aligned to 64 bytes. */
 	vfile.win = aligned_alloc(64, vfile.win_size);
 	afile.win = aligned_alloc(64, afile.win_size);
-	/* 任何一个分配失败，就把 ret 记成 -ENOMEM。 */
+	/* If either allocation fails, record ret as -ENOMEM. */
 	if (vfile.win == NULL || afile.win == NULL) {
 		ret = -ENOMEM;
 	}
-	/* 前面都顺利，才用只读方式打开视频用的文件对象。 */
+	/* Only if everything above went well, open the video file object read-only. */
 	if (ret == 0) {
 		ret = fs_open(&vfile.f, CONFIG_SAMPLE_MP4_FILE, FS_O_READ);
 	}
-	/* 同样打开音频用的文件对象。 */
+	/* Likewise open the audio file object. */
 	if (ret == 0) {
 		ret = fs_open(&afile.f, CONFIG_SAMPLE_MP4_FILE, FS_O_READ);
 	}
-	/* 上面任何一步失败（包括挂载、fs_stat）都在这里报告并退出。错误码是 Zephyr 的负 errno。 */
+	/* Any of the steps above (including mount and fs_stat) failing is reported here and exits.
+	 * The error code is a Zephyr negative errno. */
 	if (ret != 0) {
 		printk("cannot open %s: %d\n", CONFIG_SAMPLE_MP4_FILE, ret);
 		return 0;
 	}
 
-	/* ---- 解析 MP4 ---- */
+	/* ---- Parse the MP4 ---- */
 	/*
-	 * mp4_open 解析文件头，读回调是 file_read，上下文是视频的文件对象。成功后两条轨道的样
-	 * 本表都在内存里。
+	 * mp4_open parses the file header; the read callback is file_read and the context is the
+	 * video file object. On success the sample tables of both tracks are in memory.
 	 */
 	ret = mp4_open(&mp4, file_read, &vfile, st.size);
-	/* 解析失败，或者第一条视频轨道不是 H.264，就退出。 */
+	/* Exit if parsing failed, or the first video track is not H.264. */
 	if (ret != 0 || mp4.video.codec != MP4_CODEC_H264) {
 		printk("%s: no usable video track (%d)\n", CONFIG_SAMPLE_MP4_FILE, ret);
 		return 0;
 	}
-	/* 记下视频轨道。 */
+	/* Keep the video track. */
 	v = &mp4.video;
 	/*
-	 * 把轨道的 extra（avcC 记录）里的 SPS/PPS 转成 Annex B 存起来，同时记下 NAL 长度前缀有
-	 * 几个字节。
+	 * Convert the SPS/PPS in the track's extra (avcC record) into Annex B and store them, and
+	 * note how many bytes the NAL length prefix uses.
 	 */
 	ret = avcc_parameter_sets(v->extra, v->extra_len);
-	/* avcC 格式不对就退出。 */
+	/* Exit if the avcC record is malformed. */
 	if (ret != 0) {
 		printk("bad avcC record\n");
 		return 0;
 	}
-	/* 打印文件名、分辨率、帧数，以及有没有 AAC 轨道。就是控制台上的 playing … 那一行。 */
+	/* Print the file name, resolution, frame count, and whether there is an AAC track. This is
+	 * the playing … line on the console. */
 	printk("playing %s: %ux%u, %u frames%s\n", CONFIG_SAMPLE_MP4_FILE, v->width, v->height,
 	       v->sample_count, mp4.audio.codec == MP4_CODEC_AAC ? ", with sound" : ", no sound");
 
-	/* ---- 音频线程 ---- */
-	/* 有 AAC 轨道，并且采样率是 48000 或 44100 Hz。 */
+	/* ---- Audio thread ---- */
+	/* There is an AAC track and the sample rate is 48000 or 44100 Hz. */
 	if (mp4.audio.codec == MP4_CODEC_AAC &&
 	    (mp4.audio.sample_rate == 48000U || mp4.audio.sample_rate == 44100U)) {
 		/*
-		 * 起音频线程：8 KiB 栈，优先级 3，立即运行。数字越小优先级越高，主线程是 6，所以音
-		 * 频比视频优先。
+		 * Start the audio thread: 8 KiB stack, priority 3, run immediately. A lower number
+		 * means higher priority; the main thread is 6, so audio has priority over video.
 		 */
 		k_thread_create(&audio_thread, audio_stack, K_THREAD_STACK_SIZEOF(audio_stack),
 				audio_main, NULL, NULL, NULL, 3, 0, K_NO_WAIT);
 	} else {
-		/* 有 AAC 但采样率不支持：提示一下，视频照常播放。 */
+		/* AAC is present but the sample rate is unsupported: warn, and play the video as
+		 * usual. */
 		if (mp4.audio.codec == MP4_CODEC_AAC) {
 			printk("the audio is %u Hz, only 48000 and 44100 Hz are played\n",
 			       mp4.audio.sample_rate);
 		}
-		/* 没有可播的音频，把 audio_done 置 true，wait_for() 就改用系统时间当时钟。 */
+		/* No playable audio, so set audio_done to true and wait_for() falls back to system
+		 * time as the clock. */
 		audio_done = true;
 	}
 
-	/* ---- 解码流、缓冲和叠加层 ---- */
-	/* 按 scfg 打开解码流。 */
+	/* ---- Decode stream, buffers and overlay ---- */
+	/* Open the decode stream with scfg. */
 	ret = vdec_stream_open(vdec_dev, &scfg, &stream);
-	/* 打开失败就退出。 */
+	/* Exit if opening failed. */
 	if (ret != 0) {
 		printk("cannot open the decoder: %d\n", ret);
 		return 0;
 	}
-	/* raw 按最大样本的大小分配，保证装得下任何一个样本。 */
+	/* raw is allocated at the size of the largest sample, so it can hold any sample. */
 	raw = malloc(v->max_sample);
-	/* ab 多留 1024 字节，用来放 SPS/PPS 前缀（上限 512 字节）和起始码带来的差额。 */
+	/* ab has 1024 extra bytes for the SPS/PPS prefix (up to 512 bytes) and the difference the
+	 * start codes add. */
 	ab = malloc(v->max_sample + 1024);
-	/* 分配失败就退出。 */
+	/* Exit if allocation failed. */
 	if (raw == NULL || ab == NULL) {
 		printk("no memory\n");
 		return 0;
 	}
-	/* 迭代器放到视频轨道开头。 */
+	/* Put the iterator at the start of the video track. */
 	mp4_iter_init(v, &it);
-	/* 把视频分辨率交给叠加层，统计面板上要显示。 */
+	/* Hand the video resolution to the overlay; it is shown on the statistics panel. */
 	play_stats.width = v->width;
 	play_stats.height = v->height;
-	/* 启动叠加层线程，原理见下文“界面叠加原理”。 */
+	/* Start the overlay thread; see "How the UI overlay works" below for the principle. */
 	overlay_start();
-	/* 记录开始时刻。视频时间戳以此为 0。 */
+	/* Record the start moment. Video timestamps are relative to this as 0. */
 	start_ms = last_report = k_uptime_get();
 
-	/* ---- 主循环：取帧、等时间、显示 ---- */
-	/* 播放主循环，一直跑到出错或者数据取完。 */
+	/* ---- Main loop: get a frame, wait for its time, display ---- */
+	/* The main playback loop, running until an error or until the data is exhausted. */
 	while (true) {
-		/* 取一个周期计数，用来给下面各环节计时。 */
+		/* Take a cycle count to time the stages below. */
 		uint32_t c0 = k_cycle_get_32();
 
-		/* 向解码器要一帧。解码是在这个调用里完成的。 */
+		/* Ask the decoder for a frame. The decoding is done inside this call. */
 		ret = vdec_stream_get_frame(vdec_dev, stream, &frame);
-		/* 把这次耗时累加到 t_get，对应统计里的 decode。 */
+		/* Add this call's time to t_get, which is the decode figure in the stats. */
 		t_get += us_since(c0);
-		/* 返回 0 表示拿到了一帧。 */
+		/* A return of 0 means a frame was obtained. */
 		if (ret == 0) {
-			/* 这一帧的显示时间（微秒），是之前 feed 时带进去的 pts；没有就当 0。 */
+			/* The display time (microseconds) of this frame, the pts carried in when it
+			 * was fed; 0 if there is none. */
 			int64_t pts_us = frame.pts >= 0 ? frame.pts : 0;
 
-			/* wait_for 睡到这一帧该显示的时间。返回 false 说明已经晚得太多。 */
+			/* wait_for sleeps until this frame's display time. A false return means it is
+			 * already too late. */
 			c0 = k_cycle_get_32();
 			bool on_time = wait_for(pts_us, start_ms);
 
-			/* 累加等待耗时，对应统计里的 wait。 */
+			/* Add the wait time, which is the wait figure in the stats. */
 			t_wait += us_since(c0);
-			/* 来得及： */
+			/* In time: */
 			if (on_time) {
-				/* show() 把这一帧交给显示的视频层，并计时（统计里的 show）。 */
+				/* show() hands this frame to the display's video layer and times it
+				 * (the show figure in the stats). */
 				c0 = k_cycle_get_32();
 				show(&frame);
 				t_show += us_since(c0);
 				/*
-				 * 上上一帧现在可以放了。屏幕可能还在扫描上一帧，所以延迟一帧再释放，避免画
-				 * 面被改写。
+				 * The frame before the last can be released now. The screen may still
+				 * be scanning out the last one, so release is delayed by a frame to
+				 * avoid rewriting the picture.
 				 */
 				/* the picture before the last may still be scanned out */
 				if (older.priv != NULL) {
 					vdec_frame_release(vdec_dev, &older);
 				}
-				/* older 变成原来的 shown，shown 变成刚显示的这一帧。 */
+				/* older becomes the previous shown, and shown becomes the frame just
+				 * displayed. */
 				older = shown;
 				shown = frame;
-				/* 计数加一，同时把已显示帧数写进 play_stats，叠加层读它算帧率。 */
+				/* Increment the counter and write the shown-frame count into
+				 * play_stats, which the overlay reads to compute the frame rate. */
 				shown_count++;
 				report_frames++;
 				play_stats.frames = shown_count;
 			} else {
-				/* 来不及：直接释放这一帧，丢帧计数加一，并更新 play_stats.late。 */
+				/* Too late: release this frame outright, increment the dropped
+				 * count, and update play_stats.late. */
 				vdec_frame_release(vdec_dev, &frame);
 				dropped_count++;
 				report_drop++;
 				play_stats.late = dropped_count;
 			}
-			/* 距离上次打印超过 5 秒就打印一次统计。ms 是实际经过的毫秒数。 */
+			/* Print the stats once when more than 5 seconds have passed since the last
+			 * print. ms is the actual elapsed milliseconds. */
 			if (k_uptime_get() - last_report >= REPORT_MS) {
 				int ms = (int)(k_uptime_get() - last_report);
 
 				/*
-				 * 第一行统计：累计显示帧数、这段时间的帧率、累计丢帧、画面相对声音的偏移、
-				 * 音频断流次数。
+				 * First stats line: cumulative shown frames, the frame rate over this
+				 * period, cumulative dropped frames, the picture's offset from the
+				 * sound, and the number of audio underruns.
 				 */
 				printk("%u shown (%d.%02d fps), %u dropped, A/V offset %d ms, audio underruns %u\n",
 				       shown_count, report_frames * 1000 / ms,
 				       (report_frames * 100000 / ms) % 100, dropped_count,
 				       (int)(last_offset_us / 1000), audio_underruns);
-				/* 第二行统计：这段时间里各环节的耗时（毫秒）。 */
+				/* Second stats line: the time each stage took in this period
+				 * (milliseconds). */
 				printk("  per %d ms: decode %u ms, read+convert %u ms, feed %u ms, show %u ms, wait %u ms\n",
 				       ms, t_get / 1000, t_read / 1000, t_feed / 1000, t_show / 1000,
 				       t_wait / 1000);
-				/* 把计时清零，重新开始下一个统计周期。 */
+				/* Clear the timers and start the next stats period. */
 				t_get = t_read = t_feed = t_show = t_wait = 0;
 				report_frames = report_drop = 0;
 				last_report = k_uptime_get();
 			}
-			/* 这一帧处理完，回到循环开头继续取下一帧。 */
+			/* This frame is done; go back to the top of the loop for the next one. */
 			continue;
 		}
 
-		/* ---- 取帧的返回值处理 ---- */
-		/* -ENODATA：已经 flush，并且所有帧都取完了，跳出循环去收尾。 */
+		/* ---- Handling the return value of getting a frame ---- */
+		/* -ENODATA: flush has run and all frames have been taken; break out of the loop to
+		 * finish up. */
 		if (ret == -ENODATA) {
 			break;
 		}
-		/* -EBUSY：所有帧都被应用占着，睡 2 毫秒再试。 */
+		/* -EBUSY: all frames are held by the application; sleep 2 milliseconds and try
+		 * again. */
 		if (ret == -EBUSY) {
 			k_msleep(2);
 			continue;
 		}
-		/* 只剩 -EAGAIN（要更多数据）是正常的，其他错误打印后退出。 */
+		/* Only -EAGAIN (it wants more data) is normal; any other error is printed and
+		 * exits. */
 		if (ret != -EAGAIN) {
 			printk("decode error %d\n", ret);
 			break;
@@ -608,134 +632,143 @@ int main(void)
 
 		/* the decoder wants data */
 
-		/* ---- 读样本并喂给解码器 ---- */
-		/* 上一块数据已经全部喂完，需要取下一个样本。 */
+		/* ---- Read a sample and feed it to the decoder ---- */
+		/* The previous block of data has been fed completely, so the next sample is
+		 * needed. */
 		if (ab_used >= ab_len) {
-			/* 开始计时，对应统计里的 read+convert。 */
+			/* Start the timer, which is the read+convert figure in the stats. */
 			c0 = k_cycle_get_32();
-			/* mp4_next 取不到下一个样本：数据读完了，eof 置 true。 */
+			/* mp4_next cannot get the next sample: the data is exhausted, so set eof to
+			 * true. */
 			if (mp4_next(v, &it, &s) != 0) {
 				eof = true;
 			} else {
-				/* 从文件里把样本读到 raw。读失败就退出。 */
+				/* Read the sample from the file into raw. Exit if the read fails. */
 				if (file_read(&vfile, s.offset, raw, s.size) != 0) {
 					printk("video: read error at sample %u\n", s.index);
 					break;
 				}
-				/* 累加从卡里读的字节数，叠加层用它算读卡速率。 */
+				/* Add the bytes read from the card; the overlay uses this to compute
+				 * the card read rate. */
 				play_stats.sd_bytes += s.size;
 				/*
-				 * 把长度前缀的 NAL 换成起始码。第一个样本或关键帧前面补上 SPS/PPS，解码器
-				 * 遇到关键帧时才有参数可用。
+				 * Replace the length-prefixed NALs with start codes. Prepend SPS/PPS
+				 * before the first sample or a keyframe, so the decoder has parameters
+				 * when it reaches a keyframe.
 				 */
 				ab_len = avcc_to_annexb(raw, s.size, ab, first || s.sync);
-				/* ab 的喂入进度归零；不再是第一个样本。 */
+				/* Reset ab's feed progress to zero; it is no longer the first
+				 * sample. */
 				ab_used = 0;
 				first = false;
-				/* 记录读取加转换的耗时。 */
+				/* Record the time for the read plus conversion. */
 				t_read += us_since(c0);
-				/* 算这个样本的显示时间：减去编辑列表给的起始时间，换算成微秒。 */
+				/* Compute this sample's display time: subtract the start time from the
+				 * edit list and convert to microseconds. */
 				pending_pts = (s.pts - v->media_start) * 1000000 / v->timescale;
-				/* 负数截成 0。 */
+				/* Clamp negative values to 0. */
 				if (pending_pts < 0) {
 					pending_pts = 0;
 				}
 			}
 		}
-		/* ab 里还有没喂完的数据： */
+		/* There is still unfed data in ab: */
 		if (ab_used < ab_len) {
-			/* 这次实际被收下的字节数。 */
+			/* The number of bytes actually consumed this time. */
 			size_t used = 0;
 
-			/* 开始计时，对应统计里的 feed。 */
+			/* Start the timer, which is the feed figure in the stats. */
 			c0 = k_cycle_get_32();
 			/*
-			 * 把剩下的数据喂给解码器，带上显示时间。解码器只收完整的 NAL，收多少通过 used
-			 * 返回。
+			 * Feed the remaining data to the decoder with the display time. The decoder
+			 * only takes whole NALs; how many it took is returned in used.
 			 */
 			ret = vdec_stream_feed(vdec_dev, stream, ab + ab_used, ab_len - ab_used,
 					       pending_pts, &used);
-			/* 记录 feed 的耗时。 */
+			/* Record the time taken by feed. */
 			t_feed += us_since(c0);
-			/* feed 出错（不是缓冲区满）：打印并把这块数据整个丢掉，避免死循环。 */
+			/* A feed error (not a full buffer): print it and drop this whole block of
+			 * data to avoid an infinite loop. */
 			if (ret != 0 && ret != -EAGAIN) {
 				printk("feed error %d\n", ret);
 				ab_used = ab_len;
 			} else {
 				/*
-				 * 正常或者缓冲区满：把收下的字节数记到进度里。缓冲区满时 used 可能很小，下一轮
-				 * 先去取帧腾出空间。
+				 * Normal, or the buffer is full: add the consumed byte count to the
+				 * progress. When the buffer is full used may be small, and the next
+				 * round takes a frame first to free space.
 				 */
 				ab_used += used;
 			}
 		} else if (eof && !flushed) {
-			/* 没数据可喂了，并且文件已经读完，只做一次 flush，让解码器把剩下的帧吐出来。 */
+			/* There is no data left to feed and the file is read out; do a single flush
+			 * to make the decoder emit the remaining frames. */
 			vdec_stream_flush(vdec_dev, stream);
 			flushed = true;
 		}
 	}
 
-	/* ---- 收尾 ---- */
-	/* 释放还持有的上一帧。 */
+	/* ---- Finish up ---- */
+	/* Release the previous frame still held. */
 	if (older.priv != NULL) {
 		vdec_frame_release(vdec_dev, &older);
 	}
-	/* 释放最后显示的一帧。 */
+	/* Release the last displayed frame. */
 	if (shown.priv != NULL) {
 		vdec_frame_release(vdec_dev, &shown);
 	}
-	/* 打印汇总，就是控制台上的 done: 那一行。 */
+	/* Print the summary, the done: line on the console. */
 	printk("done: %u shown, %u dropped, %u audio underruns\n", shown_count, dropped_count,
 	       audio_underruns);
-	/* 等音频线程播完，它结束时把 audio_done 置 true。 */
+	/* Wait for the audio thread to finish playing; it sets audio_done to true when it ends. */
 	while (!audio_done) {
 		k_msleep(100);
 	}
-	/* 永远睡下去。程序到这里不退出，屏幕上保持最后一帧。 */
+	/* Sleep forever. The program does not exit here, and the screen keeps the last frame. */
 	k_sleep(K_FOREVER);
 
-	/* 不会执行到，仅为满足函数签名。 */
+	/* Never reached, only to satisfy the function signature. */
 	return 0;
 }
 ```
 
-## 界面叠加原理
+## How the UI overlay works
 
-屏幕左上角的统计面板<strong>不是 CPU 把文字画进视频帧里</strong>。视频和界面各占显示引擎的一个图层，显示引擎每次扫描输出时把两层按透明度合成，所以视频帧不需要拷贝，界面也不需要等视频。
+The statistics panel in the top-left of the screen is <strong>not the CPU drawing text into the video frame</strong>. The video and the UI each occupy a layer of the display engine, and the display engine blends the two layers by opacity on every scan-out, so the video frame does not need to be copied and the UI does not need to wait for the video.
 
 ```mermaid
 flowchart TB
-    subgraph MEM["内存"]
-        YUV["NV12 解码帧<br/>视频引擎输出"]
-        FB["ARGB8888 帧缓冲<br/>LVGL 把界面画在这里"]
+    subgraph MEM["Memory"]
+        YUV["NV12 decoded frame<br/>video engine output"]
+        FB["ARGB8888 framebuffer<br/>LVGL draws the UI here"]
     end
-    YUV -->|"地址直接交给图层，不拷贝"| VP["视频层<br/>缩放、居中"]
-    FB -->|"显示引擎直接读取"| UP["界面层 (UI plane)<br/>在视频层上面"]
-    VP --> DE["显示引擎<br/>逐像素按 alpha 合成"]
+    YUV -->|"address handed to the layer directly, no copy"| VP["Video layer<br/>scale, centre"]
+    FB -->|"read directly by the display engine"| UP["UI layer (UI plane)<br/>above the video layer"]
+    VP --> DE["Display engine<br/>blends per pixel by alpha"]
     UP --> DE
-    DE --> TCON["TCON → DSI"] --> PANEL["屏幕"]
+    DE --> TCON["TCON → DSI"] --> PANEL["Screen"]
 ```
 
-### 两个图层
+### The two layers
 
-`drivers/display/sunxi/display_sunxi.c` 把显示引擎的图层分成两种用法：
+`drivers/display/sunxi/display_sunxi.c` splits the display engine's layers into two uses:
 
-| 图层 | 内容 | 怎么配置 |
+| Layer | Content | How it is configured |
 | --- | --- | --- |
-| 视频层 | 解码出来的 NV12 帧 | `display_sunxi_show_yuv()` 把帧的 Y、UV 两个平面的地址直接填进图层；按屏幕大小算出保持长宽比的目标尺寸 `dw × dh`，居中放置，混合模式 `DISPLAY_BLEND_NONE`（不透明） |
-| 界面层 | LVGL 画出来的界面 | 内存里的帧缓冲，格式 ARGB8888；混合模式 `DISPLAY_BLEND_COVERAGE`（按像素的 alpha 混合），在视频层上面 |
+| Video layer | The decoded NV12 frame | `display_sunxi_show_yuv()` fills the addresses of the frame's Y and UV planes straight into the layer; it computes the aspect-ratio-preserving target size `dw × dh` from the screen size, centres it, and uses blend mode `DISPLAY_BLEND_NONE` (opaque) |
+| UI layer | The UI drawn by LVGL | A framebuffer in memory, format ARGB8888; blend mode `DISPLAY_BLEND_COVERAGE` (per-pixel alpha blending), above the video layer |
 
-视频层是驱动自己找的：`sunxi_display_find_video_plane()` 取第一个“能接收 YCbCr 并能缩放、且不是帧缓冲层”的图层。
+The driver finds the video layer itself: `sunxi_display_find_video_plane()` takes the first layer that "can accept YCbCr, can scale, and is not a framebuffer layer".
 
-### 界面怎么画进帧缓冲
+### How the UI is drawn into the framebuffer
 
-1. LVGL 把界面渲染成 32 位像素。`CONFIG_LV_COLOR_DEPTH_32` 和 `CONFIG_DISPLAY_SUNXI_ARGB8888` 保证 LVGL 输出的格式和帧缓冲一致，都带 alpha。
-2. LVGL 通过 Zephyr 的 `display_write()` 把像素交给显示驱动。驱动的 `sunxi_display_write()` 逐行 `memcpy` 进帧缓冲，然后对这一行做 `sys_cache_data_flush_range()`，把数据缓存写回内存。显示引擎是用 DMA 读帧缓冲的，不写回的话它读到的是旧数据。
-3. 显示引擎读到帧缓冲里的像素，就按每个像素的 alpha 和视频层合成。alpha 为 0 的像素完全透明，露出下面的视频；alpha 为 255 的像素完全盖住视频；中间值按比例混合。
+1. LVGL renders the UI into 32-bit pixels. `CONFIG_LV_COLOR_DEPTH_32` and `CONFIG_DISPLAY_SUNXI_ARGB8888` ensure LVGL's output format matches the framebuffer, both with alpha.
+2. LVGL hands the pixels to the display driver through Zephyr's `display_write()`. The driver's `sunxi_display_write()` `memcpy`s them into the framebuffer row by row, then does `sys_cache_data_flush_range()` on each row to write the data cache back to memory. The display engine reads the framebuffer with DMA, and without the write-back it would read stale data.
+3. The display engine reads the pixels in the framebuffer and blends them with the video layer according to each pixel's alpha. Pixels with alpha 0 are fully transparent and show the video underneath; pixels with alpha 255 fully cover the video; intermediate values blend proportionally.
 
-### 面板为什么是半透明的
+### Why the panel is semi-transparent
 
-`overlay.c` 里做了这几件事，让没有界面的地方透出视频，面板本身半透明：
+`overlay.c` does the following so that the video shows through where there is no UI, and the panel itself is semi-transparent:
 
 ```c
 /* everything outside the panel shows the video: keep the screen itself clear */
@@ -746,45 +779,45 @@ lv_obj_set_style_bg_color(panel, lv_color_black(), 0);
 lv_obj_set_style_bg_opa(panel, LV_OPA_60, 0);
 ```
 
-- LVGL 的活动屏幕背景设成<strong>完全透明</strong>（`LV_OPA_TRANSP`）。帧缓冲里面板以外的像素 alpha 都是 0，显示出来就是视频。
-- 面板背景是黑色，不透明度 60%（`LV_OPA_60`）。相当于一层 60% 不透明的黑色盖在视频上，文字和折线（不透明）清晰地叠在上面。
+- LVGL's active screen background is set to <strong>fully transparent</strong> (`LV_OPA_TRANSP`). Pixels outside the panel in the framebuffer all have alpha 0, so what shows is the video.
+- The panel background is black at 60% opacity (`LV_OPA_60`). It is effectively a 60%-opaque black layer over the video, with the text and lines (opaque) clearly overlaid on top.
 
-### 为什么只扫描左上角 400×400
+### Why only the top-left 400×400 is scanned
 
-`CONFIG_DISPLAY_SUNXI_FB_WINDOW_WIDTH` 和 `HEIGHT` 设成 400。驱动在 `sunxi_display_fb_window()` 里把界面层的源区域和目标区域都限定在屏幕左上角这 400×400 像素。显示引擎每次刷新只读这一块帧缓冲，省下的内存带宽留给视频引擎。面板宽 380，距左边 12，刚好放得进去。
+`CONFIG_DISPLAY_SUNXI_FB_WINDOW_WIDTH` and `HEIGHT` are set to 400. In `sunxi_display_fb_window()` the driver confines both the source and destination regions of the UI layer to these 400×400 pixels in the top-left of the screen. On each refresh the display engine reads only this block of the framebuffer, leaving the saved memory bandwidth to the video engine. The panel is 380 wide and 12 from the left, so it just fits.
 
-这样配置的前提是界面只出现在一个角上。要铺满整屏的界面，这两个选项保持默认的 0。
+This configuration assumes the UI appears in only one corner. For a UI that fills the whole screen, leave these two options at their default of 0.
 
-### 视频帧更新时界面层怎么办
+### What happens to the UI layer when the video frame updates
 
-每次 `display_sunxi_show_yuv()` 提交的是<strong>完整的两层状态</strong>：界面层（保持开启，指向同一块帧缓冲）加上换了地址的视频层。所以换一帧视频，界面层不会消失，也不用重画。只有 LVGL 刷新界面时，才会再走一次 `display_write()`。
+Each `display_sunxi_show_yuv()` submits the <strong>complete two-layer state</strong>: the UI layer (kept enabled, pointing at the same framebuffer) plus the video layer with its address changed. So when the video frame changes, the UI layer does not disappear and does not need to be redrawn. Only when LVGL refreshes the UI does it go through `display_write()` again.
 
-### 统计数据从哪里来
+### Where the statistics come from
 
-叠加层是独立的线程 `overlay_main`（优先级 8，比主线程 6 低）：
+The overlay is a separate thread `overlay_main` (priority 8, lower than the main thread's 6):
 
-1. 播放器往全局的 `play_stats` 里累加计数：已显示帧数 `frames`、读卡字节数 `sd_bytes`、迟到帧数 `late`，以及分辨率 `width` / `height`。这些计数只增不减，写的和读的是不同线程，所以不需要锁。
-2. 叠加层每 250 毫秒取一次快照，保留最近 1 秒的快照，用“现在减去 1 秒前”算出帧率和读卡速率。
-3. 每 40 毫秒调一次 `lv_timer_handler()` 让 LVGL 刷新，每次采样后更新三个标签和三条折线（帧率、读卡速率、解码耗时）。折线的纵轴范围随最大值自动放大，取 `step` 的整数倍。
+1. The player accumulates counters into the global `play_stats`: frames shown `frames`, bytes read from the card `sd_bytes`, late frames `late`, and the resolution `width` / `height`. These counters only increase, and the writer and reader are different threads, so no lock is needed.
+2. The overlay takes a snapshot every 250 milliseconds, keeps the snapshots of the last second, and computes the frame rate and card read rate as "now minus one second ago".
+3. It calls `lv_timer_handler()` every 40 milliseconds to let LVGL refresh, and updates three labels and three lines (frame rate, card read rate, decode time) after each sample. The vertical axis range of the lines scales automatically with the maximum, at integer multiples of `step`.
 
 :::caution
-`mp4_player` 没有更新 `play_stats.decode_us`，这个字段只有 `vdec/h264_player` 示例在写。所以在 MP4 播放器里，面板上 “Decoder time” 一栏恒为 0，另外两栏（帧率和读卡速率）是真实的。
+`mp4_player` does not update `play_stats.decode_us`; only the `vdec/h264_player` example writes that field. So in the MP4 player the "Decoder time" column on the panel is always 0; the other two columns (frame rate and card read rate) are real.
 :::
 
-### 在自己的程序里加叠加层
+### Adding the overlay to your own program
 
-最少需要这几步：
+At minimum you need these steps:
 
-1. `prj.conf` 里打开 `CONFIG_DISPLAY_SUNXI_ARGB8888`、`CONFIG_LVGL`、`CONFIG_LV_COLOR_DEPTH_32`。
-2. 用一个线程调 `lv_timer_handler()`，在里面创建控件。
-3. 先把 `lv_screen_active()` 的背景设成 `LV_OPA_TRANSP`，否则界面层会整个盖住视频。
-4. 界面只占一个角时，设置 `CONFIG_DISPLAY_SUNXI_FB_WINDOW_WIDTH/HEIGHT`，减轻带宽压力。
+1. Enable `CONFIG_DISPLAY_SUNXI_ARGB8888`, `CONFIG_LVGL`, and `CONFIG_LV_COLOR_DEPTH_32` in `prj.conf`.
+2. Call `lv_timer_handler()` from a thread, and create the widgets in it.
+3. First set the background of `lv_screen_active()` to `LV_OPA_TRANSP`, otherwise the UI layer covers the video entirely.
+4. When the UI occupies only one corner, set `CONFIG_DISPLAY_SUNXI_FB_WINDOW_WIDTH/HEIGHT` to relieve bandwidth pressure.
 
-## 接口
+## API
 
-### MP4 解封装：`<zephyr/mp4.h>`
+### MP4 demux: `<zephyr/mp4.h>`
 
-库只通过读回调访问文件，不依赖文件系统。打开时把 H.264 和 AAC 各自第一条轨道的样本表读进内存，之后按解码顺序逐个取样本。
+The library accesses the file only through the read callback and does not depend on a filesystem. On open it reads the sample tables of the first H.264 and first AAC track into memory, and afterwards takes samples one by one in decode order.
 
 ```c
 #include <zephyr/mp4.h>
@@ -799,107 +832,107 @@ if (ret == 0 && m.video.codec == MP4_CODEC_H264) {
 
     mp4_iter_init(&m.video, &it);
     while (mp4_next(&m.video, &it, &s) == 0) {
-        /* 从文件偏移 s.offset 读 s.size 字节，时间戳 s.pts / m.video.timescale 秒 */
+        /* read s.size bytes from file offset s.offset; the timestamp is s.pts / m.video.timescale seconds */
     }
 }
 mp4_close(&m);
 ```
 
-| 函数 | 作用 |
+| Function | Effect |
 | --- | --- |
-| `int mp4_open(struct mp4 *m, mp4_read_t read, void *ctx, uint64_t file_size)` | 解析 movie box。不是 H.264/AAC 的轨道会被忽略。成功返回 0，失败返回负的 errno |
-| `void mp4_close(struct mp4 *m)` | 释放样本表 |
-| `int mp4_iter_init(const struct mp4_track *t, struct mp4_iter *it)` | 把迭代器放到轨道开头。轨道不存在或没有样本表返回 `-EINVAL` |
-| `int mp4_next(const struct mp4_track *t, struct mp4_iter *it, struct mp4_sample *s)` | 取下一个样本，到末尾返回 `-ENODATA` |
-| `int mp4_seek_sync(const struct mp4_track *t, struct mp4_iter *it, uint32_t index)` | 把迭代器定位到 `index` 之前（含）最近的关键帧 |
-| `int mp4_seek_time(const struct mp4_track *t, struct mp4_iter *it, int64_t time)` | 按播放时间定位到要开始解码的关键帧，时间超出末尾返回 `-ERANGE` |
+| `int mp4_open(struct mp4 *m, mp4_read_t read, void *ctx, uint64_t file_size)` | Parse the movie box. Tracks that are not H.264/AAC are ignored. Returns 0 on success, a negative errno on failure |
+| `void mp4_close(struct mp4 *m)` | Free the sample tables |
+| `int mp4_iter_init(const struct mp4_track *t, struct mp4_iter *it)` | Put the iterator at the start of the track. Returns `-EINVAL` if the track does not exist or has no sample table |
+| `int mp4_next(const struct mp4_track *t, struct mp4_iter *it, struct mp4_sample *s)` | Take the next sample, returns `-ENODATA` at the end |
+| `int mp4_seek_sync(const struct mp4_track *t, struct mp4_iter *it, uint32_t index)` | Position the iterator on the nearest keyframe at or before `index` |
+| `int mp4_seek_time(const struct mp4_track *t, struct mp4_iter *it, int64_t time)` | Position on the keyframe from which decoding should start, by playback time; returns `-ERANGE` if the time is past the end |
 
-回调 `mp4_read_t` 的签名是 `int (*)(void *ctx, uint64_t offset, void *buf, size_t len)`，读到 `len` 字节返回 0，出错返回负的 errno。
+The `mp4_read_t` callback has the signature `int (*)(void *ctx, uint64_t offset, void *buf, size_t len)`, returning 0 when `len` bytes were read and a negative errno on error.
 
-`struct mp4_track` 里常用的字段：
+Commonly used fields of `struct mp4_track`:
 
-| 字段 | 含义 |
+| Field | Meaning |
 | --- | --- |
-| `codec` | `MP4_CODEC_NONE`、`MP4_CODEC_H264`、`MP4_CODEC_AAC` |
-| `timescale`、`duration` | 时间基和时长，单位是 timescale 的刻度 |
-| `sample_count`、`max_sample` | 样本数和最大样本的字节数，缓冲区按它分配 |
-| `width`、`height` | 视频分辨率 |
-| `channels`、`sample_rate` | 音频声道数和采样率 |
-| `extra`、`extra_len` | 视频是 avcC 记录，音频是 AudioSpecificConfig |
-| `media_start` | 编辑列表给出的起始媒体时间，没有则为 0 |
+| `codec` | `MP4_CODEC_NONE`, `MP4_CODEC_H264`, `MP4_CODEC_AAC` |
+| `timescale`, `duration` | Time base and duration, in ticks of the timescale |
+| `sample_count`, `max_sample` | Number of samples and the byte size of the largest sample, which the buffer is allocated by |
+| `width`, `height` | Video resolution |
+| `channels`, `sample_rate` | Number of audio channels and the sample rate |
+| `extra`, `extra_len` | The avcC record for video, the AudioSpecificConfig for audio |
+| `media_start` | The start media time given by the edit list, 0 if none |
 
-`struct mp4_sample`：`offset`（文件位置）、`size`、`dts`、`pts`、`index`、`sync`（关键帧，音频恒为 1）。
+`struct mp4_sample`: `offset` (file position), `size`, `dts`, `pts`, `index`, `sync` (keyframe, always 1 for audio).
 
-### 视频解码：`<zephyr/drivers/vdec.h>`
+### Video decoding: `<zephyr/drivers/vdec.h>`
 
-这一节只列 MP4 播放器用到的部分，完整说明（设备树、Kconfig、JPEG/PNG 单张解码）见 [视频引擎 vdec](../drivers/vdec.md)。
+This section lists only the parts the MP4 player uses; the full description (devicetree, Kconfig, single JPEG/PNG decoding) is in [Video engine vdec](../drivers/vdec.md).
 
-流式解码 H.264，也可以解单张 JPEG/PNG。
+It decodes H.264 as a stream, and can also decode a single JPEG/PNG.
 
-| 函数 | 作用 |
+| Function | Effect |
 | --- | --- |
-| `vdec_stream_open(dev, &config, &stream)` | 打开解码流。流会独占解码器，直到 `vdec_stream_close()` |
-| `vdec_stream_feed(dev, stream, data, len, pts, &consumed)` | 喂入 Annex B 字节流，必须是完整的 NAL 单元。`consumed` 返回实际收下的字节数，没收完要在取走帧之后接着喂 |
-| `vdec_stream_get_frame(dev, stream, &frame)` | 取下一帧，有必要时在这里完成解码 |
-| `vdec_frame_release(dev, &frame)` | 归还帧。解码器只持有几帧，要及时释放 |
-| `vdec_stream_flush(dev, stream)` | 数据喂完后调用，让引擎吐出剩余的帧 |
-| `vdec_stream_close(dev, stream)` | 关闭流 |
-| `vdec_decode_image(dev, codec, data, len, format, &frame)` | 解单张 JPEG 或 PNG |
+| `vdec_stream_open(dev, &config, &stream)` | Open a decode stream. The stream takes the decoder exclusively until `vdec_stream_close()` |
+| `vdec_stream_feed(dev, stream, data, len, pts, &consumed)` | Feed an Annex B byte stream, which must be whole NAL units. `consumed` returns the number of bytes actually taken; if not all was taken, feed the rest after taking a frame |
+| `vdec_stream_get_frame(dev, stream, &frame)` | Take the next frame; the decoding is completed here when necessary |
+| `vdec_frame_release(dev, &frame)` | Return a frame. The decoder holds only a few frames, so release them promptly |
+| `vdec_stream_flush(dev, stream)` | Call after the data is fed, to make the engine emit its remaining frames |
+| `vdec_stream_close(dev, stream)` | Close the stream |
+| `vdec_decode_image(dev, codec, data, len, format, &frame)` | Decode a single JPEG or PNG |
 
-`vdec_stream_get_frame()` 的返回值：
+Return values of `vdec_stream_get_frame()`:
 
-| 返回值 | 含义 |
+| Return value | Meaning |
 | --- | --- |
-| `0` | 拿到了一帧 |
-| `-EAGAIN` | 数据不够，继续 `feed` |
-| `-EBUSY` | 所有帧都被应用占着，先释放 |
-| `-ENODATA` | 已经 `flush`，并且帧全部取完 |
-| `-EIO` | 硬件出错 |
+| `0` | A frame was obtained |
+| `-EAGAIN` | Not enough data, keep calling `feed` |
+| `-EBUSY` | All frames are held by the application, release some first |
+| `-ENODATA` | `flush` has run and all frames have been taken |
+| `-EIO` | Hardware error |
 
-`vdec_stream_feed()` 返回 `-EAGAIN` 表示流缓冲区满了，要先取帧；返回 `-EINVAL` 表示数据里没有 NAL 单元。
+`vdec_stream_feed()` returning `-EAGAIN` means the stream buffer is full and a frame must be taken first; returning `-EINVAL` means there is no NAL unit in the data.
 
-`struct vdec_stream_config`：
+`struct vdec_stream_config`:
 
-| 字段 | 说明 |
+| Field | Description |
 | --- | --- |
-| `codec` | `VDEC_CODEC_H264`（流）、`VDEC_CODEC_JPEG`、`VDEC_CODEC_PNG` |
-| `format` | 想要的帧格式，播放器用 `VDEC_FORMAT_NV12` |
-| `buffer_size` | 压缩数据缓冲区大小，要能装下一次 `feed` 的最大一组 NAL。示例用 1 MiB；0 为默认值 |
-| `no_cache_ops` | CPU 不读这些帧（只给显示引擎或 G2D 读）时设为 true，跳过缓存维护 |
-| `holding_frames` | 应用同时持有（正在显示）的帧数；0 为默认 3，`VDEC_HOLD_NONE` 为不持有 |
+| `codec` | `VDEC_CODEC_H264` (stream), `VDEC_CODEC_JPEG`, `VDEC_CODEC_PNG` |
+| `format` | The desired frame format; the player uses `VDEC_FORMAT_NV12` |
+| `buffer_size` | Size of the compressed-data buffer; it must hold the largest group of NALs of one `feed`. The example uses 1 MiB; 0 is the default |
+| `no_cache_ops` | Set to true when the CPU does not read these frames (only the display engine or G2D reads them), to skip cache maintenance |
+| `holding_frames` | The number of frames the application holds (is displaying) at once; 0 is the default of 3, `VDEC_HOLD_NONE` holds none |
 
-`struct vdec_frame`：`format`、`width`、`height`、`plane[2]`（Y 平面和 UV 平面的首地址）、`stride[2]`、`pts`（`feed` 时给的时间戳）。
+`struct vdec_frame`: `format`, `width`, `height`, `plane[2]` (the base addresses of the Y and UV planes), `stride[2]`, `pts` (the timestamp given at `feed`).
 
-### 显示视频层：`<zephyr/drivers/display/display_sunxi.h>`
+### Displaying the video layer: `<zephyr/drivers/display/display_sunxi.h>`
 
-`display_sunxi_show_yuv(dev, &img)` 把一张 NV12 图缩放到铺满屏幕（保持长宽比）。`struct display_sunxi_yuv`：
+`display_sunxi_show_yuv(dev, &img)` scales an NV12 image to fill the screen (preserving the aspect ratio). `struct display_sunxi_yuv`:
 
-| 字段 | 说明 |
+| Field | Description |
 | --- | --- |
-| `y`、`uv` | Y 平面和 UV 平面的首地址 |
-| `width`、`height` | 图片尺寸 |
-| `stride_y`、`stride_uv` | 每一行的字节数 |
-| `bt709` | true 用 BT.709 色彩矩阵，否则 BT.601 |
-| `nonblock` | true 则图片在下一次刷新时出现，调用不等待 |
+| `y`, `uv` | The base addresses of the Y and UV planes |
+| `width`, `height` | Image dimensions |
+| `stride_y`, `stride_uv` | Number of bytes per row |
+| `bt709` | true uses the BT.709 colour matrix, otherwise BT.601 |
+| `nonblock` | true makes the image appear on the next refresh, and the call does not wait |
 
-图片所在内存必须在下一次调用（或 `display_sunxi_hide_yuv()`）之前保持有效且不被改动，并且数据缓存行必须是干净的。返回 `-ENOTSUP` 表示显示引擎没有视频层。直接显示 RGB 图用 `display_sunxi_show_rgb()`。
+The memory holding the image must stay valid and unmodified until the next call (or `display_sunxi_hide_yuv()`), and the data cache lines must be clean. A return of `-ENOTSUP` means the display engine has no video layer. To display an RGB image directly, use `display_sunxi_show_rgb()`.
 
-### 音频时钟：`<zephyr/drivers/i2s_sunxi.h>`
+### Audio clock: `<zephyr/drivers/i2s_sunxi.h>`
 
-`i2s_sunxi_codec_tx_position(dev, &blocks, &cycle)` 返回已经播完的 I2S 块数，以及最后一块完成时的 `k_cycle_get_32()`。播放位置 = `blocks` × 每块帧数 ÷ 采样率 + 自 `cycle` 起经过的时间。
+`i2s_sunxi_codec_tx_position(dev, &blocks, &cycle)` returns the number of I2S blocks already played, and the `k_cycle_get_32()` at the moment the last block completed. Playback position = `blocks` × frames per block ÷ sample rate + the time elapsed since `cycle`.
 
-### AAC 解码：`<pvmp4audiodecoder_api.h>`
+### AAC decoding: `<pvmp4audiodecoder_api.h>`
 
-OpenCORE 的 AAC 解码接口，示例按这个顺序用：
+The OpenCORE AAC decoding API, which the example uses in this order:
 
-1. `PVMP4AudioDecoderGetMemRequirements()` 取解码器状态所需的内存，`malloc` 出来。
-2. `PVMP4AudioDecoderInitLibrary(&ext, dec)` 初始化。`ext.desiredChannels = 2`，`ext.outputFormat = OUTPUTFORMAT_16PCM_INTERLEAVED`。
-3. 把 `mp4_track.extra`（AudioSpecificConfig）作为输入，调 `PVMP4AudioDecoderConfig(&ext, dec)`。
-4. 每个 AAC 样本调一次 `PVMP4AudioDecodeFrame(&ext, dec)`，输出 1024 个采样的交错 16 位 PCM。
+1. `PVMP4AudioDecoderGetMemRequirements()` gets the memory needed for the decoder state; `malloc` it.
+2. `PVMP4AudioDecoderInitLibrary(&ext, dec)` initialises it. `ext.desiredChannels = 2`, `ext.outputFormat = OUTPUTFORMAT_16PCM_INTERLEAVED`.
+3. With `mp4_track.extra` (the AudioSpecificConfig) as input, call `PVMP4AudioDecoderConfig(&ext, dec)`.
+4. Call `PVMP4AudioDecodeFrame(&ext, dec)` once per AAC sample, outputting 1024 samples of interleaved 16-bit PCM.
 
-## 控制台输出
+## Console output
 
-开始播放时先打印一行文件信息，之后每 5 秒一次统计，播完打印汇总。下面是 `yuzukineko` 上播放一个 960×540、30 fps、320 帧（约 11 秒）的文件的实际输出，所以只有两次统计：
+A line of file information is printed at the start of playback, then stats every 5 seconds, and a summary when it finishes. Below is the actual output on `yuzukineko` playing a 960×540, 30 fps, 320-frame (about 11 seconds) file, so there are only two stats lines:
 
 ```text
 *** Booting Zephyr OS build 5d1fe64303ff ***
@@ -913,24 +946,24 @@ done: 318 shown, 2 dropped, 0 audio underruns
 ```
 
 :::tip
-屏幕是 1024×768，960×540 的视频缩放铺满后保持长宽比。
+The screen is 1024×768, and the 960×540 video is scaled to fill it while preserving the aspect ratio.
 :::
 
-| 字段 | 含义 |
+| Field | Meaning |
 | --- | --- |
-| `shown`、`dropped` | 已显示和因为太晚而丢掉的帧数 |
-| `A/V offset` | 画面相对声音的偏移，越接近 0 越好 |
-| `audio underruns` | 音频数据断过几次，不为 0 说明读卡或解码跟不上 |
-| `decode`、`read+convert`、`feed`、`show`、`wait` | 这个统计周期里各环节花的时间，用来找瓶颈 |
+| `shown`, `dropped` | Frames displayed and frames dropped for being too late |
+| `A/V offset` | The picture's offset from the sound; the closer to 0 the better |
+| `audio underruns` | How many times the audio data ran out; non-zero means card reads or decoding cannot keep up |
+| `decode`, `read+convert`, `feed`, `show`, `wait` | The time each stage took in this stats period, used to find the bottleneck |
 
-## 排错
+## Troubleshooting
 
-| 现象 | 原因与处理 |
+| Observation | Cause and fix |
 | --- | --- |
-| `a device is not ready` | 视频引擎、显示或 codec 没初始化。确认编译的是 `yuzukineko` 板级 |
-| `cannot open /SD:/video540p.mp4: <错误码>` | 卡没插好、不是 FAT/exFAT，或者文件不在根目录/名字不对 |
-| `no usable video track` | 文件里没有 H.264 视频轨道，用上面的 ffmpeg 命令重新转码 |
-| `the audio is <N> Hz, only 48000 and 44100 Hz are played` | 音频采样率不支持，视频照常播放但没有声音。转码时加 `-ar 44100` |
-| `dropped` 很多或 `audio underruns` 不为 0 | 码率或分辨率太高，读卡/解码跟不上。降低分辨率或码率，换更快的卡 |
-| 有画面没声音 | 先看是不是上一条的采样率问题；再确认耳机或功放接好 |
-| `decode error` | H.264 流有引擎不支持的特性，用上面的 ffmpeg 命令重新转码 |
+| `a device is not ready` | The video engine, display or codec is not initialized. Confirm you are building for the `yuzukineko` board |
+| `cannot open /SD:/video540p.mp4: <error code>` | The card is not seated, is not FAT/exFAT, or the file is not in the root directory / the name is wrong |
+| `no usable video track` | There is no H.264 video track in the file; transcode again with the ffmpeg command above |
+| `the audio is <N> Hz, only 48000 and 44100 Hz are played` | The audio sample rate is unsupported; the video plays as usual but without sound. Add `-ar 44100` when transcoding |
+| Lots of `dropped` or non-zero `audio underruns` | The bitrate or resolution is too high and card reads/decoding cannot keep up. Lower the resolution or bitrate, or use a faster card |
+| Picture but no sound | First check whether it is the sample rate problem above; then confirm the headphones or speaker are connected |
+| `decode error` | The H.264 stream has a feature the engine does not support; transcode again with the ffmpeg command above |

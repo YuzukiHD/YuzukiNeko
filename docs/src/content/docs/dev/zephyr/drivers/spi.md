@@ -2,58 +2,58 @@
 title: "SPI"
 ---
 
-F101 有 2 个 SPI 控制器，在 Zephyr 里是 `spi0` 和 `spi1`，接口是标准的 `<zephyr/drivers/spi.h>`，驱动是 `drivers/spi/spi_sunxi.c`，另外有一个扩展头文件 `<zephyr/drivers/spi/spi_sunxi.h>`。
+F101 has 2 SPI controllers, `spi0` and `spi1` in Zephyr, with the standard `<zephyr/drivers/spi.h>` API; the driver is `drivers/spi/spi_sunxi.c`, and there is an extension header `<zephyr/drivers/spi/spi_sunxi.h>`.
 
-| 项目 | 内容 |
+| Item | Content |
 | --- | --- |
-| 设备 | `spi0`（PC0…PC5，板载 SPI NOR）、`spi1`（PD0…PD5，和 LCD 引脚共用） |
-| 角色 | 只做主机 |
-| 字长 | 8 位 |
-| 模式 | 4 种 SPI 模式（CPOL、CPHA），可选低位在前 |
-| 片选 | 硬件片选 0…3，或者设备树里的 `cs-gpios` |
-| 数据线 | 单线；打开 `CONFIG_SPI_EXTENDED_MODES` 后读数据阶段可以用四线 |
-| 频率 | 3 kHz 以下返回 `-EINVAL`；24 MHz 以内用控制器自己的分频；更高的由 PLL 分频得到 |
-| 传输方式 | 轮询；256 字节及以上、64 字节（缓存行）对齐的读缓冲走 DMA |
-| 不支持 | 从机模式、环回（`SPI_MODE_LOOP`）、`SPI_HOLD_ON_CS`、非 8 位字长 |
+| Device | `spi0` (PC0…PC5, onboard SPI NOR), `spi1` (PD0…PD5, shared with the LCD pins) |
+| Role | Host only |
+| Word length | 8 bits |
+| Mode | 4 SPI modes (CPOL, CPHA), optionally least significant bit first |
+| Chip select | Hardware chip select 0…3, or `cs-gpios` in the devicetree |
+| Data lines | Single line; with `CONFIG_SPI_EXTENDED_MODES` enabled the read data phase can use four lines |
+| Frequency | Below 3 kHz returns `-EINVAL`; up to 24 MHz uses the controller's own divider; higher is obtained from the PLL divider |
+| Transfer | Polling; reads of 256 bytes or more into a 64 byte (cache line) aligned buffer go through DMA |
+| Not supported | Slave mode, loopback (`SPI_MODE_LOOP`), `SPI_HOLD_ON_CS`, word lengths other than 8 bits |
 
-## 设备树
+## Devicetree
 
-| 文件 | 作用 |
+| File | Purpose |
 | --- | --- |
-| `dts/bindings/spi/allwinner,sunxi-spi.yaml` | 绑定：规定 `allwinner,sunxi-spi` 节点的属性 |
-| `dts/riscv/allwinner/sun252i_f101.dtsi` | SoC 设备树：`spi0`、`spi1`，默认 `disabled` |
-| `boards/yuzukihd/yuzukineko/yuzukineko.dts` | 板级设备树：引脚组，打开 `spi0` |
+| `dts/bindings/spi/allwinner,sunxi-spi.yaml` | Binding: defines the properties of an `allwinner,sunxi-spi` node |
+| `dts/riscv/allwinner/sun252i_f101.dtsi` | SoC devicetree: `spi0`, `spi1`, `disabled` by default |
+| `boards/yuzukihd/yuzukineko/yuzukineko.dts` | Board devicetree: pin groups, enables `spi0` |
 
-### SoC 设备树：sun252i_f101.dtsi
+### SoC devicetree: sun252i_f101.dtsi
 
-`spi0` 和 `spi1` 只有寄存器、时钟、复位、DMA 通道不同。下面是 `spi0`：
+`spi0` and `spi1` differ only in registers, clocks, reset and DMA channel. `spi0` is below:
 
 ```c
 spi0: spi@4025000 {
-	/* 匹配驱动 spi_sunxi.c 里的 DT_DRV_COMPAT allwinner_sunxi_spi */
+	/* matches DT_DRV_COMPAT allwinner_sunxi_spi in the driver spi_sunxi.c */
 	compatible = "allwinner,sunxi-spi";
 
-	/* 子节点（从设备）用 1 个格子的地址，也就是片选号 */
+	/* child nodes (the devices) use a 1 cell address, which is the chip select number */
 	#address-cells = <1>;
 	#size-cells = <0>;
 
-	/* 寄存器窗口：基址 0x04025000，长度 0x400 */
+	/* register window: base 0x04025000, length 0x400 */
 	reg = <0x04025000 0x400>;
 
-	/* 模块时钟和总线时钟，顺序和 clock-names 对应 */
+	/* module clock and bus clock, in the order of clock-names */
 	clocks = <&cctl CLK_SPI0>, <&cctl CLK_BUS_SPI0>;
 	clock-names = "mod", "bus";
 
-	/* 总线复位 */
+	/* bus reset */
 	resets = <&rctl RST_BUS_SPI0>;
 
-	/* 初始化时使用的时钟频率 */
+	/* the clock frequency used at initialization */
 	clock-frequency = <10000000>;
 
-	/* 模块时钟寄存器在 CCU 里的偏移 */
+	/* offset of the module clock register in the CCU */
 	clock-reg = <0x940>;
 
-	/* 接收 DMA：DMA 控制器的 7 号通道，SPI 接收 FIFO 的请求线是 22 */
+	/* receive DMA: channel 7 of the DMA controller; the request line of the SPI receive FIFO is 22 */
 	dmas = <&dma 7>;
 	dma-names = "rx";
 	dma-slot = <22>;
@@ -62,16 +62,16 @@ spi0: spi@4025000 {
 };
 ```
 
-| 节点 | 标签 | 寄存器 | 模块时钟 | `clock-reg` | DMA 通道 | 请求线 |
+| Node | Label | Register | Module clock | `clock-reg` | DMA channel | Request line |
 | --- | --- | --- | --- | --- | --- | --- |
 | `spi@4025000` | `spi0` | `0x04025000` | `CLK_SPI0` | `0x940` | 7 | 22 |
 | `spi@4026000` | `spi1` | `0x04026000` | `CLK_SPI1` | `0x944` | 8 | 23 |
 
-### 板级设备树：yuzukineko.dts
+### Board devicetree: yuzukineko.dts
 
 ```c
 &pio {
-	/* SPI0 在 PC0…PC5，复用功能 3。板载 NOR 闪存和 SPIF 控制器用的是同一组脚 */
+	/* SPI0 is on PC0…PC5, multiplexing function 3. The onboard NOR flash and the SPIF controller use the same set of pins */
 	spi0_pins: spi0_pins {
 		spi0_data {
 			pinmux = <ALLWINNER_PINMUX(ALLWINNER_PIO_PC, 0, 3)
@@ -87,7 +87,7 @@ spi0: spi@4025000 {
 		};
 	};
 
-	/* SPI1 在 PD0…PD5，复用功能 3：PD0 CS0，PD1 CLK，PD2 MOSI，PD3 MISO，PD4 HOLD，PD5 WP */
+	/* SPI1 is on PD0…PD5, multiplexing function 3: PD0 CS0, PD1 CLK, PD2 MOSI, PD3 MISO, PD4 HOLD, PD5 WP */
 	spi1_pins: spi1_pins {
 		spi1_data {
 			pinmux = <ALLWINNER_PINMUX(ALLWINNER_PIO_PD, 1, 3)
@@ -111,11 +111,11 @@ spi0: spi@4025000 {
 };
 ```
 
-`spi1` 在本板没有打开：PD0…PD5 被触摸屏的 I2C、复位、中断脚和 LED、功放使能占用了。
+`spi1` is not enabled on this board: PD0…PD5 are taken by the touchscreen I2C, reset and interrupt pins, and the LED and amplifier enable.
 
-### 接一个 SPI 设备
+### Connecting an SPI device
 
-给一个从设备写一个子节点，`reg` 是片选号，`spi-max-frequency` 是它能接受的最高频率。例如把一个 SPI NOR 接在 `spi0` 的片选 0 上：
+Write a child node for a device; `reg` is the chip select number, and `spi-max-frequency` is the highest frequency it accepts. For example, an SPI NOR on chip select 0 of `spi0`:
 
 ```c
 &spi0 {
@@ -128,14 +128,14 @@ spi0: spi@4025000 {
 		reg = <0>;
 		spi-max-frequency = <24000000>;
 		jedec-id = [85 20 18];
-		size = <DT_SIZE_M(128)>;	/* 以位为单位：16 MiB */
+		size = <DT_SIZE_M(128)>;	/* in bits: 16 MiB */
 	};
 };
 ```
 
-使用硬件片选就不要写 `cs-gpios`。要用 GPIO 当片选，在控制器节点里写 `cs-gpios = <&gpiod 4 GPIO_ACTIVE_LOW>;`，子节点的 `reg` 是它在列表里的序号，驱动就用软件控制这个脚。
+With hardware chip select, do not write `cs-gpios`. To use a GPIO as chip select, write `cs-gpios = <&gpiod 4 GPIO_ACTIVE_LOW>;` in the controller node; the `reg` of a child node is its index in the list, and the driver drives this pin in software.
 
-### 绑定：allwinner,sunxi-spi.yaml
+### Binding: allwinner,sunxi-spi.yaml
 
 ```yaml
 # Copyright (c) 2026 Yuzuki Tsuru
@@ -183,33 +183,33 @@ properties:
     description: request line (DRQ) of the SPI receive FIFO
 ```
 
-| 属性 | 必填 | 含义 |
+| Property | Required | Meaning |
 | --- | --- | --- |
-| `reg` | 是 | 寄存器窗口 |
-| `clocks`、`clock-names` | 是 | 模块时钟 `mod` 和总线时钟 `bus` |
-| `resets` | 是 | 总线复位 |
-| `clock-frequency` | 是 | 初始化时的时钟频率 |
-| `clock-reg` | 是 | 模块时钟寄存器在 CCU 里的偏移 |
-| `dmas`、`dma-names`、`dma-slot` | 否 | 接收 DMA；不写则所有读都由 CPU 完成 |
-| `cs-gpios` | 否 | 来自 `spi-controller.yaml`，用 GPIO 做片选 |
-| `pinctrl-0`、`pinctrl-names` | 否 | 引脚，见 [GPIO 页的 pinctrl 一节](gpio.md#引脚复用pinctrl) |
+| `reg` | Yes | Register window |
+| `clocks`, `clock-names` | Yes | Module clock `mod` and bus clock `bus` |
+| `resets` | Yes | Bus reset |
+| `clock-frequency` | Yes | Clock frequency at initialization |
+| `clock-reg` | Yes | Offset of the module clock register in the CCU |
+| `dmas`, `dma-names`, `dma-slot` | No | Receive DMA; if absent all reads are done by the CPU |
+| `cs-gpios` | No | From `spi-controller.yaml`, use a GPIO as chip select |
+| `pinctrl-0`, `pinctrl-names` | No | Pins, see [the pinctrl section of the GPIO page](gpio.md#pin-multiplexing-pinctrl) |
 
 ## Kconfig
 
-| 选项 | 默认 | 含义 |
+| Option | Default | Meaning |
 | --- | --- | --- |
-| `CONFIG_SPI` | 板级 defconfig 里是 `y` | 打开 SPI 子系统 |
-| `CONFIG_SPI_SUNXI` | `y`（依赖 `DT_HAS_ALLWINNER_SUNXI_SPI_ENABLED`） | 编译这个驱动，并选中 `CONFIG_PINCTRL` |
-| `CONFIG_SPI_SUNXI_INIT_PRIORITY` | 81 | 驱动的初始化优先级 |
-| `CONFIG_SPI_SUNXI_DMA` | `y`（依赖 `DMA`） | 长读用 DMA |
-| `CONFIG_SPI_SUNXI_DMA_MIN_LEN` | 256 | 至少读多少字节才用 DMA |
-| `CONFIG_SPI_EXTENDED_MODES` | 否 | 打开后 `SPI_LINES_QUAD` 可用：命令走一根线，读数据走四根线 |
+| `CONFIG_SPI` | `y` in the board defconfig | Enable the SPI subsystem |
+| `CONFIG_SPI_SUNXI` | `y` (depends on `DT_HAS_ALLWINNER_SUNXI_SPI_ENABLED`) | Build this driver, and select `CONFIG_PINCTRL` |
+| `CONFIG_SPI_SUNXI_INIT_PRIORITY` | 81 | Initialization priority of the driver |
+| `CONFIG_SPI_SUNXI_DMA` | `y` (depends on `DMA`) | Use DMA for long reads |
+| `CONFIG_SPI_SUNXI_DMA_MIN_LEN` | 256 | Minimum number of bytes to read before DMA is used |
+| `CONFIG_SPI_EXTENDED_MODES` | No | When enabled, `SPI_LINES_QUAD` is available: the command goes on one line, the read data on four |
 
-## 接口详解
+## API reference
 
-下面每个接口一个小标题：原型、驱动的行为、示例函数和它在板子上的输出。演示在 `spi0` 上读板载的 SPI NOR 闪存（16 MiB，JEDEC ID `85 20 18`）；闪存里放着启动加载器，所以只发读命令，不发写和擦除。示例来自文末的[完整演示程序](#完整演示程序)，里面的 `err()` 把返回值转成名字。
+Below, each API gets a heading: prototype, the behaviour of the driver, an example function and its output on the board. The demo reads the onboard SPI NOR flash (16 MiB, JEDEC ID `85 20 18`) on `spi0`; the flash holds the boot loader, so only read commands are sent, and no writes or erases. The examples come from the [complete demo program](#complete-demo-program) at the end of the page, where `err()` turns a return value into a name.
 
-所有示例用同一个函数生成 `struct spi_config`：片选 0（硬件片选脚），8 位字，高位在前。
+All the examples use the same function to build a `struct spi_config`: chip select 0 (the hardware CS pin), 8 bit words, most significant bit first.
 
 ```c
 /* chip select 0 (the hardware CS pin), mode 0, 8 bit words, most significant bit first */
@@ -230,16 +230,16 @@ int spi_transceive(const struct device *dev, const struct spi_config *config,
                    const struct spi_buf_set *tx_bufs, const struct spi_buf_set *rx_bufs);
 ```
 
-`tx_bufs` 和 `rx_bufs` 总长度是否相等，决定驱动怎么走：
+Whether the total lengths of `tx_bufs` and `rx_bufs` are equal decides how the driver proceeds:
 
-| tx 总长度 | rx 总长度 | 传输 |
+| tx total length | rx total length | Transfer |
 | --- | --- | --- |
-| 等于 | 等于 | 全双工：每发出一个字节就收进一个字节，两边一一对应 |
-| 不等于 | 不等于 | 命令加数据：先发 tx，发 tx 的同时收到的字节丢掉；`rx` 里是发完 tx 之后的 rx 个字节 |
+| equal | equal | Full duplex: every byte sent clocks one byte in, and the two sides correspond one to one |
+| unequal | unequal | Command plus data: tx goes out first, and the bytes received while the tx bytes go out are discarded; `rx` holds the rx bytes after the tx has been sent |
 
-SPI NOR 一类“发命令、读数据”的器件用第二种，一次调用完成，片选在整个过程里保持有效。一次调用最多传 16777215（0xFFFFFF）个字节，超过返回 `-EMSGSIZE`。
+Devices such as SPI NOR that "send a command, read data" use the second form; it completes in one call, and the chip select stays active throughout. A single call transfers at most 16777215 (0xFFFFFF) bytes; more than that returns `-EMSGSIZE`.
 
-#### 示例：命令加数据
+#### Example: command plus data
 
 ```c
 /*
@@ -268,9 +268,9 @@ static void demo_command_read(void)
 [command] JEDEC ID (tx 1 byte, rx 3 bytes)   = 0: 85 20 18
 ```
 
-#### 示例：全双工
+#### Example: full duplex
 
-收发长度相等，`rx[0]` 是发命令时收到的字节，不是数据。要读状态寄存器这样的 1 个字节，就双向各发 2 个字节，答案在第二个。
+With equal transmit and receive lengths, `rx[0]` is the byte received while the command goes out, not data. To read one byte such as a status register, send two bytes in each direction and the answer is the second one.
 
 ```c
 /*
@@ -307,9 +307,9 @@ static void demo_full_duplex(void)
 [duplex] status register (2 bytes both ways)  = 0: 0x00
 ```
 
-#### 示例：长读和 DMA
+#### Example: long reads and DMA
 
-读缓冲至少 `CONFIG_SPI_SUNXI_DMA_MIN_LEN`（256）字节、地址按 64 字节（缓存行）对齐时，数据由 DMA 搬运；否则由 CPU 从接收 FIFO 里读。两种方式读到的数据一样。下面读 4 KiB，并换几个时钟频率看耗时。
+When the read buffer is at least `CONFIG_SPI_SUNXI_DMA_MIN_LEN` (256) bytes and its address is 64 byte (cache line) aligned, the data is moved by the DMA; otherwise the CPU reads it from the receive FIFO. Both ways read the same data. Below, 4 KiB is read and a few clock frequencies are tried to see the time taken.
 
 ```c
 /* A longer read: the first 16 bytes of the flash, and the speed at several clocks.
@@ -371,11 +371,11 @@ static void demo_read_flash(void)
 [read] 512 bytes into an unaligned buffer      = 0, same data
 ```
 
-闪存起始地址是空的（全 `ff`），启动加载器在后面的地址。频率超过 24 MHz 时驱动不再用控制器自己的分频，改用 PLL 分频；超过 60 MHz 时回来的数据要延迟采样，见 `sunxi_spi_set_sample`。
+The start of the flash is empty (all `ff`); the boot loader is at later addresses. Above 24 MHz the driver no longer uses the controller's own divider but a PLL divider; above 60 MHz the returning data needs delayed sampling, see `sunxi_spi_set_sample`.
 
-#### 示例：SPI 模式
+#### Example: SPI modes
 
-`spi_config.operation` 里的 `SPI_MODE_CPOL`、`SPI_MODE_CPHA` 组合出 4 种模式，`SPI_TRANSFER_LSB` 选低位在前。
+`SPI_MODE_CPOL` and `SPI_MODE_CPHA` in `spi_config.operation` combine into the 4 modes, and `SPI_TRANSFER_LSB` selects least significant bit first.
 
 ```c
 /* SPI mode 0 (CPOL 0, CPHA 0) and mode 3 (CPOL 1, CPHA 1) both work with a NOR flash */
@@ -415,9 +415,9 @@ static void demo_modes(void)
 [mode] mode 3 (CPOL 1, CPHA 1) = 0: 85 20 18
 ```
 
-SPI NOR 只规定模式 0 和模式 3，模式 2 读不到数据是器件的原因。
+SPI NOR specifies only mode 0 and mode 3; mode 2 reading no data is the device's doing.
 
-#### 示例：驱动拒绝的配置
+#### Example: configurations the driver refuses
 
 ```c
 /* what the driver refuses */
@@ -485,7 +485,7 @@ static void demo_unsupported(void)
 int spi_write(const struct device *dev, const struct spi_config *config, const struct spi_buf_set *tx_bufs);
 ```
 
-只发送，等于 rx 为空的 `spi_transceive`，每次调用有自己的片选周期。
+Sends only, equivalent to `spi_transceive` with an empty rx, and each call has its own chip select cycle.
 
 ```c
 /* spi_write: only sends. A write of the command alone and then a separate read is not what a NOR flash
@@ -513,7 +513,7 @@ static void demo_spi_write(void)
 int spi_read(const struct device *dev, const struct spi_config *config, const struct spi_buf_set *rx_bufs);
 ```
 
-只接收，tx 为空。闪存要求命令和读数据在同一次片选里，所以先 `spi_write` 命令再单独 `spi_read`，读到的是 `ff ff ff`：
+Receives only, with an empty tx. The flash requires the command and the read data in the same chip select, so after a `spi_write` of the command a separate `spi_read` reads `ff ff ff`:
 
 ```c
 /* spi_read: only receives, the chip select is a new one, so the flash has not seen a command */
@@ -540,7 +540,7 @@ static void demo_spi_read(void)
 int spi_release(const struct device *dev, const struct spi_config *config);
 ```
 
-`operation` 里带 `SPI_LOCK_ON` 的传输结束后总线仍然被这个配置占着，别的线程的传输要等；`spi_release` 释放它。
+After a transfer whose `operation` carries `SPI_LOCK_ON`, the bus is still held by that configuration and transfers from other threads wait; `spi_release` releases it.
 
 ```c
 /* spi_release unlocks the bus that a spi_config with SPI_LOCK_ON holds. */
@@ -574,7 +574,7 @@ static void demo_release(void)
 int sunxi_spi_set_sample(const struct device *dev, uint8_t mode, uint8_t delay);
 ```
 
-头文件 `<zephyr/drivers/spi/spi_sunxi.h>`，是这个驱动自己的扩展。选采样点：`mode` 是采样延后的半周期数（0…6），`delay` 是在此之上再加的延迟线级数（0…63），下一次传输起生效。不调用的话 60 MHz 以上自动延后一个周期。参数超范围返回 `-EINVAL`。
+The header `<zephyr/drivers/spi/spi_sunxi.h>` is this driver's own extension. It chooses the sample point: `mode` is the number of half cycles the sampling is delayed by (0…6), and `delay` is the number of delay line stages added on top of that (0…63); it takes effect from the next transfer. If it is not called, above 60 MHz the sampling is delayed by one cycle automatically. Out-of-range parameters return `-EINVAL`.
 
 ```c
 /* sunxi_spi_set_sample: choose the sample point of the returning data (mode 0..6, delay 0..63) */
@@ -597,9 +597,9 @@ static void demo_set_sample(void)
 [sample] sunxi_spi_set_sample(mode 0, delay 0) = 0
 ```
 
-## 完整演示程序
+## Complete demo program
 
-上面所有示例和日志都来自这一个程序。建一个目录，放进下面的文件，就可以像其他 Zephyr 应用一样编译。
+All the examples and logs above come from this one program. Create a directory, put the files below in it, and it builds like any other Zephyr application.
 
 ```text
 spi_api/
@@ -929,7 +929,7 @@ int main(void)
 }
 ```
 
-### 编译和运行
+### Build and run
 
 ```sh
 . ~/f101-zephyr/env.sh
@@ -939,7 +939,7 @@ west build -b yuzukineko -d build/spi-api spi_api
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/drivers-spi/build.cast" data-speed="6"></div>
 
-下载运行的方法见[编译与运行](../zephyr-build-run.md)。控制台 UART1 上的完整输出：
+For how to download and run, see [Build and run](../zephyr-build-run.md). The full output on console UART1:
 
 ```text
 [command] JEDEC ID (tx 1 byte, rx 3 bytes)   = 0: 85 20 18

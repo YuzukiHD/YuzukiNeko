@@ -1,50 +1,50 @@
 ---
-title: "G2D 2D 加速器"
+title: "G2D - 2D graphics acceleration"
 ---
 
-G2D 是 F101 的 2D 图形加速器：不经过 CPU，在内存缓冲区之间做矩形填充、搬运（可同时转换像素格式、缩放、旋转、翻转）和 Alpha 混合。Zephyr 里把它做成 `g2d` 设备，接口是 `<zephyr/drivers/g2d.h>`，驱动在 `drivers/g2d/`。
+G2D is the F101's 2D graphics accelerator: without going through the CPU, it does rectangle fills, blits (which can convert pixel format, scale, rotate and flip at the same time) and alpha blending between memory buffers. In Zephyr it is made into a `g2d` device, the interface is `<zephyr/drivers/g2d.h>`, and the driver is in `drivers/g2d/`.
 
-操作先进队列，由驱动的线程一个个交给硬件，按提交的顺序完成。
+Operations are queued first, then handed to the hardware one by one by the driver's thread, completing in the order they were submitted.
 
-| 项目 | 内容 |
+| Item | Content |
 | --- | --- |
-| 操作 | 填充（`G2D_OP_FILL`）、搬运（`G2D_OP_BLIT`）、混合（`G2D_OP_BLEND`） |
-| 像素格式（可写） | ARGB8888、ABGR8888、RGBA8888、BGRA8888、XRGB8888、XBGR8888、RGB888、BGR888、RGB565、BGR565、ARGB4444、ARGB1555 |
-| 像素格式（只读） | 上面所有，加 NV12、NV21、I420、YUYV |
-| 最大尺寸 | 8192×8192 |
-| 队列深度 | 设备树 `queue-depth`，默认 8 |
-| 缓存 | 驱动在操作前清并失效（clean and invalidate）目的区域，清（clean）源区域和混合的背景区域；操作后使目的区域失效（invalidate）。带 `G2D_FLAG_NO_CACHE_OPS` 则都不做 |
-| 限制 | 目的格式不能是 YUV；旋转要求源和目的同格式、同尺寸（转后）、地址 4 字节对齐、目的行距 8 字节对齐；混合的背景必须是 RGB 且和目的区域一样大 |
+| Operations | fill (`G2D_OP_FILL`), blit (`G2D_OP_BLIT`), blend (`G2D_OP_BLEND`) |
+| Pixel formats (writable) | ARGB8888, ABGR8888, RGBA8888, BGRA8888, XRGB8888, XBGR8888, RGB888, BGR888, RGB565, BGR565, ARGB4444, ARGB1555 |
+| Pixel formats (read-only) | all of the above, plus NV12, NV21, I420, YUYV |
+| Maximum size | 8192×8192 |
+| Queue depth | devicetree `queue-depth`, default 8 |
+| Cache | before an operation the driver cleans and invalidates the destination region, and cleans the source region and the blend's background region; after the operation it invalidates the destination region. With `G2D_FLAG_NO_CACHE_OPS` none of this is done |
+| Restrictions | the destination format cannot be YUV; rotation requires the source and destination to have the same format and the same size (after rotation), 4-byte-aligned addresses and an 8-byte-aligned destination pitch; the blend's background must be RGB and the same size as the destination region |
 
-## 设备树
+## Devicetree
 
-| 文件 | 作用 |
+| File | Purpose |
 | --- | --- |
-| `dts/bindings/g2d/allwinner,sunxi-g2d.yaml` | 绑定 |
-| `dts/riscv/allwinner/sun252i_f101.dtsi` | SoC 设备树：`g2d` 节点，默认 `disabled` |
-| `boards/yuzukihd/yuzukineko/yuzukineko.dts` | 板级设备树：把 `g2d` 改成 `okay` |
+| `dts/bindings/g2d/allwinner,sunxi-g2d.yaml` | binding |
+| `dts/riscv/allwinner/sun252i_f101.dtsi` | SoC devicetree: the `g2d` node, `disabled` by default |
+| `boards/yuzukihd/yuzukineko/yuzukineko.dts` | board devicetree: changes `g2d` to `okay` |
 
-### SoC 设备树：sun252i_f101.dtsi
+### SoC devicetree: sun252i_f101.dtsi
 
 ```c
 g2d: g2d@5410000 {
-	/* 匹配驱动 g2d_sunxi.c 里的 DT_DRV_COMPAT allwinner_sunxi_g2d */
+	/* matches the DT_DRV_COMPAT allwinner_sunxi_g2d in the driver g2d_sunxi.c */
 	compatible = "allwinner,sunxi-g2d";
 
-	/* 寄存器窗口：基址 0x05410000，长度 0x40000 */
+	/* register window: base 0x05410000, length 0x40000 */
 	reg = <0x05410000 0x40000>;
 
-	/* 中断：PLIC 的 111 号，优先级 1 */
+	/* interrupt: PLIC number 111, priority 1 */
 	interrupts = <111 1>;
 	interrupt-parent = <&plic>;
 
-	/* 三个时钟门：模块时钟、总线时钟、MBUS 时钟，顺序和 clock-names 对应 */
+	/* three clock gates: module clock, bus clock, MBUS clock, in the order of clock-names */
 	clocks = <&cctl CLK_G2D>, <&cctl CLK_BUS_G2D>, <&cctl CLK_BUS_G2D_M>;
 	clock-names = "mod", "bus", "mbus";
 	resets = <&rctl RST_BUS_G2D>;
 
-	/* 驱动自己设模块时钟：CCU 的基址，和模块时钟寄存器的偏移。
-	 * 时钟源选 PLL_PERI_2X，分频按 clock-frequency 算 */
+	/* the driver sets the module clock itself: the CCU base address, and the offset of the
+	 * module clock register. The clock source is PLL_PERI_2X, the divider follows clock-frequency */
 	ccu-base = <0x02001000>;
 	mod-clk-reg = <0x630>;
 	clock-frequency = <300000000>;
@@ -53,48 +53,48 @@ g2d: g2d@5410000 {
 };
 ```
 
-### 板级设备树：yuzukineko.dts
+### Board devicetree: yuzukineko.dts
 
 ```c
-/* 2D 图形加速器 */
+/* 2D graphics accelerator */
 &g2d {
 	status = "okay";
 };
 ```
 
-### 绑定：allwinner,sunxi-g2d.yaml
+### Binding: allwinner,sunxi-g2d.yaml
 
-| 属性 | 必填 | 含义 |
+| Property | Required | Meaning |
 | --- | --- | --- |
-| `reg`、`interrupts` | 是 | 寄存器窗口、中断 |
-| `clocks`、`clock-names` | 是 | 三个时钟门：`mod`、`bus`、`mbus`，按这个顺序 |
-| `resets` | 是 | 总线复位 |
-| `ccu-base` | 是 | CCU 的基址 |
-| `mod-clk-reg` | 是 | G2D 模块时钟寄存器在 CCU 里的偏移（选择 26:24、分频 4:0、门控 31）；驱动把时钟源设成 PLL_PERI_2X，分频按 `clock-frequency` 算 |
-| `clock-frequency` | 否，300000000 | 模块时钟，单位 Hz |
-| `queue-depth` | 否，8 | 队列里可以排几个操作 |
+| `reg`, `interrupts` | yes | register window, interrupt |
+| `clocks`, `clock-names` | yes | three clock gates: `mod`, `bus`, `mbus`, in that order |
+| `resets` | yes | bus reset |
+| `ccu-base` | yes | the CCU base address |
+| `mod-clk-reg` | yes | the offset of the G2D module clock register in the CCU (select 26:24, divider 4:0, gate 31); the driver sets the clock source to PLL_PERI_2X and computes the divider from `clock-frequency` |
+| `clock-frequency` | no, 300000000 | module clock, in Hz |
+| `queue-depth` | no, 8 | how many operations can be queued |
 
 ## Kconfig
 
-| 选项 | 默认 | 含义 |
+| Option | Default | Meaning |
 | --- | --- | --- |
-| `CONFIG_G2D` | 板级 defconfig 里是 `y` | 打开 G2D 接口和驱动 |
-| `CONFIG_G2D_INIT_PRIORITY` | 41 | 驱动的初始化优先级（POST_KERNEL） |
-| `CONFIG_G2D_SHELL` | `y`（依赖 `SHELL`，且不是 minimal libc） | shell 命令 `g2d info|fill|blit|blend|bench`，用来试加速器并和 CPU 比较 |
-| `CONFIG_G2D_SUNXI` | `y`（依赖 `DT_HAS_ALLWINNER_SUNXI_G2D_ENABLED`） | 编译这个驱动，并选中 `CACHE_MANAGEMENT`。驱动的许可证是 GPL-2.0-or-later |
-| `CONFIG_G2D_SUNXI_THREAD_STACK_SIZE` | 2048 | 驱动工作线程的栈大小 |
-| `CONFIG_G2D_SUNXI_THREAD_PRIORITY` | 5 | 驱动工作线程的优先级 |
-| `CONFIG_G2D_SUNXI_TIMEOUT_MS` | 100 | 一个操作最多允许运行多久（毫秒），超时返回 `-ETIMEDOUT` |
+| `CONFIG_G2D` | `y` in the board defconfig | enables the G2D interface and driver |
+| `CONFIG_G2D_INIT_PRIORITY` | 41 | the driver's initialization priority (POST_KERNEL) |
+| `CONFIG_G2D_SHELL` | `y` (depends on `SHELL`, and not minimal libc) | the shell command `g2d info|fill|blit|blend|bench`, to try the accelerator and compare it with the CPU |
+| `CONFIG_G2D_SUNXI` | `y` (depends on `DT_HAS_ALLWINNER_SUNXI_G2D_ENABLED`) | builds this driver and selects `CACHE_MANAGEMENT`. The driver's license is GPL-2.0-or-later |
+| `CONFIG_G2D_SUNXI_THREAD_STACK_SIZE` | 2048 | the stack size of the driver's worker thread |
+| `CONFIG_G2D_SUNXI_THREAD_PRIORITY` | 5 | the priority of the driver's worker thread |
+| `CONFIG_G2D_SUNXI_TIMEOUT_MS` | 100 | the longest an operation is allowed to run (milliseconds); a timeout returns `-ETIMEDOUT` |
 
-## 接口详解
+## Interface reference
 
-演示在 `yuzukineko` 上运行。每个结果都和 CPU 对同样像素的计算结果比较，对了打印 `ok`。公共的写法如下：
+The demo runs on `yuzukineko`. Every result is compared against what the CPU computes for the same pixels, and prints `ok` when it is right. The common form is:
 
 ```c
 static const struct device *const g2d = DEVICE_DT_GET(DT_NODELABEL(g2d));
 ```
 
-缓冲区由调用者提供。G2D 读写的是物理内存，所以缓冲区要对齐到缓存行（64 字节），CPU 写完要把缓存写回去（`sys_cache_data_flush_range`），G2D 才读得到。演示用下面这些辅助函数：
+The buffers are supplied by the caller. The G2D reads and writes physical memory, so buffers must be aligned to the cache line (64 bytes), and the CPU must write them back (`sys_cache_data_flush_range`) after writing so the G2D can read them. The demo uses the following helper functions:
 
 ```c
 /* A buffer for a surface: 64 byte aligned, which is the cache line size of the C907. */
@@ -146,22 +146,22 @@ static bool near(uint32_t a, uint32_t b, int tol)
 }
 ```
 
-### struct g2d_surface 和 struct g2d_rect
+### struct g2d_surface and struct g2d_rect
 
 ```c
 struct g2d_surface {
 	enum g2d_format format;
-	uint16_t width, height;		/* 缓冲区的像素尺寸 */
-	void *plane[3];			/* 各平面的基址；NV12/NV21 用 2 个，I420 用 3 个 */
-	uint32_t pitch[3];		/* 各平面的行距（字节）；0 表示紧密排列 */
+	uint16_t width, height;		/* the pixel size of the buffer */
+	void *plane[3];			/* base address of each plane; NV12/NV21 use 2, I420 uses 3 */
+	uint32_t pitch[3];		/* stride of each plane (bytes); 0 means tightly packed */
 };
 
 struct g2d_rect {
-	uint16_t x, y, width, height;	/* 像素 */
+	uint16_t x, y, width, height;	/* pixels */
 };
 ```
 
-`g2d_surface` 描述整块缓冲区，`g2d_rect` 是缓冲区里要操作的区域。YUV 的区域不能切开色度采样：x 和宽度要是偶数，4:2:0 的 y 和高度也要是偶数。
+`g2d_surface` describes a whole buffer, and `g2d_rect` is the region within the buffer to operate on. A YUV region cannot split the chroma sampling: x and width must be even, and for 4:2:0 y and height must also be even.
 
 ### g2d_get_capabilities
 
@@ -169,7 +169,7 @@ struct g2d_rect {
 int g2d_get_capabilities(const struct device *dev, struct g2d_capabilities *caps);
 ```
 
-读设备的能力：能读、能写的像素格式（每一位对应 `enum g2d_format` 的一个值）、支持的操作、最大尺寸、旋转的对齐要求和队列深度。
+Reads the device's capabilities: the pixel formats it can read and write (each bit corresponds to a value of `enum g2d_format`), the supported operations, the maximum size, the alignment requirements for rotation, and the queue depth.
 
 ```c
 /* g2d_get_capabilities: which formats and operations the device has */
@@ -201,7 +201,7 @@ static void demo_capabilities(void)
 static inline unsigned int g2d_format_bytes_per_pixel(enum g2d_format format);
 ```
 
-返回格式的第一个平面每个像素占几个字节；平面格式（NV12 等）返回 0。上面的 `surface()` 用它算缓冲区大小。
+Returns how many bytes each pixel of the format's first plane takes; planar formats (NV12 and the like) return 0. The `surface()` above uses it to compute the buffer size.
 
 ### g2d_fill
 
@@ -210,7 +210,7 @@ int g2d_fill(const struct device *dev, const struct g2d_surface *dst,
              const struct g2d_rect *dst_rect, uint32_t color);
 ```
 
-用一种颜色填充目的缓冲区的一个矩形，等操作完成才返回。颜色永远是 ARGB8888，目的是别的格式时由驱动转换。
+Fills a rectangle of the destination buffer with one colour, and returns only once the operation has completed. The colour is always ARGB8888; the driver converts it when the destination is another format.
 
 ```c
 /* g2d_fill: a rectangle of one colour. The colour is always ARGB8888; the driver converts it. */
@@ -250,9 +250,9 @@ int g2d_blit(const struct device *dev, const struct g2d_surface *src, const stru
              enum g2d_rotation rotation, uint32_t flags);
 ```
 
-把源矩形搬到目的矩形，等完成才返回。源和目的矩形大小不同就缩放；格式不同就转换；`rotation` 和 `flags` 里的 `G2D_FLIP_H`、`G2D_FLIP_V` 做旋转和翻转（先旋转后翻转）。
+Blits the source rectangle to the destination rectangle, and returns only once it has completed. When the source and destination rectangles are different sizes it scales; when the formats are different it converts; `rotation` and `G2D_FLIP_H` and `G2D_FLIP_V` in `flags` do rotation and flipping (rotation first, then flipping).
 
-#### 示例：复制、缩放、转换格式
+#### Example: copy, scale, convert format
 
 ```c
 /* g2d_blit: copy a rectangle, converting the format, scaling to the size of the destination
@@ -309,9 +309,9 @@ static void demo_blit(void)
 [blit] ARGB8888 to RGB565              = 0: ff643280 -> 6190 (wanted 6190), ok
 ```
 
-#### 示例：旋转和翻转
+#### Example: rotation and flips
 
-源图四个角各有一种颜色，检查旋转后它们落到的位置。90 度和 270 度旋转的目的缓冲区是源的宽高互换。旋转要求源和目的同格式，目的行距 8 字节对齐，缓冲区地址 4 字节对齐。
+Each of the source image's four corners has one colour, and after rotation the check sees which position each lands on. The destination buffer of a 90- and a 270-degree rotation has the source's width and height swapped. Rotation requires the source and destination to have the same format, an 8-byte-aligned destination pitch and a 4-byte-aligned buffer address.
 
 ```c
 /* g2d_blit with a rotation and flips. The source has four coloured corners; the rotation moves
@@ -368,9 +368,9 @@ static void demo_rotate(void)
 [rotate] rotate 270      64x48 -> 48x64 = 0: ok
 ```
 
-#### 示例：YUV 源转 RGB
+#### Example: YUV source to RGB
 
-NV12 的两个平面各给一个基址和行距。默认是 BT.601、限幅（16…235）；`G2D_FLAG_YUV_FULL_RANGE` 用全幅，`G2D_FLAG_YUV_BT709` 用 BT.709。Y 81、U 90、V 240 在默认设置下是红色。
+The two planes of NV12 are each given a base address and a stride. The defaults are BT.601 and the limited range (16…235); `G2D_FLAG_YUV_FULL_RANGE` uses full range and `G2D_FLAG_YUV_BT709` uses BT.709. Y 81, U 90, V 240 is red under the default settings.
 
 ```c
 /* g2d_blit from a YUV source: NV12 is a Y plane followed by an interleaved U/V plane.
@@ -425,15 +425,15 @@ int g2d_blend(const struct device *dev, const struct g2d_surface *fg, const stru
               const struct g2d_blend *blend, uint32_t flags);
 ```
 
-把前景叠在背景上，结果写到目的；目的可以就是背景。`struct g2d_blend` 选混合模式（Porter-Duff：`G2D_BLEND_SRC_OVER`、`SRC`、`DST_OVER`、`SRC_IN` 等 12 种）和前后景的 Alpha 来源：
+Blends the foreground over the background and writes the result to the destination; the destination can be the background itself. `struct g2d_blend` selects the blend mode (Porter-Duff: `G2D_BLEND_SRC_OVER`, `SRC`, `DST_OVER`, `SRC_IN` and other of the 12 kinds) and the alpha source for the foreground and background:
 
-| `g2d_alpha_mode` | Alpha 的取法 |
+| `g2d_alpha_mode` | How alpha is taken |
 | --- | --- |
-| `G2D_ALPHA_PIXEL` | 像素自己的 Alpha 通道 |
-| `G2D_ALPHA_GLOBAL` | 整层统一的 `fg_alpha` / `bg_alpha`（0…255） |
-| `G2D_ALPHA_MIXED` | 像素的 Alpha 乘以整层的 Alpha |
+| `G2D_ALPHA_PIXEL` | the pixel's own alpha channel |
+| `G2D_ALPHA_GLOBAL` | a layer-wide uniform `fg_alpha` / `bg_alpha` (0…255) |
+| `G2D_ALPHA_MIXED` | the pixel's alpha multiplied by the layer-wide alpha |
 
-前景和目的区域大小不同时前景被缩放；背景必须是 RGB，并且和目的区域一样大。
+When the foreground and destination regions are different sizes the foreground is scaled; the background must be RGB and the same size as the destination region.
 
 ```c
 /* g2d_blend: the foreground over the background. A red foreground with a layer alpha of 128 over
@@ -492,7 +492,7 @@ static void demo_blend(void)
 [blend] G2D_BLEND_SRC                  = 0: ffff0000
 ```
 
-红色前景以整层 Alpha 128 盖在不透明蓝色上，得到一半红一半蓝；像素 Alpha 64 的红色约占四分之一。
+A red foreground with a layer alpha of 128 over an opaque blue gives about half red and half blue; red with a pixel alpha of 64 makes up about a quarter.
 
 ### g2d_submit
 
@@ -500,17 +500,17 @@ static void demo_blend(void)
 int g2d_submit(const struct device *dev, const struct g2d_op *op);
 ```
 
-把一个操作放进队列，不等它完成。`struct g2d_op` 描述操作的全部（类型、缓冲区、矩形、颜色、混合参数、回调），驱动会复制它，但操作用到的缓冲区要保持有效到操作完成。
+Puts an operation into the queue without waiting for it to complete. `struct g2d_op` describes the whole operation (type, buffers, rectangles, colour, blend parameters, callback); the driver copies it, but the buffers used by the operation must stay valid until the operation completes.
 
-| 返回 | 含义 |
+| Return | Meaning |
 | --- | --- |
-| 0 | 已入队 |
-| `-EINVAL` | 设备不支持这些参数（格式、矩形、对齐等） |
-| `-ENOMEM` | 队列满了 |
+| 0 | queued |
+| `-EINVAL` | the device does not support these parameters (format, rectangle, alignment, etc.) |
+| `-ENOMEM` | the queue is full |
 
-完成后驱动在自己的线程里调用 `op->callback`，`status` 是 0 或负的错误码；回调里不能阻塞。操作按提交的顺序完成。
+After completion the driver calls `op->callback` in its own thread, with `status` being 0 or a negative error code; the callback must not block. Operations complete in the order they were submitted.
 
-演示一次提交 12 个填充，队列装得下 7 个，其余 5 个被拒绝。
+The demo submits 12 fills at once; the queue holds 7 and the other 5 are refused.
 
 ```c
 static K_SEM_DEFINE(done_sem, 0, 64);
@@ -580,7 +580,7 @@ static void demo_submit(void)
 int g2d_run(const struct device *dev, const struct g2d_op *op, k_timeout_t timeout);
 ```
 
-提交一个操作并等它完成。`g2d_fill`、`g2d_blit`、`g2d_blend` 就是它的包装。超时返回 `-EAGAIN`，操作本身仍会继续执行完。
+Submits one operation and waits for it to complete. `g2d_fill`, `g2d_blit` and `g2d_blend` are wrappers around it. A timeout returns `-EAGAIN`, and the operation itself still runs to completion.
 
 ```c
 /* g2d_run: submit and wait. A timeout shorter than the operation returns -EAGAIN, the operation
@@ -615,7 +615,7 @@ static void demo_run(void)
 [run] the same with K_NO_WAIT           = -EAGAIN
 ```
 
-### 驱动拒绝的参数
+### Parameters the driver refuses
 
 ```c
 /* what the driver refuses */
@@ -651,9 +651,9 @@ static void demo_errors(void)
 [error] surface without a buffer        = -EINVAL
 ```
 
-### 和 CPU 比速度
+### Speed against the CPU
 
-填充和复制一整屏（1024×768 ARGB8888，3 MiB）：
+Filling and copying a whole screen (1024×768 ARGB8888, 3 MiB):
 
 ```c
 /* the G2D against the CPU filling a 1024x768 buffer, which is a full screen */
@@ -700,11 +700,11 @@ static void demo_speed(void)
 [speed] g2d_blit 1024x768               = 0: 10900 us
 ```
 
-CPU 的耗时包含把结果写回缓存。G2D 的优势是 CPU 在这段时间里可以做别的事（用 `g2d_submit`）。
+The CPU's time includes writing the result back to the cache. The G2D's advantage is that the CPU can do other things during that time (with `g2d_submit`).
 
-### 把结果显示出来
+### Showing the result
 
-用 G2D 在一个 320×240 的缓冲区里画几个色块，把一条白色半透明的条混合上去，再把这条转 90 度混到右侧，最后用显示接口写到屏幕的 (100, 100)。屏幕的帧缓冲层是 ARGB8888，写入窗口最大 400×400。
+Use the G2D to draw a few colour blocks in a 320×240 buffer, blend a translucent white bar over it, then rotate that bar 90 degrees and blend it onto the right side, and finally write it to screen position (100, 100) with the display interface. The display's frame-buffer layer is ARGB8888, and the write window is at most 400×400.
 
 ```c
 /* make a picture with the G2D and show it. The frame buffer plane of the display is ARGB8888
@@ -763,9 +763,9 @@ static void demo_show(void)
 [show] display_write 320x240 at (100,100) = 0
 ```
 
-## 完整演示程序
+## The complete demo program
 
-上面所有示例和日志都来自这一个程序。建一个目录，放进下面的文件，就可以像其他 Zephyr 应用一样编译。
+All the examples and logs above come from this one program. Create a directory, put the files below in it, and it can be built like any other Zephyr application.
 
 ```text
 g2d_api/
@@ -800,7 +800,7 @@ CONFIG_DEVMEM_SHELL=n
 CONFIG_LOG_PRINTK=n
 ```
 
-`CONFIG_COMMON_LIBC_MALLOC_ARENA_SIZE=-1` 让 libc 的堆占用镜像之后的全部 RAM，演示里 1024×768 的缓冲区都从这里分配；把一个大堆放进系统堆（`CONFIG_HEAP_MEM_POOL_SIZE`）会让它成为 `zephyr.bin` 的一部分。
+`CONFIG_COMMON_LIBC_MALLOC_ARENA_SIZE=-1` makes the libc heap take all RAM after the image, and the demo's 1024×768 buffers are all allocated from it; putting a large heap into the system heap (`CONFIG_HEAP_MEM_POOL_SIZE`) would make it part of `zephyr.bin`.
 
 ### src/main.c
 
@@ -1321,7 +1321,7 @@ int main(void)
 }
 ```
 
-### 编译和运行
+### Building and running
 
 ```sh
 . ~/f101-zephyr/env.sh
@@ -1331,7 +1331,7 @@ west build -b yuzukineko -d build/g2d-api g2d_api
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/drivers-g2d/build.cast" data-speed="6"></div>
 
-下载运行的方法见[编译与运行](../zephyr-build-run.md)。控制台 UART1 上的完整输出：
+See [Building and running](../zephyr-build-run.md) for how to download and run. The complete output on the UART1 console:
 
 ```text
 [caps] g2d_get_capabilities = 0
@@ -1370,4 +1370,4 @@ west build -b yuzukineko -d build/g2d-api g2d_api
 g2d_api done
 ```
 
-驱动自己的测试是 `samples/drivers/g2d`，对每种格式、旋转、YUV 源和混合模式做同样的逐像素检查。
+The driver's own test is `samples/drivers/g2d`, which does the same per-pixel checks for every format, rotation, YUV source and blend mode.

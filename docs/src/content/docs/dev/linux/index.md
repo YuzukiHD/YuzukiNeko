@@ -1,69 +1,69 @@
 ---
-title: "Linux 开发"
+title: "Linux development"
 ---
 
-F101 上的 Linux 由三部分组成，启动链为 BROM → SyterKit → OpenSBI → Linux → BusyBox：
+Linux on F101 consists of three parts, and the boot chain is BROM → SyterKit → OpenSBI → Linux → BusyBox:
 
-- <strong>Linux</strong>：开源的操作系统内核，负责进程、内存、文件系统和设备驱动。这里用的是基于主线的内核，来自 [`YuzukiHD/linux-mainline`](https://github.com/YuzukiHD/linux-mainline) 的 `sun252i_f101_7.2` 分支，目前是 7.2。有 RV32（C907）和 RV64I 两种模式的配置，从 SPI NOR 启动，根文件系统是 SquashFS，上面叠一层可写的 JFFS2 overlay。
-- <strong>OpenSBI</strong>：开源的 RISC-V SBI（Supervisor Binary Interface）参考实现，运行在最高特权的 M 模式，替内核完成定时器、核间中断、复位等 M 模式才能做的事。这里用的是来自 [`YuzukiHD/opensbi`](https://github.com/YuzukiHD/opensbi) 的 `sun252i-f101` 分支，用 `fw_jump` 形态。SyterKit 把它载入 RAM 的 `0x40f80000`，它初始化完成后跳到 `0x40000000` 的内核，并在内核运行期间提供 SBI 服务。
-- <strong>Buildroot</strong>：面向嵌入式 Linux 的开源构建系统，用一份配置自动下载、编译并打包出完整系统。这里用它把工具链、内核、OpenSBI、SyterKit 和 BusyBox 根文件系统一起构建成 16 MiB 镜像。板级配置放在外部树 [`YuzukiHD/buildroot-external-yuzukihd`](https://github.com/YuzukiHD/buildroot-external-yuzukihd) 里，Buildroot 本体直接用官方主线的 [`buildroot/buildroot`](https://github.com/buildroot/buildroot) 仓库。
+- <strong>Linux</strong>: the open-source operating system kernel, responsible for processes, memory, filesystems, and device drivers. The kernel used here is based on mainline, from the `sun252i_f101_7.2` branch of [`YuzukiHD/linux-mainline`](https://github.com/YuzukiHD/linux-mainline), currently 7.2. There are configurations for both RV32 (C907) and RV64I modes; it boots from SPI NOR, the root filesystem is SquashFS, with a writable JFFS2 overlay on top.
+- <strong>OpenSBI</strong>: the open-source reference implementation of the RISC-V SBI (Supervisor Binary Interface), running in the highest-privileged M mode, doing on the kernel's behalf the things only M mode can do, such as timers, inter-processor interrupts, and reset. The one used here is from the `sun252i-f101` branch of [`YuzukiHD/opensbi`](https://github.com/YuzukiHD/opensbi), in its `fw_jump` form. SyterKit loads it into RAM at `0x40f80000`; after it finishes initialising, it jumps to the kernel at `0x40000000` and provides SBI services while the kernel runs.
+- <strong>Buildroot</strong>: an open-source build system for embedded Linux that automatically downloads, compiles, and packages a complete system from a single configuration. Here it is used to build the toolchain, kernel, OpenSBI, SyterKit, and the BusyBox root filesystem together into a 16 MiB image. The board configuration lives in the external tree [`YuzukiHD/buildroot-external-yuzukihd`](https://github.com/YuzukiHD/buildroot-external-yuzukihd), while Buildroot itself uses the official mainline [`buildroot/buildroot`](https://github.com/buildroot/buildroot) repository.
 
-| 方案 | 说明 |
+| Approach | Description |
 | --- | --- |
-| [预编译镜像](linux-prebuilt.md) | 现成的整片 16 MiB 镜像（RV32 / RV64I）及其烧录、串口和单组件替换 |
-| [手动构建](linux-manual.md) | 从 SyterKit、OpenSBI、内核到 BusyBox 根文件系统，逐步构建并拼成 16 MiB 镜像（RV32） |
-| [手动构建 RV64I](linux-manual-rv64.md) | 64 位镜像要改的地方 |
-| [Linux + Buildroot](linux-buildroot.md) | 用 Buildroot 外部树一条命令构建镜像（RV32 / RV64I） |
+| [Prebuilt images](linux-prebuilt.md) | Ready-made full 16 MiB images (RV32 / RV64I) and their flashing, serial port, and single-component replacement |
+| [Manual build](linux-manual.md) | Build step by step from SyterKit, OpenSBI, and the kernel to a BusyBox root filesystem, and assemble a 16 MiB image (RV32) |
+| [Manual build RV64I](linux-manual-rv64.md) | What to change for the 64-bit image |
+| [Linux + Buildroot](linux-buildroot.md) | Build the image with one command using the Buildroot external tree (RV32 / RV64I) |
 
-## 驱动支持情况
+## Driver support
 
-### 已支持
+### Supported
 
-设备树里已启用，驱动也编进了内核：
+Enabled in the devicetree, with the drivers compiled into the kernel:
 
-| 外设 | 驱动 | 说明 |
+| Peripheral | Driver | Notes |
 | --- | --- | --- |
-| 时钟与复位 | `sunxi-ng` CCU（含 CPU PLL、DDR PLL、RTC 时钟） | 所有外设的时钟来源 |
-| 中断与定时器 | PLIC、CLINT | C907 自带 |
-| 引脚复用与 GPIO | `pinctrl-sun252i-f101`，GPIO 字符设备 | 提供 `/dev/gpiochip*` |
-| UART1 | 8250 DesignWare | 控制台 `ttyS1`，115200 8N1，引脚 `PB0/PB1` |
-| I2C2 | `i2c-mv64xxx`，`i2c-dev` | 引脚 `PB2` 组，用户态走 `/dev/i2c-*` |
-| SPI0 与板载 NOR | `spi-sun6i`，`spi-nor`，MTD | 16 MiB NOR，按固定分区挂载，见[预编译镜像](linux-prebuilt.md#单独替换某个组件) |
+| Clocks and reset | `sunxi-ng` CCU (including CPU PLL, DDR PLL, RTC clock) | Clock source for all peripherals |
+| Interrupts and timers | PLIC, CLINT | Built into the C907 |
+| Pin multiplexing and GPIO | `pinctrl-sun252i-f101`, GPIO character device | Provides `/dev/gpiochip*` |
+| UART1 | 8250 DesignWare | Console `ttyS1`, 115200 8N1, pins `PB0/PB1` |
+| I2C2 | `i2c-mv64xxx`, `i2c-dev` | `PB2` pin group, userspace via `/dev/i2c-*` |
+| SPI0 and onboard NOR | `spi-sun6i`, `spi-nor`, MTD | 16 MiB NOR, mounted by fixed partitions, see [Prebuilt images](linux-prebuilt.md#replacing-a-single-component) |
 | DMA | `sun6i-dma` | |
-| 系统控制与 SRAM | `sunxi_sram` | |
+| System control and SRAM | `sunxi_sram` | |
 
-### 没验证
+### Unverified
 
-下面这些没有验证过，可能存在问题。
+The following have not been verified and may have problems.
 
-| 外设 | 现状 |
+| Peripheral | Status |
 | --- | --- |
-| 视频引擎 | Cedrus 驱动（`VIDEO_SUNXI_CEDRUS`，V4L2 staging）已编入，设备树里已启用；没有测试通过，板上内存不够，没法验证 |
-| microSD（SMHC0） | `sunxi-mmc` 驱动已编入；板级写了卡检测 `PF6` 和 3.3 V 供电，但状态是 `disabled`；没有测试通过，板上内存不够，没法验证 |
-| SMHC2 | `sunxi-mmc` 驱动已编入；SoC 里有节点，板级没有配置；没有测试通过，板上内存不够，没法验证 |
-| UART0、UART2～UART5 | 8250 DesignWare 驱动已编入；SoC 里有节点，板级没有启用，也没有配置引脚 |
-| I2C0、I2C1 | `i2c-mv64xxx` 驱动已编入；板级没有启用，也没有配置引脚 |
-| SPI1 | `spi-sun6i` 驱动已编入；板级没有启用，也没有配置引脚 |
-| PWM0 | `pwm-sunxi` 驱动已编入；板级没有启用，也没有配置引脚 |
-| 看门狗 | SoC 设备树有节点，但内核没开 `CONFIG_WATCHDOG`，驱动没有编进去 |
-| USB（主机 / 设备） | 内核没开 `CONFIG_USB`，设备树里也没有 USB 节点 |
-| 显示与 RGB LCD | 没有显示驱动（`CONFIG_DRM` 未开），设备树里没有显示节点 |
-| G2D | 设备树里没有节点，内核里也没有驱动 |
-| 音频（片上 codec） | 设备树里没有节点，内核里也没有驱动 |
-| ADC | 设备树里没有节点，`CONFIG_IIO` 未开 |
-| RTC | 只有 RTC 时钟控制器，没有 RTC 设备，`CONFIG_RTC_CLASS` 未开 |
+| Video engine | The Cedrus driver (`VIDEO_SUNXI_CEDRUS`, V4L2 staging) is compiled in and enabled in the devicetree; it has not passed testing, and there is not enough memory on the board to verify it |
+| microSD (SMHC0) | The `sunxi-mmc` driver is compiled in; the board layer declares card detect `PF6` and 3.3 V power, but the status is `disabled`; it has not passed testing, and there is not enough memory on the board to verify it |
+| SMHC2 | The `sunxi-mmc` driver is compiled in; the SoC has a node, the board layer does not configure it; it has not passed testing, and there is not enough memory on the board to verify it |
+| UART0, UART2–UART5 | The 8250 DesignWare driver is compiled in; the SoC has nodes, but the board layer neither enables them nor configures pins |
+| I2C0, I2C1 | The `i2c-mv64xxx` driver is compiled in; the board layer neither enables them nor configures pins |
+| SPI1 | The `spi-sun6i` driver is compiled in; the board layer neither enables it nor configures pins |
+| PWM0 | The `pwm-sunxi` driver is compiled in; the board layer neither enables it nor configures pins |
+| Watchdog | The SoC devicetree has a node, but the kernel does not enable `CONFIG_WATCHDOG`, so the driver is not compiled in |
+| USB (host / device) | The kernel does not enable `CONFIG_USB`, and there is no USB node in the devicetree |
+| Display and RGB LCD | There is no display driver (`CONFIG_DRM` not enabled), and no display node in the devicetree |
+| G2D | No node in the devicetree and no driver in the kernel |
+| Audio (on-chip codec) | No node in the devicetree and no driver in the kernel |
+| ADC | No node in the devicetree, `CONFIG_IIO` not enabled |
+| RTC | Only the RTC clock controller, no RTC device, `CONFIG_RTC_CLASS` not enabled |
 
-想用设备树里已有节点但没启用的外设，改 `sun252i-f101-yuzukineko-common.dtsi`，把对应节点设成 `okay`、配好引脚，重新构建设备树。
+To use a peripheral that already has a node in the devicetree but is not enabled, edit `sun252i-f101-yuzukineko-common.dtsi`, set the corresponding node to `okay`, configure its pins, and rebuild the devicetree.
 
-Linux 暂时没有 USB、显示、G2D、音频的驱动；这几类外设在 [Zephyr](../zephyr/index.md) 里有驱动。
+Linux currently has no USB, display, G2D, or audio drivers; these classes of peripheral have drivers in [Zephyr](../zephyr/index.md).
 
-## 本章内容
+## In this chapter
 
-- [预编译镜像](linux-prebuilt.md)
-- [手动构建](linux-manual.md)
-- [手动构建 RV64I](linux-manual-rv64.md)
+- [Prebuilt images](linux-prebuilt.md)
+- [Manual build](linux-manual.md)
+- [Manual build RV64I](linux-manual-rv64.md)
 - [Linux + Buildroot](linux-buildroot.md)
 
 :::tip
-刷写前请先阅读 [FEL 下载模式与工具](../../boot/fel.md) 和 [SPI NOR 布局与备份](../../boot/flash-layout.md)，并备份板上 Flash。纯 Rust 的系统见 [Asterinas](../asterinas/rustsbi-asterinas.md)。
+Before flashing, read [FEL download mode and tools](../../boot/fel.md) and [SPI NOR layout and backup](../../boot/flash-layout.md), and back up the board's Flash. For a pure Rust system, see [Asterinas](../asterinas/rustsbi-asterinas.md).
 :::

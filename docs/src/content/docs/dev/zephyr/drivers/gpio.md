@@ -2,51 +2,51 @@
 title: "GPIO"
 ---
 
-F101 的 GPIO 和引脚复用（pinctrl）在同一个 PIO 模块里：6 个 bank（PA…PF），每个 bank 32 根线，每个 bank 一个中断。Zephyr 里把每个 bank 做成一个 GPIO 设备（`gpioa`…`gpiof`），接口是标准的 `<zephyr/drivers/gpio.h>`，驱动是 `drivers/gpio/gpio_sunxi.c`。
+The GPIO and pin multiplexing (pinctrl) of the F101 live in the same PIO module: 6 banks (PA…PF), 32 lines per bank, one interrupt per bank. In Zephyr each bank is a GPIO device (`gpioa`…`gpiof`), the interface is the standard `<zephyr/drivers/gpio.h>`, and the driver is `drivers/gpio/gpio_sunxi.c`.
 
-| 项目 | 内容 |
+| Item | Description |
 | --- | --- |
-| 设备 | `gpioa`、`gpiob`、`gpioc`、`gpiod`、`gpioe`、`gpiof`，每个 bank 32 个引脚 |
-| 方向 | 输入、输出，可选内部上拉或下拉 |
-| 中断 | 上升沿、下降沿、双沿、高电平、低电平 |
-| 不支持 | 开漏、开源输出（`-ENOTSUP`），`gpio_pin_get_config` |
+| Device | `gpioa`, `gpiob`, `gpioc`, `gpiod`, `gpioe`, `gpiof`, 32 pins per bank |
+| Direction | input, output, with optional internal pull-up or pull-down |
+| Interrupts | rising edge, falling edge, both edges, high level, low level |
+| Not supported | open drain, open source output (`-ENOTSUP`), `gpio_pin_get_config` |
 
-## 设备树
+## Devicetree
 
-GPIO 涉及三个文件，从下到上依次是：
+GPIO involves three files, from the bottom up:
 
-| 文件 | 作用 |
+| File | Role |
 | --- | --- |
-| `dts/bindings/gpio/allwinner,sunxi-gpio.yaml` | 绑定：规定 `allwinner,sunxi-gpio` 节点的属性 |
-| `dts/riscv/allwinner/sun252i_f101.dtsi` | SoC 设备树：6 个 bank 的节点，默认都是 `okay` |
-| `boards/yuzukihd/yuzukineko/yuzukineko.dts` | 板级设备树：用 `gpio-leds`、`cd-gpios` 这类属性引用具体的引脚 |
+| `dts/bindings/gpio/allwinner,sunxi-gpio.yaml` | Binding: defines the properties of the `allwinner,sunxi-gpio` node |
+| `dts/riscv/allwinner/sun252i_f101.dtsi` | SoC devicetree: the nodes of the 6 banks, all `okay` by default |
+| `boards/yuzukihd/yuzukineko/yuzukineko.dts` | Board devicetree: references specific pins through properties such as `gpio-leds` and `cd-gpios` |
 
-### SoC 设备树：sun252i_f101.dtsi
+### SoC devicetree: sun252i_f101.dtsi
 
-下面是 PB bank 的节点，其余 5 个 bank 只有寄存器地址、`allwinner,bank` 和中断号不同：
+Below is the node of the PB bank; the other 5 banks differ only in the register address, `allwinner,bank` and the interrupt number:
 
 ```c
 gpiob: gpio@2000030 {
-	/* 匹配驱动 gpio_sunxi.c 里的 DT_DRV_COMPAT allwinner_sunxi_gpio */
+	/* Matches DT_DRV_COMPAT allwinner_sunxi_gpio in the driver gpio_sunxi.c */
 	compatible = "allwinner,sunxi-gpio";
 
-	/* 这个 bank 的寄存器：基址 0x02000030，长度 0x30 */
+	/* The registers of this bank: base address 0x02000030, length 0x30 */
 	reg = <0x02000030 0x30>;
 
-	/* PIO 寄存器布局类型。F1xx 系列用类型 0：bank 间隔 0x30 字节，中断寄存器在 0x200 之后 */
+	/* PIO register layout type. The F1xx series uses type 0: the bank stride is 0x30 bytes and the interrupt registers are after 0x200 */
 	allwinner,pio-hw-type = <ALLWINNER_PIO_HW_TYPE0>;
 
-	/* bank 号：PA = 0，PB = 1，……，PF = 5。驱动靠它算出这个 bank 的中断寄存器位置 */
+	/* Bank number: PA = 0, PB = 1, ..., PF = 5. The driver uses it to work out the interrupt register location of this bank */
 	allwinner,bank = <1>;
 
-	/* 这是一个 GPIO 控制器，引用它的 gpios 属性有 2 个格子：引脚号、标志 */
+	/* This is a GPIO controller; a gpios property that references it has 2 cells: pin number, flags */
 	gpio-controller;
 	#gpio-cells = <2>;
 
-	/* 引脚个数 */
+	/* Number of pins */
 	ngpios = <32>;
 
-	/* 这个 bank 的中断：PLIC 的 69 号，优先级 1 */
+	/* The interrupt of this bank: PLIC number 69, priority 1 */
 	interrupts = <69 1>;
 	interrupt-parent = <&plic>;
 
@@ -54,9 +54,9 @@ gpiob: gpio@2000030 {
 };
 ```
 
-六个 bank 的差别：
+The differences between the six banks:
 
-| 节点 | 标签 | 寄存器 | `allwinner,bank` | PLIC 中断号 |
+| Node | Label | Registers | `allwinner,bank` | PLIC interrupt number |
 | --- | --- | --- | --- | --- |
 | `gpio@2000000` | `gpioa` | `0x02000000` | 0 | 67 |
 | `gpio@2000030` | `gpiob` | `0x02000030` | 1 | 69 |
@@ -65,14 +65,14 @@ gpiob: gpio@2000030 {
 | `gpio@20000c0` | `gpioe` | `0x020000c0` | 4 | 75 |
 | `gpio@20000f0` | `gpiof` | `0x020000f0` | 5 | 77 |
 
-### 板级设备树：yuzukineko.dts
+### Board devicetree: yuzukineko.dts
 
-板级文件用 GPIO 的地方有两处。一处是 LED，另一处是 TF 卡的插卡检测：
+The board file uses GPIO in two places. One is the LED, the other is the TF card insertion detection:
 
 ```c
 / {
 	aliases {
-		/* 应用里用 DT_ALIAS(led0) 取到 LED */
+		/* The application gets the LED with DT_ALIAS(led0) */
 		led0 = &led0;
 	};
 
@@ -80,27 +80,27 @@ gpiob: gpio@2000030 {
 		compatible = "gpio-leds";
 
 		led0: led_0 {
-			/* &gpiod：PD bank；5：第 5 根线，即 PD5；高电平点亮 */
+			/* &gpiod: the PD bank; 5: line 5, that is PD5; active high */
 			gpios = <&gpiod 5 GPIO_ACTIVE_HIGH>;
 		};
 	};
 };
 
 &smhc0 {
-	/* PF6 是 TF 卡插卡检测，低电平表示有卡，所以是 GPIO_ACTIVE_LOW */
+	/* PF6 is TF card insertion detection, a low level means a card is present, so GPIO_ACTIVE_LOW */
 	cd-gpios = <&gpiof 6 GPIO_ACTIVE_LOW>;
 };
 ```
 
-`gpios = <&gpiod 5 GPIO_ACTIVE_HIGH>` 里 `&gpiod` 后面的两个数就是 `#gpio-cells = <2>` 规定的“引脚号”和“标志”。标志可以用的位在 `include/zephyr/dt-bindings/gpio/gpio.h`：`GPIO_ACTIVE_LOW`、`GPIO_PULL_UP`、`GPIO_PULL_DOWN` 等。
+In `gpios = <&gpiod 5 GPIO_ACTIVE_HIGH>`, the two numbers after `&gpiod` are the "pin number" and the "flags" prescribed by `#gpio-cells = <2>`. The bits available for the flags are in `include/zephyr/dt-bindings/gpio/gpio.h`: `GPIO_ACTIVE_LOW`, `GPIO_PULL_UP`, `GPIO_PULL_DOWN` and so on.
 
-### 引脚复用：pinctrl
+### Pin multiplexing: pinctrl
 
-引脚不用作普通 GPIO，而是给外设用时，由 pinctrl 设定功能。`yuzukineko.dts` 里每个外设都有一组 `pinctrl-0`：
+When a pin is not used as ordinary GPIO but is given to a peripheral, pinctrl sets its function. In `yuzukineko.dts` every peripheral has a `pinctrl-0` group:
 
 ```c
 &pio {
-	/* UART1 控制台：PB00 是 TX，PB01 是 RX，复用功能 4 */
+	/* UART1 console: PB00 is TX, PB01 is RX, multiplexing function 4 */
 	uart1_pins: uart1_pins {
 		uart1_tx_rx {
 			pinmux = <ALLWINNER_PINMUX(ALLWINNER_PIO_PB, 0, 4)
@@ -115,17 +115,17 @@ gpiob: gpio@2000030 {
 };
 ```
 
-`ALLWINNER_PINMUX(bank, 引脚号, 复用功能)` 的复用功能：0 是输入，1 是输出，2…15 是外设功能，14 是外部中断。每个引脚各功能是什么，见[引脚复用表](../../../hardware/mux.md)。可以写在同一个组里的属性：
+In `ALLWINNER_PINMUX(bank, pin number, multiplexing function)` the multiplexing function is: 0 is input, 1 is output, 2…15 are peripheral functions, 14 is the external interrupt. For what each function of a pin is, see the [pin multiplexing table](../../../hardware/mux.md). Properties that can be written in the same group:
 
-| 属性 | 含义 |
+| Property | Meaning |
 | --- | --- |
-| `pinmux` | 引脚和复用功能，每个格子一个引脚 |
-| `bias-pull-up` | 打开内部上拉 |
-| `bias-pull-down` | 打开内部下拉 |
-| `bias-disable` | 关闭上下拉 |
-| `allwinner,drive-level` | 驱动能力，0…3，不写就保持复位值 |
+| `pinmux` | The pin and the multiplexing function, one pin per cell |
+| `bias-pull-up` | Enable the internal pull-up |
+| `bias-pull-down` | Enable the internal pull-down |
+| `bias-disable` | Disable the pull-up and pull-down |
+| `allwinner,drive-level` | Drive strength, 0…3; if it is not written the reset value is kept |
 
-### 绑定：allwinner,sunxi-gpio.yaml
+### Binding: allwinner,sunxi-gpio.yaml
 
 ```yaml
 # Copyright (c) 2026 Yuzuki Tsuru
@@ -173,36 +173,36 @@ gpio-cells:
   - flags
 ```
 
-| 属性 | 必填 | 含义 |
+| Property | Required | Meaning |
 | --- | --- | --- |
-| `reg` | 是 | 这个 bank 的寄存器 |
-| `interrupts` | 是 | 这个 bank 的中断 |
-| `allwinner,pio-hw-type` | 是 | PIO 寄存器布局，F101 是 `ALLWINNER_PIO_HW_TYPE0` |
-| `allwinner,bank` | 是 | bank 号，PA = 0 … PF = 5 |
-| `ngpios` | 来自 `gpio-controller.yaml` | 引脚个数，32 |
-| `#gpio-cells` | 是，固定为 2 | 引脚号、标志 |
+| `reg` | yes | The registers of this bank |
+| `interrupts` | yes | The interrupt of this bank |
+| `allwinner,pio-hw-type` | yes | PIO register layout; for the F101 it is `ALLWINNER_PIO_HW_TYPE0` |
+| `allwinner,bank` | yes | Bank number, PA = 0 … PF = 5 |
+| `ngpios` | from `gpio-controller.yaml` | Number of pins, 32 |
+| `#gpio-cells` | yes, fixed at 2 | Pin number, flags |
 
 ## Kconfig
 
-| 选项 | 默认 | 含义 |
+| Option | Default | Meaning |
 | --- | --- | --- |
-| `CONFIG_GPIO` | 板级 defconfig 里是 `y` | 打开 GPIO 子系统。自己的应用里要写在 `prj.conf` |
-| `CONFIG_GPIO_SUNXI` | `y`（依赖 `DT_HAS_ALLWINNER_SUNXI_GPIO_ENABLED`） | 编译这个驱动，不用手动设置 |
-| `CONFIG_GPIO_INIT_PRIORITY` | Zephyr 默认 | GPIO 驱动的初始化优先级 |
+| `CONFIG_GPIO` | `y` in the board defconfig | Enables the GPIO subsystem. In your own application it has to be written in `prj.conf` |
+| `CONFIG_GPIO_SUNXI` | `y` (depends on `DT_HAS_ALLWINNER_SUNXI_GPIO_ENABLED`) | Builds this driver; there is no need to set it manually |
+| `CONFIG_GPIO_INIT_PRIORITY` | Zephyr default | The initialization priority of the GPIO driver |
 
-## 接口详解
+## Interface details
 
-下面每个接口一个小标题：原型、驱动的行为、一个完整的示例函数和它在板子上的输出。示例来自文末的[完整演示程序](#完整演示程序)，里面的 `err()` 把返回值转成名字。接口里的“电平”都是逻辑电平：设备树里写了 `GPIO_ACTIVE_LOW` 的引脚，`gpio_pin_set_dt(spec, 1)` 输出的是低电平。带 `_raw` 的接口不看这个标志。
+Each interface below gets its own heading: the prototype, the behaviour of the driver, a complete example function and its output on the board. The examples come from the [complete demo program](#complete-demo-program) at the end of the page, whose `err()` turns a return value into a name. The "levels" in the interfaces are all logical levels: for a pin declared `GPIO_ACTIVE_LOW` in the devicetree, `gpio_pin_set_dt(spec, 1)` outputs a low level. Interfaces with `_raw` do not look at this flag.
 
-演示用到 3 个引脚：
+The demo uses 3 pins:
 
-| 引脚 | 位置 | 用途 |
+| Pin | Location | Use |
 | --- | --- | --- |
-| PD5 | 板上的 LED（`led0`） | 输出 |
-| PB2 | 排针上悬空的引脚 | 输出，用 `gpio_port_*` 操作 |
-| PB3 | 排针上悬空的引脚 | 输入，用内部上下拉改变电平，触发中断 |
+| PD5 | the LED on the board (`led0`) | output |
+| PB2 | a floating pin on the header | output, driven with `gpio_port_*` |
+| PB3 | a floating pin on the header | input; the internal pull-up/pull-down changes the level and triggers the interrupt |
 
-PB2 和 PB3 在演示的 `app.overlay` 里通过 `zephyr,user` 节点引用。这是应用自己给引脚取名字的标准办法，不用改板级文件。
+PB2 and PB3 are referenced through the `zephyr,user` node in the demo's `app.overlay`. This is the standard way for an application to give pins its own names without changing the board file.
 
 ### gpio_pin_configure_dt
 
@@ -210,14 +210,14 @@ PB2 和 PB3 在演示的 `app.overlay` 里通过 `zephyr,user` 节点引用。�
 int gpio_pin_configure_dt(const struct gpio_dt_spec *spec, gpio_flags_t extra_flags);
 ```
 
-配置方向、初始电平和上下拉。
+Configures the direction, the initial level and the pull-up/pull-down.
 
-| 标志 | 驱动的行为 |
+| Flag | Driver behaviour |
 | --- | --- |
-| `GPIO_INPUT` | 复用功能设为输入 |
-| `GPIO_OUTPUT`、`GPIO_OUTPUT_INACTIVE`、`GPIO_OUTPUT_ACTIVE` | 复用功能设为输出，并按初始电平先写数据寄存器再切成输出，输出口不会有毛刺 |
-| `GPIO_PULL_UP`、`GPIO_PULL_DOWN` | 打开对应的内部上拉或下拉；两个都不写则关闭上下拉 |
-| `GPIO_OPEN_DRAIN`、`GPIO_OPEN_SOURCE` | 返回 `-ENOTSUP` |
+| `GPIO_INPUT` | Sets the multiplexing function to input |
+| `GPIO_OUTPUT`, `GPIO_OUTPUT_INACTIVE`, `GPIO_OUTPUT_ACTIVE` | Sets the multiplexing function to output; it writes the data register with the initial level first and only then switches to output, so there is no glitch on the output |
+| `GPIO_PULL_UP`, `GPIO_PULL_DOWN` | Enables the corresponding internal pull-up or pull-down; if neither is written the pull-up and pull-down are disabled |
+| `GPIO_OPEN_DRAIN`, `GPIO_OPEN_SOURCE` | Returns `-ENOTSUP` |
 
 ```c
 /* gpio_pin_configure_dt: direction, initial level and pull resistor */
@@ -256,7 +256,7 @@ static void demo_pin_configure_dt(void)
 int gpio_pin_set_dt(const struct gpio_dt_spec *spec, int value);
 ```
 
-设置输出的逻辑电平，1 是有效电平。
+Sets the logical level of an output; 1 is the active level.
 
 ```c
 /* gpio_pin_set_dt: the logical level of an output */
@@ -287,7 +287,7 @@ static void demo_pin_set_dt(void)
 int gpio_pin_toggle_dt(const struct gpio_dt_spec *spec);
 ```
 
-把输出的电平翻转。
+Inverts the level of an output.
 
 ```c
 /* gpio_pin_toggle_dt: invert an output; six calls make the LED blink three times */
@@ -311,7 +311,7 @@ static void demo_pin_toggle_dt(void)
 [toggle] blinked the LED 3 times
 ```
 
-最后一行对应 LED 闪烁 3 次。
+The last line corresponds to the LED blinking 3 times.
 
 ### gpio_pin_get_dt
 
@@ -319,7 +319,7 @@ static void demo_pin_toggle_dt(void)
 int gpio_pin_get_dt(const struct gpio_dt_spec *spec);
 ```
 
-读引脚的逻辑电平。输出引脚读回的是写进去的值，不是引脚上的实际电平。
+Reads the logical level of a pin. For an output pin it reads back the value that was written, not the actual level on the pin.
 
 ```c
 /* gpio_pin_get_dt: the logical level of a pin. For an output pin it is the level that was written. */
@@ -348,7 +348,7 @@ static void demo_pin_get_dt(void)
 int gpio_pin_get_raw(const struct device *port, gpio_pin_t pin);
 ```
 
-读引脚上的实际电平，不看 `GPIO_ACTIVE_LOW`。PB3 悬空，所以打开上拉读到 1，打开下拉读到 0，这也是后面中断演示制造边沿的办法。
+Reads the actual level on the pin, without looking at `GPIO_ACTIVE_LOW`. PB3 is floating, so with the pull-up enabled it reads 1 and with the pull-down enabled it reads 0; this is also how the interrupt demo further down creates an edge.
 
 ```c
 /* gpio_pin_get_raw: the level of the pin, not looking at GPIO_ACTIVE_LOW. PB3 is not connected,
@@ -377,7 +377,7 @@ static void demo_pin_get_raw(void)
 int gpio_port_get_raw(const struct device *port, gpio_port_value_t *value);
 ```
 
-一次读整个 bank 的 32 根线，`value` 的每一位对应一个引脚。
+Reads all 32 lines of the bank at once; each bit of `value` corresponds to one pin.
 
 ```c
 /* gpio_port_get_raw: all 32 pins of the bank at once */
@@ -404,7 +404,7 @@ static void demo_port_get_raw(void)
 int gpio_port_set_bits_raw(const struct device *port, gpio_port_pins_t pins);
 ```
 
-把掩码里的引脚都拉高，一次寄存器写入完成。
+Drives every pin in the mask high, in a single register write.
 
 ```c
 /* gpio_port_set_bits_raw: drive the pins of the mask high */
@@ -430,7 +430,7 @@ static void demo_port_set_bits_raw(void)
 int gpio_port_clear_bits_raw(const struct device *port, gpio_port_pins_t pins);
 ```
 
-把掩码里的引脚都拉低。
+Drives every pin in the mask low.
 
 ```c
 /* gpio_port_clear_bits_raw: drive the pins of the mask low */
@@ -454,7 +454,7 @@ static void demo_port_clear_bits_raw(void)
 int gpio_port_toggle_bits(const struct device *port, gpio_port_pins_t pins);
 ```
 
-把掩码里的引脚都翻转。
+Inverts every pin in the mask.
 
 ```c
 /* gpio_port_toggle_bits: invert the pins of the mask */
@@ -478,7 +478,7 @@ static void demo_port_toggle_bits(void)
 int gpio_port_set_masked_raw(const struct device *port, gpio_port_pins_t mask, gpio_port_value_t value);
 ```
 
-掩码里的引脚设成 `value` 里对应的位，其余引脚不变。
+Sets the pins in the mask to the corresponding bits of `value`; the other pins are left unchanged.
 
 ```c
 /* gpio_port_set_masked_raw: set the pins of the mask to the matching bits of value, leave the others */
@@ -503,7 +503,7 @@ static void demo_port_set_masked_raw(void)
 void gpio_init_callback(struct gpio_callback *callback, gpio_callback_handler_t handler, gpio_port_pins_t pin_mask);
 ```
 
-把处理函数和它关心的引脚掩码绑在一个 `struct gpio_callback` 上。回调在 PLIC 中断里执行，`pins` 参数是这个 bank 上本次待处理的所有引脚的位掩码，回调里不要做耗时的事。下面三个演示共用的变量和回调函数：
+Binds the handler and the pin mask it cares about to a `struct gpio_callback`. The callback runs in the PLIC interrupt, and the `pins` argument is the bitmask of all pins pending on this bank this time; do not do anything time-consuming inside the callback. The variables and the callback function shared by the three demos below:
 
 ```c
 static struct gpio_callback cb;
@@ -536,7 +536,7 @@ static void demo_init_callback(void)
 int gpio_add_callback(const struct device *port, struct gpio_callback *callback);
 ```
 
-把回调注册到 bank 上。
+Registers the callback with the bank.
 
 ```c
 /* gpio_add_callback: register it with the bank */
@@ -558,17 +558,17 @@ static void demo_add_callback(void)
 int gpio_pin_interrupt_configure_dt(const struct gpio_dt_spec *spec, gpio_flags_t flags);
 ```
 
-| `flags` | 驱动的行为 |
+| `flags` | Driver behaviour |
 | --- | --- |
-| `GPIO_INT_EDGE_RISING`、`GPIO_INT_EDGE_FALLING`、`GPIO_INT_EDGE_BOTH` | 边沿触发 |
-| `GPIO_INT_LEVEL_HIGH`、`GPIO_INT_LEVEL_LOW` | 电平触发 |
-| `GPIO_INT_DISABLE` | 关掉这个引脚的中断；如果引脚还在中断功能上，把复用功能恢复为打开中断前的值 |
+| `GPIO_INT_EDGE_RISING`, `GPIO_INT_EDGE_FALLING`, `GPIO_INT_EDGE_BOTH` | Edge triggered |
+| `GPIO_INT_LEVEL_HIGH`, `GPIO_INT_LEVEL_LOW` | Level triggered |
+| `GPIO_INT_DISABLE` | Disables the interrupt of this pin; if the pin is still on the interrupt function, restores the multiplexing function to the value it had before the interrupt was enabled |
 
 :::caution
-打开引脚中断时驱动把这个引脚切到外部中断功能（复用功能 14），原来的功能存下来；已经打开中断的引脚再次打开时不会覆盖存下来的功能。之后再对同一个引脚调用 `gpio_pin_configure`，复用功能会被写成“输入”或“输出”，中断就收不到了。所以改过引脚配置以后，要再调用一次 `gpio_pin_interrupt_configure_dt`。
+When a pin interrupt is enabled the driver switches this pin to the external interrupt function (multiplexing function 14) and saves the previous function; enabling the interrupt again on a pin that already has it enabled does not overwrite the saved function. If `gpio_pin_configure` is then called on the same pin, the multiplexing function is written as "input" or "output" and the interrupt is no longer received. So after changing the pin configuration, call `gpio_pin_interrupt_configure_dt` once more.
 :::
 
-演示：PB3 先下拉，装载上升沿；改成上拉制造一个上升沿，回调触发 1 次；改回下拉是下降沿，不是装载的上升沿，回调次数是 0。
+Demo: PB3 is pulled down first and the rising edge is armed; changing it to pull-up creates a rising edge and the callback fires 1 time; changing it back to pull-down is a falling edge, not the armed rising edge, so the callback count is 0.
 
 ```c
 /* gpio_pin_interrupt_configure_dt: arm the pin. The pull resistor is part of the pin configuration,
@@ -608,7 +608,7 @@ static void demo_pin_interrupt_configure_dt(void)
 [interrupt] GPIO_INT_DISABLE                = 0
 ```
 
-`pins 0x8` 就是 PB3（第 3 位）。
+`pins 0x8` is PB3 (bit 3).
 
 ### gpio_get_pending_int
 
@@ -616,7 +616,7 @@ static void demo_pin_interrupt_configure_dt(void)
 int gpio_get_pending_int(const struct device *dev);
 ```
 
-读这个 bank 的中断状态寄存器，每个引脚一位。中断处理函数会清掉已经处理的位，所以没有待处理的中断时读到 0。
+Reads the interrupt status register of this bank, one bit per pin. The interrupt handler clears the bits it has handled, so it reads 0 when there is no pending interrupt.
 
 ```c
 /* gpio_get_pending_int: the interrupt status register of the bank, one bit per pin */
@@ -636,7 +636,7 @@ static void demo_get_pending_int(void)
 int gpio_remove_callback(const struct device *port, struct gpio_callback *callback);
 ```
 
-把回调从 bank 上取下来。
+Takes the callback off the bank.
 
 ```c
 /* gpio_remove_callback: take the handler out again */
@@ -652,9 +652,9 @@ static void demo_remove_callback(void)
 [remove_callback] gpio_remove_callback        = 0
 ```
 
-## 完整演示程序
+## Complete demo program
 
-上面所有示例和日志都来自这一个程序。建一个目录，放进下面的文件，就可以像其他 Zephyr 应用一样编译。
+All the examples and logs above come from this single program. Create a directory, put the files below in it, and it builds like any other Zephyr application.
 
 ```text
 gpio_api/
@@ -686,7 +686,7 @@ CONFIG_LOG_PRINTK=n
 CONFIG_MAIN_STACK_SIZE=4096
 ```
 
-`CONFIG_MAIN_STACK_SIZE=4096` 不能省：默认的主线程栈只有 1024 字节，`printk` 就会把它用完，程序在显示初始化的时候就会因为 `Instruction Access fault` 停下来。
+`CONFIG_MAIN_STACK_SIZE=4096` cannot be left out: the default main thread stack is only 1024 bytes, `printk` will use it up, and the program will stop with an `Instruction Access fault` while the display is being initialized.
 
 ### app.overlay
 
@@ -965,7 +965,7 @@ int main(void)
 }
 ```
 
-### 编译和运行
+### Build and run
 
 ```sh
 . ~/f101-zephyr/env.sh
@@ -975,7 +975,7 @@ west build -b yuzukineko -d build/gpio-api gpio_api
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/drivers-gpio/build.cast" data-speed="6"></div>
 
-下载运行的方法见[编译与运行](../zephyr-build-run.md)。控制台 UART1 上的完整输出：
+For how to download and run it, see [Build and run](../zephyr-build-run.md). The complete output on the UART1 console:
 
 ```text
 [configure] PD5 output, low                 = 0

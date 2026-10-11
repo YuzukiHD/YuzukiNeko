@@ -1,47 +1,47 @@
 ---
-title: "NES - FC 模拟器"
+title: "NES - FC emulator"
 ---
 
-从 TF 卡读取 `.nes` 游戏并运行。模拟核心是 [nofrendo](https://github.com/ducalex/retro-go)，画面（RGB565）交给显示引擎的缩放视频层，声音经 I2S 送到片上 codec，手柄按键是画在 LVGL 上的半透明按钮，用触摸屏操作。代码在 `zephyr-components/nes`（nofrendo 加一层 Zephyr 胶水），示例是 `samples/nes_player`。
+Reads `.nes` games from the TF card and runs them. The emulation core is [nofrendo](https://github.com/ducalex/retro-go); the picture (RGB565) is handed to the display engine's scaling video plane, the sound goes over I2S to the on-chip codec, and the gamepad buttons are semi-transparent buttons drawn on LVGL and operated with the touchscreen. The code is in `zephyr-components/nes` (nofrendo plus a layer of Zephyr glue), and the sample is `samples/nes_player`.
 
 ```mermaid
 flowchart TB
-    SD["TF 卡<br/>.nes / .sav"] -->|"fs_read"| EMU["nesemu<br/>nofrendo 核心"]
-    TP["触摸屏 GT967<br/>最多 5 点"] -->|"input 事件"| PAD["pad.c<br/>LVGL 按钮 + 触点命中"]
-    PAD -->|"NESEMU_KEY_* 掩码"| EMU
-    PAD -.->|"LVGL 绘制"| ARGB["ARGB 层<br/>叠在视频层上"]
-    EMU -->|"RGB565 256x224"| VID["video.c<br/>显示线程"]
-    VID -->|"display_sunxi_show_rgb"| VP["视频层<br/>缩放到全屏"]
-    EMU -->|"PCM 16 位"| RING["audio.c<br/>环形缓冲"]
-    RING -->|"i2s_write"| CODEC["片上 codec<br/>耳机 / 功放"]
-    RING -.->|"队列满则等待 = 实时节拍"| EMU
+    SD["TF card<br/>.nes / .sav"] -->|"fs_read"| EMU["nesemu<br/>nofrendo core"]
+    TP["Touchscreen GT967<br/>up to 5 points"] -->|"input events"| PAD["pad.c<br/>LVGL buttons + touch hit test"]
+    PAD -->|"NESEMU_KEY_* mask"| EMU
+    PAD -.->|"LVGL draw"| ARGB["ARGB plane<br/>stacked on the video plane"]
+    EMU -->|"RGB565 256x224"| VID["video.c<br/>display thread"]
+    VID -->|"display_sunxi_show_rgb"| VP["video plane<br/>scaled to full screen"]
+    EMU -->|"PCM 16-bit"| RING["audio.c<br/>ring buffer"]
+    RING -->|"i2s_write"| CODEC["on-chip codec<br/>headphone / amplifier"]
+    RING -.->|"wait when the queue is full = real-time pacing"| EMU
 ```
 
-运行速度由声音决定：模拟器每跑完一帧，把这一帧的声音推进环形缓冲；缓冲里排队的声音超过 `RATE / 15` 个采样帧就暂停模拟，等 codec 播掉一部分。排队的声音少于 `RATE / 30` 时，下一帧只模拟、不画，保证声音不断。
+The running speed is decided by the sound: each time the emulator finishes a frame it pushes that frame's sound into the ring buffer; when the queued sound exceeds `RATE / 15` sample frames the emulation pauses until the codec has played part of it. When the queued sound is less than `RATE / 30`, the next frame is only emulated and not drawn, which keeps the sound from breaking up.
 
-开始前请先完成 [配置开发环境](../zephyr-setup-env.md) 和 [获取 Zephyr 代码](../zephyr-get-source.md)。
+Before you start, first complete [Setting up the development environment](../zephyr-setup-env.md) and [Getting the Zephyr source](../zephyr-get-source.md).
 
-## 准备
+## Preparation
 
-准备一张 TF 卡和一个 `.nes` 游戏文件。ROM 需要自备，仓库不含任何游戏文件。请使用你有权使用的 ROM，比如自己拥有的卡带备份，或作者允许分发的自制游戏。
+Prepare a TF card and a `.nes` game file. You must supply the ROM yourself; the repository contains no game files. Use a ROM you are entitled to use, such as a backup of a cartridge you own or a homebrew game whose author allows distribution.
 
-1. TF 卡格式化为 FAT 或 exFAT。
-2. 把 `.nes` 文件（iNES 格式）拷到卡的根目录。
-3. 启动时 `pick_rom()` 先找 `CONFIG_SAMPLE_NES_ROM`（默认 `/SD:/game.nes`），不存在就扫描根目录，用找到的第一个扩展名为 `.nes` 或 `.NES` 的文件。根目录里一个都没有，就打印 `no .nes file on the card` 后退出。
-4. 带电池的游戏，存档放在 ROM 旁边，文件名是把 `.nes` 换成 `.sav`。主循环每 3 秒检查一次，存档内容变了才写，启动时有就读回。
+1. Format the TF card as FAT or exFAT.
+2. Copy the `.nes` file (iNES format) to the root directory of the card.
+3. At startup `pick_rom()` first looks for `CONFIG_SAMPLE_NES_ROM` (default `/SD:/game.nes`); if it does not exist it scans the root directory and uses the first file it finds with the extension `.nes` or `.NES`. If there is none in the root directory, it prints `no .nes file on the card` and exits.
+4. For games with a battery, the save file sits next to the ROM, with `.nes` in the file name replaced by `.sav`. The main loop checks every 3 seconds and writes only when the save data has changed; at startup it reads it back if present.
 
-核心对 ROM 的要求：
+What the core requires of the ROM:
 
-| 项 | 内容 |
+| Item | Details |
 | --- | --- |
-| 文件格式 | iNES（`.nes`），其他格式不支持 |
-| 文件大小 | 16 字节到 `CONFIG_NES_MAX_ROM_SIZE_KB`（默认 2048 KiB），整个读进内存 |
-| Mapper | 0 1 2 3 4 5 7 9 10 11 15 16 18 19 20 21 22 23 24 30 31 32 33 34 40 41 42 46 50 64 65 66 70 71 73 74 75 76 78 79 85 87 93 94 119 160 162 176 185 191 192 193 194 195 206 228 229 231，即 `nofrendo/mappers/` 里有的。其他 mapper 装载失败，返回 `-EINVAL` 或 `-ENOTSUP` |
-| 制式 | 按 ROM 自动判断 NTSC（60 Hz，画面 256×224）或 PAL（50 Hz，256×240）；文件名含 `(E)` 或 `(Europe)` 的强制按 PAL |
+| File format | iNES (`.nes`); other formats are not supported |
+| File size | 16 bytes to `CONFIG_NES_MAX_ROM_SIZE_KB` (default 2048 KiB); the whole file is read into memory |
+| Mapper | 0 1 2 3 4 5 7 9 10 11 15 16 18 19 20 21 22 23 24 30 31 32 33 34 40 41 42 46 50 64 65 66 70 71 73 74 75 76 78 79 85 87 93 94 119 160 162 176 185 191 192 193 194 195 206 228 229 231, that is, those present in `nofrendo/mappers/`. Other mappers fail to load and return `-EINVAL` or `-ENOTSUP` |
+| TV standard | NTSC (60 Hz, 256×224 picture) or PAL (50 Hz, 256×240) is detected automatically from the ROM; a file name containing `(E)` or `(Europe)` is forced to PAL |
 
-## 编译
+## Building
 
-在工作区里执行。示例在自己的 `CMakeLists.txt` 里用 `ZEPHYR_EXTRA_MODULES` 引入组件，不需要额外参数：
+Run this in the workspace. The sample pulls in the component with `ZEPHYR_EXTRA_MODULES` in its own `CMakeLists.txt`, so no extra arguments are needed:
 
 ```sh
 . ~/f101-zephyr/env.sh
@@ -51,32 +51,32 @@ west build -b yuzukineko -d build/nes zephyr-components/nes/samples/nes_player
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/apps-nes/build.cast" data-speed="6"></div>
 
-产物是 `build/nes/zephyr/zephyr.bin`，约 4.5 MB，链接地址 `0x40010000`。`samples/nes_player/boards/yuzukineko.conf` 编这块板时自动合并，里面打开 I2C 和 INPUT，触摸屏才能工作。
+The output is `build/nes/zephyr/zephyr.bin`, about 4.5 MB, linked at `0x40010000`. `samples/nes_player/boards/yuzukineko.conf` is merged automatically when building for this board; it enables I2C and INPUT so the touchscreen works.
 
-## 运行
+## Running
 
-用 [编译与运行](../zephyr-build-run.md) 里的任一种方式下载，控制台是 UART1（PB00/PB01，115200 8N1）。
+Download it with either method in [Building and running](../zephyr-build-run.md); the console is UART1 (PB00/PB01, 115200 8N1).
 
-- 调试用方式一：`xfel ddr f101-s3`、`xfel write 0x40010000 build/nes/zephyr/zephyr.bin`、`xfel exec 0x40010000`。
-- 脱机运行用方式三：`mkuf2.py app build/nes/zephyr/zephyr.bin -o out/nes.uf2`，拖进 `F101BOOT` 盘。
+- Method one for debugging: `xfel ddr f101-s3`, `xfel write 0x40010000 build/nes/zephyr/zephyr.bin`, `xfel exec 0x40010000`.
+- Method three for stand-alone running: `mkuf2.py app build/nes/zephyr/zephyr.bin -o out/nes.uf2`, then drag it onto the `F101BOOT` drive.
 
 :::caution
-板子只有一个 USB-C 口，既是 xfel 下载口，也是 UF2 盘的口。先下载，再接别的设备。
+The board has only one USB-C port, which is both the xfel download port and the UF2 drive port. Download first, then connect other devices.
 :::
 
-操作只能用触摸屏，没有实体按键。左侧是方向键，右侧是 B、A 两个圆键，下方中间是 SELECT 和 START。支持多点触控（5 点），可以按着方向键同时按 A 和 B。
+Operation is touchscreen-only; there are no physical buttons. The D-pad is on the left, the two round B and A buttons are on the right, and SELECT and START are at the bottom center. Multi-touch (5 points) is supported, so you can hold a direction and press A and B at the same time.
 
-![板子屏幕上的 NES 游戏画面和叠加的屏幕按键](figures/nes-game.png)
+![NES game picture on the board screen with the on-screen buttons overlaid](figures/nes-game.webp)
 
-照片里是《魂斗罗》的画面。游戏画面放大后显示在面板中间，半透明的屏幕按键叠在上面：方向键在左下，B、A 两个圆键在右下，SELECT、START 在底部中间。按住的键颜色会变化，照片里左方向键正被按着。
+The photo shows a Contra screen. The game picture is scaled up and shown in the middle of the panel, with the semi-transparent on-screen buttons stacked on top: the D-pad at the lower left, the two round B and A buttons at the lower right, and SELECT and START at the bottom center. A held button changes color; in the photo the left D-pad key is being held.
 
-### 运行后的输出
+### Output after running
 
-下载运行后，串口上依次是下面这些输出。日志里的游戏名写成 `<游戏名>`。
+After downloading and running, the serial port shows the following output in order. The game name is written as `<game name>` in the log.
 
-#### 触摸屏和显示初始化
+#### Touchscreen and display initialization
 
-启动后 `display_sunxi` 报告面板 1024×768，GT967 触摸控制器读出固件版本，配置为 1024×768、最多 5 点：
+After bootup `display_sunxi` reports a 1024×768 panel, and the GT967 touch controller reads out its firmware version and is configured for 1024×768 with up to 5 points:
 
 ```text
 *** Booting Zephyr OS build b6f3dfe1a1f4 ***
@@ -85,21 +85,21 @@ west build -b yuzukineko -d build/nes zephyr-components/nes/samples/nes_player
 [00:00:00.570,000] <inf> gt967: configuration 0x63: 1024 x 768, up to 5 point(s), module switch 0x04
 ```
 
-触摸屏分辨率与显示一致，所以触点坐标可以直接和按键的屏幕坐标比较，不需要换算。
+The touchscreen resolution matches the display, so touch coordinates can be compared directly with the buttons' screen coordinates without conversion.
 
-#### TF 卡挂载和选 ROM
+#### TF card mount and ROM selection
 
-根目录放一个 `.nes`、不指定 `CONFIG_SAMPLE_NES_ROM` 时，日志里打印 ROM 路径和存档路径：
+With one `.nes` in the root directory and `CONFIG_SAMPLE_NES_ROM` not set, the log prints the ROM path and the save path:
 
 ```text
 ROM /SD:/<游戏名>.nes, save /SD:/<游戏名>.sav
 ```
 
-默认的 `/SD:/game.nes` 不存在，`pick_rom()` 扫描到了根目录里的 `.nes`，存档路径把扩展名换成了 `.sav`。
+The default `/SD:/game.nes` does not exist, so `pick_rom()` found the `.nes` in the root directory, and the save path has the extension changed to `.sav`.
 
-#### ROM 装载
+#### ROM loading
 
-nofrendo 打印出 iNES 头解析的结果：文件大小、PRG/CHR 容量、mapper 编号、制式：
+nofrendo prints the result of parsing the iNES header: file size, PRG/CHR sizes, mapper number, and TV standard:
 
 ```text
 NES: System initialized!
@@ -116,30 +116,30 @@ NES: System type: NES-NTSC (NTSC-U)
 NES: System reset (hard)
 ```
 
-NTSC 的 UNROM（mapper 2）卡带装载成功，进入主循环。
+The NTSC UNROM (mapper 2) cartridge loads successfully and the main loop starts.
 
-#### 实时节拍
+#### Real-time pacing
 
-游戏开始后，主循环每 5 秒打印一行统计，可以据此看出声音限速的效果：
+Once the game starts, the main loop prints one line of statistics every 5 seconds, from which the effect of the sound-based pacing is visible:
 
 ```text
 nes: 310 frames, emulation 3163 us/frame, sound 248000 frames pushed, queued 2752, underruns 0, ring empty 8, slab full 471
 nes: 301 frames, emulation 3310 us/frame, sound 240800 frames pushed, queued 2912, underruns 0, ring empty 8, slab full 941
 ```
 
-| 字段 | 含义 |
+| Field | Meaning |
 | --- | --- |
-| `frames` | 这 5 秒跑的帧数。NTSC 满速约 300 帧（60.1 fps），日志里是 301 |
-| `emulation ... us/frame` | 每帧的模拟耗时，不含等待声音。要小于 16639 μs（一帧的时长）才追得上实时，这里约 3.3 ms |
-| `sound ... frames pushed` | 推进环形缓冲的采样帧数，48 kHz 下 5 秒约 240000，与日志相符 |
-| `queued` | 环形缓冲里排队的采样帧数，保持在 `RATE / 15`（3200）附近，说明是声音在限速 |
-| `underruns` | I2S 断流重启次数，日志里是 0 |
-| `ring empty` | 声音线程发现环形缓冲不够一个块的次数，日志里是 8，不再增长 |
-| `slab full` | 声音线程等 I2S 块的次数。声音在限速时这个值会持续增长，不是故障 |
+| `frames` | Frames run in these 5 seconds. NTSC at full speed is about 300 frames (60.1 fps); the log shows 301 |
+| `emulation ... us/frame` | Emulation time per frame, not counting waiting for sound. It must be under 16639 μs (the duration of one frame) to keep up with real time; here it is about 3.3 ms |
+| `sound ... frames pushed` | Sample frames pushed into the ring buffer; at 48 kHz this is about 240000 in 5 seconds, which matches the log |
+| `queued` | Sample frames queued in the ring buffer, holding around `RATE / 15` (3200), which shows that the sound is what paces it |
+| `underruns` | Number of I2S underrun restarts; the log shows 0 |
+| `ring empty` | Times the sound thread found fewer than one block in the ring buffer; the log shows 8, and it does not grow |
+| `slab full` | Times the sound thread waited for an I2S block. While the sound is pacing the run this value keeps growing; it is not a fault |
 
-## 画面输出路径
+## Picture output path
 
-模拟器把 PPU 的 8 位索引画面转成 RGB565，写进调用者给的缓冲，上下各去掉 8 行过扫描区域（NTSC 剩 224 行）。代码在 `nesemu.c` 的 `blit()`：
+The emulator converts the PPU's 8-bit indexed picture to RGB565 and writes it into the buffer the caller supplies, removing the 8 overscan lines at the top and bottom (leaving 224 lines on NTSC). The code is in `blit()` in `nesemu.c`:
 
 ```c
 /* the 8 bit picture of the PPU to RGB565, without the overscan lines */
@@ -164,7 +164,7 @@ static void blit(uint8 *src)
 }
 ```
 
-这块缓冲来自 `video.c`：4 个 256×240×2 字节的缓冲轮流用（`NBUF`），模拟线程画下一帧时，显示还在扫描上一帧。画完调 `video_present()`，刷缓存，用信号量叫醒显示线程：
+This buffer comes from `video.c`: four 256×240×2-byte buffers are used in rotation (`NBUF`), so while the emulation thread draws the next frame the display is still scanning the previous one. When drawing is done it calls `video_present()`, flushes the cache, and wakes the display thread with a semaphore:
 
 ```c
 void video_present(unsigned int width, unsigned int height)
@@ -178,7 +178,7 @@ void video_present(unsigned int width, unsigned int height)
 }
 ```
 
-显示线程 `video_main()` 在自己的线程里等刷新，不拖住模拟（模拟的节拍由声音决定），只显示最新的一帧：
+The display thread `video_main()` waits for refreshes in its own thread, without holding up the emulation (whose pacing is set by the sound), and shows only the latest frame:
 
 ```c
 		k_sem_take(&frame_sem, K_FOREVER);
@@ -191,13 +191,13 @@ void video_present(unsigned int width, unsigned int height)
 		ret = display_sunxi_show_rgb(disp, &img);
 ```
 
-`display_sunxi_show_rgb()` 把 RGB565 缓冲交给显示引擎的视频层，由硬件缩放到整个屏幕。按键用的 LVGL 画在更上面的 ARGB 层，所以按键叠在游戏画面上。缩放的比例和是否保持宽高比由显示驱动决定，示例不控制。
+`display_sunxi_show_rgb()` hands the RGB565 buffer to the display engine's video plane, where the hardware scales it to the whole screen. The LVGL used for the buttons draws on the ARGB plane above it, so the buttons are stacked on the game picture. The scale factor and whether the aspect ratio is preserved are decided by the display driver; the sample does not control them.
 
-想改缓冲个数，改 `video.c` 里的 `NBUF`。
+To change the number of buffers, change `NBUF` in `video.c`.
 
-## 声音输出路径
+## Sound output path
 
-`nesemu_run_frame()` 末尾把这一帧的 APU 输出（单声道）复制成左右相同的立体声：
+At the end of `nesemu_run_frame()` the frame's APU output (mono) is copied into stereo with the same left and right:
 
 ```c
 	/* the sound of the frame, mono to stereo; what the caller did not take yet is dropped */
@@ -207,9 +207,9 @@ void video_present(unsigned int width, unsigned int height)
 	}
 ```
 
-主循环取出来推进 `audio.c` 的环形缓冲（`audio_push()`），推不进去就睡 1 ms 再试。声音线程 `audio_main()` 每凑够 512 个采样帧（一个块）就从内存槽拿一块，`i2s_write()` 送出，先预填 3 块再 `I2S_TRIGGER_START`。`i2s_write()` 返回 `-EIO` 表示 I2S 断流，计一次 `underruns`，重新预填。
+The main loop takes it out and pushes it into the ring buffer in `audio.c` (`audio_push()`); if it cannot push it sleeps 1 ms and tries again. Each time the sound thread `audio_main()` has 512 sample frames (one block) it takes a block from the memory slab and sends it with `i2s_write()`, pre-filling 3 blocks before `I2S_TRIGGER_START`. An `i2s_write()` return of `-EIO` means an I2S underrun; it counts one `underruns` and pre-fills again.
 
-音量在声音线程开始时设置，值来自 `CONFIG_SAMPLE_NES_VOLUME`：
+The volume is set when the sound thread starts, with the value from `CONFIG_SAMPLE_NES_VOLUME`:
 
 ```c
 	audio_codec_start_output(ctl);
@@ -217,9 +217,9 @@ void video_present(unsigned int width, unsigned int height)
 				 (audio_property_value_t){.vol = CONFIG_SAMPLE_NES_VOLUME});
 ```
 
-范围 0 到 255，默认 150。采样率由 `CONFIG_SAMPLE_NES_RATE` 决定，选项说明里只支持 48000 或 44100。
+The range is 0 to 255, default 150. The sample rate comes from `CONFIG_SAMPLE_NES_RATE`; the option help says only 48000 or 44100 is supported.
 
-主循环里决定速度的几行在 `main.c`：
+The few lines in the main loop that decide the speed are in `main.c`:
 
 ```c
 		nesemu_set_keys(pad_keys());
@@ -237,37 +237,37 @@ void video_present(unsigned int width, unsigned int height)
 		}
 ```
 
-`HIGH_WATER` 是 `RATE / 15`，约 67 ms 的声音。想减少按键到出声的延迟就调小它，调得太小声音会断。
+`HIGH_WATER` is `RATE / 15`, about 67 ms of sound. To reduce the latency from button press to sound, lower it; setting it too low breaks up the sound.
 
-## UI 与屏幕按键的实现
+## UI and on-screen button implementation
 
-代码全部在 `samples/nes_player/src/pad.c`。
+All the code is in `samples/nes_player/src/pad.c`.
 
-两条输入路径的分工：
+How the two input paths divide the work:
 
-- 按键状态只有一个来源：`touch_scan()`。它从 INPUT 子系统收到的触点算出按键掩码，`pad_main()` 每 16 ms 写进 `atomic_t keys`，主循环每帧用 `pad_keys()` 读出，交给 `nesemu_set_keys()`。
-- LVGL 的按钮只负责显示，按下时变色，不产生按键。LVGL 自己的指针输入只处理一根手指，而游戏要同时按方向键和 A/B，所以没有走 LVGL 的事件。
-- 设备树里没有 `zephyr,touch` 的板子（`HAS_TOUCH` 为 0）上，没有任何东西写按键掩码，按钮只画出来，不能操作。
+- There is only one source of button state: `touch_scan()`. It computes the button mask from the touch points received from the INPUT subsystem; `pad_main()` writes it into `atomic_t keys` every 16 ms, and the main loop reads it each frame with `pad_keys()` and passes it to `nesemu_set_keys()`.
+- The LVGL buttons are only for display and change color when pressed; they do not produce button state. LVGL's own pointer input handles only one finger, whereas the game needs a direction and A/B pressed at the same time, so LVGL events are not used.
+- On a board whose devicetree has no `zephyr,touch` (`HAS_TOUCH` is 0), nothing writes the button mask; the buttons are drawn but cannot be operated.
 
-LVGL 画在显示引擎的 ARGB 帧缓冲层上（`CONFIG_DISPLAY_SUNXI_ARGB8888`），叠在视频层之上，`pad_main()` 一开始把屏幕背景设成全透明，才能透出游戏画面。
+LVGL draws on the display engine's ARGB framebuffer plane (`CONFIG_DISPLAY_SUNXI_ARGB8888`), above the video plane, and `pad_main()` first sets the screen background to fully transparent so the game picture shows through.
 
 ```mermaid
 flowchart TD
-    G["GT967 触摸控制器<br/>I2C，最多 5 点"] -->|"INPUT_ABS_MT_SLOT / X / Y<br/>INPUT_BTN_TOUCH"| CB["touch_event()<br/>INPUT_CALLBACK_DEFINE<br/>写 fingers[slot]"]
+    G["GT967 touch controller<br/>I2C, up to 5 points"] -->|"INPUT_ABS_MT_SLOT / X / Y<br/>INPUT_BTN_TOUCH"| CB["touch_event()<br/>INPUT_CALLBACK_DEFINE<br/>writes fingers[slot]"]
     CB --> TBL[("fingers[5]<br/>x, y, down")]
-    LOOP["pad_main() 循环<br/>每 16 ms"] --> SCAN["touch_scan()"]
+    LOOP["pad_main() loop<br/>every 16 ms"] --> SCAN["touch_scan()"]
     TBL --> SCAN
-    KT[("pad_keys_tbl[]<br/>每个按键的 x, y, w, h, bit")] --> SCAN
-    SCAN -->|"命中 = 矩形 ± HIT_MARGIN<br/>松手保持 RELEASE_HOLD_MS"| MASK["按键位掩码"]
-    SCAN -->|"lv_obj_add_state<br/>LV_STATE_PRESSED"| LV["LVGL 按钮高亮<br/>lv_timer_handler()"]
+    KT[("pad_keys_tbl[]<br/>x, y, w, h, bit for each button")] --> SCAN
+    SCAN -->|"hit = rectangle ± HIT_MARGIN<br/>hold RELEASE_HOLD_MS after release"| MASK["button bit mask"]
+    SCAN -->|"lv_obj_add_state<br/>LV_STATE_PRESSED"| LV["LVGL button highlight<br/>lv_timer_handler()"]
     MASK -->|"atomic_set"| KEYS[("atomic_t keys")]
-    KEYS -->|"pad_keys()"| MAIN["main() 每帧<br/>nesemu_set_keys()"]
-    MAIN -->|"input_update(0, keys & 0xff)"| CORE["nofrendo 手柄 1"]
+    KEYS -->|"pad_keys()"| MAIN["main() each frame<br/>nesemu_set_keys()"]
+    MAIN -->|"input_update(0, keys & 0xff)"| CORE["nofrendo gamepad 1"]
 ```
 
-### 创建 LVGL 控件
+### Creating the LVGL widgets
 
-每个按键由 `key_add()` 建：一个 `lv_button` 加一个 `lv_label`。参数是左上角坐标、宽高、文字、对应的手柄键位、圆角。
+Each button is created by `key_add()`: an `lv_button` plus an `lv_label`. The arguments are the top-left coordinate, width and height, the text, the corresponding gamepad key bit, and the corner radius.
 
 ```c
 static void key_add(int x, int y, int w, int h, const char *text, uint32_t bit, int radius)
@@ -299,13 +299,13 @@ static void key_add(int x, int y, int w, int h, const char *text, uint32_t bit, 
 }
 ```
 
-- 常态是白色 30% 不透明，按下状态（`LV_STATE_PRESSED`）是橙色 70% 不透明。
-- 坐标和宽高同时存进 `pad_keys_tbl[]`，触摸判断用这张表，不读 LVGL 对象的位置。最多 `MAX_KEYS`（10）个键，超出的只显示，不响应。
-- 方向键的文字是 LVGL 内置符号 `LV_SYMBOL_LEFT` 等，字体 `montserrat_28`，要在 `prj.conf` 里打开 `CONFIG_LV_FONT_MONTSERRAT_28`。
+- Normally it is white at 30% opacity; in the pressed state (`LV_STATE_PRESSED`) it is orange at 70% opacity.
+- The coordinate and size are also stored in `pad_keys_tbl[]`, and the touch test uses that table rather than reading the position of the LVGL object. There are at most `MAX_KEYS` (10) keys; any beyond that are only drawn and do not respond.
+- The D-pad text uses LVGL's built-in symbols such as `LV_SYMBOL_LEFT`, with the `montserrat_28` font, which requires `CONFIG_LV_FONT_MONTSERRAT_28` in `prj.conf`.
 
-### 触摸到手柄键位的映射
+### Mapping touches to gamepad key bits
 
-触摸事件先记在 `fingers[]` 里，每个触摸槽一项。`INPUT_CALLBACK_DEFINE` 把回调绑到设备树 `zephyr,touch` 指向的设备：
+Touch events are first recorded in `fingers[]`, one entry per touch slot. `INPUT_CALLBACK_DEFINE` binds the callback to the device the devicetree `zephyr,touch` points at:
 
 ```c
 static void touch_event(struct input_event *evt, void *user_data)
@@ -328,7 +328,7 @@ static void touch_event(struct input_event *evt, void *user_data)
 INPUT_CALLBACK_DEFINE(DEVICE_DT_GET(DT_CHOSEN(zephyr_touch)), touch_event, NULL);
 ```
 
-`touch_scan()` 把每个按键和 5 个手指逐个比：手指落在按键矩形（四边各放大 `HIT_MARGIN` = 12 像素）里就算按下。触摸控制器偶尔会在手指没离开时报一帧“没有手指”，照实处理就是一次松开加一次重按，所以松手后还保持 `RELEASE_HOLD_MS`（50 ms）。按键状态变化时，同时给 LVGL 按钮加上或去掉 `LV_STATE_PRESSED`：
+`touch_scan()` compares each button against the 5 fingers one by one: a finger inside the button rectangle (expanded by `HIT_MARGIN` = 12 pixels on each of the four sides) counts as pressed. The touch controller occasionally reports one frame of "no finger" while the finger has not left; handling that literally would be a release plus a re-press, so the press is held for `RELEASE_HOLD_MS` (50 ms) after release. When a button's state changes, `LV_STATE_PRESSED` is added to or removed from the LVGL button at the same time:
 
 ```c
 /* the keys that have a finger on them; also shows the state on the buttons */
@@ -371,9 +371,9 @@ static uint32_t touch_scan(void)
 }
 ```
 
-命中范围比按键大一圈，手指放在相邻两个键的缝隙里会同时触发两个键，斜方向就是这样按出来的。
+The hit area is one ring larger than the button, so a finger in the gap between two adjacent buttons triggers both at once; this is how diagonal directions are pressed.
 
-`pad_main()` 线程每 16 ms 做一轮：更新 `keys`，再调 `lv_timer_handler()` 让 LVGL 重绘。
+The `pad_main()` thread runs a round every 16 ms: it updates `keys`, then calls `lv_timer_handler()` to let LVGL redraw.
 
 ```c
 	while (true) {
@@ -385,7 +385,7 @@ static uint32_t touch_scan(void)
 	}
 ```
 
-主循环每帧读一次，`nesemu_set_keys()` 把掩码低 8 位交给核心的手柄 1：
+The main loop reads it once per frame, and `nesemu_set_keys()` passes the low 8 bits of the mask to the core's gamepad 1:
 
 ```c
 void nesemu_set_keys(uint32_t keys)
@@ -395,11 +395,11 @@ void nesemu_set_keys(uint32_t keys)
 }
 ```
 
-`boards/yuzukineko.conf` 把输入线程优先级设成 4，高于模拟（主线程，优先级 6），模拟一帧时手指事件不会丢。
+`boards/yuzukineko.conf` sets the input thread priority to 4, higher than the emulation (the main thread, priority 6), so finger events are not lost while a frame is being emulated.
 
-### 在哪里改布局
+### Where to change the layout
 
-布局在 `pad_main()` 里一次建好。坐标原点在屏幕左上角，单位是像素，数值是按 `yuzukineko` 的 1024×768 面板写的：
+The layout is built once in `pad_main()`. The origin is the top-left corner of the screen and the unit is the pixel; the values are written for the 1024×768 panel of the `yuzukineko` board:
 
 ```c
 static void pad_main(void *a, void *b, void *c)
@@ -422,102 +422,102 @@ static void pad_main(void *a, void *b, void *c)
 	key_add(524, 688, 120, 60, "START", NESEMU_KEY_START, 30);
 ```
 
-- 改位置改前两个参数，改大小改第三、四个参数，换键位改第六个参数（`NESEMU_KEY_*`）。
-- 要加按键（比如连发），再加一行 `key_add()`，总数超过 10 就把 `MAX_KEYS` 改大。`nesemu_set_keys()` 只取低 8 位，加的键要对应核心里已有的手柄键。
-- 命中范围是 `HIT_MARGIN`，抗抖时间是 `RELEASE_HOLD_MS`，都在 `pad.c` 开头。
-- 换别的屏幕或触摸控制器时，布局坐标和触摸坐标要在同一个坐标系里；设备树里 `zephyr,touch` 要指向新设备，`boards/*.conf` 里要打开对应的驱动。
+- To change the position, change the first two arguments; to change the size, the third and fourth; to change the key bit, the sixth (`NESEMU_KEY_*`).
+- To add a key (auto-fire, say), add another `key_add()` line; if the total exceeds 10, raise `MAX_KEYS`. `nesemu_set_keys()` takes only the low 8 bits, so an added key must correspond to a gamepad key the core already has.
+- The hit area is `HIT_MARGIN` and the debounce time is `RELEASE_HOLD_MS`; both are at the top of `pad.c`.
+- When switching to another screen or touch controller, the layout coordinates and the touch coordinates must be in the same coordinate system; `zephyr,touch` in the devicetree must point at the new device, and the matching driver must be enabled in `boards/*.conf`.
 
-## 配置选项
+## Configuration options
 
-示例自己的选项（`samples/nes_player/Kconfig`）：
+The sample's own options (`samples/nes_player/Kconfig`):
 
-| 选项 | 默认 | 说明 |
+| Option | Default | Description |
 | --- | --- | --- |
-| `CONFIG_SAMPLE_NES_ROM` | `"/SD:/game.nes"` | 首选的 ROM 路径；文件不存在就用根目录第一个 `.nes` |
-| `CONFIG_SAMPLE_NES_RATE` | `48000` | 声音输出采样率，选项说明里只支持 48000 或 44100 |
-| `CONFIG_SAMPLE_NES_VOLUME` | `150` | codec 输出音量，范围 0–255 |
-| `CONFIG_SAMPLE_NES_BENCH` | 关 | 不等声音、不显示，只跑固定帧数，打印每帧耗时和画面 CRC |
-| `CONFIG_SAMPLE_NES_BENCH_FRAMES` | `1200` | 基准的帧数，每 200 帧打印一次画面 CRC（依赖 `SAMPLE_NES_BENCH`） |
+| `CONFIG_SAMPLE_NES_ROM` | `"/SD:/game.nes"` | Preferred ROM path; if the file does not exist, the first `.nes` in the root directory is used |
+| `CONFIG_SAMPLE_NES_RATE` | `48000` | Sound output sample rate; the option help says only 48000 or 44100 is supported |
+| `CONFIG_SAMPLE_NES_VOLUME` | `150` | codec output volume, range 0–255 |
+| `CONFIG_SAMPLE_NES_BENCH` | off | does not wait for sound and does not display; runs a fixed number of frames and prints the time per frame and a picture CRC |
+| `CONFIG_SAMPLE_NES_BENCH_FRAMES` | `1200` | number of frames for the benchmark; prints a picture CRC every 200 frames (depends on `SAMPLE_NES_BENCH`) |
 
-组件的选项（`zephyr-components/nes/Kconfig`）：
+The component's options (`zephyr-components/nes/Kconfig`):
 
-| 选项 | 默认 | 说明 |
+| Option | Default | Description |
 | --- | --- | --- |
-| `CONFIG_NES` | 关（示例里打开） | 编译 nofrendo 核心，依赖 RISCV，会选上文件系统 |
-| `CONFIG_NES_MAX_ROM_SIZE_KB` | `2048` | 接受的最大 ROM 文件，范围 16–2048 |
+| `CONFIG_NES` | off (enabled in the sample) | builds the nofrendo core; depends on RISCV and selects the filesystem |
+| `CONFIG_NES_MAX_ROM_SIZE_KB` | `2048` | maximum ROM file accepted, range 16–2048 |
 
-改法是在编译命令后面加 `-D`，字符串要带引号；也可以直接写进 `prj.conf`：
+To change them, append `-D` to the build command, quoting string values; you can also write them straight into `prj.conf`:
 
 ```sh
 west build -b yuzukineko -d build/nes zephyr-components/nes/samples/nes_player -- -DCONFIG_SAMPLE_NES_ROM='"/SD:/roms/demo.nes"'
 ```
 
-`prj.conf` 里的主要选项：
+The main options in `prj.conf`:
 
-| 选项 | 作用 |
+| Option | Purpose |
 | --- | --- |
-| `CONFIG_NES` | 打开模拟核心 |
-| `CONFIG_CRC` | 存档校验（判断存档有没有变化）用的 CRC |
-| `CONFIG_SDHC` | SD 主机控制器驱动 |
-| `CONFIG_DISK_DRIVER_SDMMC` | 把 SD 卡当磁盘访问 |
-| `CONFIG_FAT_FILESYSTEM_ELM` | FatFs 文件系统 |
-| `CONFIG_FS_FATFS_EXFAT` | 支持 exFAT 卡 |
-| `CONFIG_FS_FATFS_LFN` | 支持长文件名 |
-| `CONFIG_I2S` | I2S 驱动，声音经它送到 codec |
-| `CONFIG_AUDIO` | Zephyr 音频子系统 |
-| `CONFIG_AUDIO_CODEC` | codec 接口，开关输出、设音量 |
-| `CONFIG_RING_BUFFER` | 声音环形缓冲 |
-| `CONFIG_DISPLAY` | 显示驱动 |
-| `CONFIG_DISPLAY_SUNXI_ARGB8888` | ARGB8888 层，LVGL 画在这一层 |
-| `CONFIG_LVGL` | LVGL 图形库 |
-| `CONFIG_LV_COLOR_DEPTH_32` | LVGL 用 32 位色，带透明度，按键才能半透明 |
-| `CONFIG_LV_Z_MEM_POOL_SIZE=131072` | LVGL 内存池 |
-| `CONFIG_LV_Z_VDB_SIZE=4` | LVGL 绘制缓冲占屏幕的百分比 |
-| `CONFIG_LV_FONT_MONTSERRAT_16` | LVGL 字体 16 号 |
-| `CONFIG_LV_FONT_MONTSERRAT_28` | 按键文字用的 28 号字体 |
-| `CONFIG_FPU` | 硬件浮点 |
-| `CONFIG_FPU_SHARING` | 多个线程使用浮点 |
-| `CONFIG_HEAP_MEM_POOL_SIZE=262144` | 堆大小，ROM 整个读进堆里，视频缓冲也从堆里分 |
-| `CONFIG_MAIN_STACK_SIZE=16384` | 主线程栈，模拟核心在主线程里跑 |
-| `CONFIG_MAIN_THREAD_PRIORITY=6` | 主线程优先级，低于输入线程（4）和声音线程（3） |
-| `CONFIG_SUN252I_F101_RVV` | 打开 F101 的 RISC-V 向量扩展支持 |
-| `CONFIG_VDEC=n` | 示例不用视频引擎，关掉 |
+| `CONFIG_NES` | enables the emulation core |
+| `CONFIG_CRC` | CRC used for save-file checks (to tell whether the save data has changed) |
+| `CONFIG_SDHC` | SD host controller driver |
+| `CONFIG_DISK_DRIVER_SDMMC` | accesses the SD card as a disk |
+| `CONFIG_FAT_FILESYSTEM_ELM` | FatFs filesystem |
+| `CONFIG_FS_FATFS_EXFAT` | supports exFAT cards |
+| `CONFIG_FS_FATFS_LFN` | supports long file names |
+| `CONFIG_I2S` | I2S driver; the sound goes through it to the codec |
+| `CONFIG_AUDIO` | Zephyr audio subsystem |
+| `CONFIG_AUDIO_CODEC` | codec interface: turns the output on and off and sets the volume |
+| `CONFIG_RING_BUFFER` | sound ring buffer |
+| `CONFIG_DISPLAY` | display driver |
+| `CONFIG_DISPLAY_SUNXI_ARGB8888` | ARGB8888 plane; LVGL draws on this plane |
+| `CONFIG_LVGL` | LVGL graphics library |
+| `CONFIG_LV_COLOR_DEPTH_32` | LVGL uses 32-bit color with alpha, which the semi-transparent buttons need |
+| `CONFIG_LV_Z_MEM_POOL_SIZE=131072` | LVGL memory pool |
+| `CONFIG_LV_Z_VDB_SIZE=4` | LVGL draw buffer as a percentage of the screen |
+| `CONFIG_LV_FONT_MONTSERRAT_16` | LVGL font 16 |
+| `CONFIG_LV_FONT_MONTSERRAT_28` | the font 28 used for the button text |
+| `CONFIG_FPU` | hardware floating point |
+| `CONFIG_FPU_SHARING` | floating point used by multiple threads |
+| `CONFIG_HEAP_MEM_POOL_SIZE=262144` | heap size; the whole ROM is read into the heap and the video buffers are allocated from it too |
+| `CONFIG_MAIN_STACK_SIZE=16384` | main thread stack; the emulation core runs in the main thread |
+| `CONFIG_MAIN_THREAD_PRIORITY=6` | main thread priority, lower than the input thread (4) and the sound thread (3) |
+| `CONFIG_SUN252I_F101_RVV` | enables RISC-V vector extension support on the F101 |
+| `CONFIG_VDEC=n` | the sample does not use the video engine, so it is off |
 
-触摸相关的选项在 `boards/yuzukineko.conf`：
+The touch-related options are in `boards/yuzukineko.conf`:
 
-| 选项 | 作用 |
+| Option | Purpose |
 | --- | --- |
-| `CONFIG_I2C=y` | 触摸控制器挂在 I2C 上（`prj.conf` 里默认关了 I2C） |
-| `CONFIG_INPUT=y` | 输入子系统 |
-| `CONFIG_INPUT_GT967_MAX_TOUCH_POINTS=5` | 同时上报 5 个触点 |
-| `CONFIG_INPUT_THREAD_PRIORITY_OVERRIDE=y` | 允许改输入线程优先级 |
-| `CONFIG_INPUT_THREAD_PRIORITY=4` | 输入线程优先级，高于模拟线程 |
-| `CONFIG_INPUT_QUEUE_MAX_MSGS=64` | 输入事件队列长度 |
+| `CONFIG_I2C=y` | the touch controller hangs on I2C (I2C is off by default in `prj.conf`) |
+| `CONFIG_INPUT=y` | input subsystem |
+| `CONFIG_INPUT_GT967_MAX_TOUCH_POINTS=5` | reports 5 touch points at once |
+| `CONFIG_INPUT_THREAD_PRIORITY_OVERRIDE=y` | allows changing the input thread priority |
+| `CONFIG_INPUT_THREAD_PRIORITY=4` | input thread priority, higher than the emulation thread |
+| `CONFIG_INPUT_QUEUE_MAX_MSGS=64` | input event queue length |
 
-## 代码结构
+## Code structure
 
-| 文件 | 内容 |
+| File | Contents |
 | --- | --- |
-| `samples/nes_player/src/main.c` | 挂载 TF 卡、选 ROM、主循环（模拟、推声音、按声音限速、存档、统计） |
-| `samples/nes_player/src/video.c` | 4 个 RGB565 缓冲轮流用，显示线程调 `display_sunxi_show_rgb()` |
-| `samples/nes_player/src/audio.c` | 声音环形缓冲和 I2S 输出线程，设置 codec 音量 |
-| `samples/nes_player/src/pad.c` | LVGL 按钮、触摸读取、触点命中、按键掩码 |
-| `zephyr-components/nes/src/nesemu.c`、`include/nes_zephyr/nesemu.h` | 模拟核心的 Zephyr 接口：装载 ROM、跑一帧、取声音、存档 |
-| `zephyr-components/nes/nofrendo/` | nofrendo 核心（来自 Retro-Go，GPL-2.0），本地改动：`NES_NO_STDIO` 去掉 `FILE` 装载，CRC 由胶水提供 |
+| `samples/nes_player/src/main.c` | mounts the TF card, picks the ROM, and runs the main loop (emulate, push sound, pace by sound, save, statistics) |
+| `samples/nes_player/src/video.c` | four RGB565 buffers used in rotation; the display thread calls `display_sunxi_show_rgb()` |
+| `samples/nes_player/src/audio.c` | sound ring buffer and I2S output thread; sets the codec volume |
+| `samples/nes_player/src/pad.c` | LVGL buttons, touch reading, touch hit test, button mask |
+| `zephyr-components/nes/src/nesemu.c`, `include/nes_zephyr/nesemu.h` | the emulation core's Zephyr interface: load ROM, run a frame, fetch sound, save |
+| `zephyr-components/nes/nofrendo/` | the nofrendo core (from Retro-Go, GPL-2.0), with local changes: `NES_NO_STDIO` removes the `FILE` loading, and the CRC is provided by the glue |
 
-| 线程 | 优先级 | 做什么 |
+| Thread | Priority | What it does |
 | --- | --- | --- |
-| 声音线程 `audio` | 3 | 环形缓冲 → I2S 块 |
-| 输入线程（INPUT 子系统） | 4 | 读触摸，调 `touch_event()` |
-| 显示线程 `video` | 5 | 等新画面，调 `display_sunxi_show_rgb()` |
-| 主线程 | 6 | 跑模拟，推声音，限速 |
-| 按键线程 `pad` | 7 | `touch_scan()`、LVGL 刷新 |
+| sound thread `audio` | 3 | ring buffer → I2S blocks |
+| input thread (INPUT subsystem) | 4 | reads touches, calls `touch_event()` |
+| display thread `video` | 5 | waits for a new frame, calls `display_sunxi_show_rgb()` |
+| main thread | 6 | runs the emulation, pushes sound, paces |
+| button thread `pad` | 7 | `touch_scan()`, LVGL refresh |
 
-## 功能范围
+## Scope
 
-- 操作用触摸屏；没有 `zephyr,touch` 的板子上按键只显示，不能操作。
-- 手柄只有 1P，不支持 2P。
-- 支持电池存档（`.sav`）；不支持暂停、复位、存档状态（save state）和选游戏菜单。
-- 声音是单声道复制成立体声。
-- 缩放由显示驱动完成，示例不提供全屏和保持比例的切换。
-- 只支持 iNES 格式的 `.nes`，不支持 `.fds`、`.nsf`；mapper 限于 nofrendo 已实现的那些。
+- Operation is by touchscreen; on a board without `zephyr,touch` the buttons are only displayed and cannot be operated.
+- There is only gamepad 1P; 2P is not supported.
+- Battery saves (`.sav`) are supported; pause, reset, save states, and a game-selection menu are not.
+- The sound is mono copied to stereo.
+- Scaling is done by the display driver; the sample offers no toggle between full screen and aspect-preserving.
+- Only `.nes` in iNES format is supported; `.fds` and `.nsf` are not; mappers are limited to those nofrendo already implements.

@@ -1,16 +1,16 @@
 ---
-title: "显示"
+title: "Display"
 ---
 
-F101 的显示由一条固定的流水线组成：显示引擎（DE）把几个图层叠起来，时序控制器（TCON LCD）产生屏幕需要的时序，后面接一个编码器——并口 RGB、LVDS 或者 MIPI DSI——再接到屏幕上。Zephyr 里把整条流水线做成一个显示设备，应用用标准的 `<zephyr/drivers/display.h>` 写帧缓冲，驱动在 `drivers/display/sunxi/`。
+The F101 display is one fixed pipeline: the display engine (DE) stacks several layers, the timing controller (TCON LCD) generates the timings the screen needs, and behind that sits an encoder — parallel RGB, LVDS or MIPI DSI — which connects to the screen. In Zephyr the whole pipeline is made into one display device, an application writes the frame buffer with the standard `<zephyr/drivers/display.h>`, and the driver lives in `drivers/display/sunxi/`.
 
 ```mermaid
 flowchart LR
-    APP["应用<br/>display_write<br/>LVGL"] --> FB["帧缓冲层<br/>RGB565 / ARGB8888"]
-    VID["视频层<br/>NV12 / RGB 缩放"] --> DE
-    FB --> DE["显示引擎<br/>de0"]
-    DE --> TCON["时序控制器<br/>tcon_lcd0<br/>tcon_top0"]
-    TCON --> RGB["并口 RGB<br/>rgb0"]
+    APP["Application<br/>display_write<br/>LVGL"] --> FB["Frame buffer layer<br/>RGB565 / ARGB8888"]
+    VID["Video layer<br/>NV12 / RGB scaling"] --> DE
+    FB --> DE["Display engine<br/>de0"]
+    DE --> TCON["Timing controller<br/>tcon_lcd0<br/>tcon_top0"]
+    TCON --> RGB["Parallel RGB<br/>rgb0"]
     TCON --> LVDS["LVDS<br/>lvds0"]
     TCON --> DSI["MIPI DSI<br/>dsi0"]
     DSI --- DPHY["D-PHY<br/>dphy0"]
@@ -18,36 +18,36 @@ flowchart LR
     RGB --> P1["panel-simple"]
     LVDS --> P1
     DSI --> P2["panel-dsi"]
-    P1 --> BL["背光<br/>pwm-backlight"]
+    P1 --> BL["backlight<br/>pwm-backlight"]
     P2 --> BL
 ```
 
-三种输出同一时间只开一种。`yuzukineko` 板接的是 MIPI DSI 屏（载板上的 1024×768 IPS 屏），`f101_evb` 接的是 RGB 屏（1024×600）。本文先讲设备树里这条流水线的各个节点，再分别讲怎么适配一块新的 RGB 屏和 MIPI DSI 屏，最后是显示接口。
+Only one of the three outputs is enabled at a time. The `yuzukineko` board is connected to a MIPI DSI panel (the 1024×768 IPS panel on the carrier board), and `f101_evb` to an RGB panel (1024×600). This page first covers the nodes of this pipeline in the devicetree, then how to adapt a new RGB panel and a new MIPI DSI panel respectively, and finally the display interface.
 
-| 项目 | 内容 |
+| Item | Content |
 | --- | --- |
-| 输出 | 并口 RGB（RGB888、RGB666、RGB565、串行 RGB/YUV、CCIR656）、LVDS（单路）、MIPI DSI（最多 4 条数据通道） |
-| 图层 | 12 个平面，3 个通道；应用用到两个：帧缓冲层（UI，RGB565 或 ARGB8888）和视频层（NV12 或 RGB，带缩放） |
-| 帧缓冲 | 大小来自 `display` 节点的 `width`、`height`，可以缩小到 1/2、1/3、1/4 由显示引擎放大，可以只显示左上角的一个窗口 |
-| 背光 | PWM 背光（`pwm-backlight`）或 GPIO 背光（`gpio-backlight`） |
-| 面板初始化 | 设备树里的命令序列：上电时序、DSI 的 DCS/Generic 命令、软件模拟 SPI 的命令 |
-| 不支持 | 读帧缓冲、改像素格式、改方向（见后面的接口） |
+| Output | Parallel RGB (RGB888, RGB666, RGB565, serial RGB/YUV, CCIR656), LVDS (single link), MIPI DSI (up to 4 data lanes) |
+| Layers | 12 planes, 3 channels; an application uses two: the frame buffer layer (UI, RGB565 or ARGB8888) and the video layer (NV12 or RGB, with scaling) |
+| Frame buffer | The size comes from the `width`, `height` of the `display` node; it can be shrunk to 1/2, 1/3, 1/4 and scaled up by the display engine, and it can show only a window in the top-left corner |
+| Backlight | PWM backlight (`pwm-backlight`) or GPIO backlight (`gpio-backlight`) |
+| Panel initialization | A command sequence in the devicetree: power-up timings, DSI DCS/Generic commands, software-emulated SPI commands |
+| Not supported | Reading the frame buffer, changing the pixel format, changing the orientation (see the interface below) |
 
-## 设备树
+## Devicetree
 
-流水线上每一块是一个节点，节点之间用 `ports`/`endpoint`/`remote-endpoint` 连起来，和 Linux 的 OF graph 一样。驱动启动时沿着这些连接，从显示引擎走到面板，只有两端都打开的连接才生效。
+Each block on the pipeline is a node, and the nodes are linked with `ports`/`endpoint`/`remote-endpoint`, just like Linux's OF graph. At startup the driver follows these links from the display engine to the panel, and only a link whose two ends are both enabled takes effect.
 
-| 文件 | 作用 |
+| File | Purpose |
 | --- | --- |
-| `dts/bindings/display/allwinner,sunxi-display.yaml` | `display` 节点：整个流水线对应的 Zephyr 显示设备，以及帧缓冲的大小 |
-| `dts/bindings/display/sunxi/` | 流水线各块的绑定：`allwinner,sun252iw2-display-engine`、`-tcon-top`、`-tcon-lcd`、`-mipi-dsi`、`-combo-dphy`，`allwinner,sunxi-rgb`、`-lvds`，面板 `panel-simple`、`panel-dsi`，背光 `pwm-backlight`、`gpio-backlight` |
-| `dts/riscv/allwinner/sun252i_f101.dtsi` | SoC 设备树：各块的寄存器、时钟、复位、中断，以及它们之间的固定连接，默认都是 `disabled` |
-| `include/zephyr/dt-bindings/display/sunxi-display.h` | 设备树用的宏：`SUNXI_PIN`、`SUNXI_HV_*`、`SUNXI_DSI_MODE_*`、`SUNXI_CMD_*` |
-| `boards/yuzukihd/*/*.dts` | 板级设备树：打开要用的块，画出连接，写面板和背光节点 |
+| `dts/bindings/display/allwinner,sunxi-display.yaml` | The `display` node: the Zephyr display device for the whole pipeline, and the frame buffer size |
+| `dts/bindings/display/sunxi/` | The bindings of each pipeline block: `allwinner,sun252iw2-display-engine`, `-tcon-top`, `-tcon-lcd`, `-mipi-dsi`, `-combo-dphy`, `allwinner,sunxi-rgb`, `-lvds`, the panels `panel-simple`, `panel-dsi`, the backlights `pwm-backlight`, `gpio-backlight` |
+| `dts/riscv/allwinner/sun252i_f101.dtsi` | The SoC devicetree: registers, clocks, resets and interrupts of each block, and the fixed links between them, all `disabled` by default |
+| `include/zephyr/dt-bindings/display/sunxi-display.h` | The macros used by the devicetree: `SUNXI_PIN`, `SUNXI_HV_*`, `SUNXI_DSI_MODE_*`, `SUNXI_CMD_*` |
+| `boards/yuzukihd/*/*.dts` | Board devicetrees: enable the blocks to be used, draw the links, write the panel and backlight nodes |
 
-### SoC 设备树：sun252i_f101.dtsi
+### SoC devicetree: sun252i_f101.dtsi
 
-显示引擎和 TCON：
+The display engine and the TCON:
 
 ```c
 de0: display-engine@5000000 {
@@ -55,7 +55,7 @@ de0: display-engine@5000000 {
 	reg = <0x05000000 0x200000>;
 	clocks = <&cctl CLK_DE>, <&cctl CLK_BUS_DE>;
 	clock-names = "mod", "bus";
-	/* 模块时钟的父时钟和频率：PLL_PERI_2X 分出 300 MHz */
+	/* the parent clock and frequency of the module clock: PLL_PERI_2X divided down to 300 MHz */
 	clock-parents = <CLK_PLL_PERI_2X 0>;
 	clock-rates = <300000000 0>;
 	resets = <&rctl RST_BUS_DE>;
@@ -65,7 +65,7 @@ de0: display-engine@5000000 {
 	ports {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		/* 显示引擎的输出口连到 TCON LCD */
+		/* the output port of the display engine connects to the TCON LCD */
 		port@0 {
 			reg = <0>;
 			#address-cells = <1>;
@@ -95,7 +95,7 @@ tcon_lcd0: tcon-lcd@5461000 {
 	interrupt-parent = <&plic>;
 	clocks = <&cctl CLK_TCONLCD>, <&cctl CLK_BUS_TCONLCD>;
 	clock-names = "mod", "bus";
-	/* 像素时钟从 PLL_VIDEO0_4X 分出来 */
+	/* the pixel clock is divided out from PLL_VIDEO0_4X */
 	clock-parents = <CLK_PLL_VIDEO0_4X 0>;
 	resets = <&rctl RST_BUS_TCONLCD>;
 	reset-names = "bus";
@@ -105,7 +105,7 @@ tcon_lcd0: tcon-lcd@5461000 {
 	ports {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		/* TCON 的输出口有三个端点：RGB、LVDS、DSI，板级文件用到哪个就打开哪个 */
+		/* the TCON output port has three endpoints: RGB, LVDS and DSI; the board file enables whichever it uses */
 		port@1 {
 			reg = <1>;
 			#address-cells = <1>;
@@ -118,7 +118,7 @@ tcon_lcd0: tcon-lcd@5461000 {
 };
 ```
 
-三种编码器和 D-PHY：
+The three encoders and the D-PHY:
 
 ```c
 rgb0: rgb {
@@ -145,7 +145,7 @@ dsi0: dsi@5450000 {
 	clock-rates = <150000000 0>;
 	resets = <&rctl RST_BUS_DSI>;
 	reset-names = "bus";
-	/* D-PHY：DSI 和 LVDS 共用 */
+	/* D-PHY: shared by DSI and LVDS */
 	phy = <&dphy0>;
 	status = "disabled";
 };
@@ -160,7 +160,7 @@ dphy0: phy@5451000 {
 };
 ```
 
-整条流水线对应的 Zephyr 设备：
+The Zephyr device for the whole pipeline:
 
 ```c
 display: display-subsystem {
@@ -169,108 +169,108 @@ display: display-subsystem {
 };
 ```
 
-### 绑定的属性
+### Binding properties
 
-`allwinner,sunxi-display`（`display` 节点）：
+`allwinner,sunxi-display` (the `display` node):
 
-| 属性 | 含义 |
+| Property | Meaning |
 | --- | --- |
-| `width`、`height` | 帧缓冲的像素尺寸，必须和面板一致（驱动启动时检查，面板比它大就初始化失败） |
+| `width`, `height` | Pixel size of the frame buffer, which must match the panel (checked when the driver starts; if the panel is bigger than it, initialization fails) |
 
-显示引擎 `de0` 在板级文件里还设了 `brightness`、`contrast`、`saturation`、`hue` 四个画质属性，值是 50、50、57、50。
+In the board file the display engine `de0` also sets four picture-quality properties, `brightness`, `contrast`, `saturation` and `hue`, with the values 50, 50, 57, 50.
 
-并口 RGB 编码器 `allwinner,sunxi-rgb`：
+The parallel RGB encoder `allwinner,sunxi-rgb`:
 
-| 属性 | 默认 | 含义 |
+| Property | Default | Meaning |
 | --- | --- | --- |
-| `hv-mode` | 0 | 接口模式：`SUNXI_HV_PARALLEL_RGB`（并口，0x0）、`SUNXI_HV_SERIAL_RGB`（0x8）、`SUNXI_HV_SERIAL_RGB_DUMMY`（0xa）、`SUNXI_HV_SERIAL_YUV`（0xc）、`SUNXI_HV_CCIR656_2CYC`（0xe） |
-| `serial-rgb-sequence`、`serial-yuv-sequence`、`serial-yuv-first-delay` | 0 | 串行 RGB/YUV 的相位顺序 |
-| `rgb-swap` | 0 | 颜色分量的排列（TCON 的 RGB_SWAP） |
-| `rb-swap` | 0 | 红蓝互换 |
-| `clk-phase` | 0 | 像素时钟的延迟和反相选择，0…3 |
-| `use-tcon-frm` | 否 | 在 TCON 里做抖动，用于低于 8 位的屏 |
-| `io-adjust` | 0 | IO 调整 |
-| `pinctrl-0`、`pinctrl-names` | | RGB 数据线和时钟的引脚 |
-| `ports` | | 输出连接，下面的 `endpoint` 指向面板 |
+| `hv-mode` | 0 | Interface mode: `SUNXI_HV_PARALLEL_RGB` (parallel, 0x0), `SUNXI_HV_SERIAL_RGB` (0x8), `SUNXI_HV_SERIAL_RGB_DUMMY` (0xa), `SUNXI_HV_SERIAL_YUV` (0xc), `SUNXI_HV_CCIR656_2CYC` (0xe) |
+| `serial-rgb-sequence`, `serial-yuv-sequence`, `serial-yuv-first-delay` | 0 | Phase order of serial RGB/YUV |
+| `rgb-swap` | 0 | Arrangement of the colour components (the TCON's RGB_SWAP) |
+| `rb-swap` | 0 | Swap red and blue |
+| `clk-phase` | 0 | Delay and inversion selection for the pixel clock, 0…3 |
+| `use-tcon-frm` | no | Do the dithering in the TCON, for panels below 8 bits |
+| `io-adjust` | 0 | IO adjustment |
+| `pinctrl-0`, `pinctrl-names` | | Pins for the RGB data lines and the clock |
+| `ports` | | Output links; the `endpoint` below points at the panel |
 
-DSI 编码器 `allwinner,sun252iw2-mipi-dsi`：`reg`、`interrupts`、`phy`（必填，指向 D-PHY），加上 `ports` 和 `pinctrl-0`。
+The DSI encoder `allwinner,sun252iw2-mipi-dsi`: `reg`, `interrupts`, `phy` (required, points at the D-PHY), plus `ports` and `pinctrl-0`.
 
-面板的公共属性（`panel-simple` 和 `panel-dsi` 都有）：
+Properties common to the panels (`panel-simple` and `panel-dsi` both have them):
 
-| 属性 | 含义 |
+| Property | Meaning |
 | --- | --- |
-| `width`、`height` | 面板的像素尺寸（来自 Zephyr 的 `display-controller`） |
-| `width-mm`、`height-mm` | 有效显示区的物理尺寸，毫米 |
-| `backlight` | 背光节点的 phandle |
-| `enable-delay-ms` | 链路起来以后，等多久再打开背光 |
-| `disable-delay-ms` | 关背光以后，等多久再关链路 |
-| `power-on-sequence` | 链路启动之前执行的命令 |
-| `power-off-sequence` | 链路停止之后执行的命令 |
-| `init-sequence` | 链路起来以后执行的命令（DSI 的 DCS/Generic 命令，或者 SPI 命令） |
-| `exit-sequence` | 链路停止之前执行的命令 |
-| `display-timings` | 子节点，`compatible = "zephyr,panel-timing"`，见下 |
+| `width`, `height` | Pixel size of the panel (from Zephyr's `display-controller`) |
+| `width-mm`, `height-mm` | Physical size of the active display area, in millimetres |
+| `backlight` | phandle of the backlight node |
+| `enable-delay-ms` | How long to wait after the link is up before turning the backlight on |
+| `disable-delay-ms` | How long to wait after turning the backlight off before shutting the link down |
+| `power-on-sequence` | Commands to run before the link starts |
+| `power-off-sequence` | Commands to run after the link stops |
+| `init-sequence` | Commands to run after the link is up (DSI DCS/Generic commands, or SPI commands) |
+| `exit-sequence` | Commands to run before the link stops |
+| `display-timings` | Child node, `compatible = "zephyr,panel-timing"`, see below |
 
-命令序列是一串数字，用 `include/zephyr/dt-bindings/display/sunxi-display.h` 里的宏拼：
+A command sequence is a run of numbers, assembled with the macros in `include/zephyr/dt-bindings/display/sunxi-display.h`:
 
-| 宏 | 含义 |
+| Macro | Meaning |
 | --- | --- |
-| `SUNXI_CMD_DELAY(ms)` | 等 ms 毫秒 |
-| `SUNXI_CMD_GPIO(pin, level)` | 把一个 GPIO 驱动成物理电平 level（0 或 1）；`pin` 用 `SUNXI_PIN(ALLWINNER_PIO_PD, 9)` 这样写 |
-| `SUNXI_CMD_DCS(ms, n, bytes)` | 发一条 DSI DCS 写命令：n 个字节（第一个是命令字节，后面是参数，用空格隔开，不要逗号），然后等 ms 毫秒 |
-| `SUNXI_CMD_GENERIC(ms, n, bytes)` | 发一条 DSI Generic 写命令 |
-| `SUNXI_CMD_SPI_CMD(ms, n, bytes)` | 软件模拟 SPI 发命令字节（面板的 SPI 初始化） |
-| `SUNXI_CMD_SPI_DATA(ms, n, bytes)` | 软件模拟 SPI 发数据字节 |
+| `SUNXI_CMD_DELAY(ms)` | Wait ms milliseconds |
+| `SUNXI_CMD_GPIO(pin, level)` | Drive a GPIO to the physical level level (0 or 1); `pin` is written like `SUNXI_PIN(ALLWINNER_PIO_PD, 9)` |
+| `SUNXI_CMD_DCS(ms, n, bytes)` | Send a DSI DCS write command: n bytes (the first is the command byte, the rest are parameters separated by spaces, not commas), then wait ms milliseconds |
+| `SUNXI_CMD_GENERIC(ms, n, bytes)` | Send a DSI Generic write command |
+| `SUNXI_CMD_SPI_CMD(ms, n, bytes)` | Send command bytes over software-emulated SPI (a panel's SPI initialization) |
+| `SUNXI_CMD_SPI_DATA(ms, n, bytes)` | Send data bytes over software-emulated SPI |
 
-`display-timings`（`zephyr,panel-timing`）：
+`display-timings` (`zephyr,panel-timing`):
 
-| 属性 | 含义 |
+| Property | Meaning |
 | --- | --- |
-| `clock-frequency` | 像素时钟，Hz。至少是（宽 + `hsync-len` + `hfront-porch` + `hback-porch`）×（高 + `vsync-len` + `vfront-porch` + `vback-porch`）×帧率 |
-| `hsync-len`、`hfront-porch`、`hback-porch` | 水平同步宽度、前沿、后沿，单位像素 |
-| `vsync-len`、`vfront-porch`、`vback-porch` | 垂直同步宽度、前沿、后沿，单位行 |
-| `hsync-active`、`vsync-active` | 同步信号的有效电平，0 低有效，1 高有效 |
-| `de-active` | 数据使能的有效电平 |
-| `pixelclk-active` | 1 表示在像素时钟的上升沿输出数据，0 表示下降沿 |
+| `clock-frequency` | Pixel clock, Hz. At least (width + `hsync-len` + `hfront-porch` + `hback-porch`) × (height + `vsync-len` + `vfront-porch` + `vback-porch`) × frame rate |
+| `hsync-len`, `hfront-porch`, `hback-porch` | Horizontal sync width, front porch and back porch, in pixels |
+| `vsync-len`, `vfront-porch`, `vback-porch` | Vertical sync width, front porch and back porch, in lines |
+| `hsync-active`, `vsync-active` | Active level of the sync signals, 0 active low, 1 active high |
+| `de-active` | Active level of the data enable |
+| `pixelclk-active` | 1 means data is output on the rising edge of the pixel clock, 0 the falling edge |
 
-## 适配一块并口 RGB 屏
+## Adapting a parallel RGB panel
 
-以 `f101_evb` 上的 1024×600 RGB666 屏为例。适配分六步，每一步的数据都来自屏的规格书。
+Take the 1024×600 RGB666 panel on `f101_evb` as the example. Adaptation is six steps, and the data for each step comes from the panel's datasheet.
 
-### 第一步：时序
+### Step 1: timing
 
-从规格书的时序表里抄下面这些数，写进 `display-timings`：
+Copy the following numbers from the timing table of the datasheet into `display-timings`:
 
-| 规格书里的参数 | 设备树属性 | EVB 屏的值 |
+| Parameter in the datasheet | Devicetree property | Value for the EVB panel |
 | --- | --- | --- |
-| 有效像素数（H）、行数（V） | 面板的 `width`、`height`，`display` 的 `width`、`height` | 1024、600 |
-| HSYNC 脉宽 | `hsync-len` | 20 |
-| 水平前沿（HFP） | `hfront-porch` | 161 |
-| 水平后沿（HBP） | `hback-porch` | 35 |
-| VSYNC 脉宽 | `vsync-len` | 10 |
-| 垂直前沿（VFP） | `vfront-porch` | 15 |
-| 垂直后沿（VBP） | `vback-porch` | 25 |
-| HSYNC、VSYNC、DE 极性 | `hsync-active`、`vsync-active`、`de-active` | 0、0、1 |
-| 像素时钟沿 | `pixelclk-active` | 1 |
-| 典型像素时钟 | `clock-frequency` | 49000000 |
+| Number of active pixels (H), lines (V) | the panel's `width`, `height`, and the `width`, `height` of `display` | 1024, 600 |
+| HSYNC pulse width | `hsync-len` | 20 |
+| Horizontal front porch (HFP) | `hfront-porch` | 161 |
+| Horizontal back porch (HBP) | `hback-porch` | 35 |
+| VSYNC pulse width | `vsync-len` | 10 |
+| Vertical front porch (VFP) | `vfront-porch` | 15 |
+| Vertical back porch (VBP) | `vback-porch` | 25 |
+| HSYNC, VSYNC, DE polarity | `hsync-active`, `vsync-active`, `de-active` | 0, 0, 1 |
+| Pixel clock edge | `pixelclk-active` | 1 |
+| Typical pixel clock | `clock-frequency` | 49000000 |
 
-检查像素时钟：（1024 + 20 + 161 + 35）×（600 + 10 + 15 + 25）= 1240 × 650 = 806 000 个像素时钟一帧，除 49 MHz，帧率是 60.8 Hz。算出的帧率要在规格书允许的范围里。
+Check the pixel clock: (1024 + 20 + 161 + 35) × (600 + 10 + 15 + 25) = 1240 × 650 = 806 000 pixel clocks per frame; divided by 49 MHz that is a frame rate of 60.8 Hz. The frame rate you compute must lie within the range the datasheet allows.
 
-### 第二步：数据格式和引脚
+### Step 2: data format and pins
 
-`bus-format` 告诉驱动屏幕有几根数据线、怎么排列：
+`bus-format` tells the driver how many data lines the screen has and how they are arranged:
 
-| `bus-format` | 含义 |
+| `bus-format` | Meaning |
 | --- | --- |
-| `rgb888-1x24` | 24 根数据线，每色 8 位 |
-| `rgb666-1x18` | 18 根数据线，每色 6 位 |
-| `rgb565-1x16` | 16 根数据线 |
-| `rgb666-1x7x3-spwg`、`rgb888-1x7x4-spwg`、`rgb888-1x7x4-jeida` | LVDS 的数据排列 |
+| `rgb888-1x24` | 24 data lines, 8 bits per colour |
+| `rgb666-1x18` | 18 data lines, 6 bits per colour |
+| `rgb565-1x16` | 16 data lines |
+| `rgb666-1x7x3-spwg`, `rgb888-1x7x4-spwg`, `rgb888-1x7x4-jeida` | Data arrangements for LVDS |
 
-把屏用到的数据线、像素时钟、DE、HSYNC、VSYNC 这些脚写进 `rgb_pins`。EVB 的 18 位屏共用到 22 个脚：PD0…PD9、PD12…PD21 复用功能 2，PE6、PE7 复用功能 4（`yuzukineko.dts` 和 `f101_evb.dts` 里都有这一组）：
+Write the pins the screen uses — data lines, pixel clock, DE, HSYNC, VSYNC — into `rgb_pins`. The EVB's 18-bit panel uses 22 pins in all: PD0…PD9 and PD12…PD21 with mux function 2, and PE6, PE7 with mux function 4 (this group is in both `yuzukineko.dts` and `f101_evb.dts`):
 
 ```c
 &pio {
-	/* 并口 RGB 屏：PD0…PD9、PD12…PD21 复用功能 2，PE6、PE7 复用功能 4 */
+	/* parallel RGB panel: PD0…PD9 and PD12…PD21 mux function 2, PE6 and PE7 mux function 4 */
 	rgb_pins: rgb_pins {
 		rgb_lcd {
 			pinmux = <ALLWINNER_PINMUX(ALLWINNER_PIO_PD, 0, 2)
@@ -284,9 +284,9 @@ DSI 编码器 `allwinner,sun252iw2-mipi-dsi`：`reg`、`interrupts`、`phy`（�
 };
 ```
 
-完整的 22 个脚见 `f101_evb.dts`；每个引脚各复用功能的名字（`LCD0-Dx`、`LCD0-CLK`、`LCD0-DE`、`LCD0-HSYNC`、`LCD0-VSYNC`）见[引脚复用表](../../../hardware/mux.md)。
+The full set of 22 pins is in `f101_evb.dts`; the name of each mux function on each pin (`LCD0-Dx`, `LCD0-CLK`, `LCD0-DE`, `LCD0-HSYNC`, `LCD0-VSYNC`) is in the [pin multiplexing table](../../../hardware/mux.md).
 
-### 第三步：打开流水线，连起来
+### Step 3: enable the pipeline and link it up
 
 ```c
 &de0 { status = "okay"; brightness = <50>; contrast = <50>; saturation = <57>; hue = <50>; };
@@ -295,7 +295,7 @@ DSI 编码器 `allwinner,sun252iw2-mipi-dsi`：`reg`、`interrupts`、`phy`（�
 
 &display {
 	status = "okay";
-	/* 帧缓冲的大小，等于面板的大小 */
+	/* size of the frame buffer, equal to the size of the panel */
 	width = <1024>;
 	height = <600>;
 };
@@ -304,9 +304,10 @@ DSI 编码器 `allwinner,sun252iw2-mipi-dsi`：`reg`、`interrupts`、`phy`（�
 	status = "okay";
 	pinctrl-0 = <&rgb_pins>;
 	pinctrl-names = "default";
-	/* 并口 RGB */
+	/* parallel RGB */
 	hv-mode = <SUNXI_HV_PARALLEL_RGB>;
-	/* 颜色分量的排列。颜色不对（红蓝互换、绿紫）时改这个值，或者用 rb-swap */
+	/* arrangement of the colour components. When the colours are wrong (red and blue swapped, green and
+	 * purple), change this value, or use rb-swap */
 	rgb-swap = <5>;
 
 	ports {
@@ -316,7 +317,7 @@ DSI 编码器 `allwinner,sun252iw2-mipi-dsi`：`reg`、`interrupts`、`phy`（�
 			reg = <1>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			/* 输出连到面板 */
+			/* the output is linked to the panel */
 			endpoint@0 {
 				reg = <0>;
 				remote-endpoint = <&panel0>;
@@ -326,7 +327,7 @@ DSI 编码器 `allwinner,sun252iw2-mipi-dsi`：`reg`、`interrupts`、`phy`（�
 };
 ```
 
-把 `chosen` 里的 `zephyr,display` 指向 `&display`：
+Point `zephyr,display` in `chosen` at `&display`:
 
 ```c
 chosen {
@@ -334,7 +335,7 @@ chosen {
 };
 ```
 
-### 第四步：面板节点
+### Step 4: the panel node
 
 ```c
 / {
@@ -346,10 +347,10 @@ chosen {
 		height-mm = <86>;
 		backlight = <&backlight0>;
 		bus-format = "rgb666-1x18";
-		/* 链路起来 50 ms 以后再开背光，避免先看到一片白 */
+		/* turn the backlight on 50 ms after the link is up, so a blank white screen is not seen first */
 		enable-delay-ms = <50>;
 
-		/* 面板电源开关 PD22：先拉高，等 30 ms；断电时先拉低，等 20 ms */
+		/* panel power switch PD22: pull it high first and wait 30 ms; when powering off, pull it low first and wait 20 ms */
 		power-on-sequence = <SUNXI_CMD_GPIO(SUNXI_PIN(ALLWINNER_PIO_PD, 22), 1)
 				     SUNXI_CMD_DELAY(30)>;
 		power-off-sequence = <SUNXI_CMD_GPIO(SUNXI_PIN(ALLWINNER_PIO_PD, 22), 0)
@@ -373,9 +374,9 @@ chosen {
 };
 ```
 
-### 第五步：背光
+### Step 5: backlight
 
-PWM 背光，周期 20 µs（50 kHz），低电平点亮，启动亮度 250（满量程 255）。`pwms` 引用的是 `f101_evb` 上的 PWM_BL，用法见 [PWM](pwm.md)：
+A PWM backlight, period 20 µs (50 kHz), lit by a low level, with a starting brightness of 250 (full scale 255). `pwms` refers to PWM_BL on `f101_evb`; for the usage see [PWM](pwm.md):
 
 ```c
 / {
@@ -388,7 +389,7 @@ PWM 背光，周期 20 µs（50 kHz），低电平点亮，启动亮度 250（�
 };
 ```
 
-背光只用一个 GPIO 开关的话，用 `gpio-backlight`：
+If the backlight is switched by a single GPIO, use `gpio-backlight`:
 
 ```c
 backlight0: backlight {
@@ -397,61 +398,61 @@ backlight0: backlight {
 };
 ```
 
-### 第六步：需要 SPI 初始化的屏
+### Step 6: panels that need SPI initialization
 
-有些 RGB 屏（比如 ST7701S、ILI9806 一类驱动芯片的屏）上电后要先通过一个 3 线或 4 线的 SPI 接口写寄存器，才开始显示。`panel-simple` 用软件模拟 SPI 发这些命令：
+Some RGB panels (for example those with driver ICs of the ST7701S or ILI9806 kind) must have registers written through a 3-wire or 4-wire SPI interface after power-up before they show anything. `panel-simple` sends these commands with software-emulated SPI:
 
 ```c
 panel0: panel {
 	compatible = "panel-simple";
-	/* …… 同上 …… */
+	/* …… same as above …… */
 
-	/* 3 线 9 位 SPI（第 9 位区分命令和数据），引脚用 GPIO 软件模拟 */
+	/* 3-wire 9-bit SPI (the 9th bit distinguishes command from data), pins emulated in software with GPIOs */
 	spi-mode = "3wire-9bit";
 	spi-cs-gpios  = <&gpioe 10 GPIO_ACTIVE_LOW>;
 	spi-sck-gpios = <&gpioe 11 GPIO_ACTIVE_HIGH>;
 	spi-sda-gpios = <&gpioe 12 GPIO_ACTIVE_HIGH>;
 	spi-half-period-us = <1>;
 
-	init-sequence = <SUNXI_CMD_SPI_CMD(0, 1, 0xff)		/* 切换寄存器页 */
+	init-sequence = <SUNXI_CMD_SPI_CMD(0, 1, 0xff)		/* switch the register page */
 			 SUNXI_CMD_SPI_DATA(0, 5, 0x77 0x01 0x00 0x00 0x10)
-			 SUNXI_CMD_SPI_CMD(120, 1, 0x11)	/* 退出睡眠，等 120 ms */
-			 SUNXI_CMD_SPI_CMD(20, 1, 0x29)>;	/* 打开显示 */
+			 SUNXI_CMD_SPI_CMD(120, 1, 0x11)	/* exit sleep, wait 120 ms */
+			 SUNXI_CMD_SPI_CMD(20, 1, 0x29)>;	/* turn the display on */
 };
 ```
 
-`spi-mode` 取 `"none"`（默认）、`"3wire-9bit"` 或 `"4wire-8bit"`（4 线时再加 `spi-dc-gpios`）。这一段是写法示范，具体的寄存器和值以你的屏的初始化代码为准；`f101_evb` 上的屏不需要 SPI 初始化。
+`spi-mode` takes `"none"` (the default), `"3wire-9bit"` or `"4wire-8bit"` (for 4-wire, add `spi-dc-gpios` as well). This section is a demonstration of the notation; the actual registers and values are whatever your panel's initialization code says; the panel on `f101_evb` needs no SPI initialization.
 
-### LVDS 屏
+### LVDS panels
 
-LVDS 屏用 `panel-simple` 加 `bus-format = "rgb666-1x7x3-spwg"`（或 `rgb888-1x7x4-spwg`、`rgb888-1x7x4-jeida`），编码器节点是 `lvds0`，用 D-PHY。`samples/drivers/display/boards/evb_lvds.overlay` 是一个 1280×800 单路 LVDS 屏的 overlay，这个 overlay 没有在硬件上测试过。
+An LVDS panel uses `panel-simple` with `bus-format = "rgb666-1x7x3-spwg"` (or `rgb888-1x7x4-spwg`, `rgb888-1x7x4-jeida`), the encoder node is `lvds0`, and it uses the D-PHY. `samples/drivers/display/boards/evb_lvds.overlay` is an overlay for a 1280×800 single-link LVDS panel; this overlay has not been tested on hardware.
 
-## 适配一块 MIPI DSI 屏
+## Adapting a MIPI DSI panel
 
-以 `yuzukineko` 载板上的 1024×768 IPS 屏（驱动芯片 JD9168S，4 条数据通道）为例。DSI 屏跟 RGB 屏的区别是：数据走差分的 DSI 通道，屏的初始化命令也走 DSI，用 `init-sequence` 里的 DCS 命令发。
+Take the 1024×768 IPS panel on the `yuzukineko` carrier board (driver IC JD9168S, 4 data lanes) as the example. The difference between a DSI panel and an RGB panel is that the data travels over differential DSI lanes, and the panel's initialization commands also go over DSI, sent as DCS commands in `init-sequence`.
 
-### 第一步：时序
+### Step 1: timing
 
-规格书里的时序抄进 `display-timings`，和 RGB 屏一样（下面表里是板级文件里实际用的值，和规格书给的值不同，原因见后面的适配一节）：
+The timings from the datasheet are copied into `display-timings`, just as for an RGB panel (the table below holds the values actually used in the board file, which differ from the ones the datasheet gives; for the reason see the adaptation section later):
 
-| 设备树属性 | 载板屏的值 |
+| Devicetree property | Value for the carrier board panel |
 | --- | --- |
-| `hsync-len`、`hfront-porch`、`hback-porch` | 10、40、40 |
-| `vsync-len`、`vfront-porch`、`vback-porch` | 8、12、21 |
-| `hsync-active`、`vsync-active`、`de-active`、`pixelclk-active` | 0、0、0、0 |
+| `hsync-len`, `hfront-porch`, `hback-porch` | 10, 40, 40 |
+| `vsync-len`, `vfront-porch`, `vback-porch` | 8, 12, 21 |
+| `hsync-active`, `vsync-active`, `de-active`, `pixelclk-active` | 0, 0, 0, 0 |
 | `clock-frequency` | 54000000 |
 
-检查：（1024 + 10 + 40 + 40）×（768 + 8 + 12 + 21）= 1114 × 809 = 901 226 个像素时钟一帧，除 54 MHz 是 59.92 Hz，启动日志里正是 `1024x768@59.918Hz`。
+Check: (1024 + 10 + 40 + 40) × (768 + 8 + 12 + 21) = 1114 × 809 = 901 226 pixel clocks per frame; divided by 54 MHz that is 59.92 Hz, and the boot log says exactly `1024x768@59.918Hz`.
 
-DSI 每条数据通道的位速率由像素时钟推出来：每个像素 24 位，分到 4 条通道上，54 MHz × 24 ÷ 4 = 324 Mbit/s，启动日志里的 `dphy: D-PHY 4 lane(s), HS clock 324000000 Hz` 就是这个数。通道数和像素格式一改，这个速率跟着变，要保证在 D-PHY 和屏都支持的范围里。
+The bit rate of each DSI data lane is derived from the pixel clock: 24 bits per pixel, spread over 4 lanes, gives 54 MHz × 24 ÷ 4 = 324 Mbit/s, and `dphy: D-PHY 4 lane(s), HS clock 324000000 Hz` in the boot log is exactly that number. Change the lane count or the pixel format and this rate changes with them; make sure it stays within the range that both the D-PHY and the panel support.
 
-### 第二步：引脚和 D-PHY
+### Step 2: pins and D-PHY
 
-DSI 的差分对是专用功能，写进 `dsi_pins`；`allwinner,drive-level` 加大驱动能力：
+The DSI differential pairs are a dedicated function; write them into `dsi_pins`, and `allwinner,drive-level` raises the drive strength:
 
 ```c
 &pio {
-	/* MIPI DSI：4 条数据通道和时钟，PD12…PD21 复用功能 4 */
+	/* MIPI DSI: 4 data lanes and the clock, PD12…PD21 mux function 4 */
 	dsi_pins: dsi_pins {
 		dsi_lanes {
 			pinmux = <ALLWINNER_PINMUX(ALLWINNER_PIO_PD, 12, 4)
@@ -465,9 +466,9 @@ DSI 的差分对是专用功能，写进 `dsi_pins`；`allwinner,drive-level` �
 };
 ```
 
-### 第三步：打开流水线，连起来
+### Step 3: enable the pipeline and link it up
 
-和 RGB 一样先打开 `de0`、`tcon_top0`、`tcon_lcd0`、`display`（`width`、`height` 写 1024、768），再打开 D-PHY 和 DSI 编码器，把输出连到面板：
+As with RGB, first enable `de0`, `tcon_top0`, `tcon_lcd0` and `display` (`width`, `height` written as 1024, 768), then enable the D-PHY and the DSI encoder and link the output to the panel:
 
 ```c
 &dphy0 {
@@ -495,7 +496,7 @@ DSI 的差分对是专用功能，写进 `dsi_pins`；`allwinner,drive-level` �
 };
 ```
 
-### 第四步：面板节点
+### Step 4: the panel node
 
 ```c
 / {
@@ -506,20 +507,20 @@ DSI 的差分对是专用功能，写进 `dsi_pins`；`allwinner,drive-level` �
 		width-mm = <65>;
 		height-mm = <48>;
 
-		/* 用哪几条数据通道：0 1 2 3 是四条全用 */
+		/* which data lanes to use: 0 1 2 3 means all four */
 		data-lanes = <0 1 2 3>;
 
-		/* 像素在 DSI 上的格式：rgb888、rgb666、rgb666-packed、rgb565 */
+		/* format of a pixel on DSI: rgb888, rgb666, rgb666-packed, rgb565 */
 		mipi-dsi-format = "rgb888";
 
-		/* 视频模式、同步脉冲、低功耗模式发命令 */
+		/* video mode, sync pulse, send commands in low-power mode */
 		mode-flags = <(SUNXI_DSI_MODE_VIDEO | SUNXI_DSI_MODE_VIDEO_SYNC_PULSE |
 			       SUNXI_DSI_MODE_LPM)>;
 
 		enable-delay-ms = <20>;
 		backlight = <&backlight_dsi>;
 
-		/* 复位脚 PD9：拉高 100 ms，拉低 100 ms，再拉高 100 ms */
+		/* reset pin PD9: high for 100 ms, low for 100 ms, high again for 100 ms */
 		power-on-sequence = <SUNXI_CMD_GPIO(SUNXI_PIN(ALLWINNER_PIO_PD, 9), 1)
 				     SUNXI_CMD_DELAY(100)
 				     SUNXI_CMD_GPIO(SUNXI_PIN(ALLWINNER_PIO_PD, 9), 0)
@@ -527,19 +528,19 @@ DSI 的差分对是专用功能，写进 `dsi_pins`；`allwinner,drive-level` �
 				     SUNXI_CMD_GPIO(SUNXI_PIN(ALLWINNER_PIO_PD, 9), 1)
 				     SUNXI_CMD_DELAY(100)>;
 
-		/* 初始化命令：每条 SUNXI_CMD_DCS(等待毫秒, 字节数, 命令字节 参数...)，
-		 * 来自屏厂给的初始化代码（节选，完整的在 yuzukineko.dts） */
+		/* initialization commands: each SUNXI_CMD_DCS(wait milliseconds, byte count, command byte parameters...),
+		 * from the initialization code the panel vendor supplies (excerpt, the full one is in yuzukineko.dts) */
 		init-sequence = <SUNXI_CMD_DCS(0, 4, 0xdf 0x91 0x68 0xf9)
 				 SUNXI_CMD_DCS(0, 2, 0xde 0x00)
 				 SUNXI_CMD_DCS(0, 3, 0xb2 0x00 0x7e)
 				 /* …… */
-				 SUNXI_CMD_DCS(0, 2, 0x35 0x00)		/* TE 输出 */
-				 SUNXI_CMD_DCS(120, 1, 0x11)		/* 退出睡眠，等 120 ms */
-				 SUNXI_CMD_DCS(20, 1, 0x29)>;		/* 打开显示 */
+				 SUNXI_CMD_DCS(0, 2, 0x35 0x00)		/* TE output */
+				 SUNXI_CMD_DCS(120, 1, 0x11)		/* exit sleep, wait 120 ms */
+				 SUNXI_CMD_DCS(20, 1, 0x29)>;		/* turn the display on */
 
-		/* 关机命令 */
-		exit-sequence = <SUNXI_CMD_DCS(0, 1, 0x28)		/* 关显示 */
-				 SUNXI_CMD_DCS(120, 1, 0x10)>;		/* 进入睡眠 */
+		/* shutdown commands */
+		exit-sequence = <SUNXI_CMD_DCS(0, 1, 0x28)		/* turn the display off */
+				 SUNXI_CMD_DCS(120, 1, 0x10)>;		/* enter sleep */
 		power-off-sequence = <SUNXI_CMD_GPIO(SUNXI_PIN(ALLWINNER_PIO_PD, 9), 0)>;
 
 		display-timings {
@@ -560,20 +561,20 @@ DSI 的差分对是专用功能，写进 `dsi_pins`；`allwinner,drive-level` �
 };
 ```
 
-`panel-dsi` 特有的属性：
+Properties specific to `panel-dsi`:
 
-| 属性 | 含义 |
+| Property | Meaning |
 | --- | --- |
-| `data-lanes`（必填） | 用哪几条数据通道，每条一个格子 |
-| `mipi-dsi-format`（必填） | `rgb888`、`rgb666`、`rgb666-packed`、`rgb565` |
-| `mode-flags` | `SUNXI_DSI_MODE_VIDEO`（视频模式）、`_VIDEO_BURST`（突发）、`_VIDEO_SYNC_PULSE`（同步脉冲）、`_LPM`（用低功耗模式发命令）、`SUNXI_DSI_CLOCK_NON_CONTINUOUS`（时钟通道非连续）、`SUNXI_DSI_MODE_NO_EOT_PACKET`（不发 EoT 包） |
-| `hs-trail`、`clk-trail` | 高速结束时的拖尾时间，默认 0 |
+| `data-lanes` (required) | Which data lanes to use, one cell each |
+| `mipi-dsi-format` (required) | `rgb888`, `rgb666`, `rgb666-packed`, `rgb565` |
+| `mode-flags` | `SUNXI_DSI_MODE_VIDEO` (video mode), `_VIDEO_BURST` (burst), `_VIDEO_SYNC_PULSE` (sync pulse), `_LPM` (send commands in low-power mode), `SUNXI_DSI_CLOCK_NON_CONTINUOUS` (non-continuous clock lane), `SUNXI_DSI_MODE_NO_EOT_PACKET` (do not send EoT packets) |
+| `hs-trail`, `clk-trail` | Trail time at the end of high speed, 0 by default |
 
-初始化命令从屏厂给的初始化代码里来，怎么转换见后面的[从屏厂资料适配新的 MIPI 屏](#从屏厂资料适配新的-mipi-屏)。
+The initialization commands come from the initialization code the panel vendor supplies; for how to convert them see [adapting a new MIPI panel from vendor documentation](#adapting-a-new-mipi-panel-from-vendor-documentation) later.
 
-### 第五步：背光
+### Step 5: backlight
 
-载板屏的背光接在通用 PWM 的通道 2（PD22），低电平点亮，见 [PWM](pwm.md)：
+The carrier board panel's backlight is on channel 2 of the general-purpose PWM (PD22) and is lit by a low level, see [PWM](pwm.md):
 
 ```c
 / {
@@ -586,53 +587,53 @@ DSI 的差分对是专用功能，写进 `dsi_pins`；`allwinner,drive-level` �
 };
 ```
 
-### 调试
+### Debugging
 
-| 现象 | 可能的原因 |
+| Observation | Possible cause |
 | --- | --- |
-| 启动日志里没有 `disp0 -> ... -> panel: 1024x768@…Hz` | 流水线上有一段没打开，或者 `endpoint` 没有连起来；日志里看 `bound ...` 有哪些块已经找到 |
-| 日志 `horizontal blanking too short for DSI sync packets` | `hsync-len`、`hback-porch`、`hfront-porch` 太小，DSI 消隐包的长度算出负数；加大它们，见适配一节的第二步 |
-| 日志 `mode WxH exceeds the framebuffer` | 面板比 `display` 节点的 `width`/`height` 大，改大 `display` 的尺寸 |
-| 背光亮，一片白或一片黑 | 初始化命令没发或者发错；`power-on-sequence` 的延时不够；DSI 屏看 `data-lanes`、`mipi-dsi-format`、`mode-flags` |
-| 图像有，但整体向一边偏、有竖条 | `display-timings` 的前后沿或同步宽度不对 |
-| 颜色不对（红蓝互换、偏色） | RGB 屏改 `rgb-swap`、`rb-swap`；检查 `bus-format` 和线序 |
-| 画面闪烁、撕裂 | 像素时钟太低或太高；`pixelclk-active` 反了；RGB 屏试 `clk-phase` |
-| 想排除显示引擎，只看时序是否被屏接受 | `CONFIG_DISPLAY_BOOT_COLORBAR=y`，启动时 TCON 直接输出彩条，不经过显示引擎 |
+| No `disp0 -> ... -> panel: 1024x768@…Hz` in the boot log | A block on the pipeline is not enabled, or an `endpoint` is not linked; look at the `bound ...` lines in the log to see which blocks were found |
+| Log line `horizontal blanking too short for DSI sync packets` | `hsync-len`, `hback-porch`, `hfront-porch` are too small, and the length of the DSI blanking packet works out negative; enlarge them, see step 2 of the adaptation section |
+| Log line `mode WxH exceeds the framebuffer` | The panel is bigger than the `width`/`height` of the `display` node; make the `display` size bigger |
+| Backlight on, a blank white or a blank black screen | The initialization commands were not sent or were sent wrong; the delays in `power-on-sequence` are too short; for a DSI panel check `data-lanes`, `mipi-dsi-format`, `mode-flags` |
+| There is a picture, but it is shifted to one side or has vertical stripes | The porches or sync widths in `display-timings` are wrong |
+| Wrong colours (red and blue swapped, colour cast) | For an RGB panel change `rgb-swap`, `rb-swap`; check `bus-format` and the lane order |
+| Flicker, tearing | The pixel clock is too low or too high; `pixelclk-active` is inverted; for an RGB panel try `clk-phase` |
+| To rule out the display engine and only see whether the panel accepts the timing | `CONFIG_DISPLAY_BOOT_COLORBAR=y`; at boot the TCON then outputs colour bars directly, without going through the display engine |
 
-## 从屏厂资料适配新的 MIPI 屏
+## Adapting a new MIPI panel from vendor documentation
 
-屏厂给的东西不能直接用：它的格式是给别的平台写的。适配的工作就是把屏厂资料里的每一项，对应到设备树 `panel-dsi` 节点的一个属性上。下面用载板屏 D320C2403V1（MIPI）做例子，从拿到资料开始，一步一步做到屏亮。
+What the panel vendor gives you cannot be used directly: its format is written for another platform. The work of adaptation is to map each item in the vendor documentation onto one property of the `panel-dsi` node in the devicetree. Below, the carrier board panel D320C2403V1 (MIPI) is the example, from receiving the documentation all the way to a lit panel.
 
-### 屏厂给了什么
+### What the vendor gives you
 
-| 资料 | 内容 | 用来填什么 |
+| Document | Content | What it fills in |
 | --- | --- | --- |
-| `INIT.txt` | 驱动芯片的初始化代码，一行一条 MIPI 命令 | `init-sequence` |
-| `D320C2403V1（MIPI)_IPS SPEC.pdf`（模组规格书） | 分辨率、尺寸、接口、引脚、时序参数、背光参数 | `width`、`height`、`width-mm`、`height-mm`、`data-lanes`、`mipi-dsi-format`、`display-timings`、引脚、背光 |
-| `JD9168S_DS_Preliminary_V0.10_20221130.pdf`（驱动芯片数据手册） | 复位时序、睡眠命令的等待时间、DSI 视频模式的时序限制 | `power-on-sequence`、`exit-sequence`、`display-timings` 的合理范围 |
-| 触摸芯片的资料和驱动（`GT967 Datasheet English.pdf`、`gt9xx.c`、`gt9xx.h`） | 触摸控制器 | 不属于显示，由 Zephyr 的 GT967 触摸驱动 `drivers/input/input_gt967.c` 管 |
+| `INIT.txt` | The driver IC's initialization code, one MIPI command per line | `init-sequence` |
+| `D320C2403V1(MIPI)_IPS SPEC.pdf` (module datasheet) | Resolution, size, interface, pins, timing parameters, backlight parameters | `width`, `height`, `width-mm`, `height-mm`, `data-lanes`, `mipi-dsi-format`, `display-timings`, pins, backlight |
+| `JD9168S_DS_Preliminary_V0.10_20221130.pdf` (driver IC datasheet) | Reset timing, the wait times of the sleep commands, the timing limits of DSI video mode | `power-on-sequence`, `exit-sequence`, a sensible range for the `display-timings` |
+| The touch IC's documentation and driver (`GT967 Datasheet English.pdf`, `gt9xx.c`, `gt9xx.h`) | The touch controller | Not part of the display; handled by Zephyr's GT967 touch driver `drivers/input/input_gt967.c` |
 
-### 第一步：从规格书抄接口信息
+### Step 1: copy the interface information from the datasheet
 
-模组规格书里和显示接口有关的数据，逐项对应到设备树：
+The data in the module datasheet that relates to the display interface, item by item onto the devicetree:
 
-| 规格书里的内容 | 设备树 | 值 |
+| Content in the datasheet | Devicetree | Value |
 | --- | --- | --- |
-| 分辨率 1024(RGB)×768 | 面板的 `width`、`height`，`display` 节点的 `width`、`height` | 1024、768 |
-| 有效显示区 64.512(W)×48.384(H) mm | `width-mm`、`height-mm` | 65、48（取整） |
-| 接口类型 MIPI DSI Video mode | `mode-flags` 带 `SUNXI_DSI_MODE_VIDEO` | |
-| 显示色彩 16M | `mipi-dsi-format` | `"rgb888"` |
-| 引脚表里有 D0、D1、D2、D3 四对数据线和一对时钟线 | `data-lanes` | `<0 1 2 3>` |
-| 引脚 `LCD_REST`，低电平复位；注 “IOVCC voltage must be consistent with LCD_REST” | 复位脚的 GPIO，写进 `power-on-sequence`；复位脚的电平要和 IOVCC 一致 | 载板接 PD9 |
-| 引脚 `TE`（撕裂效应输出），不用时悬空 | 初始化代码里有 `35 00`（打开 TE 输出），TE 线没接到 SoC 就不用管 | |
-| 引脚 `TP_RES`、`TP_INT`、`TP_SDA`、`TP_SCL` | 触摸控制器的复位、中断和 I2C，不属于显示 | 载板接 PD3、PD2、PD1、PD0，见 [I2C](i2c.md) |
-| 背光 `LEDA`、`LEDK`，6 颗灯串联（每颗 2.7…3.4 V），电流 20 mA × 2 | 背光要一个升压恒流的驱动，用 PWM 调亮度，写 `pwm-backlight` 节点 | 载板用 PD22 的 PWM，见 [PWM](pwm.md) |
+| Resolution 1024(RGB)×768 | the panel's `width`, `height`, and the `width`, `height` of the `display` node | 1024, 768 |
+| Active display area 64.512(W)×48.384(H) mm | `width-mm`, `height-mm` | 65, 48 (rounded) |
+| Interface type MIPI DSI Video mode | `mode-flags` with `SUNXI_DSI_MODE_VIDEO` | |
+| Display colour 16M | `mipi-dsi-format` | `"rgb888"` |
+| The pin table has four pairs of data lines D0, D1, D2, D3 and one pair of clock lines | `data-lanes` | `<0 1 2 3>` |
+| Pin `LCD_REST`, reset by a low level; note "IOVCC voltage must be consistent with LCD_REST" | the GPIO of the reset pin, written into `power-on-sequence`; the reset pin's level must be consistent with IOVCC | on the carrier board it is PD9 |
+| Pin `TE` (tearing effect output), left floating when unused | the initialization code has `35 00` (turn the TE output on); when the TE line is not connected to the SoC it can be ignored | |
+| Pins `TP_RES`, `TP_INT`, `TP_SDA`, `TP_SCL` | the touch controller's reset, interrupt and I2C; not part of the display | on the carrier board they are PD3, PD2, PD1, PD0, see [I2C](i2c.md) |
+| Backlight `LEDA`, `LEDK`, 6 LEDs in series (2.7…3.4 V each), current 20 mA × 2 | the backlight needs a boost constant-current driver, with the brightness set by PWM; write a `pwm-backlight` node | the carrier board uses the PWM on PD22, see [PWM](pwm.md) |
 
-引脚上的差分对（D0P/D0N……）在 FPC 上连到 SoC 的 DSI 引脚，SoC 一侧固定是 PD12…PD21 复用功能 4，设备树里就是 `dsi_pins`，不用改。驱动芯片用引脚 `LANSEL` 选 2、3 还是 4 条通道，由模组上的接线决定；规格书里的引脚表有 4 对数据线，所以用 4 条。
+The differential pairs on the pins (D0P/D0N…) connect on the FPC to the SoC's DSI pins; on the SoC side these are fixed as PD12…PD21 mux function 4, which is `dsi_pins` in the devicetree and needs no change. The driver IC uses the `LANSEL` pin to select 2, 3 or 4 lanes, which the wiring on the module decides; the pin table in the datasheet has four pairs of data lines, so four lanes are used.
 
-### 第二步：时序
+### Step 2: timing
 
-规格书第 8 节 “Timing Characteristics” 给了一段代码形式的参数：
+Section 8, "Timing Characteristics", of the datasheet gives a block of parameters in code form:
 
 ```c
 #define HDP        1024
@@ -650,71 +651,71 @@ unsigned char RGB PCLK= 50 ; //M
 unsigned char DSI.PLL.CLK= 150 ; //M
 ```
 
-名字的对应关系：
+The name correspondences:
 
-| 规格书 | 含义 | `display-timings` |
+| Datasheet | Meaning | `display-timings` |
 | --- | --- | --- |
-| `LCD_HSPW` | 行同步宽度 | `hsync-len` |
-| `LCD_HBPD` | 行后沿 | `hback-porch` |
-| `LCD_HFPD` | 行前沿 | `hfront-porch` |
-| `LCD_VSPW` | 帧同步宽度 | `vsync-len` |
-| `LCD_VBPD` | 帧后沿 | `vback-porch` |
-| `LCD_VFPD` | 帧前沿 | `vfront-porch` |
-| `RGB PCLK`（MHz） | 像素时钟 | `clock-frequency`（Hz） |
-| `DSI.PLL.CLK`（MHz） | DSI 模块的时钟 | SoC 设备树里 `dsi0` 的 `clock-rates = <150000000 0>`，已经是 150 MHz，不用改 |
+| `LCD_HSPW` | Line sync width | `hsync-len` |
+| `LCD_HBPD` | Line back porch | `hback-porch` |
+| `LCD_HFPD` | Line front porch | `hfront-porch` |
+| `LCD_VSPW` | Frame sync width | `vsync-len` |
+| `LCD_VBPD` | Frame back porch | `vback-porch` |
+| `LCD_VFPD` | Frame front porch | `vfront-porch` |
+| `RGB PCLK` (MHz) | Pixel clock | `clock-frequency` (Hz) |
+| `DSI.PLL.CLK` (MHz) | Clock of the DSI module | `clock-rates = <150000000 0>` of `dsi0` in the SoC devicetree, which is already 150 MHz and needs no change |
 
-同步信号和数据使能的极性、像素时钟沿，规格书这一节没有给，要看驱动芯片数据手册的时序图，或者先用 0（低有效、下降沿）试。
+The polarity of the sync signals and the data enable, and the pixel clock edge, are not given in this section of the datasheet; look at the timing diagrams in the driver IC datasheet, or try 0 first (active low, falling edge).
 
-用规格书的数验算帧率：（1024 + 2 + 10 + 10）×（768 + 2 + 20 + 6）= 1046 × 796 = 832 616，50 MHz 除以它是 60.05 Hz。
+Checking the frame rate with the datasheet's numbers: (1024 + 2 + 10 + 10) × (768 + 2 + 20 + 6) = 1046 × 796 = 832 616; 50 MHz divided by that is 60.05 Hz.
 
-**板级文件里实际用的时序和规格书不同，原因是 DSI 链路的时序计算在 HS、前后沿太小时会算出负数，屏就初始化失败。** `yuzukineko.dts` 用的是 `hsync-len = 10`、`hfront-porch = 40`、`hback-porch = 40`、`vsync-len = 8`、`vfront-porch = 12`、`vback-porch = 21`、`clock-frequency = 54000000`，规格书给的是 HSPW 2、HFPD 10、HBPD 10、VSPW 2、VFPD 6、VBPD 20、50 MHz。
+**The timings actually used in the board file differ from the datasheet, because the DSI link timing calculation works out negative when HS and the porches are too small, and the panel then fails to initialize.** `yuzukineko.dts` uses `hsync-len = 10`, `hfront-porch = 40`, `hback-porch = 40`, `vsync-len = 8`, `vfront-porch = 12`, `vback-porch = 21`, `clock-frequency = 54000000`, while the datasheet gives HSPW 2, HFPD 10, HBPD 10, VSPW 2, VFPD 6, VBPD 20 and 50 MHz.
 
-**驱动里的计算。** 同步脉冲模式（`SUNXI_DSI_MODE_VIDEO_SYNC_PULSE`）下，每一行的行同步、后沿、前沿都是作为一个“消隐包”在 DSI 链路上发出去的。包的负载字节数是这一段时间能传的字节数，减去包头、包尾、同步事件这些固定开销（`drivers/display/sunxi/encoder/dsi/dsi_host.c` 的 `dsi_config_packets()`）：
+**The calculation in the driver.** In sync pulse mode (`SUNXI_DSI_MODE_VIDEO_SYNC_PULSE`), the line sync, back porch and front porch of every line are each sent as a "blanking packet" over the DSI link. The payload byte count of a packet is the number of bytes that can be transferred during that interval, minus the fixed overhead of the packet header, the packet footer and the sync events (`dsi_config_packets()` in `drivers/display/sunxi/encoder/dsi/dsi_host.c`):
 
-| 消隐包 | 负载字节数 | 减去的开销 |
+| Blanking packet | Payload byte count | Overhead subtracted |
 | --- | --- | --- |
-| 行同步（HSA） | `hsync-len` × 每像素字节数 | 4 + 4 + 2 = 10 字节 |
-| 行后沿（HBP） | `hback-porch` × 每像素字节数 | 10 字节 |
-| 行前沿（HFP） | `hfront-porch` × 每像素字节数 | 6 + 6 = 12 字节 |
+| Line sync (HSA) | `hsync-len` × bytes per pixel | 4 + 4 + 2 = 10 bytes |
+| Line back porch (HBP) | `hback-porch` × bytes per pixel | 10 bytes |
+| Line front porch (HFP) | `hfront-porch` × bytes per pixel | 6 + 6 = 12 bytes |
 
-这些数是无符号的，HS 或前后沿太小，减出来就是负数。驱动在配置之前先用 `dsi_hw_check_mode()` 检查，不够长就拒绝，启动日志里是：
+These numbers are unsigned, so when HS or a porch is too small the subtraction gives a negative number. Before configuring, the driver checks with `dsi_hw_check_mode()` and refuses when the value is too short; the boot log then reads:
 
 ```text
 dsi: horizontal blanking too short for DSI sync packets
 ```
 
-屏就不会初始化。每像素字节数由 `mipi-dsi-format` 决定（RGB888 是 3，RGB565 是 2），所以最小值也跟着变：
+and the panel does not initialize. The bytes per pixel are decided by `mipi-dsi-format` (3 for RGB888, 2 for RGB565), so the minimum values change with it:
 
-| `mipi-dsi-format` | `hsync-len` 至少 | `hback-porch` 至少 | `hfront-porch` 至少 |
+| `mipi-dsi-format` | `hsync-len` at least | `hback-porch` at least | `hfront-porch` at least |
 | --- | --- | --- | --- |
 | `rgb888` | 4 | 4 | 5 |
 | `rgb565` | 6 | 6 | 7 |
 
-规格书的 HSPW 是 2：RGB888 下 2 × 3 = 6 字节，比 10 字节的开销还少，算出来是 −4，所以用规格书的值屏起不来，板级文件把 `hsync-len` 放大到了 10。规格书的前后沿 10 本身没有超出限制（HBP 10 × 3 − 10 = 20，HFP 10 × 3 − 12 = 18），板级文件放宽到 40 是为了满足驱动芯片数据手册的时序要求，见下。垂直方向（VS、VBP、VFP）驱动没有对应的检查。
+The datasheet's HSPW is 2: under RGB888 that is 2 × 3 = 6 bytes, fewer than the 10-byte overhead, so the result is −4 and the panel does not come up with the datasheet's value, and the board file enlarges `hsync-len` to 10. The datasheet's porches of 10 are not over the limit by themselves (HBP 10 × 3 − 10 = 20, HFP 10 × 3 − 12 = 18); the board file widens them to 40 to satisfy the timing requirements of the driver IC datasheet, see below. In the vertical direction (VS, VBP, VFP) the driver has no corresponding check.
 
-**驱动芯片数据手册的要求。** 驱动芯片数据手册里有两处时序说明：
+**The requirements of the driver IC datasheet.** The driver IC datasheet has two timing notes:
 
-- DSI 视频模式的水平时序表（Table 11.17）在注里要求 HS + HBP ≥ 500 ns、HFP ≥ 400 ns，并且说这个限制适用于所有的 DSI 速率。
-- 垂直时序表（Table 11.16）在注里说，VS 和 VBP 的脉宽和芯片内部的 GIP 起始脉冲、GIP 时钟脉冲的时序有关，GIP 起始脉冲和时钟脉冲必须设在对应的位置，屏才能正常显示。VS 太小，这个关系就满足不了，所以板级文件把垂直的 VS 也放宽到了 8 行。
+- The horizontal timing table for DSI video mode (Table 11.17) requires in a note that HS + HBP ≥ 500 ns and HFP ≥ 400 ns, and says this limit applies at every DSI rate.
+- The vertical timing table (Table 11.16) notes that the pulse widths of VS and VBP relate to the timing of the chip's internal GIP start pulse and GIP clock pulse, and that the GIP start pulse and clock pulse must be placed at the corresponding positions for the panel to display correctly. When VS is too small this relationship cannot be satisfied, which is why the board file widens the vertical VS to 8 lines as well.
 
-按水平的限制，把两组数换算成时间：
+Under the horizontal limit, converting the two sets of numbers into time:
 
-| | 像素周期 | HS + HBP | HFP |
+| | Pixel period | HS + HBP | HFP |
 | --- | --- | --- | --- |
-| 规格书的值，50 MHz | 20 ns | (2 + 10) 个像素 = 240 ns，不够 500 ns | 10 个像素 = 200 ns，不够 400 ns |
-| 板级文件的值，54 MHz | 18.5 ns | (10 + 40) 个像素 = 926 ns | 40 个像素 = 741 ns |
+| The datasheet's values, 50 MHz | 20 ns | (2 + 10) pixels = 240 ns, short of 500 ns | 10 pixels = 200 ns, short of 400 ns |
+| The board file's values, 54 MHz | 18.5 ns | (10 + 40) pixels = 926 ns | 40 pixels = 741 ns |
 
-数据手册里这两张表只列了 800×480 和 1024×600，没有 1024×768，所以上面的换算是用相近分辨率的表。板上验证过的是板级文件的这一组。
+These two tables in the datasheet only list 800×480 and 1024×600, not 1024×768, so the conversion above uses the table for a nearby resolution. The set that has been verified on the board is the board file's.
 
-适配新屏的做法：
+The procedure for adapting a new panel:
 
-1. 先用规格书的数；
-2. 先过驱动的检查：`hsync-len`、`hback-porch`、`hfront-porch` 不能小于上面表里的最小值（RGB888 是 4、4、5），否则日志里出现 `horizontal blanking too short for DSI sync packets`；再按驱动芯片数据手册的限制检查：HS + HBP ≥ 500 ns、HFP ≥ 400 ns，VS 和 VBP 不能太小。规格书的数不够就放宽，同时保证帧率还在 60 Hz 附近（像素时钟 ≥ 总像素数 × 帧率）；
-3. 每条数据通道的位速率 = 像素时钟 × 每像素位数 ÷ 通道数（54 MHz × 24 ÷ 4 = 324 Mbit/s），要在芯片和 D-PHY 支持的范围里。
+1. Start with the datasheet's numbers;
+2. Pass the driver's check first: `hsync-len`, `hback-porch` and `hfront-porch` must not be below the minimum values in the table above (4, 4, 5 for RGB888), or the log will show `horizontal blanking too short for DSI sync packets`; then check against the limits of the driver IC datasheet: HS + HBP ≥ 500 ns, HFP ≥ 400 ns, and VS and VBP must not be too small. Widen the datasheet's numbers where they are not enough, while keeping the frame rate near 60 Hz (pixel clock ≥ total pixel count × frame rate);
+3. The bit rate of each data lane = pixel clock × bits per pixel ÷ lane count (54 MHz × 24 ÷ 4 = 324 Mbit/s), and it must be within the range the chip and the D-PHY support.
 
-### 第三步：把初始化代码转成 init-sequence
+### Step 3: turn the initialization code into init-sequence
 
-`INIT.txt` 的内容是这样的（节选）：
+The contents of `INIT.txt` look like this (excerpt):
 
 ```text
 39 00 04 df 91 68 f9
@@ -727,27 +728,27 @@ dsi: horizontal blanking too short for DSI sync packets
 05 14 01 29
 ```
 
-每一行是一条 MIPI DSI 命令：`类型 延时 字节数 数据……`，全是十六进制。
+Each line is one MIPI DSI command: `type delay byte count data …`, all in hexadecimal.
 
-| 字段 | 含义 |
+| Field | Meaning |
 | --- | --- |
-| 类型 | MIPI DSI 的数据类型：`05`、`15`、`39` 是 DCS 写（无参数、1 个参数、多个参数），`03`、`13`、`23`、`29` 是 Generic 写 |
-| 延时 | 这条命令之后等多少毫秒，十六进制：`78` 是 120，`14` 是 20 |
-| 字节数 | 后面有多少个数据字节；DCS 命令的第一个字节是命令本身，也算 |
-| 数据 | 命令字节和它的参数 |
+| Type | MIPI DSI data type: `05`, `15`, `39` are DCS writes (no parameter, 1 parameter, several parameters), `03`, `13`, `23`, `29` are Generic writes |
+| Delay | How many milliseconds to wait after this command, in hexadecimal: `78` is 120, `14` is 20 |
+| Byte count | How many data bytes follow; for a DCS command the first byte is the command itself and counts too |
+| Data | The command byte and its parameters |
 
-转换规则：DCS 写变成 `SUNXI_CMD_DCS(延时毫秒, 字节数, 数据……)`，Generic 写变成 `SUNXI_CMD_GENERIC(……)`，延时从十六进制改成十进制，数据字节写成 `0x` 开头。
+Conversion rules: a DCS write becomes `SUNXI_CMD_DCS(delay ms, byte count, data …)`, a Generic write becomes `SUNXI_CMD_GENERIC(…)`, the delay is changed from hexadecimal to decimal, and data bytes are written with a leading `0x`.
 
-| 屏厂的一行 | 设备树 |
+| One line from the vendor | Devicetree |
 | --- | --- |
 | `39 00 04 df 91 68 f9` | `SUNXI_CMD_DCS(0, 4, 0xdf 0x91 0x68 0xf9)` |
 | `15 00 02 de 00` | `SUNXI_CMD_DCS(0, 2, 0xde 0x00)` |
-| `//15 00 02 C2 30  //bist` | 注释掉的，不转换 |
+| `//15 00 02 C2 30  //bist` | commented out, not converted |
 | `15 00 02 35 00` | `SUNXI_CMD_DCS(0, 2, 0x35 0x00)` |
-| `05 78 01 11` | `SUNXI_CMD_DCS(120, 1, 0x11)`：退出睡眠，等 120 ms |
-| `05 14 01 29` | `SUNXI_CMD_DCS(20, 1, 0x29)`：打开显示，等 20 ms |
+| `05 78 01 11` | `SUNXI_CMD_DCS(120, 1, 0x11)`: exit sleep, wait 120 ms |
+| `05 14 01 29` | `SUNXI_CMD_DCS(20, 1, 0x29)`: turn the display on, wait 20 ms |
 
-手工转换容易错，用下面的脚本。它检查每一行的字节数和实际字节数是否一致、类型是否认识，转换的结果可以直接贴进 `init-sequence`。
+A manual conversion is easy to get wrong, so use the script below. It checks that each line's byte count matches the actual number of bytes and whether the type is recognized, and the result can be pasted straight into `init-sequence`.
 
 ```python
 #!/usr/bin/env python3
@@ -803,7 +804,7 @@ if __name__ == "__main__":
     print("init-sequence = <" + "\n\t\t ".join(cmds) + ">;")
 ```
 
-用法和输出：
+Usage and output:
 
 ```sh
 python3 init2dts.py INIT.txt
@@ -820,22 +821,22 @@ init-sequence = <SUNXI_CMD_DCS(0, 4, 0xdf 0x91 0x68 0xf9)
 		 SUNXI_CMD_DCS(20, 1, 0x29)>;
 ```
 
-这份 `INIT.txt` 一共 32 条命令，脚本的输出和 `yuzukineko.dts` 里 `init-sequence` 的 32 条逐条相同。
+This `INIT.txt` has 32 commands in all, and the script's output matches the 32 entries of `init-sequence` in `yuzukineko.dts` one by one.
 
-初始化代码里的中间寄存器（`df`、`de`、`b2`、`c1`、`c8` 这些）是屏厂和驱动芯片约定的，不用懂，原样搬运，顺序不要变。
+The intermediate registers in the initialization code (`df`, `de`, `b2`, `c1`, `c8` and the like) are agreed between the panel vendor and the driver IC; there is no need to understand them, copy them as they are, and do not change the order.
 
-### 第四步：上电、复位、睡眠时序
+### Step 4: power-up, reset and sleep timing
 
-驱动芯片数据手册里和时序有关的数：
+The timing numbers in the driver IC datasheet:
 
-| 数据手册 | 内容 | 设备树里怎么用 |
+| Datasheet | Content | How it is used in the devicetree |
 | --- | --- | --- |
-| Reset input timings | 复位低电平至少 20 µs；复位结束后最多 5 ms 可以收命令（睡眠退出状态下最多 120 ms） | `power-on-sequence` 里拉高、拉低、拉高，每步等待的时间要比这些大。载板用 100 ms，有余量 |
-| SLPOUT（`11`） | 发完退出睡眠以后要等 120 ms，才进入睡眠退出模式；下一条命令前至少等 5 ms | 初始化最后的 `SUNXI_CMD_DCS(120, 1, 0x11)` |
-| SLPIN（`10`） | 发完进入睡眠以后，要等 120 ms 才能再发退出睡眠 | `exit-sequence` 里的 `SUNXI_CMD_DCS(120, 1, 0x10)` |
-| DISPON（`29`）、DISPOFF（`28`） | 打开、关闭显示 | `init-sequence` 最后的 `29`，`exit-sequence` 开头的 `28` |
+| Reset input timings | The reset low level for at least 20 µs; after the reset ends commands may be received within at most 5 ms (at most 120 ms in the sleep-out state) | the pull high, pull low, pull high in `power-on-sequence`, with each wait longer than these. The carrier board uses 100 ms, which leaves margin |
+| SLPOUT (`11`) | After sending exit sleep, wait 120 ms before entering sleep-out mode; wait at least 5 ms before the next command | the final `SUNXI_CMD_DCS(120, 1, 0x11)` of the initialization |
+| SLPIN (`10`) | After sending enter sleep, wait 120 ms before exit sleep can be sent again | `SUNXI_CMD_DCS(120, 1, 0x10)` in `exit-sequence` |
+| DISPON (`29`), DISPOFF (`28`) | Turn the display on, turn it off | the final `29` of `init-sequence`, the `28` at the start of `exit-sequence` |
 
-载板的 `power-on-sequence`、`init-sequence`、`exit-sequence`、`power-off-sequence` 就是按这几条排的：
+The carrier board's `power-on-sequence`, `init-sequence`, `exit-sequence` and `power-off-sequence` are arranged according to these:
 
 ```c
 power-on-sequence = <SUNXI_CMD_GPIO(SUNXI_PIN(ALLWINNER_PIO_PD, 9), 1)
@@ -849,33 +850,33 @@ exit-sequence = <SUNXI_CMD_DCS(0, 1, 0x28)
 power-off-sequence = <SUNXI_CMD_GPIO(SUNXI_PIN(ALLWINNER_PIO_PD, 9), 0)>;
 ```
 
-复位脚的有效电平在 `SUNXI_CMD_GPIO` 里直接写物理电平（0 或 1），不看 `GPIO_ACTIVE_LOW`。`LCD_REST` 低有效，所以“拉低”是 0。
+The active level of the reset pin is written directly as the physical level (0 or 1) in `SUNXI_CMD_GPIO`, without regard to `GPIO_ACTIVE_LOW`. `LCD_REST` is active low, so "pull low" is 0.
 
-### 第五步：组装、编译、上板
+### Step 5: assemble, build, run on the board
 
-把上面几步的结果放进 `panel-dsi` 节点（完整的节点见前面“适配一块 MIPI DSI 屏”）：
+Put the results of the steps above into the `panel-dsi` node (the full node is in "Adapting a MIPI DSI panel" above):
 
 ```c
 panel_dsi: panel-dsi {
 	compatible = "panel-dsi";
-	width = <1024>;				/* 规格书：分辨率 */
+	width = <1024>;				/* datasheet: resolution */
 	height = <768>;
-	width-mm = <65>;			/* 规格书：有效显示区 */
+	width-mm = <65>;			/* datasheet: active display area */
 	height-mm = <48>;
-	data-lanes = <0 1 2 3>;			/* 规格书：4 对数据线 */
-	mipi-dsi-format = "rgb888";		/* 规格书：16M 色 */
+	data-lanes = <0 1 2 3>;			/* datasheet: 4 pairs of data lines */
+	mipi-dsi-format = "rgb888";		/* datasheet: 16M colours */
 	mode-flags = <(SUNXI_DSI_MODE_VIDEO | SUNXI_DSI_MODE_VIDEO_SYNC_PULSE |
 		       SUNXI_DSI_MODE_LPM)>;
 	backlight = <&backlight_dsi>;
-	power-on-sequence = <……>;		/* 第四步 */
-	init-sequence = <……>;			/* 第三步：脚本的输出 */
+	power-on-sequence = <……>;		/* step 4 */
+	init-sequence = <……>;			/* step 3: the output of the script */
 	exit-sequence = <……>;
 	power-off-sequence = <……>;
-	display-timings { …… };			/* 第二步 */
+	display-timings { …… };			/* step 2 */
 };
 ```
 
-`display` 节点的 `width`、`height` 也要写成 1024、768，然后编译运行。屏适配成功的日志是这样的（`yuzukineko`，完整输出见前面）：
+The `width`, `height` of the `display` node must also be written as 1024, 768; then build and run. The log of a successful panel adaptation looks like this (`yuzukineko`, the full output is above):
 
 ```text
 display: dsi: device attached: 4 lane(s), format 0, flags 0xd
@@ -884,72 +885,72 @@ display: core: disp0 -> dsi@5450000 -> panel-dsi: 1024x768@59.918Hz
 display: dphy: D-PHY 4 lane(s), HS clock 324000000 Hz
 ```
 
-| 日志 | 对应的设备树 |
+| Log | Corresponding devicetree |
 | --- | --- |
-| `4 lane(s)` | `data-lanes` 的个数 |
+| `4 lane(s)` | the number of `data-lanes` |
 | `format 0` | `mipi-dsi-format = "rgb888"` |
-| `flags 0xd` | `mode-flags` 的值：`SUNXI_DSI_MODE_VIDEO`（1）+ `SUNXI_DSI_MODE_VIDEO_SYNC_PULSE`（4）+ `SUNXI_DSI_MODE_LPM`（8）= 13 = 0xd |
-| `1024x768@59.918Hz` | 由 `display-timings` 算出来的帧率 |
-| `HS clock 324000000 Hz` | 每条数据通道的位速率，见第二步 |
+| `flags 0xd` | the value of `mode-flags`: `SUNXI_DSI_MODE_VIDEO` (1) + `SUNXI_DSI_MODE_VIDEO_SYNC_PULSE` (4) + `SUNXI_DSI_MODE_LPM` (8) = 13 = 0xd |
+| `1024x768@59.918Hz` | the frame rate computed from `display-timings` |
+| `HS clock 324000000 Hz` | the bit rate of each data lane, see step 2 |
 
-### 屏厂代码是别的格式时
+### When the vendor's code is in another format
 
-屏厂不一定给 `INIT.txt` 这种格式，常见的几种写法和转换：
+The vendor does not always supply the `INIT.txt` format; some common notations and their conversions:
 
-| 屏厂代码 | 写法 | 转换 |
+| Vendor code | Notation | Conversion |
 | --- | --- | --- |
-| Linux 面板驱动 | `mipi_dsi_dcs_write_seq(dsi, 0xdf, 0x91, 0x68, 0xf9);` | `SUNXI_CMD_DCS(0, 4, 0xdf 0x91 0x68 0xf9)`，字节数是命令加参数的个数 |
-| Linux 面板驱动 | `mipi_dsi_generic_write_seq(dsi, 0xb0, 0x04);` | `SUNXI_CMD_GENERIC(0, 2, 0xb0 0x04)` |
-| Linux 面板驱动 | `mipi_dsi_dcs_exit_sleep_mode(dsi); msleep(120);` | `SUNXI_CMD_DCS(120, 1, 0x11)`，延时合并到前一条命令 |
-| Linux 面板驱动 | `mipi_dsi_dcs_set_display_on(dsi);` | `SUNXI_CMD_DCS(0, 1, 0x29)` |
-| MTK 一类的数组 | `{0xdf, 3, {0x91, 0x68, 0xf9}}` | `SUNXI_CMD_DCS(0, 4, 0xdf 0x91 0x68 0xf9)`，数组里的个数是参数个数，字节数要加 1 |
-| 数组里的延时 | `{REGFLAG_DELAY, 120, {}}` | 合并到前一条命令的延时里 |
-| 屏厂的 `write_command(0xdf); write_data(0x91); write_data(0x68);` 一类 | 一个命令字节加若干个数据字节 | 合起来是一条 `SUNXI_CMD_DCS` |
+| Linux panel driver | `mipi_dsi_dcs_write_seq(dsi, 0xdf, 0x91, 0x68, 0xf9);` | `SUNXI_CMD_DCS(0, 4, 0xdf 0x91 0x68 0xf9)`, the byte count is the number of the command plus the parameters |
+| Linux panel driver | `mipi_dsi_generic_write_seq(dsi, 0xb0, 0x04);` | `SUNXI_CMD_GENERIC(0, 2, 0xb0 0x04)` |
+| Linux panel driver | `mipi_dsi_dcs_exit_sleep_mode(dsi); msleep(120);` | `SUNXI_CMD_DCS(120, 1, 0x11)`, the delay is merged into the previous command |
+| Linux panel driver | `mipi_dsi_dcs_set_display_on(dsi);` | `SUNXI_CMD_DCS(0, 1, 0x29)` |
+| An MTK-style array | `{0xdf, 3, {0x91, 0x68, 0xf9}}` | `SUNXI_CMD_DCS(0, 4, 0xdf 0x91 0x68 0xf9)`, the number in the array is the number of parameters, so the byte count is one more |
+| A delay in the array | `{REGFLAG_DELAY, 120, {}}` | merged into the delay of the previous command |
+| The vendor's `write_command(0xdf); write_data(0x91); write_data(0x68);` and the like | one command byte plus several data bytes | together they become one `SUNXI_CMD_DCS` |
 
-规则只有两条：把命令和它的参数连成一串，数出一共几个字节；把紧跟其后的延时放到这条命令的第一个参数里。所有字节原样保留，不要重新排列。如果屏厂代码里区分 DCS 和 Generic，就用对应的宏，分不清时先用 DCS。
+There are only two rules: join the command and its parameters into one run and count how many bytes that is; and put the delay that follows immediately into the first parameter of that command. All bytes are kept as they are, never rearranged. If the vendor's code distinguishes DCS and Generic, use the corresponding macro; when you cannot tell, use DCS first.
 
-### 适配新屏的检查清单
+### Checklist for adapting a new panel
 
-1. 规格书：分辨率、尺寸、通道数、色深 → `width`/`height`/`width-mm`/`height-mm`/`data-lanes`/`mipi-dsi-format`；
-2. 规格书：时序 → `display-timings`，对着驱动芯片数据手册检查前后沿的限制，算帧率和位速率；
-3. 初始化代码 → 脚本转换 → `init-sequence`，核对条数；
-4. 驱动芯片数据手册：复位和睡眠时序 → `power-on-sequence`、`exit-sequence`；
-5. 复位脚、背光脚 → GPIO 和 PWM，和板子原理图核对；
-6. 打开 `de0`、`tcon_top0`、`tcon_lcd0`、`display`（写上尺寸）、`dphy0`、`dsi0`，`dsi0` 的 `endpoint` 指向面板；
-7. 编译，下载，看日志里 `device attached`、`disp0 -> … -> panel`、`D-PHY` 这几行；
-8. 屏不亮时，按前面“调试”一节的表格从背光、复位、初始化命令、时序的顺序排查。
+1. Datasheet: resolution, size, lane count, colour depth → `width`/`height`/`width-mm`/`height-mm`/`data-lanes`/`mipi-dsi-format`;
+2. Datasheet: timing → `display-timings`, checking the porch limits against the driver IC datasheet and computing the frame rate and the bit rate;
+3. Initialization code → script conversion → `init-sequence`, verifying the number of entries;
+4. Driver IC datasheet: reset and sleep timing → `power-on-sequence`, `exit-sequence`;
+5. Reset pin, backlight pin → GPIO and PWM, checked against the board schematic;
+6. Enable `de0`, `tcon_top0`, `tcon_lcd0`, `display` (with its size written), `dphy0`, `dsi0`, with the `endpoint` of `dsi0` pointing at the panel;
+7. Build, download, and look at the `device attached`, `disp0 -> … -> panel` and `D-PHY` lines in the log;
+8. When the panel stays dark, work through the table in the "Debugging" section above in the order backlight, reset, initialization commands, timing.
 
 ## Kconfig
 
-| 选项 | 默认 | 含义 |
+| Option | Default | Meaning |
 | --- | --- | --- |
-| `CONFIG_DISPLAY` | 应用里设为 `y` | 打开显示子系统 |
-| `CONFIG_DISPLAY_SUNXI` | `y`（依赖 `DT_HAS_ALLWINNER_SUNXI_DISPLAY_ENABLED`） | 这个驱动。要求 `HEAP_MEM_POOL_SIZE` 足够大：寄存器命令队列和影子寄存器从内核堆分配（RGB 配置 256 KiB 够用） |
-| `CONFIG_DISPLAY_SUNXI_RGB565` | 是（二选一） | 帧缓冲用 RGB565，每像素 2 字节 |
-| `CONFIG_DISPLAY_SUNXI_ARGB8888` | 否（二选一） | 帧缓冲用 ARGB8888，每像素 4 字节，带 Alpha，帧缓冲层可以盖在视频层上面 |
-| `CONFIG_DISPLAY_SUNXI_FB_DIV` | 1 | 帧缓冲每个方向缩小到 1/N（1…4），由显示引擎放大；1024×600 的 RGB565 帧缓冲是 1.2 MB，设 2 是 300 KB |
-| `CONFIG_DISPLAY_SUNXI_FB_WINDOW_WIDTH`、`_HEIGHT` | 0 | 只显示帧缓冲左上角这么大的一块（0 是整个屏），显示引擎每次刷新读得少，给视频引擎留下带宽；帧缓冲层只放一块叠加层时用 |
-| `CONFIG_DISPLAY_SUNXI_FB_ALLOC` | 否 | 帧缓冲在运行时从 C 库的堆里分配，而不是静态数组；大屏的静态数组会成为镜像的一部分，下载变慢。需要 `COMMON_LIBC_MALLOC_ARENA_SIZE` 不为 0（比如 -1：镜像之后的所有 RAM）。再配合显示节点上的 `zephyr,deferred-init`，应用启动显示时才占用内存 |
-| `CONFIG_DISPLAY_SUNXI_READY_TIMEOUT_MS` | 5000 | 等待启动时的 modeset 完成的时间 |
-| `CONFIG_DISPLAY_SOC_SUN252IW2` | `y` | F101 的硬件描述：寄存器窗口、时钟、复位、中断，以及显示引擎、TCON、编码器之间的连接 |
-| `CONFIG_DISPLAY_DE` | `y` | 显示引擎 |
-| `CONFIG_DISPLAY_DE_WRITEBACK` | `y` | 回写（截屏） |
+| `CONFIG_DISPLAY` | set to `y` in the application | Turn on the display subsystem |
+| `CONFIG_DISPLAY_SUNXI` | `y` (depends on `DT_HAS_ALLWINNER_SUNXI_DISPLAY_ENABLED`) | This driver. Requires a large enough `HEAP_MEM_POOL_SIZE`: the register command queue and the shadow registers are allocated from the kernel heap (256 KiB is enough for an RGB configuration) |
+| `CONFIG_DISPLAY_SUNXI_RGB565` | yes (choose one of the two) | The frame buffer uses RGB565, 2 bytes per pixel |
+| `CONFIG_DISPLAY_SUNXI_ARGB8888` | no (choose one of the two) | The frame buffer uses ARGB8888, 4 bytes per pixel with alpha, and the frame buffer layer can be placed above the video layer |
+| `CONFIG_DISPLAY_SUNXI_FB_DIV` | 1 | Shrink the frame buffer to 1/N in each direction (1…4) and let the display engine scale it up; a 1024×600 RGB565 frame buffer is 1.2 MB, and a value of 2 makes it 300 KB |
+| `CONFIG_DISPLAY_SUNXI_FB_WINDOW_WIDTH`, `_HEIGHT` | 0 | Show only this much of the top-left corner of the frame buffer (0 means the whole screen); the display engine then reads less on every refresh and leaves bandwidth to the video engine; used when the frame buffer layer holds only one overlay |
+| `CONFIG_DISPLAY_SUNXI_FB_ALLOC` | no | The frame buffer is allocated at run time from the C library heap instead of a static array; a static array for a large panel becomes part of the image and makes the download slower. Requires `COMMON_LIBC_MALLOC_ARENA_SIZE` to be non-zero (for example -1: all RAM after the image). Together with `zephyr,deferred-init` on the display node, memory is taken only when the application starts the display |
+| `CONFIG_DISPLAY_SUNXI_READY_TIMEOUT_MS` | 5000 | How long to wait for the modeset at startup to complete |
+| `CONFIG_DISPLAY_SOC_SUN252IW2` | `y` | The F101 hardware description: register windows, clocks, resets, interrupts, and the links between the display engine, TCON and encoders |
+| `CONFIG_DISPLAY_DE` | `y` | Display engine |
+| `CONFIG_DISPLAY_DE_WRITEBACK` | `y` | Writeback (screenshot) |
 | `CONFIG_DISPLAY_TCON_LCD` | `y` | TCON LCD |
-| `CONFIG_DISPLAY_ENCODER_RGB` | `y` | 并口 RGB 编码器 |
-| `CONFIG_DISPLAY_ENCODER_LVDS` | `y` | LVDS 编码器，选中 D-PHY |
-| `CONFIG_DISPLAY_ENCODER_DSI` | `y` | MIPI DSI 编码器，选中 D-PHY |
-| `CONFIG_DISPLAY_PANEL_SIMPLE` | `y` | `panel-simple` 面板驱动 |
-| `CONFIG_DISPLAY_PANEL_SPI_INIT` | `y` | `panel-simple` 的软件 SPI 初始化命令 |
-| `CONFIG_DISPLAY_PANEL_DSI` | `y` | `panel-dsi` 面板驱动 |
-| `CONFIG_DISPLAY_BACKLIGHT_GPIO` | `y` | GPIO 背光 |
-| `CONFIG_DISPLAY_BACKLIGHT_PWM` | `y` | PWM 背光 |
-| `CONFIG_DISPLAY_BOOT_COLORBAR` | 否 | 启动时让 TCON 直接输出彩条，用来验证时钟、引脚、面板时序，不经过显示引擎 |
-| `CONFIG_DISPLAY_SHELL_CMDS` | `y`（依赖 `SHELL`） | shell 命令 `display info|graph|regs|stats|log|backlight|blank` |
-| `CONFIG_HAL_TEST_DISPLAY_ENGINE` | 否 | 显示引擎的自测命令 `display_test` |
+| `CONFIG_DISPLAY_ENCODER_RGB` | `y` | Parallel RGB encoder |
+| `CONFIG_DISPLAY_ENCODER_LVDS` | `y` | LVDS encoder, selects the D-PHY |
+| `CONFIG_DISPLAY_ENCODER_DSI` | `y` | MIPI DSI encoder, selects the D-PHY |
+| `CONFIG_DISPLAY_PANEL_SIMPLE` | `y` | `panel-simple` panel driver |
+| `CONFIG_DISPLAY_PANEL_SPI_INIT` | `y` | The software SPI initialization commands of `panel-simple` |
+| `CONFIG_DISPLAY_PANEL_DSI` | `y` | `panel-dsi` panel driver |
+| `CONFIG_DISPLAY_BACKLIGHT_GPIO` | `y` | GPIO backlight |
+| `CONFIG_DISPLAY_BACKLIGHT_PWM` | `y` | PWM backlight |
+| `CONFIG_DISPLAY_BOOT_COLORBAR` | no | At boot, have the TCON output colour bars directly, to verify the clocks, pins and panel timing, without going through the display engine |
+| `CONFIG_DISPLAY_SHELL_CMDS` | `y` (depends on `SHELL`) | The shell commands `display info|graph|regs|stats|log|backlight|blank` |
+| `CONFIG_HAL_TEST_DISPLAY_ENGINE` | no | The display engine self-test command `display_test` |
 
-## 接口详解
+## Interface details
 
-下面每个接口一个小标题：原型、驱动的行为、示例函数和它在板子上的输出。演示在 `yuzukineko` 上运行，写的是载板的 DSI 屏。示例来自文末的[完整演示程序](#完整演示程序)，里面的 `err()` 把返回值转成名字。帧缓冲用 RGB565（`CONFIG_DISPLAY_SUNXI_RGB565`），所以像素是 16 位。
+Each interface below gets its own heading: the prototype, the driver's behaviour, the sample function and its output on the board. The demo runs on `yuzukineko` and writes to the carrier board's DSI panel. The samples come from [Complete demo program](#complete-demo-program) at the end of the page, whose `err()` turns a return value into a name. The frame buffer uses RGB565 (`CONFIG_DISPLAY_SUNXI_RGB565`), so a pixel is 16 bits.
 
 ### display_get_capabilities
 
@@ -957,7 +958,7 @@ display: dphy: D-PHY 4 lane(s), HS clock 324000000 Hz
 void display_get_capabilities(const struct device *dev, struct display_capabilities *capabilities);
 ```
 
-读帧缓冲的尺寸和像素格式。这里的 1024×768 是帧缓冲的大小（`display` 节点的 `width`、`height` 除以 `CONFIG_DISPLAY_SUNXI_FB_DIV`），不一定等于面板；格式是 `PIXEL_FORMAT_RGB_565`（0x10）。
+Reads the frame buffer size and pixel format. The 1024×768 here is the size of the frame buffer (the `width`, `height` of the `display` node divided by `CONFIG_DISPLAY_SUNXI_FB_DIV`) and is not necessarily the panel; the format is `PIXEL_FORMAT_RGB_565` (0x10).
 
 ```c
 /* display_get_capabilities: the size of the frame buffer and its pixel format */
@@ -981,11 +982,11 @@ int display_write(const struct device *dev, const uint16_t x, const uint16_t y,
                   const struct display_buffer_descriptor *desc, const void *buf);
 ```
 
-把 `buf` 里一块 `desc->width`×`desc->height` 的像素拷到帧缓冲的 (x, y) 处，逐行拷贝并写回数据缓存，返回时已经在屏幕上（下一次刷新）。`desc->pitch` 是 `buf` 里一行的像素数，可以比宽度大。超出帧缓冲的范围、或者 `width` 大于 `pitch` 返回 `-EINVAL`。
+Copies a block of `desc->width`×`desc->height` pixels from `buf` into the frame buffer at (x, y), row by row, writing the data cache back; when it returns they are already on the screen (at the next refresh). `desc->pitch` is the number of pixels in one row of `buf` and may be larger than the width. A block outside the frame buffer, or a `width` larger than the `pitch`, returns `-EINVAL`.
 
-#### 示例：整屏
+#### Example: the whole screen
 
-八条彩色竖条，每次写 16 行。
+Eight coloured vertical bars, written 16 rows at a time.
 
 ```c
 static uint16_t band[1024 * 16];
@@ -1022,7 +1023,7 @@ static void demo_write(void)
 [write] colour bars over the whole 1024x768 frame buffer = 0
 ```
 
-#### 示例：一块窗口和出错的写
+#### Example: a window and failing writes
 
 ```c
 /* display_write with a window: a 200x100 white block at (412, 334), with a pitch wider than the block */
@@ -1069,7 +1070,7 @@ static void demo_write_window(void)
 int display_blanking_on(const struct device *dev);
 ```
 
-关掉图像输出（屏幕黑）。
+Turns the picture output off (the screen goes black).
 
 ```c
 /* display_blanking_on and display_blanking_off: switch the picture off and on again */
@@ -1092,7 +1093,7 @@ static void demo_blanking_on(void)
 int display_blanking_off(const struct device *dev);
 ```
 
-重新打开图像输出。
+Turns the picture output on again.
 
 ```c
 static void demo_blanking_off(void)
@@ -1108,7 +1109,7 @@ static void demo_blanking_off(void)
 [blank] display_blanking_off                   = 0
 ```
 
-关屏再开屏以后，日志里又出现一行 `display: dphy: D-PHY 4 lane(s), HS clock 324000000 Hz`（完整输出里在 `[blank]` 之后），说明 DSI 链路重新启动过。
+After the screen has been blanked and unblanked, another `display: dphy: D-PHY 4 lane(s), HS clock 324000000 Hz` line appears in the log (in the full output after `[blank]`), showing that the DSI link has been restarted.
 
 ### display_set_brightness
 
@@ -1116,7 +1117,7 @@ static void demo_blanking_off(void)
 int display_set_brightness(const struct device *dev, const uint8_t brightness);
 ```
 
-设背光亮度，0…255，对应背光节点的 `max-level`；演示依次设 255、128、32、0、96，屏幕亮度跟着变。
+Sets the backlight brightness, 0…255, matching the `max-level` of the backlight node; the demo sets 255, 128, 32, 0, 96 in turn and the screen brightness follows.
 
 ```c
 /* display_set_brightness: the backlight, 0..255 */
@@ -1148,7 +1149,7 @@ int display_read(const struct device *dev, const uint16_t x, const uint16_t y,
                  const struct display_buffer_descriptor *desc, void *buf);
 ```
 
-驱动没有实现，返回 `-ENOSYS`。要读回屏幕上的内容，自己在内存里留一份。
+The driver does not implement it and returns `-ENOSYS`. To read back what is on the screen, keep your own copy in memory.
 
 ```c
 /* display_read: the frame buffer of this driver is write only */
@@ -1172,7 +1173,7 @@ static void demo_read(void)
 int display_set_pixel_format(const struct device *dev, const enum display_pixel_format pixel_format);
 ```
 
-驱动没有实现，返回 `-ENOSYS`。像素格式在编译时选：`CONFIG_DISPLAY_SUNXI_RGB565` 或 `CONFIG_DISPLAY_SUNXI_ARGB8888`。
+The driver does not implement it and returns `-ENOSYS`. The pixel format is chosen at build time: `CONFIG_DISPLAY_SUNXI_RGB565` or `CONFIG_DISPLAY_SUNXI_ARGB8888`.
 
 ```c
 /* display_set_pixel_format: the format is chosen at build time (CONFIG_DISPLAY_SUNXI_RGB565 or ARGB8888) */
@@ -1194,7 +1195,7 @@ static void demo_set_pixel_format(void)
 int display_set_orientation(const struct device *dev, const enum display_orientation orientation);
 ```
 
-驱动没有实现，返回 `-ENOSYS`。要旋转画面，在软件里旋转，或者用 [G2D](g2d.md) 的 `g2d_blit` 旋转后再写。
+The driver does not implement it and returns `-ENOSYS`. To rotate the picture, rotate it in software, or rotate it with `g2d_blit` from [G2D](g2d.md) and then write.
 
 ```c
 /* display_set_orientation: not implemented, rotate in software (or with the G2D) */
@@ -1216,7 +1217,7 @@ static void demo_set_orientation(void)
 void *display_get_framebuffer(const struct device *dev);
 ```
 
-驱动不交出帧缓冲的地址，返回 NULL，只能用 `display_write` 写。
+The driver does not hand out the address of its frame buffer and returns NULL; the only way to write is `display_write`.
 
 ```c
 /* display_get_framebuffer: the driver does not hand out its frame buffer, it returns NULL */
@@ -1236,7 +1237,7 @@ static void demo_get_framebuffer(void)
 int display_sunxi_show_rgb(const struct device *dev, const struct display_sunxi_rgb *img);
 ```
 
-头文件 `<zephyr/drivers/display/display_sunxi.h>`，是这个驱动的扩展。把一幅 RGB 图片放到视频层，由显示引擎缩放到屏幕上能放下的最大尺寸并居中，不拷贝像素，也不经过帧缓冲。图片的内存在下一次调用或者 `display_sunxi_hide_yuv` 之前必须保持有效且不变，数据缓存要已经写回。`xrgb8888` 选 32 位 XRGB8888 或 16 位 RGB565；`nonblock` 为真时不等图片出现就返回（图片要多保留一帧的时间）。
+The header `<zephyr/drivers/display/display_sunxi.h>`; this is an extension of this driver. It puts an RGB picture on the video layer, scaled by the display engine to the largest size that fits the screen and centred, without copying pixels and without going through the frame buffer. The picture's memory must stay valid and unchanged until the next call or `display_sunxi_hide_yuv`, and its data cache must already be written back. `xrgb8888` selects 32-bit XRGB8888 or 16-bit RGB565; when `nonblock` is true it returns without waiting for the picture to appear (and the picture is then kept one frame longer).
 
 ```c
 static uint16_t small[64 * 48] __aligned(64);
@@ -1277,7 +1278,7 @@ static void demo_show_rgb(void)
 int display_sunxi_show_yuv(const struct device *dev, const struct display_sunxi_yuv *img);
 ```
 
-同样，但图片是 YCbCr 4:2:0 的 NV12（`nv21` 为真则是 NV21）：亮度平面一个地址，交错的色度平面一个地址，各有行距。`full_range` 表示样本是 0…255（JPEG），默认是 16…235；`bt709` 选 BT.709 矩阵，默认 BT.601。视频引擎解出来的帧直接这样显示，见[视频引擎 vdec](vdec.md) 和 [MP4 播放器](../apps/mp4-player.md)。
+The same, but the picture is YCbCr 4:2:0 NV12 (NV21 when `nv21` is true): one address for the luma plane and one for the interleaved chroma plane, each with its own stride. `full_range` says the samples are 0…255 (JPEG), the default being 16…235; `bt709` selects the BT.709 matrix, the default being BT.601. Frames the video engine has decoded are displayed straight through this, see [the vdec video engine](vdec.md) and [MP4 player](../apps/mp4-player.md).
 
 ```c
 static uint8_t luma[128 * 96] __aligned(64);
@@ -1325,7 +1326,7 @@ static void demo_show_yuv(void)
 int display_sunxi_hide_yuv(const struct device *dev);
 ```
 
-关掉视频层，帧缓冲层回来。
+Turns the video layer off and the frame buffer layer comes back.
 
 ```c
 /* display_sunxi_hide_yuv: stop the video plane and bring the frame buffer back */
@@ -1342,9 +1343,9 @@ static void demo_hide_yuv(void)
 [hide] display_sunxi_hide_yuv                      = 0
 ```
 
-## 完整演示程序
+## Complete demo program
 
-上面所有示例和日志都来自这一个程序。建一个目录，放进下面的文件，就可以像其他 Zephyr 应用一样编译。
+All the samples and logs above come from this one program. Create a directory, put the files below in it, and it builds like any other Zephyr application.
 
 ```text
 display_api/
@@ -1648,7 +1649,7 @@ int main(void)
 }
 ```
 
-### 编译和运行
+### Build and run
 
 ```sh
 . ~/f101-zephyr/env.sh
@@ -1658,9 +1659,9 @@ west build -b yuzukineko -d build/display-api display_api
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/drivers-display/build.cast" data-speed="6"></div>
 
-同一个程序也可以为接 RGB 屏的 `f101_evb` 编译：`west build -b f101_evb -d build/display-api-evb display_api`，显示的写法完全一样，只是设备树不同。本文的 RGB 屏适配部分来自 `f101_evb.dts`，没有在 `yuzukineko` 上运行（`yuzukineko` 没有接 RGB 屏）。
+The same program can also be built for the `f101_evb`, which has an RGB panel: `west build -b f101_evb -d build/display-api-evb display_api`; the display code is exactly the same, only the devicetree differs. The RGB panel adaptation section of this page comes from `f101_evb.dts` and was not run on `yuzukineko` (`yuzukineko` has no RGB panel attached).
 
-下载运行的方法见[编译与运行](../zephyr-build-run.md)。控制台 UART1 上的完整输出（运行期间屏幕依次出现彩条、白块、黑屏、亮度变化、四色图片、灰度渐变）：
+For how to download and run it see [Build and run](../zephyr-build-run.md). The complete output on console UART1 (during the run the screen shows, in turn, colour bars, a white block, a black screen, brightness changes, a four-colour picture and a grey ramp):
 
 ```text
 [caps] 1024x768, supported pixel formats 0x10, current 0x10 (RGB_565 is 0x10), orientation 0

@@ -8,6 +8,7 @@
     "dev": "astro dev",
     "prebuild": "node scripts/copy-vendor.mjs",
     "build": "astro build",
+    "check:i18n": "node scripts/check-i18n.mjs",
     "preview": "astro preview"
   },
   "dependencies": {

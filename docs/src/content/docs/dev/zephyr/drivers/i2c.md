@@ -2,70 +2,70 @@
 title: "I2C"
 ---
 
-F101 有 3 个两线接口控制器（TWI），在 Zephyr 里是 `i2c0`、`i2c1`、`i2c2`，接口是标准的 `<zephyr/drivers/i2c.h>`，驱动是 `drivers/i2c/i2c_sunxi.c`。
+The F101 has 3 two-wire interface controllers (TWI), which are `i2c0`, `i2c1` and `i2c2` in Zephyr; the interface is the standard `<zephyr/drivers/i2c.h>`, and the driver is `drivers/i2c/i2c_sunxi.c`.
 
-| 项目 | 内容 |
+| Item | Content |
 | --- | --- |
-| 设备 | `i2c0`、`i2c1`、`i2c2` |
-| 角色 | 只做主机（controller） |
-| 速度 | 标准 100 kHz、快速 400 kHz；设备树里还可以写 200 kHz |
-| 地址 | 7 位；10 位地址返回 `-ENOTSUP` |
-| 传输方式 | 轮询，不用中断；传输期间持有一把互斥锁 |
-| 不支持 | 快速+（1 MHz）、从机模式、`i2c_get_config` |
+| Devices | `i2c0`, `i2c1`, `i2c2` |
+| Role | Controller only |
+| Speed | Standard 100 kHz, fast 400 kHz; 200 kHz can also be written in the devicetree |
+| Address | 7-bit; 10-bit addresses return `-ENOTSUP` |
+| Transfer mode | Polling, no interrupts; a mutex is held during a transfer |
+| Not supported | Fast+ (1 MHz), slave mode, `i2c_get_config` |
 
-## 设备树
+## Devicetree
 
-| 文件 | 作用 |
+| File | Purpose |
 | --- | --- |
-| `dts/bindings/i2c/allwinner,sunxi-twi.yaml` | 绑定：规定 `allwinner,sunxi-twi` 节点的属性 |
-| `dts/riscv/allwinner/sun252i_f101.dtsi` | SoC 设备树：`i2c0`、`i2c1`、`i2c2`，默认 `disabled` |
-| `boards/yuzukihd/yuzukineko/yuzukineko.dts` | 板级设备树：打开要用的控制器，指定引脚和速度，挂上从设备 |
+| `dts/bindings/i2c/allwinner,sunxi-twi.yaml` | Binding: defines the properties of an `allwinner,sunxi-twi` node |
+| `dts/riscv/allwinner/sun252i_f101.dtsi` | SoC devicetree: `i2c0`, `i2c1`, `i2c2`, `disabled` by default |
+| `boards/yuzukihd/yuzukineko/yuzukineko.dts` | Board devicetree: switches on the controllers that are used, assigns their pins and speed, and attaches the slave devices |
 
-### SoC 设备树：sun252i_f101.dtsi
+### SoC devicetree: sun252i_f101.dtsi
 
-三个节点只有寄存器地址、中断号、时钟和复位不同。下面是 `i2c1`：
+The three nodes differ only in register address, interrupt number, clock and reset. The one below is `i2c1`:
 
 ```c
 i2c1: i2c@2502400 {
-	/* 匹配驱动 i2c_sunxi.c 里的 DT_DRV_COMPAT allwinner_sunxi_twi */
+	/* matches DT_DRV_COMPAT allwinner_sunxi_twi in the driver i2c_sunxi.c */
 	compatible = "allwinner,sunxi-twi";
 
-	/* 子节点（从设备）用 1 个格子的地址，没有大小 */
+	/* child nodes (slave devices) use a 1 cell address, with no size */
 	#address-cells = <1>;
 	#size-cells = <0>;
 
-	/* 寄存器窗口：基址 0x02502400，长度 0x400 */
+	/* register window: base 0x02502400, length 0x400 */
 	reg = <0x02502400 0x400>;
 
-	/* 中断：PLIC 的 10 号，优先级 1（驱动用轮询，不使用） */
+	/* interrupt: PLIC number 10, priority 1 (the driver polls and does not use it) */
 	interrupts = <10 1>;
 	interrupt-parent = <&plic>;
 
-	/* 总线时钟的开关和总线复位 */
+	/* switching and reset of the bus clock */
 	clocks = <&cctl CLK_BUS_TWI1>;
 	resets = <&rctl RST_BUS_TWI1>;
 
-	/* 总线速度，板级文件可以改：100000、200000 或 400000 */
+	/* bus speed, the board file may change it: 100000, 200000 or 400000 */
 	clock-frequency = <100000>;
 
-	/* 默认关闭，由板级打开 */
+	/* off by default, switched on by the board */
 	status = "disabled";
 };
 ```
 
-| 节点 | 标签 | 寄存器 | PLIC 中断号 | 时钟宏 | 复位宏 |
+| Node | Label | Register | PLIC interrupt number | Clock macro | Reset macro |
 | --- | --- | --- | --- | --- | --- |
 | `i2c@2502000` | `i2c0` | `0x02502000` | 9 | `CLK_BUS_TWI0` | `RST_BUS_TWI0` |
 | `i2c@2502400` | `i2c1` | `0x02502400` | 10 | `CLK_BUS_TWI1` | `RST_BUS_TWI1` |
 | `i2c@2502800` | `i2c2` | `0x02502800` | 11 | `CLK_BUS_TWI2` | `RST_BUS_TWI2` |
 
-### 板级设备树：yuzukineko.dts
+### Board devicetree: yuzukineko.dts
 
-板级文件做三件事：定义引脚组，打开控制器并绑定引脚，把从设备挂在控制器下面。
+The board file does three things: defines the pin groups, switches on the controllers and binds their pins, and attaches the slave devices under the controllers.
 
 ```c
 &pio {
-	/* TWI0 在 PE08/PE09；TWI1 在 PD0/PD1（触摸屏）；TWI2 在 PD10/PD11。复用功能都是 4，打开上拉 */
+	/* TWI0 is on PE08/PE09; TWI1 is on PD0/PD1 (touch panel); TWI2 is on PD10/PD11. The multiplexing function is 4 for all of them, with pull-up enabled */
 	twi1_pins: twi1_pins {
 		twi1_pins_group {
 			pinmux = <ALLWINNER_PINMUX(ALLWINNER_PIO_PD, 0, 4)
@@ -75,24 +75,24 @@ i2c1: i2c@2502400 {
 	};
 };
 
-/* TWI0 的 PE8/PE9 是蓝牙 UART2 的 RTS/CTS，所以关闭 */
+/* PE8/PE9 of TWI0 are the RTS/CTS of the Bluetooth UART2, so it is switched off */
 &i2c0 {
 	status = "disabled";
 	pinctrl-0 = <&twi0_pins>;
 	pinctrl-names = "default";
 };
 
-/* 载板触摸屏控制器 GT967：SCL 在 PD0，SDA 在 PD1，INT 在 PD2，RST 在 PD3 */
+/* Carrier board touch controller GT967: SCL is on PD0, SDA on PD1, INT on PD2, RST on PD3 */
 &i2c1 {
 	status = "okay";
 
-	/* 400 kHz。I2C_BITRATE_FAST 来自 <zephyr/dt-bindings/i2c/i2c.h> */
+	/* 400 kHz. I2C_BITRATE_FAST comes from <zephyr/dt-bindings/i2c/i2c.h> */
 	clock-frequency = <I2C_BITRATE_FAST>;
 
 	pinctrl-0 = <&twi1_pins>;
 	pinctrl-names = "default";
 
-	/* 从设备：节点名里 @ 后面和 reg 是 7 位地址 */
+	/* slave device: the part of the node name after @ and the reg value are the 7 bit address */
 	touch: touch@5d {
 		compatible = "goodix,gt967";
 		reg = <0x5d>;
@@ -104,9 +104,9 @@ i2c1: i2c@2502400 {
 };
 ```
 
-`i2c2` 在板级文件里没有打开；用它时在应用的 overlay 里写 `&i2c2 { status = "okay"; pinctrl-0 = <&twi2_pins>; pinctrl-names = "default"; };`，`twi2_pins` 已经在板级文件里定义好。
+`i2c2` is not switched on in the board file; to use it, write `&i2c2 { status = "okay"; pinctrl-0 = <&twi2_pins>; pinctrl-names = "default"; };` in the application overlay, since `twi2_pins` is already defined in the board file.
 
-### 绑定：allwinner,sunxi-twi.yaml
+### Binding: allwinner,sunxi-twi.yaml
 
 ```yaml
 # Copyright (c) 2026 Yuzuki Tsuru
@@ -133,28 +133,28 @@ properties:
     required: true
 ```
 
-| 属性 | 必填 | 含义 |
+| Property | Required | Meaning |
 | --- | --- | --- |
-| `reg` | 是 | 寄存器窗口 |
-| `clocks` | 是 | 总线时钟 |
-| `resets` | 是 | 总线复位 |
-| `clock-frequency` | 是 | 总线速度，只接受 100000、200000、400000，别的值驱动初始化返回 `-ENOTSUP` |
-| `pinctrl-0`、`pinctrl-names` | 来自 `pinctrl-device.yaml` | 引脚，见 [GPIO 页的 pinctrl 一节](gpio.md#引脚复用pinctrl) |
-| `interrupts` | 否 | 驱动不使用 |
+| `reg` | Yes | Register window |
+| `clocks` | Yes | Bus clock |
+| `resets` | Yes | Bus reset |
+| `clock-frequency` | Yes | Bus speed; only 100000, 200000 and 400000 are accepted, any other value makes driver initialization return `-ENOTSUP` |
+| `pinctrl-0`, `pinctrl-names` | From `pinctrl-device.yaml` | Pins, see [the pinctrl section of the GPIO page](gpio.md#pin-multiplexing-pinctrl) |
+| `interrupts` | No | Not used by the driver |
 
 ## Kconfig
 
-| 选项 | 默认 | 含义 |
+| Option | Default | Meaning |
 | --- | --- | --- |
-| `CONFIG_I2C` | 板级 defconfig 里是 `y` | 打开 I2C 子系统 |
-| `CONFIG_I2C_SUNXI` | `y`（依赖 `DT_HAS_ALLWINNER_SUNXI_TWI_ENABLED`） | 编译这个驱动，并选中 `CONFIG_PINCTRL` |
-| `CONFIG_I2C_SUNXI_INIT_PRIORITY` | 81 | 驱动的初始化优先级 |
+| `CONFIG_I2C` | `y` in the board defconfig | Switch on the I2C subsystem |
+| `CONFIG_I2C_SUNXI` | `y` (depends on `DT_HAS_ALLWINNER_SUNXI_TWI_ENABLED`) | Build this driver, and select `CONFIG_PINCTRL` |
+| `CONFIG_I2C_SUNXI_INIT_PRIORITY` | 81 | Initialization priority of the driver |
 
-## 接口详解
+## Interface details
 
-下面每个接口一个小标题：原型、驱动的行为、一个完整的示例函数和它在板子上的输出。演示在 `i2c1` 上，对载板的触摸控制器 GT967 做所有这些调用；示例来自文末的[完整演示程序](#完整演示程序)，里面的 `err()` 把返回值转成名字。
+Each interface below gets its own short heading: the prototype, the driver's behavior, one complete example function, and its output on the board. The demonstration is on `i2c1` and makes all these calls to the GT967 touch controller of the carrier board; the examples come from [the complete demonstration program](#the-complete-demonstration-program) at the end of the page, whose `err()` turns a return value into a name.
 
-GT967 的寄存器地址是 16 位、大端的，产品 ID 寄存器 `0x8140` 里是 4 字节 ASCII，`"967"` 加一个 0。它在复位释放的瞬间看 INT 引脚的电平选地址：INT 为低是 `0x5d`，为高是 `0x14`。演示程序先用 `touch_reset()` 做这件事，真正的触摸驱动 `drivers/input/input_gt967.c` 也这么做；这个函数只用到 [GPIO](gpio.md) 的接口：
+The GT967's register addresses are 16-bit and big-endian, and its product ID register `0x8140` holds 4 ASCII bytes, `"967"` plus a 0. At the moment reset is released it takes its address from the level of the INT pin: INT low is `0x5d`, INT high is `0x14`. The demonstration program does this first with `touch_reset()`, and the real touch driver `drivers/input/input_gt967.c` does the same; this function uses only the [GPIO](gpio.md) interface:
 
 ```c
 /* The controller takes its address from the level of INT at the moment RST is released:
@@ -180,17 +180,17 @@ static void touch_reset(void)
 int i2c_configure(const struct device *dev, uint32_t dev_config);
 ```
 
-运行中改变总线速度。`dev_config` 必须带 `I2C_MODE_CONTROLLER`。
+Changes the bus speed at run time. `dev_config` must carry `I2C_MODE_CONTROLLER`.
 
-| 参数 | 返回 |
+| Argument | Return |
 | --- | --- |
-| `I2C_SPEED_STANDARD`（100 kHz） | 0 |
-| `I2C_SPEED_FAST`（400 kHz） | 0 |
-| 其他速度（快速+、高速、超高速） | `-ENOTSUP` |
-| 带 `I2C_ADDR_10_BITS` | `-ENOTSUP` |
-| 没有 `I2C_MODE_CONTROLLER` | `-ENOTSUP` |
+| `I2C_SPEED_STANDARD` (100 kHz) | 0 |
+| `I2C_SPEED_FAST` (400 kHz) | 0 |
+| Other speeds (fast plus, high speed, ultra fast) | `-ENOTSUP` |
+| With `I2C_ADDR_10_BITS` | `-ENOTSUP` |
+| Without `I2C_MODE_CONTROLLER` | `-ENOTSUP` |
 
-每次调用都会复位控制器、重新设置分频。
+Every call resets the controller and sets the divider again.
 
 ```c
 /* i2c_configure: the speed can be changed at run time */
@@ -234,7 +234,7 @@ static void demo_configure(void)
 int i2c_get_config(const struct device *dev, uint32_t *dev_config);
 ```
 
-读当前的配置。驱动没有实现这个接口，返回 `-ENOSYS`。
+Reads the current configuration. The driver does not implement this interface and returns `-ENOSYS`.
 
 ```c
 /* i2c_get_config is not implemented by this driver */
@@ -257,7 +257,7 @@ static void demo_get_config(void)
 int i2c_read(const struct device *dev, uint8_t *buf, uint32_t num_bytes, uint16_t addr);
 ```
 
-从 `addr` 读 `num_bytes` 个字节，是一次完整的传输，结尾有停止条件。设备不应答返回 `-EIO`，所以对每个地址读 1 个字节就可以扫描总线：
+Reads `num_bytes` bytes from `addr`; it is one complete transfer, with a stop condition at the end. When a device does not acknowledge, the call returns `-EIO`, so reading 1 byte from each address is enough to scan the bus:
 
 ```c
 /* A read of one byte finds out whether a device acknowledges its address. */
@@ -281,7 +281,7 @@ static void demo_scan(void)
 [scan] 1 device(s) found
 ```
 
-读寄存器时，先用 `i2c_write` 设好寄存器地址，再 `i2c_read`，两次之间有停止条件；GT967 接受这种写法，有的芯片不接受，要用 `i2c_write_read`。下面读 `0x8047`（配置版本）的 1 个字节，前提是上一步 `i2c_write` 已经设了这个地址：
+To read a register, first set the register address with `i2c_write`, then use `i2c_read`, with a stop condition in between; the GT967 accepts this, some chips do not and require `i2c_write_read`. Below, 1 byte of `0x8047` (the configuration version) is read, provided the `i2c_write` of the previous step has already set that address:
 
 ```c
 /* i2c_read: reads the register that the write above selected */
@@ -304,7 +304,7 @@ static void demo_read(void)
 int i2c_write(const struct device *dev, const uint8_t *buf, uint32_t num_bytes, uint16_t addr);
 ```
 
-向 `addr` 写 `num_bytes` 个字节，是一次完整的传输。这里写的是 2 个字节的寄存器地址。
+Writes `num_bytes` bytes to `addr`; it is one complete transfer. What is written here is a 2-byte register address.
 
 ```c
 /* i2c_write: one complete transfer with a stop at the end. Here it sets the register address. */
@@ -321,7 +321,7 @@ static void demo_write(void)
 [write+read] i2c_write(register address) = 0
 ```
 
-（日志里 `i2c_write` 在 `i2c_read` 之前，因为读依赖写设好的寄存器地址。）
+(In the log `i2c_write` comes before `i2c_read`, because the read depends on the register address the write has set.)
 
 ### i2c_write_read
 
@@ -330,7 +330,7 @@ int i2c_write_read(const struct device *dev, uint16_t addr, const void *write_bu
                    void *read_buf, size_t num_read);
 ```
 
-先写再读，两段之间是重复起始（restart），中间没有停止条件。这是读 16 位地址寄存器的标准办法。
+Writes first and then reads, with a repeated start (restart) between the two and no stop condition in between. This is the standard way to read a register with a 16-bit address.
 
 ```c
 /* i2c_write_read: write the 16 bit register address, restart, read the value */
@@ -356,7 +356,7 @@ static void demo_write_read(void)
 int i2c_burst_read(const struct device *dev, uint16_t dev_addr, uint8_t start_addr, uint8_t *buf, uint32_t num_bytes);
 ```
 
-写 1 个字节的起始地址，再连续读 `num_bytes` 个字节。GT967 的寄存器地址是 16 位，所以这个演示只说明调用能通；16 位地址的芯片用 `i2c_write_read`。
+Writes a 1-byte start address, then reads `num_bytes` bytes consecutively. The GT967's register addresses are 16-bit, so this demonstration only shows that the call goes through; for a chip with 16-bit addresses, use `i2c_write_read`.
 
 ```c
 /* i2c_burst_read: writes a one byte start address, then reads. The GT967 registers have 16 bit
@@ -382,16 +382,16 @@ static void demo_burst(void)
 int i2c_transfer(const struct device *dev, struct i2c_msg *msgs, uint8_t num_msgs, uint16_t addr);
 ```
 
-自己组织消息。`flags` 决定起始、重复起始、停止：
+Assembles the messages yourself. `flags` decide start, repeated start and stop:
 
-| 标志 | 驱动的行为 |
+| Flag | Driver behavior |
 | --- | --- |
-| `I2C_MSG_WRITE`、`I2C_MSG_READ` | 方向 |
-| `I2C_MSG_RESTART` | 这条消息前发重复起始并重新发地址 |
-| `I2C_MSG_STOP` | 这条消息后发停止条件；最后一条消息无论如何都会发 |
+| `I2C_MSG_WRITE`, `I2C_MSG_READ` | Direction |
+| `I2C_MSG_RESTART` | Send a repeated start and re-send the address before this message |
+| `I2C_MSG_STOP` | Send a stop condition after this message; the last message always sends one in any case |
 | `I2C_MSG_ADDR_10_BITS` | `-ENOTSUP` |
 
-地址超过 7 位返回 `-EINVAL`。连续的写消息合并成同一次传输。
+An address longer than 7 bits returns `-EINVAL`. Consecutive write messages are merged into the same transfer.
 
 ```c
 /* i2c_transfer: the messages by hand, flags decide start, restart and stop */
@@ -430,9 +430,9 @@ static void demo_transfer(void)
 [transfer] address 0x100                = -EINVAL
 ```
 
-### 没有设备应答
+### No device acknowledges
 
-地址发出去没有设备应答，驱动返回 `-EIO`，并且发出停止条件让总线回到空闲。
+When the address is sent and no device acknowledges, the driver returns `-EIO` and issues a stop condition to bring the bus back to idle.
 
 ```c
 /* a device that is not there does not acknowledge */
@@ -453,9 +453,9 @@ static void demo_nack(void)
 [nack] write to 0x50                   = -EIO
 ```
 
-## 完整演示程序
+## The complete demonstration program
 
-上面所有示例和日志都来自这一个程序。建一个目录，放进下面的文件，就可以像其他 Zephyr 应用一样编译。
+All the examples and logs above come from this one program. Create a directory, put the files below into it, and it can be built like any other Zephyr application.
 
 ```text
 i2c_api/
@@ -697,7 +697,7 @@ int main(void)
 }
 ```
 
-### 编译和运行
+### Building and running
 
 ```sh
 . ~/f101-zephyr/env.sh
@@ -707,7 +707,7 @@ west build -b yuzukineko -d build/i2c-api i2c_api
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/drivers-i2c/build.cast" data-speed="6"></div>
 
-下载运行的方法见[编译与运行](../zephyr-build-run.md)。控制台 UART1 上的完整输出：
+For how to download and run it, see [Building and running](../zephyr-build-run.md). The complete output on the console UART1:
 
 ```text
 [reset] released RST with INT low, the controller should answer at 0x5d

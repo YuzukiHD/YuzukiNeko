@@ -1,77 +1,77 @@
 ---
-title: "RISC-V 向量扩展 (RVV)"
+title: "RISC-V vector extension (RVV)"
 ---
 
-这一页介绍 RISC-V 向量扩展（RVV），以及怎样在 YuzukiNeko 的 Zephyr 上使用它：打开哪个配置、有哪些接口、写代码时要注意什么，并给出可以直接编译的示例。
+This page introduces the RISC-V vector extension (RVV) and how to use it on YuzukiNeko's Zephyr: which configuration to enable, what interfaces exist, what to watch out for when writing code, and examples that compile as they are.
 
-## 什么是 RVV
+## What RVV is
 
-RVV 是 RISC-V 的标准向量扩展（"V" 扩展，1.0 版）。它让一条指令同时处理一批数据，适合音频、图像、滤波、矩阵、内存拷贝这类“对很多元素做同样运算”的循环。F101 的 XuanTie C907 内核带有这个扩展，所以芯片是 `rv32imacfdv`。
+RVV is RISC-V's standard vector extension (the "V" extension, version 1.0). It lets a single instruction process a batch of data at once, which suits loops such as audio, image, filter, matrix and memory-copy code that "perform the same operation on many elements". The F101's XuanTie C907 core has this extension, so the chip is `rv32imacfdv`.
 
-和固定宽度的 SIMD 不同，RVV 的程序<strong>不依赖向量寄存器有多宽</strong>：同一段代码在不同位宽的实现上都能跑，每一轮处理多少个元素由硬件告诉程序。
+Unlike fixed-width SIMD, an RVV program <strong>does not depend on how wide the vector registers are</strong>: the same code runs on implementations of different widths, and the hardware tells the program how many elements to handle each round.
 
-### 寄存器和 CSR
+### Registers and CSRs
 
-| 名称 | 作用 |
+| Name | Purpose |
 | --- | --- |
-| `v0`–`v31` | 32 个向量寄存器，每个 `VLEN` 位。F101 的 `VLEN` 是 128 位，即每个寄存器 16 字节 |
-| `vlenb` | 只读 CSR，等于 `VLEN / 8`。F101 上是 16 |
-| `vl` | 当前这一轮要处理的元素个数 |
-| `vtype` | 当前配置：元素宽度、寄存器分组、尾部和掩码策略 |
-| `vstart`、`vcsr` | 被打断后从哪个元素继续、定点运算的舍入和饱和状态 |
+| `v0`–`v31` | 32 vector registers, each `VLEN` bits. On F101 `VLEN` is 128 bits, i.e. 16 bytes per register |
+| `vlenb` | Read-only CSR, equal to `VLEN / 8`. It is 16 on F101 |
+| `vl` | Number of elements to handle in the current round |
+| `vtype` | Current configuration: element width, register grouping, tail and mask policy |
+| `vstart`, `vcsr` | Which element to continue from after an interruption, and the rounding and saturation state of fixed-point arithmetic |
 
-### 配置向量单元：`vsetvli`
+### Configuring the vector unit: `vsetvli`
 
-使用向量指令之前，先用 `vsetvli` 说明“我要处理多少个元素、每个多宽”，它返回这一轮实际能处理的个数 `vl`：
+Before using vector instructions, use `vsetvli` to say "how many elements I want to handle and how wide each is"; it returns the number `vl` actually handled in this round:
 
 ```text
 vsetvli  vl, 剩余元素数, e32, m8, ta, ma
 ```
 
-| 参数 | 含义 |
+| Parameter | Meaning |
 | --- | --- |
-| `e8`、`e16`、`e32` | 元素宽度（`SEW`），8、16、32 位 |
-| `m1`、`m2`、`m4`、`m8` | 寄存器分组（`LMUL`）：把几个寄存器合起来当一个用。分组越大，一条指令处理的元素越多，可用的寄存器组越少 |
-| `ta`、`ma` | 尾部和被掩码的元素怎么处理（这里表示不关心它们的值） |
+| `e8`, `e16`, `e32` | Element width (`SEW`), 8, 16, 32 bits |
+| `m1`, `m2`, `m4`, `m8` | Register grouping (`LMUL`): several registers combined and used as one. The larger the grouping, the more elements one instruction handles and the fewer register groups are available |
+| `ta`, `ma` | How the tail and masked elements are handled (here it means their values are not of interest) |
 
-一轮最多处理 `VLEN / SEW × LMUL` 个元素。F101 上 `VLEN = 128`，所以 `e32, m8` 一轮最多 32 个元素，`e8, m1` 最多 16 个。
+One round handles at most `VLEN / SEW × LMUL` elements. On F101 `VLEN = 128`, so `e32, m8` handles at most 32 elements per round and `e8, m1` at most 16.
 
-### 分段循环
+### Strip-mining loops
 
-数据比一轮能处理的多时，用“分段循环”（strip-mining）：每次让硬件决定 `vl`，处理完就把指针和剩余个数往后推。最后一轮元素不够时，`vl` 自动变小，不需要单独写收尾代码。下面的示例都是这个写法。
+When there is more data than one round can handle, use a "strip-mining" loop: let the hardware decide `vl` each time, then advance the pointers and the remaining count after each round. When the last round has too few elements, `vl` shrinks automatically, so no separate tail code is needed. The examples below all follow this pattern.
 
-## Zephyr 里的 RVV 支持
+## RVV support in Zephyr
 
-这套支持是在 Zephyr v4.2.2 上实现的，针对 F101。包括：
+This support is implemented on Zephyr v4.2.2 and targets the F101. It includes:
 
-- <strong>编译</strong>：打开后，编译参数里的 `-march` 带上 `v`（实际是 `rv32imafdcv_zicsr_zifencei_xtheadcmo`），可以用 `<riscv_vector.h>` 里的内建函数，也可以写汇编。
-- <strong>使用权限</strong>：`mstatus.VS` 在任何 C 代码运行之前就已经打开（编译器可能把向量指令用在 `memcpy()` 这类函数里），新建的线程也一样。
-- <strong>状态保存</strong>：每个中断和异常的栈帧里都保存 `v0`–`v31`、`vstart`、`vl`、`vtype`、`vcsr`，所以线程和中断处理函数<strong>都可以</strong>使用向量单元。被抢占（时间片用完、被更高优先级打断、被中断打断）的线程，向量状态会原样恢复。
-- <strong>主动切换</strong>：线程自己调用函数、`k_sleep()`、`k_yield()` 这类主动让出时，按 ABI 办事，向量寄存器是<strong>调用者保存</strong>的，不保证保留。
+- <strong>Compilation</strong>: when enabled, the `-march` in the compiler flags carries `v` (in practice `rv32imafdcv_zicsr_zifencei_xtheadcmo`), and you can use the intrinsics in `<riscv_vector.h>` or write assembly.
+- <strong>Permission to use it</strong>: `mstatus.VS` is already enabled before any C code runs (the compiler may use vector instructions inside functions such as `memcpy()`), and newly created threads too.
+- <strong>State saving</strong>: every interrupt and exception stack frame saves `v0`–`v31`, `vstart`, `vl`, `vtype` and `vcsr`, so both threads and interrupt handlers <strong>can</strong> use the vector unit. A thread that is preempted (its time slice expires, a higher priority interrupts it, an interrupt interrupts it) has its vector state restored exactly.
+- <strong>Voluntary switching</strong>: when a thread voluntarily yields by calling a function, `k_sleep()`, `k_yield()` or the like, the ABI applies and the vector registers are <strong>caller-saved</strong>, so they are not guaranteed to be preserved.
 
-## 启用
+## Enabling it
 
-在 `prj.conf` 里加一行：
+Add one line to `prj.conf`:
 
 ```text
 CONFIG_SUN252I_F101_RVV=y
 ```
 
-评估板 `f101_evb` 和 `yuzukineko` 都是 F101，这个配置对它们都适用。
+The evaluation board `f101_evb` and `yuzukineko` are both F101, and this configuration applies to both.
 
-### 配置项
+### Configuration options
 
-| 配置项 | 默认值 | 说明 |
+| Option | Default | Description |
 | --- | --- | --- |
-| `CONFIG_SUN252I_F101_RVV` | n | 打开向量扩展。会自动选上 `RISCV_ISA_EXT_V`、`RISCV_ISA_EXT_ZICSR` 和 `RISCV_SOC_CONTEXT_SAVE` |
-| `CONFIG_SUN252I_F101_VLEN` | 128 | 向量寄存器的位宽。启动时用 `vlenb` 核对（需要 `CONFIG_ASSERT=y`），不一致会断言失败 |
-| `CONFIG_RISCV_ISA_EXT_V` | — | 架构层的开关，让编译参数带上 `v`。一般不需要手动设置 |
+| `CONFIG_SUN252I_F101_RVV` | n | Enables the vector extension. It automatically selects `RISCV_ISA_EXT_V`, `RISCV_ISA_EXT_ZICSR` and `RISCV_SOC_CONTEXT_SAVE` |
+| `CONFIG_SUN252I_F101_VLEN` | 128 | The width of the vector registers. It is checked at boot with `vlenb` (requires `CONFIG_ASSERT=y`); a mismatch fails an assertion |
+| `CONFIG_RISCV_ISA_EXT_V` | — | The architecture-layer switch that makes the compiler flags carry `v`. It normally does not need to be set manually |
 
-### 栈大小
+### Stack size
 
-每个中断栈帧里要放下全部向量寄存器，大小是 `32 × VLEN / 8 + 32` 字节，`VLEN = 128` 时是 <strong>544 字节</strong>。线程栈要能放下一帧再加上处理函数本身。打开 `CONFIG_SUN252I_F101_RVV` 后，这些栈的默认值会变大：
+Each interrupt stack frame must hold all the vector registers, a size of `32 × VLEN / 8 + 32` bytes, which is <strong>544 bytes</strong> when `VLEN = 128`. A thread stack must hold one frame plus the handler itself. After enabling `CONFIG_SUN252I_F101_RVV`, the default values of these stacks grow:
 
-| 配置项 | 默认值 |
+| Option | Default |
 | --- | --- |
 | `CONFIG_IDLE_STACK_SIZE` | 1536 |
 | `CONFIG_MAIN_STACK_SIZE` | 4096 |
@@ -79,35 +79,35 @@ CONFIG_SUN252I_F101_RVV=y
 | `CONFIG_SYSTEM_WORKQUEUE_STACK_SIZE` | 2048 |
 | `CONFIG_TEST_EXTRA_STACK_SIZE` | 1024 |
 
-自己创建的线程要自己留够栈。示例里创建的线程栈是 2048 字节。
+Threads you create must reserve enough stack yourself. The thread created in the example has a stack of 2048 bytes.
 
-## 接口
+## Interfaces
 
-RVV 没有专门的 Zephyr API。向量单元就是 CPU 的一部分，用法有三种：
+RVV has no dedicated Zephyr API. The vector unit is simply part of the CPU, and there are three ways to use it:
 
-### 内建函数（推荐）
+### Intrinsics (recommended)
 
-包含 `<riscv_vector.h>`，用 `__riscv_` 开头的内建函数，编译器会生成对应的向量指令并分配寄存器。示例里用到的有：
+Include `<riscv_vector.h>` and use the intrinsics beginning with `__riscv_`; the compiler generates the corresponding vector instructions and allocates registers. The example uses:
 
-| 内建函数 | 作用 |
+| Intrinsic | Purpose |
 | --- | --- |
-| `__riscv_vsetvl_e32m8(n)` | 对剩余 `n` 个元素配置 `e32, m8`，返回这一轮的 `vl` |
-| `__riscv_vsetvlmax_e8m1()` | 取 `e8, m1` 一轮最多处理的元素数，等于 `vlenb` |
-| `__riscv_vle32_v_u32m8(p, vl)`、`__riscv_vle32_v_i32m8(p, vl)` | 从内存读 `vl` 个 32 位元素 |
-| `__riscv_vse32_v_u32m8(p, v, vl)` | 把向量写回内存 |
-| `__riscv_vadd_vv_u32m8(a, b, vl)`、`__riscv_vmul_vv_i32m8(a, b, vl)` | 逐元素加、乘 |
-| `__riscv_vredsum_vs_i32m8_i32m1(v, acc, vl)` | 把向量里的元素加起来，结果放进 `acc` 的第 0 个元素 |
-| `__riscv_vmv_s_x_i32m1(x, vl)`、`__riscv_vmv_x_s_i32m1_i32(v)` | 标量和向量第 0 个元素之间搬数据 |
+| `__riscv_vsetvl_e32m8(n)` | Configures `e32, m8` for the remaining `n` elements and returns this round's `vl` |
+| `__riscv_vsetvlmax_e8m1()` | Returns the maximum number of elements `e8, m1` handles per round, equal to `vlenb` |
+| `__riscv_vle32_v_u32m8(p, vl)`, `__riscv_vle32_v_i32m8(p, vl)` | Reads `vl` 32-bit elements from memory |
+| `__riscv_vse32_v_u32m8(p, v, vl)` | Writes the vector back to memory |
+| `__riscv_vadd_vv_u32m8(a, b, vl)`, `__riscv_vmul_vv_i32m8(a, b, vl)` | Element-wise addition and multiplication |
+| `__riscv_vredsum_vs_i32m8_i32m1(v, acc, vl)` | Sums the elements in the vector and puts the result in element 0 of `acc` |
+| `__riscv_vmv_s_x_i32m1(x, vl)`, `__riscv_vmv_x_s_i32m1_i32(v)` | Moves data between a scalar and element 0 of the vector |
 
-名字的规律是：`__riscv_` + 指令名 + 操作数形式 + 元素类型和分组（例如 `u32m8` 是 8 个寄存器一组的无符号 32 位元素）。
+The naming pattern is: `__riscv_` + instruction name + operand form + element type and grouping (for example, `u32m8` is unsigned 32-bit elements in a group of 8 registers).
 
 :::note
-这个工具链（玄铁 900 的 GCC 14.1.1）里，32 位元素的内建函数在 RV32 上的指针参数是 `unsigned long *`（或 `long *`），不是 `uint32_t *`。示例里的做法是先把指针转一下。
+In this toolchain (XuanTie 900's GCC 14.1.1), the pointer arguments of the 32-bit element intrinsics are `unsigned long *` (or `long *`) on RV32, not `uint32_t *`. The example casts the pointers first.
 :::
 
-### 内联汇编
+### Inline assembly
 
-需要精确控制具体哪个寄存器、或者内建函数没有覆盖的指令时，可以直接写汇编：
+When you need precise control over which register is used, or an instruction the intrinsics do not cover, you can write assembly directly:
 
 ```c
 __asm__ volatile("vsetvli t0, zero, e32, m1, ta, ma\n\t"
@@ -115,35 +115,35 @@ __asm__ volatile("vsetvli t0, zero, e32, m1, ta, ma\n\t"
 		 :: "r"(seed) : "t0", "memory");
 ```
 
-`vsetvli` 和向量指令要<strong>放在同一个 `asm` 语句里</strong>，避免编译器把 `vtype` 的设置挪走或删掉。
+`vsetvli` and the vector instruction must be <strong>in the same `asm` statement</strong>, so the compiler does not move or delete the `vtype` setup.
 
-### 宏
+### Macros
 
-`zephyr/arch/riscv/arch.h` 里定义了 `mstatus.VS` 的几个取值，自己操作 `mstatus` 时用：
+`zephyr/arch/riscv/arch.h` defines several values for `mstatus.VS`, for use when manipulating `mstatus` yourself:
 
-| 宏 | 含义 |
+| Macro | Meaning |
 | --- | --- |
-| `MSTATUS_VS` | `VS` 字段的掩码 |
-| `MSTATUS_VS_OFF` | 关闭，用向量指令会触发异常 |
-| `MSTATUS_VS_INIT` | 已打开，向量状态是初始值 |
-| `MSTATUS_VS_CLEAN` | 向量状态没有被改过 |
-| `MSTATUS_VS_DIRTY` | 向量状态被改过 |
+| `MSTATUS_VS` | Mask for the `VS` field |
+| `MSTATUS_VS_OFF` | Off; using vector instructions raises an exception |
+| `MSTATUS_VS_INIT` | On; the vector state is at its initial value |
+| `MSTATUS_VS_CLEAN` | The vector state has not been modified |
+| `MSTATUS_VS_DIRTY` | The vector state has been modified |
 
-一般不需要碰它们：`CONFIG_SUN252I_F101_RVV` 已经在启动和创建线程时设好了。
+They normally do not need to be touched: `CONFIG_SUN252I_F101_RVV` already sets them at boot and when creating threads.
 
-## 使用规则
+## Rules for use
 
-1. <strong>先 `vsetvli` 再用向量指令</strong>。没用过向量的线程里 `vtype` 的 `vill` 位是置位的，直接用向量指令会失败。内建函数会自动带上 `vsetvli`，内联汇编要自己写。
-2. <strong>不要让向量寄存器的值跨过函数调用、`k_sleep()`、`k_yield()`</strong>。它们是调用者保存的。想让值在线程里一直保留，中间不要有调用，也不要主动让出。被动的抢占（中断、时间片）不会丢。
-3. <strong>中断处理函数里可以用向量单元</strong>，处理函数返回后，被打断的代码看到的向量寄存器不变。
-4. <strong>栈要够</strong>。每层中断多占一帧（VLEN = 128 时 544 字节）。线程栈太小，在中断里会踩坏栈后面的数据。
-5. <strong>`CONFIG_SUN252I_F101_VLEN` 要和硬件一致</strong>，它决定了栈帧和存放向量寄存器的数组大小。
+1. <strong>Use `vsetvli` before vector instructions</strong>. In a thread that has not used vectors, the `vill` bit of `vtype` is set, and using vector instructions directly fails. Intrinsics add `vsetvli` automatically; inline assembly must write it yourself.
+2. <strong>Do not let vector register values cross a function call, `k_sleep()` or `k_yield()`</strong>. They are caller-saved. To keep a value alive throughout a thread, have no calls in between and do not voluntarily yield. Passive preemption (interrupts, time slices) does not lose it.
+3. <strong>Interrupt handlers can use the vector unit</strong>; after the handler returns, the vector registers the interrupted code sees are unchanged.
+4. <strong>The stack must be large enough</strong>. Each level of interrupt occupies one more frame (544 bytes when VLEN = 128). If a thread stack is too small, an interrupt corrupts the data after the stack.
+5. <strong>`CONFIG_SUN252I_F101_VLEN` must match the hardware</strong>; it determines the size of the stack frame and of the array that holds the vector registers.
 
-## 示例：向量加法和点积
+## Example: vector addition and dot product
 
-下面是一个完整的 Zephyr 应用。`vec_add_u32()` 做两个数组逐元素相加，`vec_dot_i32()` 做点积。两个函数都是上面说的分段循环。
+Below is a complete Zephyr application. `vec_add_u32()` adds two arrays element by element, and `vec_dot_i32()` computes a dot product. Both functions use the strip-mining loop described above.
 
-目录结构：
+Directory structure:
 
 ```text
 rvv-demo/
@@ -152,7 +152,7 @@ rvv-demo/
 └── src/main.c
 ```
 
-`CMakeLists.txt`：
+`CMakeLists.txt`:
 
 ```cmake
 cmake_minimum_required(VERSION 3.20.0)
@@ -162,13 +162,13 @@ project(rvv_demo)
 target_sources(app PRIVATE src/main.c)
 ```
 
-`prj.conf`：
+`prj.conf`:
 
 ```text
 CONFIG_SUN252I_F101_RVV=y
 ```
 
-`src/main.c`：
+`src/main.c`:
 
 ```c
 #include <zephyr/kernel.h>
@@ -246,7 +246,7 @@ int main(void)
 }
 ```
 
-编译，参数的含义见 [编译与运行](zephyr-build-run.md)：
+Build it; the meaning of the arguments is in [Build and run](zephyr-build-run.md):
 
 ```sh
 . ~/f101-zephyr/env.sh
@@ -254,7 +254,7 @@ cd ~/f101-zephyr
 west build -b yuzukineko -d build/rvv-demo /path/to/rvv-demo
 ```
 
-这个应用在 `yuzukineko` 上能编译通过，反汇编里 `vec_add_u32()` 的循环体就是 `vsetvli`、两条 `vle32.v`、`vadd.vv` 和 `vse32.v`：
+This application compiles for `yuzukineko`, and in the disassembly the loop body of `vec_add_u32()` is `vsetvli`, two `vle32.v`, `vadd.vv` and `vse32.v`:
 
 ```text
 vsetvli  a5,a3,e32,m8,ta,ma
@@ -264,17 +264,17 @@ vadd.vv  v8,v8,v16
 vse32.v  v8,(a0)
 ```
 
-下载运行的步骤见 [编译与运行](zephyr-build-run.md)。程序正确时，串口应打印 `VLENB = 16`、`add: 0 wrong elements`，并且 `dot` 和 `expected` 两个数相同。
+For the steps to download and run it, see [Build and run](zephyr-build-run.md). When the program is correct, the serial port should print `VLENB = 16` and `add: 0 wrong elements`, and the two numbers `dot` and `expected` are the same.
 
-## 示例：向量状态能不能在中断和线程切换后保留
+## Example: whether vector state survives interrupts and thread switches
 
-仓库里的 `samples/drivers/rvv` 是一个自检程序，检查前面“Zephyr 里的 RVV 支持”说的几条是否成立：
+`samples/drivers/rvv` in the repository is a self-check program that verifies whether the points made earlier under "RVV support in Zephyr" hold:
 
-- 向量加法的结果对不对，`vlenb` 和 `CONFIG_SUN252I_F101_VLEN` 是否一致。
-- 一个 300 µs 的定时器中断处理函数<strong>故意改写</strong> `v8` 和向量 CSR，被打断的线程里的 `v8` 要完全不变。
-- 三个同优先级的线程（`main` 和两个工作线程）靠时间片轮流运行，各自在 `v8` 里放一个不同的值，循环里不调用任何函数，回来之后值要还在。线程里还同时做浮点运算，和 FPU 共用上下文。
+- Whether the result of vector addition is correct, and whether `vlenb` and `CONFIG_SUN252I_F101_VLEN` agree.
+- A 300 µs timer interrupt handler <strong>deliberately overwrites</strong> `v8` and the vector CSRs; `v8` in the interrupted thread must be completely unchanged.
+- Three threads of equal priority (`main` and two worker threads) take turns by time slice, each putting a different value in `v8`; with no function call in the loop, the value must still be there when they come back. The threads also perform floating-point arithmetic at the same time, sharing context with the FPU.
 
-它的 `prj.conf` 是：
+Its `prj.conf` is:
 
 ```text
 CONFIG_SUN252I_F101_RVV=y
@@ -287,7 +287,7 @@ CONFIG_TIMESLICE_SIZE=1
 CONFIG_TIMESLICE_PRIORITY=0
 ```
 
-中断处理函数里用内联汇编改 `v8`：
+The interrupt handler overwrites `v8` with inline assembly:
 
 ```c
 static void tick_fn(struct k_timer *t)
@@ -298,7 +298,7 @@ static void tick_fn(struct k_timer *t)
 }
 ```
 
-线程里放值、循环、再检查：
+A thread places the value, loops, then checks:
 
 ```c
 /*
@@ -329,20 +329,20 @@ uint32_t rvv_hold_v8(uint32_t seed, uint32_t iters)
 }
 ```
 
-编译它：
+Build it:
 
 ```sh
 west build -b yuzukineko -d build/rvv zephyr/samples/drivers/rvv
 ```
 
-全部检查通过时，最后一行输出是 `RVV: all checks passed`，示例的 `sample.yaml` 就是用这一行判断测试是否通过。示例的 `sample.yaml` 里 `platform_allow` 写的是评估板 `f101_evb`；`yuzukineko` 同样是 F101，示例已在 `yuzukineko` 上编译通过，没有上板运行。
+When all checks pass, the last output line is `RVV: all checks passed`, and the example's `sample.yaml` uses that line to decide whether the test passed. The example's `sample.yaml` lists the evaluation board `f101_evb` in `platform_allow`; `yuzukineko` is also an F101, and the example has been compiled for `yuzukineko`, but it has not been run on the board.
 
-## 常见问题
+## Common problems
 
-| 现象 | 可能的原因 |
+| Symptom | Possible cause |
 | --- | --- |
-| 编译报找不到 `riscv_vector.h` | 工具链不是玄铁 900 的 GCC，或者没有打开 `CONFIG_SUN252I_F101_RVV`，`-march` 里没有 `v` |
-| 一用向量指令就进异常 | 没有先 `vsetvli`；或者在 `mstatus.VS` 为关闭的上下文里执行 |
-| 中断一来系统就卡死或数据被破坏 | 线程栈不够放一帧向量寄存器。把线程栈加大，VLEN = 128 时至少要多出 544 字节 |
-| 启动时断言失败，提示 `SUN252I_F101_VLEN does not match the vector unit` | `CONFIG_SUN252I_F101_VLEN` 和硬件的 `vlenb × 8` 不一致 |
-| 向量寄存器里的值调用函数后变了 | 它们是调用者保存的，函数里的向量代码会改写它们。需要保留就在调用前存到内存 |
+| The build reports that `riscv_vector.h` cannot be found | The toolchain is not XuanTie 900's GCC, or `CONFIG_SUN252I_F101_RVV` is not enabled so `-march` has no `v` |
+| Using a vector instruction immediately raises an exception | `vsetvli` was not executed first, or it runs in a context where `mstatus.VS` is off |
+| The system hangs or data is corrupted as soon as an interrupt arrives | The thread stack is too small to hold one frame of vector registers. Increase the thread stack by at least 544 bytes when VLEN = 128 |
+| An assertion fails at boot, reporting `SUN252I_F101_VLEN does not match the vector unit` | `CONFIG_SUN252I_F101_VLEN` disagrees with the hardware's `vlenb × 8` |
+| The values in the vector registers change after calling a function | They are caller-saved, and vector code inside the function overwrites them. If they must be kept, store them to memory before the call |
