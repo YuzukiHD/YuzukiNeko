@@ -2,7 +2,7 @@
 title: "在 YuzukiNeko 上运行 RustSBI 与 Asterinas"
 ---
 
-本文介绍如何在 YuzukiNeko <strong>F101-S3</strong> 上刷入预编译固件，从 SPI NOR 启动 Asterinas，进入 BusyBox 命令行并运行九个示例。首次体验可以直接使用完整镜像，无需自行编译。
+本文介绍如何在 YuzukiNeko <strong>F101-S3</strong> 上刷入预编译固件，从 SPI NOR 启动 Asterinas，进入 BusyBox 命令行并运行九个示例。首次体验可以直接使用完整镜像，无需自行编译。需要获取源码并自行编译时，请阅读[从源码构建 RustSBI 与 Asterinas](asterinas-build.md)。
 
 [RustSBI](https://github.com/rustsbi/rustsbi) 是使用 Rust 实现 RISC-V SBI（Supervisor Binary Interface）的项目，为操作系统提供标准的固件服务接口。它让内核通过统一接口使用定时器、核间中断和系统复位等底层服务，减少对具体硬件平台的依赖。
 
