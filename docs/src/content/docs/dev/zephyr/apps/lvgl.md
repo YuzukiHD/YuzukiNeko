@@ -47,7 +47,7 @@ west build -b yuzukineko -d build/lvgl-hello examples/lvgl_hello
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/apps-lvgl/build.cast" data-speed="6"></div>
 
-The output is `build/lvgl-hello/zephyr/zephyr.bin`, about 2.7 MB (2733692 bytes), linked at `0x40010000`, like any other Zephyr program. The 1.5 MiB framebuffer and the 64 KiB LVGL memory pool are static arrays and make up most of it.
+The output is `build/lvgl-hello/zephyr/zephyr.bin`, about 2.7 MB (2733692 bytes), linked at `0x40000000`, like any other Zephyr program. The 1.5 MiB framebuffer and the 64 KiB LVGL memory pool are static arrays and make up most of it.
 
 ## Running
 
@@ -59,8 +59,8 @@ The commands:
 
 ```sh
 xfel ddr f101-s3
-xfel write 0x40010000 build/lvgl-hello/zephyr/zephyr.bin
-xfel exec 0x40010000
+xfel write 0x40000000 build/lvgl-hello/zephyr/zephyr.bin
+xfel exec 0x40000000
 ```
 
 The output after running, on the serial port:
@@ -180,8 +180,8 @@ Select a demo with `CONFIG_LV_Z_DEMO_*`; to select the benchmark:
 cd ~/f101-zephyr
 west build -b yuzukineko -d build/lvgl-bench zephyr/samples/modules/lvgl/demos -- -DCONFIG_LV_Z_DEMO_BENCHMARK=y
 xfel ddr f101-s3
-xfel write 0x40010000 build/lvgl-bench/zephyr/zephyr.bin
-xfel exec 0x40010000
+xfel write 0x40000000 build/lvgl-bench/zephyr/zephyr.bin
+xfel exec 0x40000000
 ```
 
 The available demos are:
@@ -240,8 +240,8 @@ The first row of the summary table is the average over all scenes, and each row 
 ```sh
 west build -b yuzukineko -d build/lvgl-widgets zephyr/samples/modules/lvgl/demos -- -DCONFIG_LV_Z_DEMO_WIDGETS=y
 xfel ddr f101-s3
-xfel write 0x40010000 build/lvgl-widgets/zephyr/zephyr.bin
-xfel exec 0x40010000
+xfel write 0x40000000 build/lvgl-widgets/zephyr/zephyr.bin
+xfel exec 0x40000000
 ```
 
 The output after running, on the serial port (the last part is the LVGL memory pool usage the demo prints by calling `lvgl_print_heap_info()`):

@@ -120,7 +120,7 @@ west build -b yuzukineko -d build/android-mirror zephyr-components/android-scree
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/apps-android-mirror/build.cast" data-speed="6"></div>
 
-产物是 `build/android-mirror/zephyr/zephyr.bin`，7567584 字节（约 7.2 MiB，包含 AIC8800 固件），链接地址 `0x40010000`，RAM 占用 7567584 字节，占 16320 KB 的 45.28%。
+产物是 `build/android-mirror/zephyr/zephyr.bin`，7567584 字节（约 7.2 MiB，包含 AIC8800 固件），链接地址 `0x40000000`，RAM 占用 7567584 字节，占 16320 KB 的 45.28%。
 
 示例的 `prj.conf` 里设了 `CONFIG_MINIMAL_LIBC=y`：AIC8800 驱动的 `compat/` 头文件按最小 C 库写，用板子默认的 picolibc 会在 `getchar` 的声明上冲突，见 [AIC8800 WIFI](../components/aic8800-wifi.md)。自己的应用用这个驱动时也要设。
 
@@ -140,8 +140,8 @@ CONFIG_SAMPLE_MIRROR_PHONE_IP="192.168.1.23"
 
 ```sh
 xfel ddr f101-s3
-xfel write 0x40010000 build/android-mirror/zephyr/zephyr.bin
-xfel exec 0x40010000
+xfel write 0x40000000 build/android-mirror/zephyr/zephyr.bin
+xfel exec 0x40000000
 ```
 
 :::caution

@@ -60,7 +60,7 @@ west build -b yuzukineko -d build/mgba zephyr-components/mgba/samples/gba_player
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/apps-mgba/build.cast" data-speed="6"></div>
 
-产物是 `build/mgba/zephyr/zephyr.bin`，约 4.98 MB，链接地址 `0x40010000`。
+产物是 `build/mgba/zephyr/zephyr.bin`，约 4.98 MB，链接地址 `0x40000000`。
 
 示例的 `prj.conf` 里有 `CONFIG_MINIMAL_LIBC=y`：`shim/` 里的头文件按 Zephyr 的最小 C 库写，自己的应用引用这个模块时也要选它。
 
@@ -75,7 +75,7 @@ list(APPEND ZEPHYR_EXTRA_MODULES ${CMAKE_CURRENT_SOURCE_DIR}/../..)
 
 用 [编译与运行](../zephyr-build-run.md) 里的任一种方式下载，控制台是 UART1（115200 8N1）。
 
-- 调试时用<strong>方式一</strong>：`xfel ddr f101-s3`、`xfel write 0x40010000 build/mgba/zephyr/zephyr.bin`、`xfel exec 0x40010000`。
+- 调试时用<strong>方式一</strong>：`xfel ddr f101-s3`、`xfel write 0x40000000 build/mgba/zephyr/zephyr.bin`、`xfel exec 0x40000000`。
 - 脱机运行用<strong>方式三</strong>：`mkuf2.py app build/mgba/zephyr/zephyr.bin -o out/mgba.uf2`，拖进 `F101BOOT` 盘。
 
 :::caution

@@ -64,7 +64,7 @@ west build -b yuzukineko -d build/win95 zephyr-components/bochs/samples/pc
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/apps-win95/build.cast" data-speed="6"></div>
 
-产物是 `build/win95/zephyr/zephyr.bin`，约 2.9 MB，链接地址 `0x40010000`。第一次配置时 CMake 会用 `git apply` 把 `patches/` 里的补丁打到 Bochs 子模块上（见 [补丁](#补丁)），子模块的工作区因此显示为已修改，这是预期的。
+产物是 `build/win95/zephyr/zephyr.bin`，约 2.9 MB，链接地址 `0x40000000`。第一次配置时 CMake 会用 `git apply` 把 `patches/` 里的补丁打到 Bochs 子模块上（见 [补丁](#补丁)），子模块的工作区因此显示为已修改，这是预期的。
 
 `samples/pc/prj.conf` 里和镜像有关的几行（磁盘路径、几何参数、文本镜像）：
 
@@ -79,7 +79,7 @@ CONFIG_BOCHS_TEXT_MIRROR=y
 
 换成别的镜像就改这几行，柱面、磁头、扇区数必须和镜像一致。Windows 3.1 的镜像是 `/SD:/Win31.img`，柱面 260。
 
-产物 `zephyr.bin` 为 2946308 字节，RAM 占用 17.6%，链接到 `0x40010000`（板子共 16 MB）。
+产物 `zephyr.bin` 为 2946308 字节，RAM 占用 17.6%，链接到 `0x40000000`（板子共 16 MB）。
 
 ## 运行
 
@@ -87,8 +87,8 @@ CONFIG_BOCHS_TEXT_MIRROR=y
 
 ```sh
 xfel ddr f101-s3
-xfel write 0x40010000 build/win95/zephyr/zephyr.bin
-xfel exec 0x40010000
+xfel write 0x40000000 build/win95/zephyr/zephyr.bin
+xfel exec 0x40000000
 ```
 
 板子要插着放了镜像的 TF 卡。画面在板子的屏幕上；键盘输入在 UART1 的串口终端里打字。

@@ -30,7 +30,7 @@ mkuf2.py loader flash-boot_spi.bin -o loader.uf2            # loader, Flash 0
 | `app` | `0x31303146` | `0x200000` | Application area only |
 | `system`, `loader` | `0x31303147` | `0x030000` / `0x000000` | Any location |
 
-Common options: `--load <address>` sets the PSRAM address the image is loaded to (default `0x40010000`, the same as the Zephyr link address); `--raw` outputs a raw Flash image with a header page instead of a `.uf2`, for use with `xfel spinor write`.
+Common options: `--load <address>` sets the PSRAM address the image is loaded to (default `0x40000000`, the same as the Zephyr link address); `--raw` outputs a raw Flash image with a header page instead of a `.uf2`, for use with `xfel spinor write`.
 
 :::caution
 `system` and `loader` files can be written to any location; if you write them wrongly the board has no loader, and then only <strong>FEL</strong> can recover it. Only drag in files you trust, and do not cut power while writing.

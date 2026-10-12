@@ -109,7 +109,7 @@ west build -b yuzukineko -d build/doom-app zephyr-components/doom/samples/doom_p
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/apps-doom/build.cast" data-speed="6"></div>
 
-The artifact is `build/doom-app/zephyr/zephyr.bin`, about 4.8 MB (28.89% of the RAM region used), linked at `0x40010000`.
+The artifact is `build/doom-app/zephyr/zephyr.bin`, about 4.8 MB (28.89% of the RAM region used), linked at `0x40000000`.
 
 ## Running
 
@@ -117,8 +117,8 @@ For the download procedure see [Building and running](../zephyr-build-run.md):
 
 ```sh
 xfel ddr f101-s3
-xfel write 0x40010000 build/doom-app/zephyr/zephyr.bin
-xfel exec 0x40010000
+xfel write 0x40000000 build/doom-app/zephyr/zephyr.bin
+xfel exec 0x40000000
 ```
 
 The console is UART1 (115200 8N1). Put `doom1.wad` on the TF card before starting; what follows describes, in order, what appears on the serial port and the screen.

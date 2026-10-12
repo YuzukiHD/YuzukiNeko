@@ -30,7 +30,7 @@ mkuf2.py loader flash-boot_spi.bin -o loader.uf2            # 加载器，Flash 
 | `app` | `0x31303146` | `0x200000` | 仅应用区 |
 | `system`、`loader` | `0x31303147` | `0x030000` / `0x000000` | 任意位置 |
 
-常用参数：`--load <地址>` 指定镜像载入的 PSRAM 地址（默认 `0x40010000`，与 Zephyr 链接地址一致）；`--raw` 输出带头页的 Flash 原始镜像而不是 `.uf2`，供 `xfel spinor write` 使用。
+常用参数：`--load <地址>` 指定镜像载入的 PSRAM 地址（默认 `0x40000000`，与 Zephyr 链接地址一致）；`--raw` 输出带头页的 Flash 原始镜像而不是 `.uf2`，供 `xfel spinor write` 使用。
 
 :::caution
 `system` 和 `loader` 文件可以写入任何位置，写坏了板子就没有加载器，那时只有 <strong>FEL</strong> 能救。只拖放你信任的文件，写入期间不要断电。

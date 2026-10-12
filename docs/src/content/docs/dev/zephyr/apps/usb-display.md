@@ -40,13 +40,13 @@ west build -b yuzukineko -d build/usbdisp zephyr/samples/drivers/usb/cherryusb_d
 
 No `-D` option is needed. `prj.conf` already carries the `CONFIG_INPUT=y` and `CONFIG_INPUT_GT967_MAX_TOUCH_POINTS=5` that touch needs, and the generated `.config` has `CONFIG_SAMPLE_USB_DISPLAY_CTP=y` and `CONFIG_INPUT_GT967=y`.
 
-The artifact is `build/usbdisp/zephyr/zephyr.bin`, about 295 KB, linked at `0x40010000`.
+The artifact is `build/usbdisp/zephyr/zephyr.bin`, about 295 KB, linked at `0x40000000`.
 
 ## Run
 
 Download it with any of the methods in [Building and running](../zephyr-build-run.md); the console is UART1 (PB00/PB01, 115200 8N1).
 
-- For debugging use <strong>method one</strong>: `xfel ddr f101-s3`, `xfel write 0x40010000 build/usbdisp/zephyr/zephyr.bin`, `xfel exec 0x40010000`.
+- For debugging use <strong>method one</strong>: `xfel ddr f101-s3`, `xfel write 0x40000000 build/usbdisp/zephyr/zephyr.bin`, `xfel exec 0x40000000`.
 - For stand-alone use <strong>method three</strong>: `mkuf2.py app build/usbdisp/zephyr/zephyr.bin -o out/usbdisp.uf2`, then drag it onto the `F101BOOT` drive.
 
 :::caution

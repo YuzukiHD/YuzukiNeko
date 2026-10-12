@@ -51,13 +51,13 @@ west build -b yuzukineko -d build/nes zephyr-components/nes/samples/nes_player
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/apps-nes/build.cast" data-speed="6"></div>
 
-The output is `build/nes/zephyr/zephyr.bin`, about 4.5 MB, linked at `0x40010000`. `samples/nes_player/boards/yuzukineko.conf` is merged automatically when building for this board; it enables I2C and INPUT so the touchscreen works.
+The output is `build/nes/zephyr/zephyr.bin`, about 4.5 MB, linked at `0x40000000`. `samples/nes_player/boards/yuzukineko.conf` is merged automatically when building for this board; it enables I2C and INPUT so the touchscreen works.
 
 ## Running
 
 Download it with either method in [Building and running](../zephyr-build-run.md); the console is UART1 (PB00/PB01, 115200 8N1).
 
-- Method one for debugging: `xfel ddr f101-s3`, `xfel write 0x40010000 build/nes/zephyr/zephyr.bin`, `xfel exec 0x40010000`.
+- Method one for debugging: `xfel ddr f101-s3`, `xfel write 0x40000000 build/nes/zephyr/zephyr.bin`, `xfel exec 0x40000000`.
 - Method three for stand-alone running: `mkuf2.py app build/nes/zephyr/zephyr.bin -o out/nes.uf2`, then drag it onto the `F101BOOT` drive.
 
 :::caution

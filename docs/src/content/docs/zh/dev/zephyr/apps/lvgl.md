@@ -47,7 +47,7 @@ west build -b yuzukineko -d build/lvgl-hello examples/lvgl_hello
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/apps-lvgl/build.cast" data-speed="6"></div>
 
-产物是 `build/lvgl-hello/zephyr/zephyr.bin`，约 2.7 MB（2733692 字节），链接地址 `0x40010000`，和其他 Zephyr 程序一样。其中帧缓冲 1.5 MiB 和 LVGL 内存池 64 KiB 是静态数组，占了大头。
+产物是 `build/lvgl-hello/zephyr/zephyr.bin`，约 2.7 MB（2733692 字节），链接地址 `0x40000000`，和其他 Zephyr 程序一样。其中帧缓冲 1.5 MiB 和 LVGL 内存池 64 KiB 是静态数组，占了大头。
 
 ## 运行
 
@@ -59,8 +59,8 @@ west build -b yuzukineko -d build/lvgl-hello examples/lvgl_hello
 
 ```sh
 xfel ddr f101-s3
-xfel write 0x40010000 build/lvgl-hello/zephyr/zephyr.bin
-xfel exec 0x40010000
+xfel write 0x40000000 build/lvgl-hello/zephyr/zephyr.bin
+xfel exec 0x40000000
 ```
 
 运行后的输出，串口：
@@ -180,8 +180,8 @@ CONFIG_CPU_LOAD=y
 cd ~/f101-zephyr
 west build -b yuzukineko -d build/lvgl-bench zephyr/samples/modules/lvgl/demos -- -DCONFIG_LV_Z_DEMO_BENCHMARK=y
 xfel ddr f101-s3
-xfel write 0x40010000 build/lvgl-bench/zephyr/zephyr.bin
-xfel exec 0x40010000
+xfel write 0x40000000 build/lvgl-bench/zephyr/zephyr.bin
+xfel exec 0x40000000
 ```
 
 可选的 demo 有：
@@ -240,8 +240,8 @@ Heap at 0x40266fb0 contains 32767 units in 15 buckets
 ```sh
 west build -b yuzukineko -d build/lvgl-widgets zephyr/samples/modules/lvgl/demos -- -DCONFIG_LV_Z_DEMO_WIDGETS=y
 xfel ddr f101-s3
-xfel write 0x40010000 build/lvgl-widgets/zephyr/zephyr.bin
-xfel exec 0x40010000
+xfel write 0x40000000 build/lvgl-widgets/zephyr/zephyr.bin
+xfel exec 0x40000000
 ```
 
 运行后的输出，串口（最后一段是 demo 调 `lvgl_print_heap_info()` 打印的 LVGL 内存池使用情况）：

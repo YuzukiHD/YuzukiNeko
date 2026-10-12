@@ -40,13 +40,13 @@ west build -b yuzukineko -d build/usbdisp zephyr/samples/drivers/usb/cherryusb_d
 
 不需要加任何 `-D` 参数。`prj.conf` 已经带了触摸需要的 `CONFIG_INPUT=y` 和 `CONFIG_INPUT_GT967_MAX_TOUCH_POINTS=5`，生成的 `.config` 里 `CONFIG_SAMPLE_USB_DISPLAY_CTP=y`、`CONFIG_INPUT_GT967=y`。
 
-产物是 `build/usbdisp/zephyr/zephyr.bin`，约 295 KB，链接地址 `0x40010000`。
+产物是 `build/usbdisp/zephyr/zephyr.bin`，约 295 KB，链接地址 `0x40000000`。
 
 ## 运行
 
 用 [编译与运行](../zephyr-build-run.md) 里的任一种方式下载，控制台是 UART1（PB00/PB01，115200 8N1）。
 
-- 调试时用<strong>方式一</strong>：`xfel ddr f101-s3`、`xfel write 0x40010000 build/usbdisp/zephyr/zephyr.bin`、`xfel exec 0x40010000`。
+- 调试时用<strong>方式一</strong>：`xfel ddr f101-s3`、`xfel write 0x40000000 build/usbdisp/zephyr/zephyr.bin`、`xfel exec 0x40000000`。
 - 要脱机用<strong>方式三</strong>：`mkuf2.py app build/usbdisp/zephyr/zephyr.bin -o out/usbdisp.uf2`，拖进 `F101BOOT` 盘。
 
 :::caution

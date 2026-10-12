@@ -176,7 +176,7 @@ west build -b yuzukineko -d build/html zephyr-components/litehtml/samples/html_v
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/apps-html/build.cast" data-speed="6"></div>
 
-产物是 `build/html/zephyr/zephyr.bin`，链接地址 `0x40010000`。`prj.conf` 里已经有 `CONFIG_CPP`、`CONFIG_STD_CPP17`、`CONFIG_LITEHTML`，不需要加 `-D`。
+产物是 `build/html/zephyr/zephyr.bin`，链接地址 `0x40000000`。`prj.conf` 里已经有 `CONFIG_CPP`、`CONFIG_STD_CPP17`、`CONFIG_LITEHTML`，不需要加 `-D`。
 
 示例的 `CMakeLists.txt` 自己把组件加进模块路径，不用另外设 `ZEPHYR_EXTRA_MODULES`：
 
@@ -196,7 +196,7 @@ litehtml 是 C++ 库，而镜像用的是精简 C 库，所以组件的 `CMakeLi
 ### 下载并启动
 
 1. 第一次运行先不放页面：TF 卡根目录里没有 `.html` 文件，板子显示内置页面。要显示自己的页面时，把 `page.html`（以及 `img/`、`font.lhf`）拷到 TF 卡根目录，插进板子。
-2. 用 [编译与运行](../zephyr-build-run.md) 里的任一种方式下载，控制台是 UART1（PB00/PB01，115200 8N1）。调试用<strong>方式一</strong>：`xfel ddr f101-s3`、`xfel write 0x40010000 build/html/zephyr/zephyr.bin`、`xfel exec 0x40010000`。每次先给板子断电再上电。
+2. 用 [编译与运行](../zephyr-build-run.md) 里的任一种方式下载，控制台是 UART1（PB00/PB01，115200 8N1）。调试用<strong>方式一</strong>：`xfel ddr f101-s3`、`xfel write 0x40000000 build/html/zephyr/zephyr.bin`、`xfel exec 0x40000000`。每次先给板子断电再上电。
 
 :::caution
 板子只有一个 USB-C 口，既是 xfel 下载口，也是 UF2 盘的口。先下载，再接别的设备。
