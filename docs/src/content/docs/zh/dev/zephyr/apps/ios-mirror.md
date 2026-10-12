@@ -82,7 +82,7 @@ west build -b yuzukineko -d build/ios-mirror zephyr-components/ios-screen-mirror
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/apps-ios-mirror/build.cast" data-speed="6"></div>
 
-产物是 `build/ios-mirror/zephyr/zephyr.bin`，约 3.6 MB，链接地址 `0x40010000`，RAM 占用 21.67%。示例的 `CMakeLists.txt` 自己把组件（往上两级目录）和同级的 `aic8800` 加进 `ZEPHYR_EXTRA_MODULES`，不需要手工指定。
+产物是 `build/ios-mirror/zephyr/zephyr.bin`，约 3.6 MB，链接地址 `0x40000000`，RAM 占用 21.67%。示例的 `CMakeLists.txt` 自己把组件（往上两级目录）和同级的 `aic8800` 加进 `ZEPHYR_EXTRA_MODULES`，不需要手工指定。
 
 示例的 `prj.conf` 里选了 `CONFIG_MINIMAL_LIBC=y`：AIC8800 和 RPiPlay 的适配头文件是按最小 C 库写的，自己的应用用这个组件时也要选。
 
@@ -92,8 +92,8 @@ west build -b yuzukineko -d build/ios-mirror zephyr-components/ios-screen-mirror
 
 ```sh
 xfel ddr f101-s3
-xfel write 0x40010000 build/ios-mirror/zephyr/zephyr.bin
-xfel exec 0x40010000
+xfel write 0x40000000 build/ios-mirror/zephyr/zephyr.bin
+xfel exec 0x40000000
 ```
 
 ### 运行后的输出

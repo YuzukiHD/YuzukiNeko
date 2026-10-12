@@ -187,7 +187,7 @@ Memory region         Used Size  Region Size  %age Used
 Generating files from .../build/hello/zephyr/zephyr.elf for board: yuzukineko
 ```
 
-产物在 `build/hello/zephyr/` 下，`zephyr.bin` 就是之后要载入板子的镜像，链接地址是 `0x40010000`。怎样下载到板子并看到控制台输出，见 [编译与运行](zephyr-build-run.md)。
+产物在 `build/hello/zephyr/` 下，`zephyr.bin` 就是之后要载入板子的镜像，链接地址是 `0x40000000`。怎样下载到板子并看到控制台输出，见 [编译与运行](zephyr-build-run.md)。
 
 ## 更新代码
 

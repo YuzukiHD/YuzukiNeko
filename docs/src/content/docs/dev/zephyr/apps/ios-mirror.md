@@ -82,7 +82,7 @@ west build -b yuzukineko -d build/ios-mirror zephyr-components/ios-screen-mirror
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/apps-ios-mirror/build.cast" data-speed="6"></div>
 
-The output is `build/ios-mirror/zephyr/zephyr.bin`, about 3.6 MB, linked at `0x40010000`, with 21.67% of RAM used. The sample's `CMakeLists.txt` adds the component (two directories up) and the sibling `aic8800` to `ZEPHYR_EXTRA_MODULES` by itself, so nothing has to be specified by hand.
+The output is `build/ios-mirror/zephyr/zephyr.bin`, about 3.6 MB, linked at `0x40000000`, with 21.67% of RAM used. The sample's `CMakeLists.txt` adds the component (two directories up) and the sibling `aic8800` to `ZEPHYR_EXTRA_MODULES` by itself, so nothing has to be specified by hand.
 
 The sample's `prj.conf` selects `CONFIG_MINIMAL_LIBC=y`: the AIC8800 and RPiPlay adaptation headers are written for the minimal C library, and an application using this component on its own must select it as well.
 
@@ -92,8 +92,8 @@ Download it with either method from [Build and run](../zephyr-build-run.md); the
 
 ```sh
 xfel ddr f101-s3
-xfel write 0x40010000 build/ios-mirror/zephyr/zephyr.bin
-xfel exec 0x40010000
+xfel write 0x40000000 build/ios-mirror/zephyr/zephyr.bin
+xfel exec 0x40000000
 ```
 
 ### Output after running

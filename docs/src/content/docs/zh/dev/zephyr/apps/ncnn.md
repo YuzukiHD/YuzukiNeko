@@ -119,7 +119,7 @@ west build -b yuzukineko -d build/ncnn zephyr-components/ncnn/samples/benchmark
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/apps-ncnn/build.cast" data-speed="8"></div>
 
-产物是 `build/ncnn/zephyr/zephyr.bin`，约 1.16 MB，链接地址 `0x40010000`。
+产物是 `build/ncnn/zephyr/zephyr.bin`，约 1.16 MB，链接地址 `0x40000000`。
 
 :::note
 示例的 `prj.conf` 里已经打开了 `CONFIG_MINIMAL_LIBC=y`，不用再从命令行传。ncnn 子工程的工具链文件 `toolchain.cmake.in` 里写死用 Zephyr 精简 C 库（minimal libc）的头文件，`ncnn_libc.c` 也只实现了精简库缺的那几个函数。`yuzukineko` 的默认 C 库是 picolibc，它把 `feof` 定义成宏，`ncnn_libc.c` 里的 `int feof(FILE *f)` 就会报 `expected ')' before '*' token`。在自己的应用里用 ncnn 模块时，也要在 `prj.conf` 里加这一项。
@@ -133,8 +133,8 @@ west build -b yuzukineko -d build/ncnn zephyr-components/ncnn/samples/benchmark
 
 ```sh
 xfel ddr f101-s3
-xfel write 0x40010000 build/ncnn/zephyr/zephyr.bin
-xfel exec 0x40010000
+xfel write 0x40000000 build/ncnn/zephyr/zephyr.bin
+xfel exec 0x40000000
 ```
 
 不需要 TF 卡、WiFi 或任何外设。没有屏幕输出，跑完后串口会打印 `ncnn benchmark done`。

@@ -37,7 +37,7 @@ west build -b yuzukineko -d build/hello zephyr/samples/hello_world
 | `zephyr.bin` | 裸二进制，下载到板子的就是它 |
 | `zephyr.elf` | 带符号的 ELF，调试和看内存布局用 |
 
-镜像的链接地址和入口都是 `0x40010000`（PSRAM 的起点附近）。工具链是玄铁 900 的 newlib GCC，通过 `ZEPHYR_TOOLCHAIN_VARIANT=cross-compile` 接入，由 `env.sh` 设置。
+镜像的链接地址和入口都是 `0x40000000`（PSRAM 的起点附近）。工具链是玄铁 900 的 newlib GCC，通过 `ZEPHYR_TOOLCHAIN_VARIANT=cross-compile` 接入，由 `env.sh` 设置。
 
 重新编译同一个目录用 `west build -d build/hello`；换了板级或想从头来，加 `-p always`。
 
@@ -49,7 +49,7 @@ west build -b yuzukineko -d build/hello zephyr/samples/hello_world
 picocom -b 115200 /dev/ttyUSB0
 ```
 
-没有输出时，先判断是哪一环出了问题：接线和终端参数、程序有没有真正执行、还是 Zephyr 自身。一个有效的办法是先载入一个裸机小程序（链接在 `0x40010000`，轮询 UART 并写发送寄存器）证明这条路径是通的。
+没有输出时，先判断是哪一环出了问题：接线和终端参数、程序有没有真正执行、还是 Zephyr 自身。一个有效的办法是先载入一个裸机小程序（链接在 `0x40000000`，轮询 UART 并写发送寄存器）证明这条路径是通的。
 
 ## 方式一：下载到 RAM 运行
 
@@ -68,8 +68,8 @@ picocom -b 115200 /dev/ttyUSB0
 
    ```sh
    xfel ddr f101-s3
-   xfel write 0x40010000 build/hello/zephyr/zephyr.bin
-   xfel exec 0x40010000
+   xfel write 0x40000000 build/hello/zephyr/zephyr.bin
+   xfel exec 0x40000000
    ```
 
 此时控制台应开始输出。`hello_world` 会打印 `Hello World! yuzukineko/sun252i_f101`。
@@ -77,8 +77,8 @@ picocom -b 115200 /dev/ttyUSB0
 | 命令 | 作用 |
 | --- | --- |
 | `xfel ddr f101-s3` | 初始化 PSRAM。这个辅助程序同时配好 UART 时钟和引脚复用，缺了它控制台没有输出 |
-| `xfel write 0x40010000 …` | 把镜像写到链接地址 |
-| `xfel exec 0x40010000` | 跳到入口开始运行 |
+| `xfel write 0x40000000 …` | 把镜像写到链接地址 |
+| `xfel exec 0x40000000` | 跳到入口开始运行 |
 
 要点：
 
@@ -105,7 +105,7 @@ picocom -b 115200 /dev/ttyUSB0
 - <strong>PD5 上的按键没有按住，且应用头页有效</strong>：把应用复制到 PSRAM 并运行。
 - 否则：运行 UF2 下载器，板子在 USB 口上显示为盘 `F101BOOT`，等待拖入 `.uf2`。
 
-应用和方式一一样<strong>在 PSRAM 里运行</strong>，不是在 Flash 里就地执行，所以用的是同一个 `zephyr.bin`。每个程序前有一个 4 KiB 的<strong>头页</strong>，记录镜像载入的 PSRAM 地址（默认 `0x40010000`）和大小。头页由 `mkuf2.py` 自动加上，不需要手写。
+应用和方式一一样<strong>在 PSRAM 里运行</strong>，不是在 Flash 里就地执行，所以用的是同一个 `zephyr.bin`。每个程序前有一个 4 KiB 的<strong>头页</strong>，记录镜像载入的 PSRAM 地址（默认 `0x40000000`）和大小。头页由 `mkuf2.py` 自动加上，不需要手写。
 
 :::caution
 这个布局与 [Linux + Buildroot](../linux/linux-prebuilt.md)、RustSBI + Asterinas 镜像的布局<strong>互不兼容</strong>，不能混着写。从那些镜像换过来，需要重新装一遍加载器。动手前先按 [SPI NOR 布局与备份](../../boot/flash-layout.md) 备份整片 Flash。
@@ -176,7 +176,7 @@ python3 zephyr-components/uf2-downloader/tools/mkuf2.py app build/hello/zephyr/z
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/zephyr-build-run/mkuf2.cast"></div>
 
-输出类似 `out/app.img: 2096208 bytes at 0x200000`。镜像大于应用区（`0x9F0000` 字节）时脚本会报错退出。默认载入地址是 `0x40010000`，和 Zephyr 的链接地址一致；镜像链接在别处时用 `--load` 指定。
+输出类似 `out/app.img: 2096208 bytes at 0x200000`。镜像大于应用区（`0x9F0000` 字节）时脚本会报错退出。默认载入地址是 `0x40000000`，和 Zephyr 的链接地址一致；镜像链接在别处时用 `--load` 指定。
 
 ## 方式二：xfel 直接写 NOR
 
@@ -207,8 +207,8 @@ xfel reset
 ```text
 PSRAM: … MiB initialized
 SPI NOR: flash id 0x…, … KiB
-SPI NOR: image  0x00201000 -> 0x40010000 (… KiB)
-starting at 0x40010000 (id 0)
+SPI NOR: image  0x00201000 -> 0x40000000 (… KiB)
+starting at 0x40000000 (id 0)
 ```
 
 之后每次改代码：重新编译 → `mkuf2.py app … --raw` → 按住 FEL 键上电 → `xfel spinor write 0x200000` → `xfel reset`。

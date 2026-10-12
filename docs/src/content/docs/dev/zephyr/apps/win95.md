@@ -64,7 +64,7 @@ west build -b yuzukineko -d build/win95 zephyr-components/bochs/samples/pc
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/apps-win95/build.cast" data-speed="6"></div>
 
-The output is `build/win95/zephyr/zephyr.bin`, about 2.9 MB, linked at `0x40010000`. At the first configure, CMake applies the patches in `patches/` to the Bochs submodule with `git apply` (see [Patches](#patches)), so the submodule's working tree shows as modified; that is expected.
+The output is `build/win95/zephyr/zephyr.bin`, about 2.9 MB, linked at `0x40000000`. At the first configure, CMake applies the patches in `patches/` to the Bochs submodule with `git apply` (see [Patches](#patches)), so the submodule's working tree shows as modified; that is expected.
 
 The lines in `samples/pc/prj.conf` that relate to the image (disk path, geometry, text mirror):
 
@@ -79,7 +79,7 @@ CONFIG_BOCHS_TEXT_MIRROR=y
 
 To switch to another image, change these lines; the number of cylinders, heads and sectors must match the image. The Windows 3.1 image is `/SD:/Win31.img`, with 260 cylinders.
 
-The output `zephyr.bin` is 2946308 bytes, uses 17.6% of RAM, and is linked at `0x40010000` (the board has 16 MB in total).
+The output `zephyr.bin` is 2946308 bytes, uses 17.6% of RAM, and is linked at `0x40000000` (the board has 16 MB in total).
 
 ## Running
 
@@ -87,8 +87,8 @@ See [Building and running](../zephyr-build-run.md) for the download methods. For
 
 ```sh
 xfel ddr f101-s3
-xfel write 0x40010000 build/win95/zephyr/zephyr.bin
-xfel exec 0x40010000
+xfel write 0x40000000 build/win95/zephyr/zephyr.bin
+xfel exec 0x40000000
 ```
 
 The TF card with the image must be inserted in the board. The picture is on the board's screen; keyboard input is typed in the serial terminal on UART1.

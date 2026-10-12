@@ -37,7 +37,7 @@ The output is under `build/hello/zephyr/`:
 | `zephyr.bin` | Bare binary; this is what gets downloaded to the board |
 | `zephyr.elf` | ELF with symbols, for debugging and inspecting the memory layout |
 
-The image's link address and entry point are both `0x40010000` (near the start of PSRAM). The toolchain is the XuanTie 900 newlib GCC, wired in through `ZEPHYR_TOOLCHAIN_VARIANT=cross-compile`, set by `env.sh`.
+The image's link address and entry point are both `0x40000000` (near the start of PSRAM). The toolchain is the XuanTie 900 newlib GCC, wired in through `ZEPHYR_TOOLCHAIN_VARIANT=cross-compile`, set by `env.sh`.
 
 To rebuild the same directory, use `west build -d build/hello`; if you changed the board or want to start over, add `-p always`.
 
@@ -49,7 +49,7 @@ The console of `yuzukineko` is <strong>UART1, PB00 (TX) / PB01 (RX), 115200 8N1<
 picocom -b 115200 /dev/ttyUSB0
 ```
 
-When there is no output, first work out which link is at fault: the wiring and terminal parameters, whether the program is really executing, or Zephyr itself. A useful approach is to first load a small bare-metal program (linked at `0x40010000`, polling UART and writing the transmit register) to prove that this path works.
+When there is no output, first work out which link is at fault: the wiring and terminal parameters, whether the program is really executing, or Zephyr itself. A useful approach is to first load a small bare-metal program (linked at `0x40000000`, polling UART and writing the transmit register) to prove that this path works.
 
 ## Method 1: download to RAM and run
 
@@ -68,8 +68,8 @@ The host writes `zephyr.bin` into PSRAM over USB and then jumps to it, without t
 
    ```sh
    xfel ddr f101-s3
-   xfel write 0x40010000 build/hello/zephyr/zephyr.bin
-   xfel exec 0x40010000
+   xfel write 0x40000000 build/hello/zephyr/zephyr.bin
+   xfel exec 0x40000000
    ```
 
 At this point the console should start producing output. `hello_world` prints `Hello World! yuzukineko/sun252i_f101`.
@@ -77,8 +77,8 @@ At this point the console should start producing output. `hello_world` prints `H
 | Command | Effect |
 | --- | --- |
 | `xfel ddr f101-s3` | Initialize PSRAM. This helper also sets up the UART clock and pin multiplexing; without it the console has no output |
-| `xfel write 0x40010000 …` | Write the image to the link address |
-| `xfel exec 0x40010000` | Jump to the entry point and start running |
+| `xfel write 0x40000000 …` | Write the image to the link address |
+| `xfel exec 0x40000000` | Jump to the entry point and start running |
 
 Points to note:
 
@@ -105,7 +105,7 @@ At power-up the BROM reads the loader into SRAM, the loader initializes PSRAM an
 - <strong>The button on PD5 is not held, and the application header page is valid</strong>: copy the application to PSRAM and run it.
 - Otherwise: run the UF2 downloader, and the board appears on the USB port as the drive `F101BOOT`, waiting for a `.uf2` to be dragged in.
 
-The application runs <strong>in PSRAM</strong> just as in method 1, not in place from Flash, so it is the same `zephyr.bin`. Each program is preceded by a 4 KiB <strong>header page</strong> that records the PSRAM address the image loads to (the default `0x40010000`) and its size. The header page is added automatically by `mkuf2.py`; you do not write it by hand.
+The application runs <strong>in PSRAM</strong> just as in method 1, not in place from Flash, so it is the same `zephyr.bin`. Each program is preceded by a 4 KiB <strong>header page</strong> that records the PSRAM address the image loads to (the default `0x40000000`) and its size. The header page is added automatically by `mkuf2.py`; you do not write it by hand.
 
 :::caution
 This layout is <strong>mutually incompatible</strong> with the layout of the [Linux + Buildroot](../linux/linux-prebuilt.md) and RustSBI + Asterinas images, and they must not be written mixed together. Switching over from those images requires reinstalling the loader. Before you start, back up the whole Flash following [SPI NOR layout and backup](../../boot/flash-layout.md).
@@ -176,7 +176,7 @@ python3 zephyr-components/uf2-downloader/tools/mkuf2.py app build/hello/zephyr/z
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/zephyr-build-run/mkuf2.cast"></div>
 
-The output is similar to `out/app.img: 2096208 bytes at 0x200000`. When the image is larger than the application area (`0x9F0000` bytes) the script reports an error and exits. The default load address is `0x40010000`, matching Zephyr's link address; when the image is linked elsewhere, specify it with `--load`.
+The output is similar to `out/app.img: 2096208 bytes at 0x200000`. When the image is larger than the application area (`0x9F0000` bytes) the script reports an error and exits. The default load address is `0x40000000`, matching Zephyr's link address; when the image is linked elsewhere, specify it with `--load`.
 
 ## Method 2: write NOR directly with xfel
 
@@ -207,8 +207,8 @@ The loader prints its own log first, then runs your program:
 ```text
 PSRAM: … MiB initialized
 SPI NOR: flash id 0x…, … KiB
-SPI NOR: image  0x00201000 -> 0x40010000 (… KiB)
-starting at 0x40010000 (id 0)
+SPI NOR: image  0x00201000 -> 0x40000000 (… KiB)
+starting at 0x40000000 (id 0)
 ```
 
 Afterwards, for each code change: rebuild → `mkuf2.py app … --raw` → hold the FEL button while powering up → `xfel spinor write 0x200000` → `xfel reset`.

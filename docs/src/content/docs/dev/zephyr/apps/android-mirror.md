@@ -120,7 +120,7 @@ west build -b yuzukineko -d build/android-mirror zephyr-components/android-scree
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/apps-android-mirror/build.cast" data-speed="6"></div>
 
-The artifact is `build/android-mirror/zephyr/zephyr.bin`, 7567584 bytes (about 7.2 MiB, including the AIC8800 firmware), linked at `0x40010000`, using 7567584 bytes of RAM, 45.28% of 16320 KB.
+The artifact is `build/android-mirror/zephyr/zephyr.bin`, 7567584 bytes (about 7.2 MiB, including the AIC8800 firmware), linked at `0x40000000`, using 7567584 bytes of RAM, 45.28% of 16320 KB.
 
 The example's `prj.conf` sets `CONFIG_MINIMAL_LIBC=y`: the `compat/` headers of the AIC8800 driver are written for the minimal C library, and with the board's default picolibc they clash over the declaration of `getchar`, see [AIC8800 WIFI](../components/aic8800-wifi.md). Your own application must set this too when it uses the driver.
 
@@ -140,8 +140,8 @@ For the download procedure see [Building and running](../zephyr-build-run.md); t
 
 ```sh
 xfel ddr f101-s3
-xfel write 0x40010000 build/android-mirror/zephyr/zephyr.bin
-xfel exec 0x40010000
+xfel write 0x40000000 build/android-mirror/zephyr/zephyr.bin
+xfel exec 0x40000000
 ```
 
 :::caution

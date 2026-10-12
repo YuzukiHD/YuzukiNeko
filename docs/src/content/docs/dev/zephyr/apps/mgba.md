@@ -60,7 +60,7 @@ west build -b yuzukineko -d build/mgba zephyr-components/mgba/samples/gba_player
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/apps-mgba/build.cast" data-speed="6"></div>
 
-The output is `build/mgba/zephyr/zephyr.bin`, about 4.98 MB, linked at `0x40010000`.
+The output is `build/mgba/zephyr/zephyr.bin`, about 4.98 MB, linked at `0x40000000`.
 
 The sample's `prj.conf` has `CONFIG_MINIMAL_LIBC=y`: the headers in `shim/` are written for Zephyr's minimal C library, and your own application must select it too when it uses this module.
 
@@ -75,7 +75,7 @@ list(APPEND ZEPHYR_EXTRA_MODULES ${CMAKE_CURRENT_SOURCE_DIR}/../..)
 
 Download it with either method in [Building and running](../zephyr-build-run.md); the console is UART1 (115200 8N1).
 
-- For debugging use <strong>method one</strong>: `xfel ddr f101-s3`, `xfel write 0x40010000 build/mgba/zephyr/zephyr.bin`, `xfel exec 0x40010000`.
+- For debugging use <strong>method one</strong>: `xfel ddr f101-s3`, `xfel write 0x40000000 build/mgba/zephyr/zephyr.bin`, `xfel exec 0x40000000`.
 - For stand-alone running use <strong>method three</strong>: `mkuf2.py app build/mgba/zephyr/zephyr.bin -o out/mgba.uf2`, then drag it onto the `F101BOOT` drive.
 
 :::caution

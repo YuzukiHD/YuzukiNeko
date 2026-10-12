@@ -119,7 +119,7 @@ west build -b yuzukineko -d build/ncnn zephyr-components/ncnn/samples/benchmark
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/apps-ncnn/build.cast" data-speed="8"></div>
 
-The output is `build/ncnn/zephyr/zephyr.bin`, about 1.16 MB, linked at `0x40010000`.
+The output is `build/ncnn/zephyr/zephyr.bin`, about 1.16 MB, linked at `0x40000000`.
 
 :::note
 The example's `prj.conf` already enables `CONFIG_MINIMAL_LIBC=y`, so it does not have to be passed on the command line. The ncnn subproject's toolchain file `toolchain.cmake.in` hard-codes the use of the Zephyr minimal C library (minimal libc) headers, and `ncnn_libc.c` implements only the few functions that the minimal library lacks. The default C library of `yuzukineko` is picolibc, which defines `feof` as a macro, so `int feof(FILE *f)` in `ncnn_libc.c` then fails with `expected ')' before '*' token`. When using the ncnn module in your own application, this option must also be added in `prj.conf`.
@@ -133,8 +133,8 @@ Download with any of the methods in [Building and running](../zephyr-build-run.m
 
 ```sh
 xfel ddr f101-s3
-xfel write 0x40010000 build/ncnn/zephyr/zephyr.bin
-xfel exec 0x40010000
+xfel write 0x40000000 build/ncnn/zephyr/zephyr.bin
+xfel exec 0x40000000
 ```
 
 No TF card, WiFi or any peripheral is needed. There is no screen output; when the run finishes, the serial port prints `ncnn benchmark done`.

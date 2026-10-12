@@ -176,7 +176,7 @@ west build -b yuzukineko -d build/html zephyr-components/litehtml/samples/html_v
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/apps-html/build.cast" data-speed="6"></div>
 
-The output is `build/html/zephyr/zephyr.bin`, linked at `0x40010000`. `prj.conf` already has `CONFIG_CPP`, `CONFIG_STD_CPP17`, and `CONFIG_LITEHTML`, so no `-D` is needed.
+The output is `build/html/zephyr/zephyr.bin`, linked at `0x40000000`. `prj.conf` already has `CONFIG_CPP`, `CONFIG_STD_CPP17`, and `CONFIG_LITEHTML`, so no `-D` is needed.
 
 The sample's own `CMakeLists.txt` adds the component to the module path, so `ZEPHYR_EXTRA_MODULES` does not have to be set separately:
 
@@ -196,7 +196,7 @@ litehtml is a C++ library while the image uses a minimal C library, so the compo
 ### Downloading and starting
 
 1. For the first run, leave the page out: with no `.html` file in the TF card's root directory the board shows the built-in page. To show your own page, copy `page.html` (along with `img/` and `font.lhf`) to the TF card's root directory and insert it into the board.
-2. Download it with either method in [Building and running](../zephyr-build-run.md); the console is UART1 (PB00/PB01, 115200 8N1). For debugging use <strong>method one</strong>: `xfel ddr f101-s3`, `xfel write 0x40010000 build/html/zephyr/zephyr.bin`, `xfel exec 0x40010000`. Power-cycle the board before each run.
+2. Download it with either method in [Building and running](../zephyr-build-run.md); the console is UART1 (PB00/PB01, 115200 8N1). For debugging use <strong>method one</strong>: `xfel ddr f101-s3`, `xfel write 0x40000000 build/html/zephyr/zephyr.bin`, `xfel exec 0x40000000`. Power-cycle the board before each run.
 
 :::caution
 The board has only one USB-C port, which is both the xfel download port and the UF2 drive port. Download first, then connect other devices.

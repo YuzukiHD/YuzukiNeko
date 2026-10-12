@@ -187,7 +187,7 @@ Memory region         Used Size  Region Size  %age Used
 Generating files from .../build/hello/zephyr/zephyr.elf for board: yuzukineko
 ```
 
-The artifacts are under `build/hello/zephyr/`; `zephyr.bin` is the image to load onto the board later, linked at `0x40010000`. For how to download it to the board and see the console output, see [Build and run](zephyr-build-run.md).
+The artifacts are under `build/hello/zephyr/`; `zephyr.bin` is the image to load onto the board later, linked at `0x40000000`. For how to download it to the board and see the console output, see [Build and run](zephyr-build-run.md).
 
 ## Update the source
 

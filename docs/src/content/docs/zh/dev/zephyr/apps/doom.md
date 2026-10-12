@@ -109,7 +109,7 @@ west build -b yuzukineko -d build/doom-app zephyr-components/doom/samples/doom_p
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/apps-doom/build.cast" data-speed="6"></div>
 
-产物是 `build/doom-app/zephyr/zephyr.bin`，约 4.8 MB（RAM 区使用 28.89%），链接地址 `0x40010000`。
+产物是 `build/doom-app/zephyr/zephyr.bin`，约 4.8 MB（RAM 区使用 28.89%），链接地址 `0x40000000`。
 
 ## 运行
 
@@ -117,8 +117,8 @@ west build -b yuzukineko -d build/doom-app zephyr-components/doom/samples/doom_p
 
 ```sh
 xfel ddr f101-s3
-xfel write 0x40010000 build/doom-app/zephyr/zephyr.bin
-xfel exec 0x40010000
+xfel write 0x40000000 build/doom-app/zephyr/zephyr.bin
+xfel exec 0x40000000
 ```
 
 控制台是 UART1（115200 8N1）。TF 卡里放好 `doom1.wad` 再启动，下面按顺序说明串口和屏幕上会出现什么。
