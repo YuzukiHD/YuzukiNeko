@@ -55,6 +55,11 @@ export const sidebar = [
         "slug": "hardware/errata"
       },
       {
+        "label": "Hardware downloads",
+        "translations": { "zh-CN": "硬件资料下载" },
+        "slug": "hardware/download"
+      },
+      {
         "label": "Hardware files",
         "translations": { "zh-CN": "硬件文件说明" },
         "slug": "hardware/files"
