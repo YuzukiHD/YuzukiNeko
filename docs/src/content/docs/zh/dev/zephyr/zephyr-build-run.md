@@ -117,12 +117,14 @@ picocom -b 115200 /dev/ttyUSB0
 
 ### 准备工具
 
-`mkuf2.py` 在 `zephyr-components` 仓库里，是只依赖标准库的 Python 脚本，不用装额外的包。仓库的作用见 [获取 zephyr-components](zephyr-get-source.md#获取-zephyr-components)；已经克隆过的，跳过下面的 `git clone` 和 `checkout`：
+`mkuf2.py` 在 `zephyr-components` 仓库里，是只依赖标准库的 Python 脚本，不用装额外的包。仓库的作用见 [获取 zephyr-components](zephyr-get-source.md#获取-zephyr-components)；已经克隆过的，跳过下面的 `git clone`：
 
 ```sh
 cd ~/f101-zephyr
 git clone https://github.com/YuzukiHD/zephyr-components.git
-git -C zephyr-components checkout 282361ce5883bd65c228da584758e4796bf439e7
+# 默认使用最新的 main。下面这行会固定到本文最初验证时的旧提交（2026-10-10），
+# 它早于 gbsp/ 和 nekobox/，除非确实需要那个版本，否则保持注释掉。
+# git -C zephyr-components checkout 282361ce5883bd65c228da584758e4796bf439e7
 mkdir -p out
 ```
 

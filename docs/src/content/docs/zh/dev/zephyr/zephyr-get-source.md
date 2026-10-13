@@ -93,12 +93,14 @@ west list
 
 除 `uf2-downloader/` 外，每个目录都是一个独立的 Zephyr 模块（带 `zephyr/module.yml`），用法以各目录的 README 为准。
 
-克隆并固定到本文验证过的提交：
+克隆（默认用最新的 `main`；被注释掉的 `checkout` 行可固定到本文最初验证时的旧提交）：
 
 ```sh
 cd ~/f101-zephyr
 git clone https://github.com/YuzukiHD/zephyr-components.git
-git -C zephyr-components checkout 282361ce5883bd65c228da584758e4796bf439e7
+# 默认使用最新的 main。下面这行会固定到本文最初验证时的旧提交（2026-10-10），
+# 它早于 gbsp/ 和 nekobox/，除非确实需要那个版本，否则保持注释掉。
+# git -C zephyr-components checkout 282361ce5883bd65c228da584758e4796bf439e7
 ```
 
 只用 `uf2-downloader/` 时到此为止。要用其他模块，还需要拉它们的上游子模块，例如 MicroPython：

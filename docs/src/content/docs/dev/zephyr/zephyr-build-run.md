@@ -117,12 +117,15 @@ Once NOR holds a valid loader, the board boots straight from Flash at power-up a
 
 ### Preparing the tools
 
-`mkuf2.py` lives in the `zephyr-components` repository; it is a Python script that only needs the standard library, with no extra packages to install. For what the repository is for, see [Get zephyr-components](zephyr-get-source.md#get-zephyr-components); if you have already cloned it, skip the `git clone` and `checkout` below:
+`mkuf2.py` lives in the `zephyr-components` repository; it is a Python script that only needs the standard library, with no extra packages to install. For what the repository is for, see [Get zephyr-components](zephyr-get-source.md#get-zephyr-components); if you have already cloned it, skip the `git clone` below:
 
 ```sh
 cd ~/f101-zephyr
 git clone https://github.com/YuzukiHD/zephyr-components.git
-git -C zephyr-components checkout 282361ce5883bd65c228da584758e4796bf439e7
+# By default use the latest main. The line below pins the older commit that the steps of
+# this page were first verified on (2026-10-10); it predates gbsp/ and nekobox/, so leave it
+# commented out unless you need exactly that version.
+# git -C zephyr-components checkout 282361ce5883bd65c228da584758e4796bf439e7
 mkdir -p out
 ```
 
