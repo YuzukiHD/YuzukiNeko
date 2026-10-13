@@ -145,9 +145,19 @@ export const sidebar = [
         "collapsed": true,
         "items": [
           {
+            "label": "NekoBox - media and game box",
+            "translations": { "zh-CN": "NekoBox - 媒体与游戏盒" },
+            "slug": "dev/zephyr/apps/nekobox"
+          },
+          {
             "label": "MP4 Player - video player",
             "translations": { "zh-CN": "MP4 Player - 视频播放器" },
             "slug": "dev/zephyr/apps/mp4-player"
+          },
+          {
+            "label": "MicroPython - Python REPL and scripts",
+            "translations": { "zh-CN": "MicroPython - Python REPL 与脚本" },
+            "slug": "dev/zephyr/apps/micropython"
           },
           {
             "label": "ncnn - neural-network inference",
@@ -163,6 +173,11 @@ export const sidebar = [
             "label": "mGBA - Game Boy Advance emulator",
             "translations": { "zh-CN": "mGBA - GBA 模拟器" },
             "slug": "dev/zephyr/apps/mgba"
+          },
+          {
+            "label": "gpSP - GBA emulator (dynarec)",
+            "translations": { "zh-CN": "gpSP - GBA 模拟器（动态重编译）" },
+            "slug": "dev/zephyr/apps/gpsp"
           },
           {
             "label": "NES - NES/Famicom emulator",

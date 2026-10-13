@@ -93,12 +93,15 @@ The `zephyr` repository contains only the kernel, SoC, board support and drivers
 
 Except for `uf2-downloader/`, each directory is an independent Zephyr module (with `zephyr/module.yml`); the README in each directory is the reference for how to use it.
 
-Clone and pin to the commit verified on this page:
+Clone (the latest `main` by default; the commented `checkout` line pins the older commit this page was first verified on):
 
 ```sh
 cd ~/f101-zephyr
 git clone https://github.com/YuzukiHD/zephyr-components.git
-git -C zephyr-components checkout 282361ce5883bd65c228da584758e4796bf439e7
+# By default use the latest main. The line below pins the older commit that the steps of
+# this page were first verified on (2026-10-10); it predates gbsp/ and nekobox/, so leave it
+# commented out unless you need exactly that version.
+# git -C zephyr-components checkout 282361ce5883bd65c228da584758e4796bf439e7
 ```
 
 If you only use `uf2-downloader/`, stop here. To use other modules, you also need to fetch their upstream submodules, for example MicroPython:
