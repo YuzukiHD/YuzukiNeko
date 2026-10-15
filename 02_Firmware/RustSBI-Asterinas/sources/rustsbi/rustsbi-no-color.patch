@@ -1,0 +1,36 @@
+--- a/firmware/prototyper/src/sbi/logger.rs
++++ b/firmware/prototyper/src/sbi/logger.rs
+@@ -1,7 +1,7 @@
+ #![forbid(unsafe_code)]
+ 
+ use core::str::FromStr;
+-use log::{Level, LevelFilter};
++use log::LevelFilter;
+ use spin::Mutex;
+ 
+ use crate::println;
+@@ -34,23 +34,8 @@
+     fn log(&self, record: &log::Record) {
+         let _guard = LOG_LOCK.lock();
+ 
+-        // ANSI color codes for different log levels
+-        const ERROR_COLOR: u8 = 31; // Red
+-        const WARN_COLOR: u8 = 93; // Bright yellow
+-        const INFO_COLOR: u8 = 32; // Green
+-        const DEBUG_COLOR: u8 = 36; // Cyan
+-        const TRACE_COLOR: u8 = 90; // Bright black
+-
+-        let color_code = match record.level() {
+-            Level::Error => ERROR_COLOR,
+-            Level::Warn => WARN_COLOR,
+-            Level::Info => INFO_COLOR,
+-            Level::Debug => DEBUG_COLOR,
+-            Level::Trace => TRACE_COLOR,
+-        };
+-
+         println!(
+-            "\x1b[1;37m[RustSBI] \x1b[1;{color_code}m{:^5}\x1b[0m - {}",
++            "[RustSBI] {:^5} - {}",
+             record.level(),
+             record.args(),
+         );

@@ -2,7 +2,7 @@
 title: "Running RustSBI and Asterinas on YuzukiNeko"
 ---
 
-This page explains how to flash the prebuilt firmware onto a YuzukiNeko <strong>F101-S3</strong>, boot Asterinas from the SPI NOR, reach the BusyBox command line and run nine examples. For a first look you can use the full image directly, without building anything yourself.
+This page explains how to flash the prebuilt firmware onto a YuzukiNeko <strong>F101-S3</strong>, boot Asterinas from the SPI NOR, reach the BusyBox command line and run nine examples. For a first look you can use the full image directly, without building anything yourself. To obtain the sources and build your own image, see [Build RustSBI and Asterinas from source](asterinas-build.md).
 
 [RustSBI](https://github.com/rustsbi/rustsbi) is a project that implements RISC-V SBI (Supervisor Binary Interface) in Rust, providing operating systems with a standard firmware service interface. It lets a kernel use low-level services such as timers, inter-processor interrupts and system reset through a unified interface, reducing its dependence on a specific hardware platform.
 

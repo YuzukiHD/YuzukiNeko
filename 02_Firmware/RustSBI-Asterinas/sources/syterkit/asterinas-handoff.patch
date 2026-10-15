@@ -1,0 +1,17 @@
+--- a/boards/yuzukineko/app_sram/spinor-boot/main.c
++++ b/boards/yuzukineko/app_sram/spinor-boot/main.c
+@@ -123,12 +123,8 @@
+ 
+ 	/* Make images loaded from the SPI NOR visible to SBI firmware and Linux. */
+ 	flush_dcache_all();
+-	/* Keep D-cache off through PSRAM initialization and image loading. */
+-	if (!(csr_read(mhcr) & MHCR_DE)) {
+-		invalidate_dcache_all();
+-		dcache_enable();
+-		data_sync_barrier();
+-	}
++	/* Keep the Asterinas handoff identical to its verified USB boot path. */
++	/* D-cache remains disabled; PSRAM and SPIF loading also run uncached. */
+ 	asm volatile("fence rw, rw\n\tfence.i" ::: "memory");
+ 	pr_info("SBI handoff: MHCR=0x%lx\n", csr_read(mhcr));
+ 
