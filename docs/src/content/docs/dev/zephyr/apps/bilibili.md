@@ -21,12 +21,26 @@ Before you start, first complete [Setting up the development environment](../zep
 
 ## Build and run
 
+```mermaid
+flowchart LR
+    A["env.sh: toolchain and ZEPHYR_BASE"] --> B["west build -b yuzukineko"]
+    B --> C["build/bili/zephyr/zephyr.bin"]
+```
+
 ```sh
 . ~/f101-zephyr/env.sh
 west build -b yuzukineko -d build/bili zephyr-components/bilibili-tv
 ```
 
 The image runs from the flash window, so the development flow is the one of NekoBox: write `zephyr.bin` at flash `0x80000` and run the XIP loader from RAM (see [Building and running](../zephyr-build-run.md)). This replaces NekoBox in that place; no boot stub has to be written while you develop.
+
+```mermaid
+flowchart LR
+    A["power cycle: FEL"] --> B["xfel spinor write 0x80000<br/>zephyr.bin"]
+    B --> C["xfel write 0x20000<br/>xip-boot_fel.bin"]
+    C --> D["xfel exec 0x20000"]
+    D --> E["loader maps the flash and starts the app"]
+```
 
 ```sh
 xfel spinor write 0x80000 zephyr.bin
@@ -88,6 +102,18 @@ On the player page the interface runs below the video thread: at the same priori
 
 The user interface never waits for the network. Every action is a command in a message queue (`app_cmd()` may be called from any thread), and the worker thread takes them one by one. The commands are declared in `src/core/app.h`:
 
+```mermaid
+flowchart LR
+    subgraph lists["lists"]
+        R["CMD_REFRESH / CMD_MORE / CMD_SEARCH"] --> L["load()"]
+    end
+    P["CMD_PLAY"] --> PL["play()"]
+    S["CMD_STOP"] --> F["stop_req flag"]
+    PA["CMD_PAUSE"] --> PP["player_pause / player_play"]
+    Q["CMD_QR_START / QR_POLL / LOGOUT"] --> AC["login and account"]
+    W["CMD_WIFI*"] --> WF["wifi.c"]
+```
+
 ```c
 enum app_cmd_type {
 	CMD_REFRESH,	/**< arg: list, load its first page again */
@@ -102,6 +128,16 @@ enum app_cmd_type {
 	CMD_LOGOUT,	/**< forget the login */
 	/* ... scan, disconnect, forget, settings, account numbers */
 };
+```
+
+```mermaid
+flowchart TD
+    A["app_cmd(type, arg)"] --> B{"type == CMD_STOP ?"}
+    B -- "yes" --> C["atomic_set(stop_req, 1)"]
+    B -- "no" --> D["k_msgq_put(cmd_q, K_NO_WAIT)"]
+    D --> E{"queue full?"}
+    E -- "yes" --> F["print and drop"]
+    E -- "no" --> G["worker takes it"]
 ```
 
 ```c
@@ -124,6 +160,17 @@ void app_cmd(enum app_cmd_type type, int arg)
 ```
 
 `CMD_STOP` is special: the worker is busy inside `play()` while a video runs, so a stop cannot wait in the queue. It is a flag that the play loop and the download both look at. The worker itself is one loop:
+
+```mermaid
+flowchart TD
+    A["worker_main"] --> B["wait for the card"]
+    B --> C["read wifi.cfg, login, settings"]
+    C --> D["join the network, check the login"]
+    D --> E["k_msgq_get(cmd_q, K_FOREVER)"]
+    E --> F{"cmd.type"}
+    F --> G["load / play / qr_start / qr_poll / ..."]
+    G --> E
+```
 
 ```c
 static void worker_main(void *a, void *b, void *c)
@@ -148,6 +195,17 @@ static void worker_main(void *a, void *b, void *c)
 ### Lists
 
 A list is a fixed array the worker fills and the user interface reads, protected by a mutex. `gen` counts how often the list was replaced, so the interface knows when to rebuild its cards:
+
+```mermaid
+flowchart TD
+    A["list_store(list, page, v, n)"] --> B{"page == 1 ?"}
+    B -- "yes" --> C["count = 0, gen++"]
+    B -- "no" --> D["keep the list"]
+    C --> E["append videos, skip the bvid already there"]
+    D --> E
+    E --> F["next_page = page + 1<br/>more = page was full and below 100"]
+    F --> G["loading = false"]
+```
 
 ```c
 struct vlist {
@@ -193,6 +251,17 @@ static void list_store(enum list_id list, int page, const struct bili_video *v, 
 
 The worker never touches an LVGL object. It writes into a small block of pending state under a mutex and the UI thread takes it at the start of every round (`ui_run()` in `src/ui/ui.c`):
 
+```mermaid
+sequenceDiagram
+    participant W as worker
+    participant P as pend (mutex)
+    participant U as UI thread
+    W->>P: lock, write status, dirty = true, unlock
+    W->>P: a second text overwrites the first
+    U->>P: round start: lock, copy, unlock
+    U->>U: set the LVGL label
+```
+
 ```c
 static K_MUTEX_DEFINE(lock);
 static struct {
@@ -212,6 +281,20 @@ void ui_set_status(const char *fmt, ...)
 	pend.status_dirty = true;
 	k_mutex_unlock(&lock);
 }
+```
+
+```mermaid
+flowchart TD
+    A["ui_run()"] --> B["copy the dirty parts of pend"]
+    B --> C{"play_dirty ?"}
+    C -- "playing" --> D["ui_nav(PAGE_PLAY)<br/>cover_pause(true)"]
+    C -- "ended" --> E["ui_danmaku_set(NULL)<br/>ui_nav(return_page)"]
+    C -- "position only" --> F["ui_play_position()"]
+    D --> G["ui_home_run / ui_search_run / ui_danmaku_run"]
+    E --> G
+    F --> G
+    G --> H["lv_timer_handler()"]
+    H --> I["return the time to sleep: 33 ms beat on the player page"]
 ```
 
 ```c
@@ -251,6 +334,15 @@ A status text that is set twice before the interface looks at it shows only the 
 
 `src/net/http.c` is a small HTTP/1.1 client on Zephyr sockets. It exists because the answers must be streamed: a video is megabytes, the heap is not, so the body goes to a callback as it arrives.
 
+```mermaid
+flowchart LR
+    A["caller"] -- "url, opts, fn, ctx" --> B["http_get()"]
+    B --> C["connect, send request"]
+    C --> D["receive blocks"]
+    D -- "body bytes" --> E["fn(ctx, data, len)"]
+    B -. "http_get_text()" .-> F["body copied into one buffer"]
+```
+
 ```c
 typedef int (*http_body_fn)(void *ctx, const uint8_t *data, size_t len);
 
@@ -270,6 +362,18 @@ int http_get_text(const char *url, const struct http_opts *opts, char *buf, size
 ### The connection
 
 For `https` the socket is a native Zephyr TLS socket: the protocol is chosen when the socket is made and the host name goes in as an option:
+
+```mermaid
+flowchart TD
+    A["tcp_connect(host, port, tls, verify)"] --> B["zsock_getaddrinfo"]
+    B --> C{"tls ?"}
+    C -- "yes" --> D["socket(IPPROTO_TLS_1_2)"]
+    C -- "no" --> E["socket(IPPROTO_TCP)"]
+    D --> F["TLS_PEER_VERIFY, TLS_HOSTNAME"]
+    F --> G["zsock_connect"]
+    E --> G
+    G --> H["socket fd"]
+```
 
 ```c
 static int tcp_connect(const char *host, const char *port, int tls_native, int verify)
@@ -306,6 +410,17 @@ static int tcp_connect(const char *host, const char *port, int tls_native, int v
 
 The headers are the ones a browser sends: the CDN refuses a request without the `Referer`. A `Range` header is added when the caller wants to continue a file, and the caller's own lines (the cookies) go last:
 
+```mermaid
+flowchart TD
+    A["GET path HTTP/1.1 + Host"] --> B["User-Agent, Referer, Accept, Connection: close"]
+    B --> C{"range_start > 0 ?"}
+    C -- "yes" --> D["Range: bytes=N-"]
+    C -- "no" --> E["no Range"]
+    D --> F["caller header lines: Cookie"]
+    E --> F
+    F --> G["CRLF and send"]
+```
+
 ```c
 ret = snprintf(req, REQ_SIZE, "GET %s HTTP/1.1\r\nHost: %s\r\n", u.path, u.host);
 ret += snprintf(req + ret, REQ_SIZE - ret,
@@ -327,6 +442,22 @@ strcpy(req + ret, "\r\n");
 
 The answer is read in blocks of `RECV_SIZE` and given to a state machine (`src/net/http_parse.c`) that knows the header, a body with a length, a body until close and chunked bodies. It is a separate file so that it can be tested on the host:
 
+```mermaid
+stateDiagram-v2
+    [*] --> HP_HEADER
+    HP_HEADER --> HP_BODY_LENGTH: Content-Length
+    HP_HEADER --> HP_BODY_CLOSE: no length
+    HP_HEADER --> HP_CHUNK_SIZE: chunked
+    HP_CHUNK_SIZE --> HP_CHUNK_EXT
+    HP_CHUNK_EXT --> HP_CHUNK_DATA
+    HP_CHUNK_DATA --> HP_CHUNK_CR
+    HP_CHUNK_CR --> HP_CHUNK_SIZE
+    HP_CHUNK_SIZE --> HP_TRAILER: size 0
+    HP_BODY_LENGTH --> HP_DONE
+    HP_TRAILER --> HP_DONE
+    HP_DONE --> [*]
+```
+
 ```c
 enum http_parse_state {
 	HP_HEADER, HP_BODY_LENGTH, HP_BODY_CLOSE,
@@ -340,6 +471,19 @@ int http_parser_feed(struct http_parser *p, const uint8_t *data, size_t len,
 ```
 
 The receive loop is the glue between the socket and the parser:
+
+```mermaid
+flowchart TD
+    A["conn_recv()"] --> B{"n"}
+    B -- "n < 0" --> C["error, stop"]
+    B -- "n == 0" --> D{"http_parser_eof == 1 ?"}
+    D -- "yes" --> E["complete"]
+    D -- "no" --> F["-ECONNRESET"]
+    B -- "n > 0" --> G["http_parser_feed()"]
+    G -- "1" --> E
+    G -- "< 0" --> C
+    G -- "0" --> A
+```
 
 ```c
 for (;;) {
@@ -362,6 +506,15 @@ All of it is in `src/api/bili_api.c`, with the signature in `src/net/wbi.c`, the
 ### The signing key
 
 Most list and play interfaces want a signature (WBI). The key is not secret: the answer of `/x/web-interface/nav` carries two image addresses (`wbi_img.img_url` and `sub_url`) even when nobody is logged in (the answer code is `-101`, the data is still there). The 32 characters in front of the extension of each file name are joined to 64 characters and shuffled with a fixed table of 64 positions; the first 32 characters of the result are the key:
+
+```mermaid
+flowchart LR
+    A["img_url<br/>32 chars of the file name"] --> C["join: 64 chars"]
+    B["sub_url<br/>32 chars"] --> C
+    C --> D["reorder with the mixin table"]
+    D --> E["first 32 chars"]
+    E --> F["wbi_key"]
+```
 
 ```c
 static const uint8_t mixin[64] = {
@@ -402,6 +555,16 @@ int wbi_make_key(const char *img_url, const char *sub_url, char key[33])
 }
 ```
 
+```mermaid
+sequenceDiagram
+    participant B as board
+    participant A as api.bilibili.com
+    B->>A: GET /x/web-interface/nav
+    A-->>B: code -101, wbi_img still there
+    B->>B: bili_parse_nav → wbi_make_key
+    Note over B: wbi_key[33]
+```
+
 ```c
 static int load_key(void)
 {
@@ -427,6 +590,19 @@ static int load_key(void)
 3. percent-encode the values (the characters `!'()*` are dropped first, as the server does);
 4. join as `a=1&b=2`, append the key, MD5 of that text is `w_rid`;
 5. return the sorted query followed by `&w_rid=<hash>`.
+
+```mermaid
+flowchart LR
+    A["parameters"] --> B["+ wts"]
+    B --> C["sort by name"]
+    C --> D["percent-encode values, drop !'()*"]
+    D --> E["a=1&b=2"]
+    E --> F["+ wbi_key"]
+    F --> G["MD5"]
+    G --> H["w_rid"]
+    E --> I["query&w_rid=hash"]
+    H --> I
+```
 
 ```c
 /* order by name: the text up to the '=' */
@@ -467,6 +643,13 @@ static int encode(const char *s, char *out, size_t size)
 
 Sorting is an insertion sort over the pointers: the lists are a handful of entries. The server does not check the time stamp, so the board, which has no network time at that point, uses a fixed base plus its uptime:
 
+```mermaid
+flowchart LR
+    A["1700000000"] --> C["wts"]
+    B["uptime in seconds"] --> C
+    C --> D["the server does not check it"]
+```
+
 ```c
 static int64_t stamp(void)
 {
@@ -477,6 +660,23 @@ static int64_t stamp(void)
 ### One call, with the two kinds of retry
 
 `call()` is the only way a signed request is made. It signs, sends, reads the `code` of the answer and recovers from the two failures the site is known for, once each:
+
+```mermaid
+flowchart TD
+    A["call(path, params)"] --> B{"key empty?"}
+    B -- "yes" --> C["load_key()"]
+    B -- "no" --> D["wbi_query → fetch"]
+    C --> D
+    D --> E{"code"}
+    E -- "0" --> F["return the answer"]
+    E -- "-403 / -352" --> G{"first time?"}
+    G -- "yes" --> H["clear the key"] --> B
+    G -- "no" --> X["NULL"]
+    E -- "-412" --> I{"first time?"}
+    I -- "yes" --> J["load_cookie() buvid3/4"] --> B
+    I -- "no" --> X
+    E -- "other" --> X
+```
 
 ```c
 #define CODE_RISK	(-412)	/* too many requests / no browser identity */
@@ -524,6 +724,14 @@ static char *call(const char *path, const char *const *params, int count, int *c
 
 `load_cookie()` asks `/x/frontend/finger/spi` for two ids and keeps them as `buvid3=...; buvid4=...`. `headers()` builds the `Cookie:` line of every request from these ids and, when there is a login, the login cookies of `account.c`:
 
+```mermaid
+flowchart LR
+    A["buvid3; buvid4"] --> C["join with a semicolon and a space"]
+    B["SESSDATA; bili_jct; DedeUserID"] --> C
+    C --> D["Cookie: ...\r\n"]
+    D --> E["http_opts.headers"]
+```
+
 ```c
 static const char *headers(void)
 {
@@ -556,6 +764,18 @@ static const char *headers(void)
 
 For example the recommendations:
 
+```mermaid
+sequenceDiagram
+    participant W as worker
+    participant C as call()
+    participant P as bili_parse_feed
+    W->>C: bili_api_feed(page)
+    C->>C: sign and fetch rcmd
+    C-->>W: JSON
+    W->>P: data.item array
+    P-->>W: struct bili_video[]
+```
+
 ```c
 int bili_api_feed(int page, struct bili_video *out, int max)
 {
@@ -572,6 +792,16 @@ int bili_api_feed(int page, struct bili_video *out, int max)
 
 The answers are 10 to 500 KiB of JSON and the heap is small, so `src/net/json.c` does not build a tree. A value is a pointer to its first character in the answer; nothing is copied until a string is asked for:
 
+```mermaid
+flowchart LR
+    A["JSON text in memory"] --> B["js_path(v, 'data.owner.name')"]
+    B --> C["js_get per segment"]
+    C --> D["js_skip the values not wanted"]
+    C --> E["pointer to the value"]
+    E --> F["js_str / js_int copy out"]
+    E --> G["js_first / js_next iterate an array"]
+```
+
 ```c
 const char *js_get(const char *obj, const char *key);	/* value of a key of an object */
 const char *js_path(const char *v, const char *path);	/* "data.owner.name" */
@@ -582,6 +812,16 @@ long long js_int(const char *v, long long def);
 ```
 
 `js_get()` walks the keys of one object and skips the values it does not want with `js_skip()`; `js_path()` calls it once per dotted segment. The parsers in `bili_parse.c` are loops over arrays that copy out only what a card shows:
+
+```mermaid
+flowchart TD
+    A["bili_parse_feed"] --> B["js_first(data.item)"]
+    B --> C{"element?"}
+    C -- "yes" --> D["parse_video → out[n++]"] --> E["js_next"] --> C
+    C -- "no" --> F["return n"]
+    G["bili_parse_playurl"] --> H["data.durl[0]"]
+    H --> I["url, size, length_ms, quality"]
+```
 
 ```c
 int bili_parse_feed(const char *json, struct bili_video *out, int max)
@@ -635,6 +875,17 @@ sequenceDiagram
     C-->>B: the file, streamed
 ```
 
+```mermaid
+flowchart TD
+    A["bili_api_stream(v)"] --> B{"cid == 0 ?"}
+    B -- "yes" --> C["resolve_cid: /x/player/pagelist"]
+    B -- "no" --> D["bvid, cid, qn=16, fnval=0, platform=html5"]
+    C --> D
+    D --> E["call(/x/player/wbi/playurl)"]
+    E --> F["bili_parse_playurl"]
+    F --> G["url, size, length"]
+```
+
 ```c
 int bili_api_stream(const struct bili_video *v, struct bili_stream *out)
 {
@@ -677,6 +928,20 @@ int bili_api_stream(const struct bili_video *v, struct bili_stream *out)
 
 `play()` in `src/main.c` is the whole sequence, run by the worker thread:
 
+```mermaid
+flowchart TD
+    A["play(list, index)"] --> B["open the player page, drop covers"]
+    B --> C["bili_api_stream"]
+    C --> D["bili_api_danmaku"]
+    D --> E{"complete file on the card?"}
+    E -- "yes" --> F["player_open"]
+    E -- "no" --> G["dl_start + player_open_growing"]
+    G --> H["prebuffer"]
+    F --> I["player_play"]
+    H --> I
+    I --> J["play_loop until the end or a stop"]
+```
+
 ```c
 static void play(enum list_id list, int index)
 {
@@ -714,6 +979,17 @@ The page opens first, then the covers are thrown out, because the 640×360 decod
 
 `src/net/download.c` downloads into a file of the card in blocks of 64 KiB. The file is written through a stage buffer, synced after every block, and the number of bytes that are in the file and in its directory entry is published for the player to read:
 
+```mermaid
+flowchart TD
+    A["sink(data)"] --> B["copy into the 64 KiB stage"]
+    B --> C{"stage full?"}
+    C -- "no" --> A
+    C -- "yes" --> D["fs_write"]
+    D --> E["fs_sync"]
+    E --> F["atomic_set(synced, written)"]
+    F --> G["player may read up to here"]
+```
+
 ```c
 #define STAGE_SIZE	(64 * 1024)
 #define ATTEMPTS	6
@@ -742,6 +1018,16 @@ static int flush(struct dl *d)
 ```
 
 The body callback copies into the stage and flushes when it is full; it also reports progress every 250 ms and returns `-ECANCELED` when the user went back. The retry loop continues a broken transfer from the byte it has:
+
+```mermaid
+flowchart TD
+    A["http_get(Range: done-)"] --> B{"result"}
+    B -- "5xx / 429" --> C["wait 1 s, 2 s, ... and ask again"] --> A
+    B -- "other non-2xx" --> D["fail: 403/404 -EACCES"]
+    B -- "200 when continuing" --> E["-EPROTO"]
+    B -- "all bytes in" --> F["done"]
+    B -- "connection broke" --> G["wait 0.5 s, continue from done"] --> A
+```
 
 ```c
 for (attempt = 0; attempt < ATTEMPTS; attempt++) {
@@ -772,6 +1058,15 @@ for (attempt = 0; attempt < ATTEMPTS; attempt++) {
 
 In the background form (`dl_start()`) the same `run()` is the body of a thread (priority 8) and its state is two atomics the player reads through `dl_avail()`:
 
+```mermaid
+stateDiagram-v2
+    [*] --> Running: dl_start
+    Running --> Done: all bytes
+    Running --> Failed: negative errno
+    Running --> Failed: cancelled
+    note right of Running: dl_avail → state 0, bg_synced
+```
+
 ```c
 static atomic_t bg_synced, bg_state;	/* state: 0 running, 1 done, negative errno */
 
@@ -786,6 +1081,20 @@ uint64_t dl_avail(void *ctx, int *state)
 ### Reading a file that is not complete
 
 The player (`src/player/player.c`, built from the NekoBox player with this one addition) reads the file through one function. When a read needs bytes that are not in the file yet, it waits for the download and then opens its own handle again, because a FAT file handle keeps the size it saw when it was opened:
+
+```mermaid
+flowchart TD
+    A["pl_file_read(off, len)"] --> B{"inside the window?"}
+    B -- "yes" --> R["read the window"]
+    B -- "no" --> C["pl_grow_wait"]
+    C --> D{"avail >= off + len ?"}
+    D -- "no, state < 0" --> X["-EIO"]
+    D -- "no" --> E["k_msleep(20)"] --> C
+    D -- "yes" --> F{"handle older than the data?"}
+    F -- "yes" --> G["fs_close, fs_open"]
+    F -- "no" --> R
+    G --> R
+```
 
 ```c
 /* waits until [off, off + len) is in the file; reopens the handle when it is older than the data */
@@ -841,11 +1150,30 @@ The `moov` box of the files of this site is at the front, so the demuxer can rea
 
 A file that is still downloading is opened held on its first picture (`PLAYER_PAUSED`: the first picture is shown and nothing plays), and the application waits for some seconds of the stream before it starts the sound and the video with `player_play()`, so the slow start of the connection does not eat the first seconds:
 
+```mermaid
+flowchart TD
+    A["open_impl(path, g)"] --> B{"g != NULL ?"}
+    B -- "growing file" --> C["PLAYER_PAUSED<br/>request(play = false)"]
+    B -- "complete file" --> D["PLAYER_PLAYING<br/>request(play = true)"]
+    C --> E["first picture shown, nothing plays"]
+    E --> F["player_play() after the prebuffer"]
+```
+
 ```c
 /* player.c, open_impl() */
 pl_state = g != NULL ? PLAYER_PAUSED : PLAYER_PLAYING;
 pl_req.seq = 0;
 pl_req_post(0, g == NULL);
+```
+
+```mermaid
+flowchart TD
+    A["prebuffer"] --> B["want = 6 s of the average bit rate, at least 256 KiB"]
+    B --> C["av = dl_avail()"]
+    C --> D["show buffering percent of the stock"]
+    D --> E{"done, failed, stop, av ≥ want or 20 s?"}
+    E -- "no" --> F["k_msleep(50)"] --> C
+    E -- "yes" --> G["return"]
 ```
 
 ```c
@@ -878,6 +1206,19 @@ static void prebuffer(const struct bili_stream *s, const struct player_info *inf
 
 Three threads run the player. They talk through a request that carries a sequence number; a new request (a seek, a pause) makes the running session end and the next one start at the requested position:
 
+```mermaid
+sequenceDiagram
+    participant U as UI / worker
+    participant R as pl_req (seq)
+    participant V as pl_video
+    U->>R: player_seek / pause / play → seq + 1
+    V->>R: pl_req_changed(seq)?
+    R-->>V: yes
+    V->>V: end the session, release pictures
+    V->>R: read the new request
+    V->>V: start a session at pos_us, play or hold
+```
+
 ```c
 struct request {
 	uint32_t seq;
@@ -895,6 +1236,14 @@ Pause is not "stop the clock": it is a request for a session at the current posi
 
 **The clock.** The audio position is the clock of the player: the number of blocks the codec has played, times the length of a block, plus the time since the last block:
 
+```mermaid
+flowchart LR
+    A["pl_audio_base_us"] --> S["+"]
+    B["blocks played × block length"] --> S
+    C["time since the last block"] --> S
+    S --> D["audio clock in us"]
+```
+
 ```c
 int64_t pl_audio_clock_us(void)
 {
@@ -911,6 +1260,15 @@ int64_t pl_audio_clock_us(void)
 ```
 
 **Waiting for a picture.** The video thread decodes, then waits until the clock reaches the time of the picture. A picture more than two frames late is not shown (`WAIT_LATE`, which the log counts as `late`):
+
+```mermaid
+flowchart TD
+    A["diff = pts - clock"] --> B{"diff"}
+    B -- "< -2 frames" --> C["WAIT_LATE drop, counted as late"]
+    B -- "within the lead" --> D["WAIT_ON_TIME show"]
+    B -- "too early" --> E["k_msleep(1..20 ms)"] --> A
+    F["request changed"] --> G["WAIT_ABORT"]
+```
 
 ```c
 #define DROP_US		(2 * 33367)
@@ -940,6 +1298,17 @@ enum wait_result pl_wait_for(uint32_t seq, int64_t pts_us, int64_t start_us, int
 ```
 
 **The session loop.** Each H.264 sample is read from the file (through `pl_file_read()`), converted from AVCC (length prefixed) to Annex B (start codes), and fed to the video engine. The decoder says what it needs by its return code:
+
+```mermaid
+flowchart TD
+    A["vdec_stream_get_frame"] --> B{"ret"}
+    B -- "0" --> C["pl_wait_for"]
+    C -- "ON_TIME" --> D["disp_q → display thread"]
+    C -- "LATE" --> E["release the picture"]
+    B -- "-EBUSY" --> F["k_msleep(2)"]
+    B -- "-EAGAIN" --> G["pl_file_read → avcc_to_annexb"]
+    G --> H["vdec_stream_feed"]
+```
 
 ```c
 ret = vdec_stream_get_frame(pl_vdec_dev, stream, &frame);
@@ -971,6 +1340,19 @@ if (pl_file_read(&pl_vfile, s.offset, raw, s.size) == 0) {
 
 **The display thread.** Committing a picture waits for the flip of the one before it, which would stall the decoder, so a thread of its own does it. It hands a picture back only when the next one is up, and the video thread releases it (so the decoder stays single threaded):
 
+```mermaid
+sequenceDiagram
+    participant V as pl_video
+    participant Q as disp_q
+    participant D as disp thread
+    participant E as done_q
+    V->>Q: decoded picture
+    Q->>D: k_msgq_get
+    D->>D: show() returns when the picture is up
+    D->>E: the picture before
+    V->>E: pl_release_done → vdec_frame_release
+```
+
 ```c
 K_MSGQ_DEFINE(disp_q, sizeof(struct vdec_frame), 1, 4);
 K_MSGQ_DEFINE(done_q, sizeof(struct vdec_frame), 4, 4);
@@ -999,6 +1381,15 @@ The picture goes to the video plane as NV12 with the BT.709 matrix (`display_sun
 
 The comments of a video are one XML file (`/x/v1/dm/list.so?oid=<cid>`) that the server sends as raw deflate. Neither is kept whole: the body goes through a streaming inflater (`src/net/inflate.c`, a deflate decoder of our own) into a streaming XML scanner (`src/api/danmaku.c`), in blocks as the TLS records arrive:
 
+```mermaid
+flowchart TD
+    A["dm_body(data)"] --> B{"first byte is '<'?"}
+    B -- "yes: plain XML" --> D["dm_parser_feed"]
+    B -- "no: raw deflate" --> C["inflate_feed"]
+    C -- "output blocks" --> D
+    C -- "1: stream complete" --> E["ignore the rest"]
+```
+
 ```c
 /* the bytes of the answer: raw deflate as the server sends it, or the XML itself */
 static int dm_body(void *ctx, const uint8_t *d, size_t n)
@@ -1023,6 +1414,15 @@ static int dm_body(void *ctx, const uint8_t *d, size_t n)
 
 The scanner is a small state machine: text outside a tag, a tag, and the text of a `<d p="...">` element. The attribute `p` is `time,mode,size,color,...`:
 
+```mermaid
+stateDiagram-v2
+    [*] --> P_OUT
+    P_OUT --> P_TAG: tag starts
+    P_TAG --> P_OUT: tag ends: tag_done
+    note right of P_TAG: start of d, read time, mode, colour, in_d = true
+    note right of P_OUT: end of d, add_item with the text collected between the tags
+```
+
 ```c
 static int tag_done(struct dm_parser *p)
 {
@@ -1042,6 +1442,15 @@ static int tag_done(struct dm_parser *p)
 ```
 
 The set is two arrays: items (time in milliseconds, colour, offset of the text, mode, length) and one pool for all the texts. Texts are cut on a character boundary at 90 bytes, and the set is capped (`BILI_DM_MAX_ITEMS`, `BILI_DM_POOL_KB`). After the last byte the items are sorted by time and a position is found by bisection:
+
+```mermaid
+flowchart LR
+    A["XML items"] --> B["dm_item<br/>t_ms, rgb, off, mode, len"]
+    A --> C["text pool"]
+    B --> D["qsort by time"]
+    D --> E["dm_find(t_ms) bisection"]
+    E --> F["index of the next comment"]
+```
 
 ```c
 struct dm_item {
@@ -1073,6 +1482,20 @@ uint32_t dm_find(const struct dm_set *set, uint32_t t_ms)
 ### Showing them
 
 `ui_danmaku_run()` is called by the interface once a round. It holds a pool of `BILI_DM_ACTIVE` (20) LVGL labels over the video. A comment takes a free label; a scrolling one also needs a lane that it will not catch up with:
+
+```mermaid
+flowchart TD
+    A["spawn(item, p)"] --> B{"free label?"}
+    B -- "no" --> X["false"]
+    B -- "yes" --> C{"mode"}
+    C -- "scroll" --> D["lane with p >= free_at"]
+    D --> E["free_at = p + (w + GAP) / SPEED"]
+    E --> F["x = SCREEN_W, y = lane"]
+    C -- "top / bottom" --> G["row free for 4 s"]
+    G --> H["x = centred"]
+    F --> I["set text, colour, size, position; show"]
+    H --> I
+```
 
 ```c
 #define LANE_H		34
@@ -1117,6 +1540,17 @@ Because every scrolling comment moves at the same speed, the x of every label is
 
 The clock that drives `p` follows the position of the video but is smoothed, so the text does not move in steps when the position is reported late:
 
+```mermaid
+flowchart TD
+    A["video position pos, now"] --> B["err = (pos - now) - clk_off"]
+    B --> C{"sync needed or abs(err) > 400 ms?"}
+    C -- "yes" --> D["clk_off = pos - now"]
+    C -- "no" --> E["clk_off += err / 8"]
+    D --> F["p = now + clk_off"]
+    E --> F
+    F --> G["clamp: not far ahead, not backwards"]
+```
+
 ```c
 if (playing) {
 	int32_t err = (int32_t)(pos - now) - clk_off;
@@ -1137,6 +1571,19 @@ When a round took longer than 60 ms, `density_div` becomes 2 and every second co
 ### Moving them as a picture
 
 Moving 20 labels makes LVGL draw the old and the new place of each, 20 small redraws of text over a video. Because they all move by the same distance, `ui_danmaku.c` moves the layer instead as one picture, with the 2D accelerator, and lets LVGL draw only the strip that came in at the right. LVGL's own refresh calls `dm_strips()` at its start (`LV_EVENT_REFR_START`):
+
+```mermaid
+flowchart TD
+    A["REFR_START"] --> B{"pend_dx == 0 ?"}
+    B -- "yes" --> X["return"]
+    B -- "no" --> C{"other dirty area in the lanes?"}
+    C -- "yes" --> D["draw all lanes"]
+    C -- "no" --> E["shift_cols(G2D)"]
+    E -- "ok" --> F["draw only the new columns"]
+    E -- "failed" --> D
+    D --> G["lv_inv_area"]
+    F --> G
+```
 
 ```c
 static void dm_strips(lv_event_t *e)
@@ -1167,6 +1614,15 @@ static void dm_strips(lv_event_t *e)
 
 `shift_cols()` (`src/gfx/shift.c`) is a blit inside the frame buffer, from `x+dx` to `x`, then a fill of the columns that are left over on the right with transparent black:
 
+```mermaid
+flowchart TD
+    A["shift_cols(x, y, w, h, dx)"] --> B["cache flush of the rows"]
+    B --> C["g2d_blit: from x+dx to x, same buffer"]
+    C --> D["g2d_fill: the strip on the right"]
+    D --> E["cache invalidate"]
+    F["cols_check() first use"] -. "pattern test" .-> A
+```
+
 ```c
 int shift_cols(int x, int y, int w, int h, int dx, bool sync)
 {
@@ -1194,6 +1650,17 @@ A copy to the left inside one buffer has overlapping source and destination; the
 
 The labels themselves still have to end up at their new x for the next round, but moving a label is a style change that LVGL applies at the layout update, and that would invalidate the old and the new place again. So the move is made in a window where the invalidation is off:
 
+```mermaid
+sequenceDiagram
+    participant D as danmaku round
+    participant L as LVGL
+    D->>L: lv_display_enable_invalidation(false)
+    D->>L: lv_obj_set_x(label) ×N
+    D->>L: lv_obj_update_layout(layer)
+    Note over L: the style change is applied, nothing is marked dirty
+    D->>L: lv_display_enable_invalidation(true)
+```
+
 ```c
 lv_display_t *d = lv_display_get_default();
 
@@ -1213,6 +1680,19 @@ lv_display_enable_invalidation(d, true);
 
 The screen is 1024×768. LVGL draws on the ARGB plane and the display engine blends it over the video plane. The palette is dark (`src/ui/ui_priv.h`):
 
+```mermaid
+flowchart LR
+    BG["C_BG 0b0f14"]:::bg --- BAR["C_BAR 141a21"]:::bar --- CARD["C_CARD 1c232c"]:::card --- PRESS["C_CARD_PRESS 2a3643"]:::press
+    ACC["C_ACCENT 00a1d6"]:::acc --- TXT["C_TEXT e8edf2"]:::txt --- DIM["C_DIM 8a97a6"]:::dim
+    classDef bg fill:#0b0f14,color:#e8edf2
+    classDef bar fill:#141a21,color:#e8edf2
+    classDef card fill:#1c232c,color:#e8edf2
+    classDef press fill:#2a3643,color:#e8edf2
+    classDef acc fill:#00a1d6,color:#0b0f14
+    classDef txt fill:#e8edf2,color:#0b0f14
+    classDef dim fill:#8a97a6,color:#0b0f14
+```
+
 ```c
 #define C_BG		lv_color_hex(0x0b0f14)
 #define C_BAR		lv_color_hex(0x141a21)
@@ -1224,6 +1704,18 @@ The screen is 1024×768. LVGL draws on the ARGB plane and the display engine ble
 ```
 
 The Chinese text is Noto Sans SC (SIL OFL), cut by `tools/make_font.py` to GB2312, the kana and the punctuation (about 2.7 MB), included as a byte array and drawn by TinyTTF at three sizes, with a glyph cache of its own for each:
+
+```mermaid
+flowchart LR
+    A["font.inc<br/>NotoSansSC subset"] --> B["static const ttf[] in the flash window"]
+    B --> C["lv_tiny_ttf_create_data_ex 18 px"]
+    B --> D["... 22 px"]
+    B --> E["... 28 px"]
+    C --> F["glyph cache 160"]
+    D --> G["glyph cache 320"]
+    E --> H["glyph cache 64"]
+    C -. "fallback" .-> I["lv_font_montserrat_20 symbols"]
+```
 
 ```c
 static const uint8_t ttf[] = {
@@ -1270,6 +1762,15 @@ The array lives in the flash window and is never copied to RAM. Kerning is off (
 
 `ui_home.c` has five tab buttons in one row and a panel or a grid behind each. The first three are lists, the last two are panels:
 
+```mermaid
+flowchart TD
+    A["tab buttons 0..4"] --> B["show_tab(t)"]
+    B --> C{"t < 3 ?"}
+    C -- "yes" --> D["card grid of the list: recommend, popular, following"]
+    C -- "no" --> E["panel: me, settings"]
+    F["no login"] --> G["tab 2 hidden"]
+```
+
 ```c
 #define LIST_TABS	3	/* recommend, popular, following: a card grid each */
 #define TAB_ME		3	/* at the right end of the row, with the settings */
@@ -1296,6 +1797,16 @@ lv_obj_add_flag(tab_btn[2], LV_OBJ_FLAG_HIDDEN);	/* "following": until there is 
 
 `ui_card.c` builds a card as a plain LVGL object with a cover image, a duration label, the title (two lines), the number of views and the uploader. The position is computed from the index, so no layout is used:
 
+```mermaid
+flowchart LR
+    A["idx"] --> B["col = idx % 4"]
+    A --> C["row = idx / 4"]
+    B --> D["x = col × (236 + 16)"]
+    C --> E["y = row × (card_h + 16)"]
+    D --> F["lv_obj_set_pos"]
+    E --> F
+```
+
 ```c
 #define CARD_W		236
 #define CARD_COLS	4
@@ -1305,6 +1816,14 @@ lv_obj_set_pos(o, (idx % CARD_COLS) * (CARD_W + MARGIN),
 ```
 
 The rounded top corners of the cover are not drawn by a clip (a clip makes LVGL render the object in an offscreen layer, which is slow). They are two 10×10 A8 masks in the colour of the page, laid over the corners:
+
+```mermaid
+flowchart LR
+    A["distance to the circle centre per pixel"] --> B["A8 mask 10×10"]
+    B --> C["mirror for the right corner"]
+    C --> D["recolour to the page colour"]
+    D --> E["laid over the cover corners"]
+```
 
 ```c
 #define CORNER		10
@@ -1324,6 +1843,15 @@ for (int y = 0; y < CORNER; y++) {
 
 A list of 100 videos is 100 cards, but only the ones near the screen exist. `window_rows()` says which rows must have widgets (the screen and one card height around it); the others are deleted and built again when they come into view:
 
+```mermaid
+flowchart LR
+    A["top = scroll_y, vh = height"] --> B["first = (top - row_h) / row_h"]
+    A --> C["last = (top + vh + row_h) / row_h"]
+    B --> D["rows in [first, last] have widgets"]
+    C --> D
+    D --> E["the others are deleted and rebuilt when they come into view"]
+```
+
 ```c
 static void window_rows(struct ui_grid *g, int *first, int *last)
 {
@@ -1341,6 +1869,17 @@ When the end of the list is near, `ui_grid_more()` asks the worker for the next 
 ### Scrolling by moving the picture
 
 The same idea as for the comments, applied to the grid: when the finger scrolls the list by `dy` pixels, LVGL moves all the cards and would draw the whole list again. `scrolled()` instead lets the accelerator move the picture and marks only the rows that came in:
+
+```mermaid
+flowchart TD
+    A["LV_EVENT_SCROLL: dy"] --> B{"jump, hidden, too far, other drawing waiting, no G2D?"}
+    B -- "yes" --> C["draw everything"]
+    B -- "no" --> D["shift_dy += dy"]
+    D --> E["mark pend_top / pend_bottom"]
+    E --> F["invalidation off, refresh_soon"]
+    F --> G["REFR_START: add_strips"]
+    G --> H["shift_rows (G2D) + draw only the new rows"]
+```
 
 ```c
 static void scrolled(lv_event_t *e)
@@ -1375,6 +1914,17 @@ At the start of the next refresh (`add_strips()`, `LV_EVENT_REFR_START`) the inv
 
 A cover goes from the image server through the video engine to the screen without the CPU converting a pixel. Cards ask for a cover by its address; a pool of three threads (`BILI_COVER_THREADS`) fetches and decodes, and a cache of `BILI_COVER_CACHE` (24) pictures keeps them with reference counts:
 
+```mermaid
+stateDiagram-v2
+    [*] --> SLOT_FREE
+    SLOT_FREE --> SLOT_QUEUED: cover_request
+    SLOT_QUEUED --> SLOT_BUSY: a cover thread takes the newest
+    SLOT_BUSY --> SLOT_READY: fetched and decoded
+    SLOT_BUSY --> SLOT_QUEUED: fetch failed, up to 3 tries
+    SLOT_BUSY --> SLOT_FAILED: decode failed
+    SLOT_READY --> SLOT_FREE: thrown out, refs == 0
+```
+
 ```c
 enum slot_state { SLOT_FREE, SLOT_QUEUED, SLOT_BUSY, SLOT_READY, SLOT_FAILED };
 
@@ -1394,6 +1944,17 @@ void cover_release(const char *pic);
 
 The server resizes: the request is `<address>@236w_133h_1c.jpg`, so the file is small (`JPEG_MAX` is 48 KiB). The thread that takes the newest request first (it is the one on the screen) fetches it with `http_get_text()` and decodes it:
 
+```mermaid
+flowchart TD
+    A["load(pic)"] --> B["http_get_text @236w_133h_1c.jpg"]
+    B --> C{"jpeg_for_engine ?"}
+    C -- "baseline 4:2:0" --> D["vdec_decode_image → NV12"]
+    D --> E["to_xrgb (G2D)"]
+    C -- "other" --> F["decode_soft (tjpgd)"]
+    E --> G["pixels XRGB8888"]
+    F --> G
+```
+
 ```c
 n = http_get_text(url, &(struct http_opts){.range_start = -1, .timeout_ms = 8000}, (char *)jpeg,
 		  JPEG_MAX, NULL);
@@ -1409,6 +1970,12 @@ if (ret == 0) {
 ```
 
 `jpeg_for_engine()` reads the JPEG headers first and accepts only what the engine can decode (8 bit, three components, sampling 2×2/1×1/1×1, baseline); a file it would refuse is never given to it. `to_xrgb()` is one `g2d_blit()` that reads the NV12 picture, converts and scales it to the card size in one pass:
+
+```mermaid
+flowchart LR
+    A["NV12 from the video engine"] --> B["g2d_blit"]
+    B -- "convert and scale" --> C["XRGB8888 236×133<br/>stride 960"]
+```
 
 ```c
 struct g2d_surface src = {
@@ -1428,6 +1995,15 @@ The result has a row distance of 960 bytes and 64 byte alignment (with other str
 
 The search page is a text area, the LVGL keyboard and `lv_ime_pinyin`, which types Chinese one syllable at a time from a dictionary that the firmware supplies:
 
+```mermaid
+flowchart LR
+    A["lv_keyboard"] --> B["lv_ime_pinyin"]
+    C["bili_pinyin_dict"] --> B
+    B --> D["candidate panel"]
+    D --> E["text area"]
+    E --> F["CMD_SEARCH"]
+```
+
 ```c
 kb = lv_keyboard_create(page);
 ui_keyboard_style(kb);
@@ -1440,6 +2016,15 @@ lv_ime_pinyin_set_keyboard(ime, kb);
 The dictionary (`src/ui/pinyin_dict.c`) is generated by `tools/make_pinyin_dict.py`: for every toneless syllable, the characters that the font has, by falling frequency (the frequencies come from the dictionary of jieba, the syllables from pypinyin). The input method takes the first entry that starts with the typed letters, so the entries are sorted and "ni" comes before "nian". The row of trending words under the field comes from `CMD_HOT`; a tap puts the word in the field and starts the search. The results are a list like the others; the worker adds `cid` with `/x/player/pagelist` when a result is played.
 
 ### The player page
+
+```mermaid
+stateDiagram-v2
+    [*] --> Idle
+    Idle --> Dragging: PRESSED
+    Dragging --> Dragging: PRESSING / seek_move
+    Dragging --> Idle: RELEASED / PRESS_LOST → player_seek
+    note right of Dragging: v = x on the bar, limited to the downloaded part
+```
 
 ```c
 /* The progress bar is also the place to seek: the finger sets the position, letting go jumps there. */
@@ -1482,6 +2067,14 @@ static void seek_event(lv_event_t *e)
 
 The bars hide after four seconds without a touch:
 
+```mermaid
+flowchart TD
+    A["every round"] --> B{"bars visible, not paused, 4 s without a touch?"}
+    B -- "yes" --> C["show_bars(false)"]
+    B -- "no" --> D["keep"]
+    E["touch or pause"] --> F["show_bars(true)"]
+```
+
 ```c
 if (bars_visible && !paused && k_uptime_get() - last_touch > HIDE_MS) {
 	show_bars(false);
@@ -1493,6 +2086,20 @@ One message pill carries everything that is said to the user. When it is visible
 ### The account
 
 The login uses the web QR code flow, and it needs no cookie to start:
+
+```mermaid
+sequenceDiagram
+    participant B as board
+    participant P as passport.bilibili.com
+    B->>P: GET .../qrcode/generate
+    P-->>B: data.url, data.qrcode_key
+    loop every 2 s
+        B->>P: GET .../qrcode/poll?qrcode_key
+        P-->>B: data.code
+    end
+    P-->>B: code 0: cookies in the url or Set-Cookie
+    B->>B: account_set_from_text
+```
 
 ```c
 int bili_api_qr_new(char *url, size_t url_size, char *key, size_t key_size)
@@ -1517,6 +2124,17 @@ int bili_api_qr_poll(const char *key, int *state)
 
 `data.code` of the poll answer is `86101` (not scanned), `86090` (scanned, waiting for the confirmation on the phone), `86038` (expired) or `0` (done). The worker maps them to a state the interface shows:
 
+```mermaid
+stateDiagram-v2
+    [*] --> QR_WAIT: new code
+    QR_WAIT --> QR_SCANNED: 86090
+    QR_WAIT --> QR_EXPIRED: 86038
+    QR_SCANNED --> QR_DONE: 0
+    QR_WAIT --> QR_DONE: 0
+    QR_DONE --> [*]: login_ready
+    QR_WAIT --> QR_ERROR: other
+```
+
 ```c
 static void qr_poll(void)
 {
@@ -1534,6 +2152,15 @@ static void qr_poll(void)
 
 The interface sends `CMD_QR_POLL` from a timer, about every two seconds. The code itself is drawn by LVGL's `lv_qrcode` in a white rounded holder. On success the answer carries `SESSDATA`, `bili_jct` and `DedeUserID`; `account.c` picks them out of the text with one scanner (`text_value()` accepts them as a query string, a cookie list or JSON), keeps them in memory and writes them to `auth.cfg`:
 
+```mermaid
+flowchart LR
+    A["answer text or Set-Cookie"] --> B["text_value ×3"]
+    B --> C["SESSDATA, bili_jct, DedeUserID"]
+    C --> D["kept in memory"]
+    C --> E["auth.cfg on the card"]
+    D --> F["account_cookie() → Cookie:"]
+```
+
 ```c
 n = snprintf(buf, sizeof(buf), "SESSDATA=%s\nbili_jct=%s\nDedeUserID=%s\n", acc.sessdata, acc.jct, acc.uid);
 ```
@@ -1543,6 +2170,20 @@ From then on `account_cookie()` adds them to the `Cookie:` line of every request
 ### Wi-Fi
 
 `src/net/wifi.c` keeps a small state machine over Zephyr's Wi-Fi management:
+
+```mermaid
+flowchart TD
+    A["wifi_join"] --> B{"already connected?"}
+    B -- "yes" --> C["wifi_disconnect"]
+    B -- "no" --> D["state = CONNECTING"]
+    C --> D
+    D --> E["net_mgmt(WIFI_CONNECT)"]
+    E --> F{"-EBUSY ?"}
+    F -- "yes: up to 100×" --> G["k_msleep(500)"] --> E
+    F -- "no" --> H["wait: association, then DHCP address"]
+    H -- "failed" --> I["disconnect, state = FAILED"]
+    H -- "ok" --> J["state = CONNECTED"]
+```
 
 ```c
 enum wifi_state { WIFI_DISCONNECTED, WIFI_CONNECTING, WIFI_CONNECTED, WIFI_FAILED };
@@ -1584,6 +2225,16 @@ Things that were found when the client ran directly, without a proxy:
 
 - <strong>All connections are HTTPS</strong>, for the interface servers and for the CDN, with Zephyr's TLS sockets (mbedTLS). The certificates are not verified by default (`BILI_TLS_VERIFY` turns it on). Each connection takes memory: the mbedTLS heap is 256 KiB (`MBEDTLS_HEAP_SIZE`, the peak with four connections was 144 KiB) and `NET_SOCKETS_TLS_MAX_CONTEXTS` is 4 (with the default 1 the second `socket()` failed with `ENOMEM`).
 - <strong>The source address bug</strong>: the network stack chose the source address of a connection by the number of leading bits that the destination shares with the subnet of an address of the interface. The loopback address 127.0.0.1 (subnet 127.0.0.0) won for every destination whose first byte is below 128, which is every Bilibili server. The SYN then went to the loopback interface and the stack answered itself with a reset: `connect()` failed with `ECONNREFUSED` after 0 to 1 ms and no frame left the board, which looked like the server refusing the board (and made a proxy look necessary). `net_if_ipv4_get_best_match()` now skips a loopback address when the destination is not a loopback one:
+
+  ```mermaid
+  flowchart TD
+      A["best match for dst"] --> B["for each address of the interface"]
+      B --> C{"loopback address and dst is not loopback?"}
+      C -- "yes" --> D["continue skip"]
+      C -- "no" --> E["longest common prefix wins"]
+      D --> B
+      E --> F["source address"]
+  ```
 
   ```c
   if (net_ipv4_is_addr_loopback(&ipv4->unicast[i].ipv4.address.in_addr) &&
