@@ -19,6 +19,18 @@ This page explains how it is built, module by module, with the code of each one:
 
 Before you start, first complete [Setting up the development environment](../zephyr-setup-env.md) and [Getting the Zephyr source](../zephyr-get-source.md).
 
+![image-20261016075656001](figures/image-20261016075656001.png)
+
+
+
+![image-20261016075829943](figures/image-20261016075829943.png)
+
+![image-20261016075902548](figures/image-20261016075902548.png)
+
+![image-20261016075923974](figures/image-20261016075923974.png)
+
+![image-20261016075938802](figures/image-20261016075938802.png)
+
 ## Build and run
 
 ```mermaid
