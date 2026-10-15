@@ -150,6 +150,11 @@ export const sidebar = [
             "slug": "dev/zephyr/apps/nekobox"
           },
           {
+            "label": "Bilibili - video client",
+            "translations": { "zh-CN": "Bilibili - 视频客户端" },
+            "slug": "dev/zephyr/apps/bilibili"
+          },
+          {
             "label": "MP4 Player - video player",
             "translations": { "zh-CN": "MP4 Player - 视频播放器" },
             "slug": "dev/zephyr/apps/mp4-player"
