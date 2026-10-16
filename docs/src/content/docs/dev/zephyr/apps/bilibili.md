@@ -19,18 +19,6 @@ This page explains how it is built, module by module, with the code of each one:
 
 Before you start, first complete [Setting up the development environment](../zephyr-setup-env.md) and [Getting the Zephyr source](../zephyr-get-source.md).
 
-![image-20261016075656001](figures/image-20261016075656001.png)
-
-
-
-![image-20261016075829943](figures/image-20261016075829943.png)
-
-![image-20261016075902548](figures/image-20261016075902548.png)
-
-![image-20261016075923974](figures/image-20261016075923974.png)
-
-![image-20261016075938802](figures/image-20261016075938802.png)
-
 ## Build and run
 
 ```mermaid
@@ -1493,6 +1481,10 @@ uint32_t dm_find(const struct dm_set *set, uint32_t t_ms)
 
 ### Showing them
 
+![A video playing on the board with scrolling comments over it](figures/bilibili-danmaku.webp)
+
+A video with the scrolling comments over it. The title is at the top, the picture is on the video plane, and the comments are the LVGL labels that move over it, in several lanes, in white with a dark backing so that they can be read on any picture.
+
 `ui_danmaku_run()` is called by the interface once a round. It holds a pool of `BILI_DM_ACTIVE` (20) LVGL labels over the video. A comment takes a free label; a scrolling one also needs a lane that it will not catch up with:
 
 ```mermaid
@@ -1759,6 +1751,10 @@ The array lives in the flash window and is never copied to RAM. Kerning is off (
 
 ### The home page
 
+![Bilibili home page on the board screen: cover cards of the popular tab](figures/bilibili-home.webp)
+
+The photo shows the popular tab. The top bar has the logo, the search box ("search videos...") and the refresh button; below it the tabs recommend, popular and following are on the left and me and settings on the right, with the current one underlined. The videos are cover cards in four columns: the cover with its length in the corner, the title (two lines) and, at the bottom, the uploader and the play count.
+
 ```text
 +--------------------------------------------------------------+
 | [logo]  [ search ...............................]  [refresh]  |  BAR_H 72
@@ -2005,6 +2001,10 @@ The result has a row distance of 960 bytes and 64 byte alignment (with other str
 
 ### Search
 
+![Search page with the trending words and the on-screen keyboard](figures/bilibili-search.webp)
+
+The search page: back on the left, the text box ("type a keyword...") and the search button on top, the trending words as buttons below them, and the LVGL keyboard at the bottom. Typing Latin letters on it gives Chinese candidates through the pinyin input method; a tap on a trending word searches for it.
+
 The search page is a text area, the LVGL keyboard and `lv_ime_pinyin`, which types Chinese one syllable at a time from a dictionary that the firmware supplies:
 
 ```mermaid
@@ -2097,6 +2097,10 @@ One message pill carries everything that is said to the user. When it is visible
 
 ### The account
 
+![The me page after the QR code login: account numbers and the logout button](figures/bilibili-account.webp)
+
+The me page after a login: the avatar, the name with "logged in" under it, a note that the recommendations now follow the account, the logout button and four tiles with the coins, posts, followed accounts and fans.
+
 The login uses the web QR code flow, and it needs no cookie to start:
 
 ```mermaid
@@ -2180,6 +2184,10 @@ n = snprintf(buf, sizeof(buf), "SESSDATA=%s\nbili_jct=%s\nDedeUserID=%s\n", acc.
 From then on `account_cookie()` adds them to the `Cookie:` line of every request (see `headers()` above). A saved login is checked at the start with `/x/web-interface/nav` and dropped when the server does not accept it (`login_check()`). After the login the recommendations are loaded again (now personal), the `following` tab appears, and the account page shows the name, the picture (`cover_load_square()`), the coins and the numbers from `/x/web-interface/nav/stat`.
 
 ### Wi-Fi
+
+![Settings page with the Wi-Fi networks, the volume and the brightness](figures/bilibili-settings.webp)
+
+The settings page. On the left is the Wi-Fi card: the scan button, the network that is joined with the disconnect and forget buttons, and the list of networks found, marked as saved and encrypted, with their signal strength; the network names are blurred in the photo. On the right, the sound and display card holds the volume and brightness sliders.
 
 `src/net/wifi.c` keeps a small state machine over Zephyr's Wi-Fi management:
 
