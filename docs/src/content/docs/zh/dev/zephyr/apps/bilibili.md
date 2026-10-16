@@ -1481,6 +1481,10 @@ uint32_t dm_find(const struct dm_set *set, uint32_t t_ms)
 
 ### 显示
 
+![板子上播放的视频和叠在上面的滚动弹幕](figures/bilibili-danmaku.webp)
+
+视频上叠着滚动弹幕。标题在最上面，画面在视频平面上，弹幕是在它上方移动的 LVGL 标签，分成几行，白字加深色底，在任何画面上都看得清。
+
 `ui_danmaku_run()` 每一轮由界面调用一次。它在视频上方持有 `BILI_DM_ACTIVE`（20）个 LVGL 标签的池。一条弹幕占用一个空闲标签；滚动弹幕还需要一条不会追上前一条的行：
 
 ```mermaid
@@ -1747,6 +1751,10 @@ void ui_fonts_init(void)
 
 ### 首页
 
+![板子屏幕上的 Bilibili 首页：热门页的封面卡片](figures/bilibili-home.webp)
+
+照片里是热门页。顶栏有标志、搜索框（“搜索视频...”）和刷新按钮；下面左边是推荐、热门、关注三个标签，右边是我的和设置，当前的有下划线。视频是四列封面卡片：封面角上有时长，下面是两行标题，最下面是 UP 主和播放量。
+
 ```text
 +--------------------------------------------------------------+
 | [logo]  [ 搜索 ..................................]  [刷新]   |  BAR_H 72
@@ -1993,6 +2001,10 @@ g2d_blit(g2d, &src, &sr, &dst, &dr, G2D_ROTATE_0, G2D_FLAG_YUV_FULL_RANGE);
 
 ### 搜索
 
+![搜索页：热搜词和屏幕键盘](figures/bilibili-search.webp)
+
+搜索页：左上是返回，中间是文本框（“输入关键词...”），右边是搜索按钮，下面是热搜词按钮，底部是 LVGL 键盘。用它输入拼音字母会通过拼音输入法给出中文候选；点一个热搜词就直接搜它。
+
 搜索页是一个文本框、LVGL 键盘和 `lv_ime_pinyin`，后者按固件提供的字典逐个音节输入中文：
 
 ```mermaid
@@ -2085,6 +2097,10 @@ if (bars_visible && !paused && k_uptime_get() - last_touch > HIDE_MS) {
 
 ### 账号
 
+![扫码登录后的“我的”页：账号数据和退出登录按钮](figures/bilibili-account.webp)
+
+登录后的“我的”页：头像、名字和“已登录”，一行说明推荐已经按账号更新，退出登录按钮，以及硬币、动态、关注、粉丝四块数据。
+
 登录使用网页的二维码流程，开始时不需要任何 cookie：
 
 ```mermaid
@@ -2168,6 +2184,10 @@ n = snprintf(buf, sizeof(buf), "SESSDATA=%s\nbili_jct=%s\nDedeUserID=%s\n", acc.
 从此 `account_cookie()` 把它们加进每个请求的 `Cookie:` 行（见上面的 `headers()`）。启动时用 `/x/web-interface/nav` 检查保存的登录，服务器不接受时就丢弃（`login_check()`）。登录之后重新加载推荐（现在是个人的），“关注”标签出现，账号页显示用户名、头像（`cover_load_square()`）、硬币数以及来自 `/x/web-interface/nav/stat` 的数字。
 
 ### Wi-Fi
+
+![设置页：Wi-Fi 网络、音量和亮度](figures/bilibili-settings.webp)
+
+设置页。左边是无线网络卡片：扫描按钮、已连接的网络和断开、忘记按钮，以及扫描到的网络列表，标有已保存、加密和信号强度（照片里网络名做了模糊处理）。右边“声音与显示”是音量和亮度滑块。
 
 `src/net/wifi.c` 在 Zephyr 的 Wi-Fi 管理之上保持一个小状态机：
 
