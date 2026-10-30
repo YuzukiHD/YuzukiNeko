@@ -2,7 +2,7 @@
 title: "NekoBox - 媒体与游戏盒"
 ---
 
-NekoBox 是 YuzukiNeko 的媒体与游戏应用：触摸界面（LVGL，1024×768），有带时钟的主屏、TF 卡文件浏览器、视频播放器（MP4 H.264 + AAC）、支持双指缩放的照片查看器、NES / Game Boy / Game Boy Color / Game Boy Advance 游戏、计算器、USB 副屏、带网络校时的 Wi-Fi，以及设置界面。它是一个应用而不是模块，并且<strong>直接在 SPI NOR flash 中原地运行</strong>（XIP）。代码在 `zephyr-components/nekobox`。
+NekoBox 是 YuzukiNeko 的媒体与游戏应用：触摸界面（LVGL，1024×768），有带时钟的主屏、TF 卡文件浏览器、视频播放器（MP4 H.264 + AAC）、来自手机或 PC 的 DLNA 视频投屏、支持双指缩放的照片查看器、NES / Game Boy / Game Boy Color / Game Boy Advance 游戏、计算器、USB 副屏、带网络校时的 Wi-Fi，以及设置界面。它是一个应用而不是模块，并且<strong>直接在 SPI NOR flash 中原地运行</strong>（XIP）。代码在 `zephyr-components/nekobox`。
 
 每个功能都是一个有独立开关的<strong>特性</strong>（`CONFIG_NEKOBOX_FEATURE_*`）。关掉的特性不会被编译，也不会留下磁贴、设置行或文件类型；`main()` 里没有对应的 `#ifdef`。特性把自己提供的东西（界面、主屏磁贴、设置行、文件类型、启动步骤）登记在由链接器收集的记录里，所以新增特性只是新增一个目录，其他地方都不用改。
 
@@ -18,6 +18,7 @@ NekoBox 是 YuzukiNeko 的媒体与游戏应用：触摸界面（LVGL，1024×76
 | 游戏 | `NEKOBOX_FEATURE_GAMES` | NES（nofrendo）、Game Boy / Color（mGBA，从 flash 窗口运行）、Game Boy Advance（带 RISC-V 重编译器的 gpSP，ROM 最大 32 MiB） |
 | USB 副屏 | `NEKOBOX_FEATURE_USB_DISPLAY` | 电脑的扩展屏，带触摸 |
 | 网络 | `NEKOBOX_FEATURE_NET` | Wi-Fi（AIC8800，保存密码）和 NTP 校时 |
+| DLNA | `NEKOBOX_FEATURE_DLNA` | 接收手机或 PC 的 H.264/AAC MP4 视频，带下载进度、播放控制和 Wi-Fi 设置 |
 | 蓝牙 | `NEKOBOX_FEATURE_BT` | 启动时检查一次，然后随芯片一起关闭；结果显示在设置里 |
 
 ```mermaid
@@ -26,7 +27,7 @@ flowchart TB
         direction TB
         MAIN["main()<br/>依次运行启动阶段"] --> UI["ui/ 界面管理器<br/>ui_goto(name)"]
         UI --- REG["注册表（链接器段）<br/>NEKOBOX_SCREEN / HOME_TILE /<br/>SETTINGS_ROW / FILE_HANDLER / INIT"]
-        FEAT["features/&lt;name&gt;/<br/>home files settings video photos<br/>calculator games usbdisplay net"] -->|"登记"| REG
+        FEAT["features/&lt;name&gt;/<br/>home files settings video photos<br/>calculator games usbdisplay net dlna"] -->|"登记"| REG
         CORE["core/ app storage cfg clock cpu"] --> UI
     end
     UI -->|"LVGL"| ARGB["ARGB 层 1024x768"]
@@ -63,7 +64,7 @@ LVGL 把界面画在 ARGB 帧缓冲层上。视频、照片、游戏和 USB 屏�
 ```mermaid
 flowchart LR
     A["env.sh"] --> B["west build -b yuzukineko<br/>-d build/nekobox"]
-    B --> C["ZEPHYR_EXTRA_MODULES：mgba、gbsp、nes、aic8800"]
+    B --> C["ZEPHYR_EXTRA_MODULES：mgba、gbsp、nes、aic8800、dlna"]
     C --> D["build/nekobox/zephyr/zephyr.bin"]
 ```
 
@@ -73,7 +74,7 @@ cd ~/f101-zephyr
 west build -b yuzukineko -d build/nekobox zephyr-components/nekobox
 ```
 
-顶层 `CMakeLists.txt` 通过 `ZEPHYR_EXTRA_MODULES` 加入放在应用旁边的模拟器和 Wi-Fi 模块（`../mgba`、`../gbsp`、`../nes`、`../aic8800`），命令行不需要再传参数。输出是 `build/nekobox/zephyr/zephyr.bin`；镜像链接在 XIP 窗口，而不是像其他示例那样链接在 `0x40000000`。
+顶层 `CMakeLists.txt` 通过 `ZEPHYR_EXTRA_MODULES` 加入放在应用旁边的模拟器、Wi-Fi 和 DLNA 模块（`../mgba`、`../gbsp`、`../nes`、`../aic8800`、`../dlna`），命令行不需要再传参数。输出是 `build/nekobox/zephyr/zephyr.bin`；镜像链接在 XIP 窗口，而不是像其他示例那样链接在 `0x40000000`。
 
 ## 运行：从 flash 原地执行
 
@@ -162,11 +163,65 @@ nekobox: 1024 x 768
 - <strong>主屏</strong>：上方是时钟和日期，下面是磁贴（视频、文件、照片、USB 副屏、NES、Game Boy、计算器、设置）。点击时钟可设置时间。
 - <strong>文件</strong>：一次显示一个目录，滑动滚动，点名字打开。“视频”这样的磁贴打开的浏览器只列这一类文件。
 - <strong>视频</strong>：播放/暂停、拖动条、音量、前后跳 10 秒；控制条 4 秒后隐藏，点一下再出来。最近播放的 20 个视频连同离开时的位置被记下，再次打开会接着播。
+- <strong>DLNA</strong>：启动或停止接收，查看设备名称和连接状态，并打开 Wi-Fi 设置。投屏到达时先打开这个页面显示加载进度，再切换到播放器；退出播放后回到这里。
 - <strong>照片</strong>：滑动或用两侧按钮切换；双指缩放，单指平移，双击切换缩放，点一下隐藏控件。
 - <strong>游戏</strong>：画面上叠半透明屏幕按键，可多指同时按（游戏代码跟踪 5 个触摸槽；本配置的触摸驱动报告 2 个点）。游戏存档每 3 秒写一次。
-- <strong>设置</strong>：时间、Wi-Fi、蓝牙、校时、亮度、深色/浅色、强调色、关于。
+- <strong>设置</strong>：时间、Wi-Fi、DLNA 接收开关、蓝牙、校时、亮度、深色/浅色、强调色、关于。
 
 游戏运行时后台活动会被暂停：Wi-Fi 芯片关闭、卡扫描等待，让模拟器用上全部 CPU。
+
+## DLNA 视频投屏
+
+### 开始接收
+
+1. 插入可写的 TF 卡，并让 NekoBox 连上 Wi-Fi。下载中的视频会缓存在卡上。
+2. 打开主屏的 **DLNA** 磁贴。如果尚未连接网络，可以直接点这个页面的 **Wi-Fi settings**。
+3. 点击 **Start receiving**。页面会显示设备名称（默认 **NekoBox**）和当前连接状态。设置里的 **Cast to this player (DLNA)** 开关控制同一个接收器，开关状态会保存在卡上。
+4. 让手机或 PC 接入同一局域网。在支持 DLNA 的视频应用里选择 **360p 或更低清晰度**，打开投屏菜单，选择 NekoBox 页面显示的设备名。
+5. 等待初始缓冲后，可以从发送端控制播放、暂停、拖动、停止和音量，也可以使用板上的播放控件。退出播放器会回到 DLNA 页面，点击 **Stop receiving** 可关闭接收。
+
+离开 DLNA 页面后接收器仍然可用。启用期间 Wi-Fi 会保持连接，开机网络检查后也不会关掉；运行游戏时仍会暂停后台网络。投屏文件是临时文件，不会进入最近视频列表或续播记录。
+
+```mermaid
+sequenceDiagram
+    participant C as 手机或 PC
+    participant D as DLNA 接收器
+    participant H as HTTP 媒体服务器
+    participant S as TF 卡
+    participant P as 播放器
+    C->>D: 发现并选择 NekoBox
+    C->>D: 媒体地址和 Play
+    D->>H: HTTP GET
+    H-->>S: 视频数据
+    Note over S,P: 完整 MP4 头和初始缓冲就绪
+    S->>P: 下载继续的同时开始读取
+    C->>D: 暂停、拖动、音量或停止
+    D->>P: 控制播放
+```
+
+### 格式与缓冲
+
+DLNA 把媒体地址交给接收器，由接收器下载并播放视频，不会镜像手机桌面。当前支持 **HTTP 地址的普通 H.264/AAC MP4**，包括 chunked 响应和没有已知内容长度的响应。不支持 HTTPS、播放列表和 fragmented MP4。
+
+默认投屏上限是 **640×360**，竖屏允许 **360×640**。需要在发送应用里选择较低清晰度：DLNA 无法强制应用提供 360p 片源。NekoBox 会在打开解码器前检查所选资源的元数据和 MP4 实际头部，缺失或错误的元数据无法绕过限制。超限投屏会停止，并提示选择更低清晰度。本地文件仍使用各自的解码限制。
+
+完整的 MP4 影片头（`moov`）和 **512 KiB** 初始缓冲到达后开始播放；较小文件下载完成后即可播放。影片头位于文件末尾时，需要等整个文件下载完成。加载时间由网速和头部位置决定，暂停后继续或拖到尚未下载的位置时，可能还要等待更多数据。
+
+### 配置与排查
+
+在配置文件中使用下列 Kconfig 名称时，需要加 `CONFIG_` 前缀：
+
+| 选项 | 默认 | 说明 |
+| --- | --- | --- |
+| `NEKOBOX_FEATURE_DLNA` | y | 编译接收器、主屏磁贴和设置开关，需要网络、视频和设置特性 |
+| `NEKOBOX_DLNA_NAME` | `NekoBox` | 发送端投屏列表中的设备名 |
+| `NEKOBOX_DLNA_BUFFER_KB` | 512 | 初始缓冲大小，单位 KiB，同时还要等 MP4 头完整 |
+| `NEKOBOX_DLNA_MAX_WIDTH`、`NEKOBOX_DLNA_MAX_HEIGHT` | 640、360 | 视频尺寸上限，也接受旋转后的尺寸 |
+| `NEKOBOX_DLNA_DIR` | `/SD:/dlna` | TF 卡上的临时下载目录，接收器启动时会清理 |
+
+如果发送端找不到设备，先检查接收是否启用、Wi-Fi 是否连接，以及两台设备在局域网中是否互通。访客网络、客户端隔离或屏蔽多播会影响发现。投屏失败时，DLNA 页面会显示加载、网络、存储卡、格式或尺寸错误；检查卡的剩余空间，并尝试 360p 的 HTTP H.264/AAC MP4。手机能访问的公网地址，板子不一定也能访问。
+
+可复用协议模块在 `zephyr-components/dlna`，接收界面和下载 worker 在 `nekobox/src/features/dlna/`。播放器通过 `player_file.c` 刷新增长中的 FAT 文件，在播放线程等待已发布字节，并在播放请求改变时取消等待。下载内容同步到卡后才公布为可读，缓冲等待期间会暂停显示时钟。协议和流式播放的主机检查入口是组件仓库中的 `dlna/tests/host/run.sh` 与 `nekobox/tests/streaming/run.sh`。
 
 ## 它是怎么做的
 
@@ -185,6 +240,7 @@ nekobox: 1024 x 768
 | 照片 | `src/features/photos/` | JPEG 和 PNG，双指缩放和平移 |
 | 游戏 | `src/features/games/` | NES、Game Boy、Game Boy Color、Game Boy Advance |
 | 网络 | `src/features/net/` | 不用时就关闭的 Wi-Fi、校时、蓝牙检查 |
+| DLNA | `src/features/dlna/`、`../dlna/` | 接收页面、控制、HTTP 下载，以及可复用的 UPnP 协议模块 |
 | USB 副屏 | `src/features/usbdisplay/` | 给 PC 用的 motion-JPEG 显示器和触摸屏 |
 
 ### 启动流程
@@ -2053,7 +2109,7 @@ static uint32_t pad_mask(void)
 
 ### 一个线程，一个队列，一个多数时候关着的芯片
 
-Wi-Fi 芯片和里面的蓝牙耗电也占内存，而射频很少需要。所以 `net.c` 让芯片保持**关闭**，在有事要做时（扫描、连接、校时）启动它，在 30 秒没有请求之后以及游戏期间再关掉它。这一切由一个从队列取请求的线程完成；界面只投递请求和读取状态：
+Wi-Fi 芯片和里面的蓝牙耗电也占内存，而射频很少需要。所以 `net.c` 让芯片保持**关闭**，在有事要做时（扫描、连接、校时）启动它，在 30 秒没有请求之后以及游戏期间再关掉它。DLNA 这样的监听服务通过 `app_net_keep_awake(true)` 保持连接，关闭服务后才恢复空闲超时。这一切由一个从队列取请求的线程完成；界面只投递请求和读取状态：
 
 ```mermaid
 stateDiagram-v2
@@ -2068,7 +2124,7 @@ stateDiagram-v2
     LINK_CONNECTED --> LINK_ONLINE: DHCP
     LINK_CONNECTING --> LINK_FAILED
     LINK_CONNECTED --> LINK_FAILED
-    LINK_ONLINE --> LINK_OFF: 空闲 30 秒或游戏开始
+    LINK_ONLINE --> LINK_OFF: 无监听服务且空闲 30 秒，或游戏开始
 ```
 
 ```c
@@ -2119,7 +2175,7 @@ static void radio_off(void)
 ```mermaid
 flowchart TD
     A["net 线程循环"] --> B["k_msgq_get(requests, 2 s)"]
-    B -- "超时" --> C{"芯片开着且空闲 30 秒？"}
+    B -- "超时" --> C{"芯片开着、无监听服务且空闲 30 秒？"}
     C -- "是" --> D["radio_off"]
     B -- "收到请求" --> E{"cmd"}
     E -- "SCAN / CONNECT" --> F["radio_on → do_scan 或 do_connect"]
@@ -2132,7 +2188,7 @@ flowchart TD
 for (;;) {
 	if (k_msgq_get(&requests, &req, K_SECONDS(2)) != 0) {
 		/* nothing asked for 2 s: switch the chip off when it has been idle for 30 s */
-		if (radio_up && k_uptime_get() - last_use > IDLE_OFF_S * 1000) {
+		if (radio_up && !keep_awake && k_uptime_get() - last_use > IDLE_OFF_S * 1000) {
 			radio_off();
 		}
 		continue;
@@ -2148,7 +2204,7 @@ for (;;) {
 }
 ```
 
-启动时线程把芯片启动一次，检查蓝牙（`bt_probe()`），连接保存的网络看它是否可用，然后再把芯片关掉；设置界面显示的就是这个结果。游戏通过登记的钩子把芯片挂起（`net_hold()` 投递 `CMD_PAUSE`）。
+启动时线程把芯片启动一次，检查蓝牙（`bt_probe()`），连接保存的网络看它是否可用。接收器需要网络时保留连接，否则再把芯片关掉；设置界面显示的就是这个结果。游戏通过登记的钩子把芯片挂起（`net_hold()` 投递 `CMD_PAUSE`），退出游戏后若接收器仍启用，会再次唤醒网络。
 
 ### 扫描、连接和事件
 
@@ -2590,11 +2646,11 @@ src/
     registry.h       NEKOBOX_SCREEN、NEKOBOX_HOME_TILE、NEKOBOX_SETTINGS_ROW、NEKOBOX_FILE_HANDLER
     theme widgets time_dialog
   gfx/             LVGL 的绘制加速（向量混合、2D 引擎）
-  features/<name>/ 每个特性一个目录：CMakeLists.txt、Kconfig、源码
+  features/<name>/  每个特性一个目录：CMakeLists.txt、Kconfig、源码
   debug/           统计与自测（NEKOBOX_DEBUG）
 ```
 
-特性有：`home`、`files`、`settings`（`brightness_row.c`、`theme_rows.c`）、`video`（`player*.c` 是引擎，`ui_player.c`、`recent.c`、`history.c`）、`photos`、`calculator`、`games`、`usbdisplay`、`net`（`net.c`、`wifi_ui.c`、`bt.c`）。
+特性有：`home`、`files`、`settings`（`brightness_row.c`、`theme_rows.c`）、`video`（`player*.c` 是引擎，`ui_player.c`、`recent.c`、`history.c`）、`photos`、`calculator`、`games`、`usbdisplay`、`net`（`net.c`、`wifi_ui.c`、`bt.c`）、`dlna`（`cast.c`、`fetch.c`、`ui_cast.c`、`settings_row.c`）。
 
 ## 配置选项
 
@@ -2625,6 +2681,7 @@ src/
 - 界面文字只有英文：LVGL 字体里没有中文字形。
 - AAC 只播放 44.1 和 48 kHz。
 - 视频：H.264 4:2:0 8 位帧图像，以 [VDEC 驱动](../drivers/vdec.md)支持的为准；照片：JPEG 基线 4:2:0 和 PNG。
+- DLNA：HTTP H.264/AAC MP4，默认最大 640×360 或 360×640，不支持 HTTPS、播放列表和 fragmented MP4。
 - GBA 游戏的 ROM 一部分在内存里（缓冲，默认 6 MiB），一部分按页从卡里读；切换场景时可能有卡顿。见 [gpSP 页](gpsp.md)。
 - 游戏期间 Wi-Fi 和蓝牙都关闭，Wi-Fi 启动约需 2.5 s。
 - 没有实体按键输入，一切都靠触摸屏（本配置里触摸驱动设置为 2 个点，`CONFIG_INPUT_GT967_MAX_TOUCH_POINTS=2`）。

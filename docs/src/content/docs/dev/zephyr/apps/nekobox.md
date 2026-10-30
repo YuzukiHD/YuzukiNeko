@@ -2,7 +2,7 @@
 title: "NekoBox - media and game box"
 ---
 
-NekoBox is the media and game application of the YuzukiNeko: a touch user interface (LVGL, 1024×768) with a home screen and a clock, a file browser for the TF card, a video player (MP4 H.264 + AAC), a photo viewer with pinch zoom, NES / Game Boy / Game Boy Color / Game Boy Advance games, a calculator, the USB second screen, Wi-Fi with network time and a settings screen. It is an application, not a module, and it runs <strong>in place from the SPI NOR flash</strong> (XIP). The code is in `zephyr-components/nekobox`.
+NekoBox is the media and game application of the YuzukiNeko: a touch user interface (LVGL, 1024×768) with a home screen and a clock, a file browser for the TF card, a video player (MP4 H.264 + AAC), DLNA video casting from a phone or PC, a photo viewer with pinch zoom, NES / Game Boy / Game Boy Color / Game Boy Advance games, a calculator, the USB second screen, Wi-Fi with network time and a settings screen. It is an application, not a module, and it runs <strong>in place from the SPI NOR flash</strong> (XIP). The code is in `zephyr-components/nekobox`.
 
 Every function is a <strong>feature</strong> with a switch of its own (`CONFIG_NEKOBOX_FEATURE_*`). A feature that is switched off is not built and leaves no tile, no settings row and no file type behind; `main()` has no `#ifdef` for it. The features register what they offer (screens, home tiles, settings rows, file types, start steps) in records that the linker collects, so a new feature is a new directory and nothing else has to be edited.
 
@@ -18,6 +18,7 @@ Every function is a <strong>feature</strong> with a switch of its own (`CONFIG_N
 | Games | `NEKOBOX_FEATURE_GAMES` | NES (nofrendo), Game Boy / Color (mGBA, runs from the flash window), Game Boy Advance (gpSP with the RISC-V recompiler, ROMs up to 32 MiB) |
 | USB Display | `NEKOBOX_FEATURE_USB_DISPLAY` | second screen of a PC, with touch |
 | Network | `NEKOBOX_FEATURE_NET` | Wi-Fi (AIC8800, saved passwords) and the time from NTP |
+| DLNA | `NEKOBOX_FEATURE_DLNA` | receive H.264/AAC MP4 videos from a phone or PC, with download progress, playback controls and Wi-Fi settings |
 | Bluetooth | `NEKOBOX_FEATURE_BT` | checked once at start and then switched off with the chip; the result is shown in the settings |
 
 ```mermaid
@@ -26,7 +27,7 @@ flowchart TB
         direction TB
         MAIN["main()<br/>runs the start stages"] --> UI["ui/ screen manager<br/>ui_goto(name)"]
         UI --- REG["registries (linker sections)<br/>NEKOBOX_SCREEN / HOME_TILE /<br/>SETTINGS_ROW / FILE_HANDLER / INIT"]
-        FEAT["features/&lt;name&gt;/<br/>home files settings video photos<br/>calculator games usbdisplay net"] -->|"register"| REG
+        FEAT["features/&lt;name&gt;/<br/>home files settings video photos<br/>calculator games usbdisplay net dlna"] -->|"register"| REG
         CORE["core/ app storage cfg clock cpu"] --> UI
     end
     UI -->|"LVGL"| ARGB["ARGB plane 1024x768"]
@@ -63,7 +64,7 @@ The slot has no card-detect signal, so a thread tries to mount a missing card ev
 ```mermaid
 flowchart LR
     A["env.sh"] --> B["west build -b yuzukineko<br/>-d build/nekobox"]
-    B --> C["ZEPHYR_EXTRA_MODULES: mgba, gbsp, nes, aic8800"]
+    B --> C["ZEPHYR_EXTRA_MODULES: mgba, gbsp, nes, aic8800, dlna"]
     C --> D["build/nekobox/zephyr/zephyr.bin"]
 ```
 
@@ -73,7 +74,7 @@ cd ~/f101-zephyr
 west build -b yuzukineko -d build/nekobox zephyr-components/nekobox
 ```
 
-The top `CMakeLists.txt` adds the emulator and Wi-Fi modules that sit next to the application (`../mgba`, `../gbsp`, `../nes`, `../aic8800`) with `ZEPHYR_EXTRA_MODULES`, so nothing has to be passed on the command line. The output is `build/nekobox/zephyr/zephyr.bin`; the image is linked into the XIP window, not at `0x40000000` like the other samples.
+The top `CMakeLists.txt` adds the emulator, Wi-Fi and DLNA modules that sit next to the application (`../mgba`, `../gbsp`, `../nes`, `../aic8800`, `../dlna`) with `ZEPHYR_EXTRA_MODULES`, so nothing has to be passed on the command line. The output is `build/nekobox/zephyr/zephyr.bin`; the image is linked into the XIP window, not at `0x40000000` like the other samples.
 
 ## Running: XIP from the flash
 
@@ -162,11 +163,65 @@ While it runs, `ui: worst redraw <n> ms, <n> slower than 30 ms` appears every 5 
 - <strong>Home</strong>: the clock and the date at the top, the tiles below (Videos, Files, Photos, USB Display, NES, Game Boy, Calculator, Settings). Tap the clock to set the time.
 - <strong>Files</strong>: one directory at a time, swipe to scroll, tap a name to open it. A tile such as Videos opens the browser for that kind of file only.
 - <strong>Videos</strong>: play/pause, a seek slider, volume, skip by 10 seconds; the controls hide after 4 seconds and a tap brings them back. The videos played last (20) are kept with the position they were left at; opening one of them again continues there.
+- <strong>DLNA</strong>: start or stop the receiver, see its device name and connection status, and open Wi-Fi settings. A cast opens this page to show loading progress, then switches to the player; leaving playback returns here.
 - <strong>Photos</strong>: swipe or use the side buttons for the next photo; two fingers pinch to zoom, one finger pans, a double tap toggles zoom, a tap hides the controls.
 - <strong>Games</strong>: semi-transparent on-screen keys over the picture, several fingers at once (the game code tracks 5 touch slots; the touch driver of this build reports 2 points). The game's save is written every 3 seconds.
-- <strong>Settings</strong>: time, Wi-Fi, Bluetooth, time sync, brightness, dark/light, accent colour, about.
+- <strong>Settings</strong>: time, Wi-Fi, DLNA receiver switch, Bluetooth, time sync, brightness, dark/light, accent colour, about.
 
 Background activity is held back while a game runs: the Wi-Fi chip is switched off and the card scan waits, so the emulator gets all of the CPU.
+
+## DLNA video casting
+
+### Start receiving
+
+1. Insert a writable TF card and connect NekoBox to Wi-Fi. The card buffers the video while it downloads.
+2. Open the **DLNA** tile on the home screen. Use **Wi-Fi settings** on this page if a network has not been joined.
+3. Tap **Start receiving**. The page shows the device name, **NekoBox** by default, and the current connection status. The **Cast to this player (DLNA)** switch in Settings controls the same receiver; its state is saved on the card.
+4. Connect the phone or PC to the same local network. In a video application with DLNA support, choose **360p or lower**, open its casting menu and select the device name shown on NekoBox.
+5. Wait for the initial buffer, then control play, pause, seek, stop and volume from the sender or use the player controls on the board. Leaving the player returns to the DLNA page. **Stop receiving** switches off the receiver.
+
+The receiver remains available after leaving its page. While enabled, it keeps Wi-Fi on, including after the boot network check; playing a game still suspends background networking. Cast files are temporary and do not enter the recent-video list or resume history.
+
+```mermaid
+sequenceDiagram
+    participant C as Phone or PC
+    participant D as DLNA receiver
+    participant H as HTTP media server
+    participant S as TF card
+    participant P as Player
+    C->>D: discover and select NekoBox
+    C->>D: media URL and Play
+    D->>H: HTTP GET
+    H-->>S: video bytes
+    Note over S,P: complete MP4 header and initial buffer
+    S->>P: start reading while download continues
+    C->>D: pause, seek, volume or stop
+    D->>P: playback control
+```
+
+### Formats and buffering
+
+DLNA sends a media address to the receiver, which downloads and plays the video. It does not mirror the phone's desktop. The current receiver supports ordinary **H.264/AAC MP4 over HTTP**, including chunked responses and responses without a known content length. HTTPS, playlists and fragmented MP4 are unsupported.
+
+The default cast limit is **640×360**, or **360×640** for portrait video. Select the lower quality in the sending app: DLNA cannot force the app to provide a 360p stream. NekoBox checks the selected resource's metadata and the actual MP4 header before opening the decoder, so missing or incorrect metadata cannot bypass the limit. An oversized cast is stopped with a prompt to choose a lower quality. Local files keep their own decoder limits.
+
+Playback starts after the complete MP4 movie header (`moov`) and an initial **512 KiB** buffer have arrived, or when a smaller download completes. A file with its header at the end must finish downloading first. Network speed and the position of that header determine the loading time; pausing or seeking beyond the downloaded part can require more data.
+
+### Configuration and troubleshooting
+
+These Kconfig names use the `CONFIG_` prefix in a configuration file:
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `NEKOBOX_FEATURE_DLNA` | y | build the receiver, home tile and settings switch; requires network, video and settings features |
+| `NEKOBOX_DLNA_NAME` | `NekoBox` | device name in the sender's cast list |
+| `NEKOBOX_DLNA_BUFFER_KB` | 512 | initial buffer in KiB, in addition to a complete MP4 header |
+| `NEKOBOX_DLNA_MAX_WIDTH`, `NEKOBOX_DLNA_MAX_HEIGHT` | 640, 360 | maximum video dimensions; rotated dimensions are accepted |
+| `NEKOBOX_DLNA_DIR` | `/SD:/dlna` | temporary downloads on the TF card; the receiver cleans this directory at startup |
+
+If the device is missing from the sender's list, check that receiving is enabled, Wi-Fi is connected, and both devices can communicate on the local network. Guest networks, client isolation or blocked multicast can prevent discovery. If a cast fails, the DLNA page reports the loading, network, card, format or size error; check the card's free space and try an HTTP H.264/AAC MP4 at 360p. A public URL that the phone can access is not necessarily reachable from the board.
+
+The reusable protocol module is `zephyr-components/dlna`; the receiver UI and download worker are in `nekobox/src/features/dlna/`. The player uses `player_file.c` to refresh growing FAT files, wait for published bytes in the playback threads, and cancel waits when playback requests change. Downloads publish readable data after syncing the card, and buffering pauses the presentation clock. The protocol and streaming host checks are `dlna/tests/host/run.sh` and `nekobox/tests/streaming/run.sh` in the components repository.
 
 ## How it is built
 
@@ -185,6 +240,7 @@ This part explains the modules of NekoBox, one by one, with the code that does t
 | Photos | `src/features/photos/` | JPEG and PNG, pinch zoom and pan |
 | Games | `src/features/games/` | NES, Game Boy, Game Boy Color and Game Boy Advance |
 | Network | `src/features/net/` | Wi-Fi that is off when not used, time sync, Bluetooth check |
+| DLNA | `src/features/dlna/`, `../dlna/` | receiver page, controls, HTTP downloads and the reusable UPnP protocol module |
 | USB second screen | `src/features/usbdisplay/` | motion-JPEG display and a touch screen for the PC |
 
 ### The start sequence
@@ -2053,7 +2109,7 @@ The emulator thread calls `pad_mask()` at the start of every frame, and a 33 ms 
 
 ### One thread, one queue, a chip that is usually off
 
-The Wi-Fi chip and the Bluetooth in it draw power and memory, and the radio is rarely needed. `net.c` therefore keeps the chip **off**, starts it when something needs it (a scan, a connect, a time sync), and switches it off again after 30 seconds without a request, and during games. All of this is done by one thread that takes requests from a queue; the screens only post requests and read the state:
+The Wi-Fi chip and the Bluetooth in it draw power and memory, and the radio is rarely needed. `net.c` therefore keeps the chip **off**, starts it when something needs it (a scan, a connect, a time sync), and switches it off again after 30 seconds without a request, and during games. A listening service such as DLNA uses `app_net_keep_awake(true)` to retain the connection; disabling it lets the idle timeout work again. All of this is done by one thread that takes requests from a queue; the screens only post requests and read the state:
 
 ```mermaid
 stateDiagram-v2
@@ -2068,7 +2124,7 @@ stateDiagram-v2
     LINK_CONNECTED --> LINK_ONLINE: DHCP
     LINK_CONNECTING --> LINK_FAILED
     LINK_CONNECTED --> LINK_FAILED
-    LINK_ONLINE --> LINK_OFF: 30 s idle or a game
+    LINK_ONLINE --> LINK_OFF: 30 s idle without a listener, or a game
 ```
 
 ```c
@@ -2119,7 +2175,7 @@ static void radio_off(void)
 ```mermaid
 flowchart TD
     A["net thread loop"] --> B["k_msgq_get(requests, 2 s)"]
-    B -- "timeout" --> C{"radio up and 30 s idle?"}
+    B -- "timeout" --> C{"radio up, no listener and 30 s idle?"}
     C -- "yes" --> D["radio_off"]
     B -- "request" --> E{"cmd"}
     E -- "SCAN / CONNECT" --> F["radio_on → do_scan or do_connect"]
@@ -2132,7 +2188,7 @@ flowchart TD
 for (;;) {
 	if (k_msgq_get(&requests, &req, K_SECONDS(2)) != 0) {
 		/* nothing asked for 2 s: switch the chip off when it has been idle for 30 s */
-		if (radio_up && k_uptime_get() - last_use > IDLE_OFF_S * 1000) {
+		if (radio_up && !keep_awake && k_uptime_get() - last_use > IDLE_OFF_S * 1000) {
 			radio_off();
 		}
 		continue;
@@ -2148,7 +2204,7 @@ for (;;) {
 }
 ```
 
-At boot the thread starts the chip once, checks Bluetooth (`bt_probe()`), joins the saved network to see that it works and switches the chip off again; the result is what the settings screen shows. A game puts the chip on hold through the registered hook (`net_hold()` posts `CMD_PAUSE`).
+At boot the thread starts the chip once, checks Bluetooth (`bt_probe()`) and joins the saved network to see that it works. It retains the connection if a receiver needs it, otherwise it switches the chip off again; the result is what the settings screen shows. A game puts the chip on hold through the registered hook (`net_hold()` posts `CMD_PAUSE`); leaving the game wakes the network again if the receiver is enabled.
 
 ### Scan, connect and the events
 
@@ -2590,11 +2646,11 @@ src/
     registry.h       NEKOBOX_SCREEN, NEKOBOX_HOME_TILE, NEKOBOX_SETTINGS_ROW, NEKOBOX_FILE_HANDLER
     theme widgets time_dialog
   gfx/             drawing accelerators for LVGL (vector blends, 2D engine)
-  features/<name>/ one directory per feature: CMakeLists.txt, Kconfig, sources
+  features/<name>/  one directory per feature: CMakeLists.txt, Kconfig, sources
   debug/           statistics and the self tests (NEKOBOX_DEBUG)
 ```
 
-Features: `home`, `files`, `settings` (`brightness_row.c`, `theme_rows.c`), `video` (`player*.c` engine, `ui_player.c`, `recent.c`, `history.c`), `photos`, `calculator`, `games`, `usbdisplay`, `net` (`net.c`, `wifi_ui.c`, `bt.c`).
+Features: `home`, `files`, `settings` (`brightness_row.c`, `theme_rows.c`), `video` (`player*.c` engine, `ui_player.c`, `recent.c`, `history.c`), `photos`, `calculator`, `games`, `usbdisplay`, `net` (`net.c`, `wifi_ui.c`, `bt.c`), `dlna` (`cast.c`, `fetch.c`, `ui_cast.c`, `settings_row.c`).
 
 ## Configuration options
 
@@ -2625,6 +2681,7 @@ Main `prj.conf` settings: `XIP`; `SDHC` / FAT / exFAT / long names with `FS_FATF
 - The text of the user interface is English only: the LVGL fonts have no Chinese glyphs.
 - AAC is played at 44.1 and 48 kHz only.
 - Videos: H.264 4:2:0 8-bit frame pictures, as the [VDEC driver](../drivers/vdec.md) supports; photos: JPEG baseline 4:2:0 and PNG.
+- DLNA: HTTP H.264/AAC MP4, at most 640×360 or 360×640 by default; HTTPS, playlists and fragmented MP4 are unsupported.
 - The ROM of a GBA game is partly in memory (the buffer, 6 MiB by default) and partly paged from the card; a scene change can cost a stutter. See the [gpSP page](gpsp.md).
 - Wi-Fi and Bluetooth are off during games, and a Wi-Fi start takes about 2.5 s.
 - There is no physical key input; everything is the touchscreen (the touch driver is configured for 2 points in this build, `CONFIG_INPUT_GT967_MAX_TOUCH_POINTS=2`).
