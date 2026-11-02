@@ -2,6 +2,11 @@
 title: "Set up the development environment"
 ---
 
+:::note[Version scope]
+Zephyr 4.2.2 and 4.5.0 coexist. The original examples, captures and target results on this page use the 4.2.2 baseline; 4.5 changes are identified separately. Select matching kernel and component branches and separate environments/build directories using the [version and migration guide](zephyr-4-5.md). A 4.5 build or host-test pass does not update the version of an existing board result.
+:::
+
+
 This page prepares everything needed on a Linux host to build YuzukiNeko Zephyr programs: system dependencies, a Python virtual environment, west, the XuanTie toolchain, and xfel for downloading. Once it is done, the next page, [Get the Zephyr source](zephyr-get-source.md), has somewhere to put the code.
 
 :::caution
@@ -35,13 +40,13 @@ sudo apt install --no-install-recommends git cmake ninja-build gperf \
   xz-utils file make gcc gcc-multilib g++-multilib libsdl2-dev libmagic1
 ```
 
-Zephyr 4.2 has the following minimum version requirements for the main tools; check them after installing:
+Minimum versions for both releases are listed below. The `.venv` and `env.sh` procedure below retains the 4.2.2 environment; use a separate environment for 4.5 as described in the [version and migration guide](zephyr-4-5.md).
 
-| Tool | Minimum version | Check command |
-| --- | --- | --- |
-| CMake | 3.20.5 | `cmake --version` |
-| Python | 3.10 | `python3 --version` |
-| Devicetree compiler (dtc) | 1.4.6 | `dtc --version` |
+| Tool | 4.2.2 minimum | 4.5.0 minimum | Check command |
+| --- | --- | --- | --- |
+| CMake | 3.20.5 | 3.28 | `cmake --version` |
+| Python | 3.10 | 3.12 | `python3 --version` |
+| dtc | 1.4.6 | 1.4.6 | `dtc --version` |
 
 :::tip
 `gcc-multilib` / `g++-multilib` are only needed to run native simulation on the host; building for the F101 target does not depend on them. They do not exist on ARM64 hosts, so drop them from the command.

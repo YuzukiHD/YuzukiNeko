@@ -2,6 +2,11 @@
 title: "MicroPython - Python REPL 与脚本"
 ---
 
+:::note[版本范围]
+Zephyr 4.2.2 与 4.5.0 并存。本页原有示例、录像及板上结果使用 4.2.2 基线，4.5 的变化另行说明。请按[版本与迁移指南](../zephyr-4-5.md)选择配套的内核、组件分支及独立环境和构建目录。4.5 编译或主机测试通过，不会改变已有板上结果的版本归属。
+:::
+
+
 在板子上运行 [MicroPython](https://micropython.org/)：控制台上有 Python REPL，用 `machine` 访问引脚和外设，TF 卡作为文件系统挂载，可以驱动 LCD，另有一个 `f101` 模块，提供 MicroPython 没有通用绑定的硬件（芯片 ID、2D 加速器和音频输出）。应用是<strong>未经修改的 MicroPython Zephyr 移植</strong>（git 子模块，MIT）；`zephyr-components/micropython` 补充了板级配置、Zephyr 模块胶水和 `f101` 模块。它为 `yuzukineko` 板编译，REPL 在控制台上，即 UART1（PB0/PB1），115200。
 
 ```mermaid
@@ -12,7 +17,7 @@ flowchart TB
     F101 -->|"hwinfo"| SID["熔丝：芯片 ID"]
     F101 -->|"g2d_*"| G2D["2D 加速器"]
     F101 -->|"i2s + codec"| AUDIO["片上 codec"]
-    UART["UART3 控制台"] <-->|"键盘 + 输出"| MP
+    UART["UART1 控制台"] <-->|"键盘 + 输出"| MP
     MP -.->|"每一行输出"| SCR["屏幕控制台<br/>LCD 上 10x16 的字符网格"]
 ```
 
@@ -44,26 +49,30 @@ I2C 不在列表里：`i2c1` 是触摸屏，`i2c0` 是关闭的。需要的话�
 编译需要子模块：
 
 ```sh
-git submodule update --init
-git -C zephyr-components/micropython/micropython submodule update --init --depth 1 \
-	lib/oofatfs lib/littlefs lib/micropython-lib
+git -C zephyr-components submodule update --init micropython/micropython
+git -C zephyr-components/micropython/micropython submodule update --init --depth 1 lib/micropython-lib
 ```
 
 ## 编译
 
+4.5 也使用此 wrapper，输出目录改为 `build/zephyr-4.5.0/upy`；已通过构建，板上功能仍需复测。
+
+
 ```sh
 . ./env.sh
-zephyr-components/micropython/build.sh [build/upy] [-DCONFIG_MICROPY_HEAP_SIZE=...]
+zephyr-components/micropython/build.sh build/upy
 ```
 
 `build.sh` 先用交叉工具链配置，然后在<strong>不设置</strong> `CROSS_COMPILE` 的情况下编译：编译过程还会为主机编译 `mpy-cross`，设了 `CROSS_COMPILE` 就会把它编成 RISC-V 版，链接失败。它背后是下面这条 `west` 命令，应用是 `micropython/ports/zephyr`：
 
 ```sh
-west build -b yuzukineko -d build/upy --cmake-only micropython/ports/zephyr -- \
-	-DZEPHYR_EXTRA_MODULES=<本目录> \
-	-DEXTRA_CONF_FILE=conf/f101.conf \
-	-DEXTRA_DTC_OVERLAY_FILE=conf/f101.overlay \
-	-DUSER_C_MODULES=usermod/f101/micropython.cmake
+UPY_MODULE="$PWD/zephyr-components/micropython"
+west build -b yuzukineko -d build/upy --cmake-only "$UPY_MODULE/micropython/ports/zephyr" -- \
+  -DZEPHYR_EXTRA_MODULES="$UPY_MODULE" \
+  -DEXTRA_CONF_FILE="$UPY_MODULE/conf/f101.conf" \
+  -DEXTRA_DTC_OVERLAY_FILE="$UPY_MODULE/conf/f101.overlay" \
+  -DUSER_C_MODULES="$UPY_MODULE/usermod/f101/micropython.cmake"
+env -u CROSS_COMPILE cmake --build build/upy
 ```
 
 镜像链接在 `0x40000000`，与其他示例相同。构建目录之后的额外参数会传给 CMake。

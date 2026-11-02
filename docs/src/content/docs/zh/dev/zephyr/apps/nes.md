@@ -2,6 +2,11 @@
 title: "NES - FC 模拟器"
 ---
 
+:::note[版本范围]
+Zephyr 4.2.2 与 4.5.0 并存。本页原有示例、录像及板上结果使用 4.2.2 基线，4.5 的变化另行说明。请按[版本与迁移指南](../zephyr-4-5.md)选择配套的内核、组件分支及独立环境和构建目录。4.5 编译或主机测试通过，不会改变已有板上结果的版本归属。
+:::
+
+
 从 TF 卡读取 `.nes` 游戏并运行。模拟核心是 [nofrendo](https://github.com/ducalex/retro-go)，画面（RGB565）交给显示引擎的缩放视频层，声音经 I2S 送到片上 codec，手柄按键是画在 LVGL 上的半透明按钮，用触摸屏操作。代码在 `zephyr-components/nes`（nofrendo 加一层 Zephyr 胶水），示例是 `samples/nes_player`。
 
 ```mermaid

@@ -2,6 +2,11 @@
 title: "Video engine vdec"
 ---
 
+:::note[Version scope]
+Zephyr 4.2.2 and 4.5.0 coexist. The original examples, captures and target results on this page use the 4.2.2 baseline; 4.5 changes are identified separately. Select matching kernel and component branches and separate environments/build directories using the [version and migration guide](../zephyr-4-5.md). A 4.5 build or host-test pass does not update the version of an existing board result.
+:::
+
+
 The video engine on the F101 can decode <strong>JPEG</strong>, <strong>PNG</strong> and <strong>H.264</strong> in hardware. In Zephyr it is made into a device whose interface is `<zephyr/drivers/vdec.h>`, with the driver under `drivers/vdec/sunxi/`.
 
 | Codec | Usage | Output format |
@@ -18,6 +23,24 @@ What the output formats mean:
 | `VDEC_FORMAT_NV12` | 8-bit luma plane followed by a half-resolution interleaved Cb/Cr plane |
 | `VDEC_FORMAT_NV21` | Same, but the interleaving order is Cr/Cb |
 | `VDEC_FORMAT_RGBA8888` | 32-bit little-endian word with R in the most significant byte and A in the least significant byte (the byte order in memory is A, B, G, R) |
+
+
+
+## 4.5 fixtures and stream parsing
+
+Use `zephyr-components/examples/vdec_api` on 4.5. Its CMake includes the JPEG, PNG and H.264 sample `src/` directories; the fixture headers are `jpeg_cases.h`, `png_cases.h` and `h264_cases.h`. JPEG uses `jpg_s320x240`, PNG uses `png_rgba8`, and H.264 uses `h264_base` with `crc_base`. The MJPEG loop uses three 320×240 JPEGs: `jpg_s320x240`, `jpg_q2_test` and `jpg_q31_test`. The old generated `test_*.h` instructions and five-frame logs below describe the 4.2.2 tutorial, not the current fixtures.
+
+The maintained Annex B scanner accepts three- and four-byte start codes, and reads the NAL type after the actual prefix length. The current JPEG/PNG/H.264 samples perform case/CRC checks; do not enable the removed `CONFIG_SAMPLE_VDEC_DUMP` on 4.5. Successful compilation does not validate decoded output on the target.
+
+## Build the checked-in example on 4.5
+
+With the matching 4.5 branches and environment active, build the maintained example directly. The complete listings later in this article retain the 4.2.2 tutorial baseline; the example in the selected branch is the reference for current headers and API fields.
+
+```sh
+west build -b yuzukineko -d build/zephyr-4.5.0/vdec_api zephyr-components/examples/vdec_api
+```
+
+This configuration passed the 4.5 component build check for `yuzukineko`. It has no new 4.5 target log; use the [RAM or XIP flow](../zephyr-build-run.md) matching the actual image layout.
 
 ## Devicetree
 
@@ -496,7 +519,7 @@ int vdec_stream_open(const struct device *dev, const struct vdec_stream_config *
 | Parameter | Description |
 | --- | --- |
 | `dev` | Video engine device |
-| `config` | Stream configuration; for the fields see [struct vdec_stream_config](#struct-vdec-stream_config) |
+| `config` | Stream configuration; for the fields see [struct vdec_stream_config](#struct-vdec_stream_config) |
 | `stream` | Output; on success this receives the stream handle |
 
 | Return value | Meaning |

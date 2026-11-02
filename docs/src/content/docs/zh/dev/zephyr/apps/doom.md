@@ -2,6 +2,11 @@
 title: "Doom - 毁灭战士游戏"
 ---
 
+:::note[版本范围]
+Zephyr 4.2.2 与 4.5.0 并存。本页原有示例、录像及板上结果使用 4.2.2 基线，4.5 的变化另行说明。请按[版本与迁移指南](../zephyr-4-5.md)选择配套的内核、组件分支及独立环境和构建目录。4.5 编译或主机测试通过，不会改变已有板上结果的版本归属。
+:::
+
+
 在板子上运行 Doom：游戏引擎用 [doomgeneric](https://github.com/ozkl/doomgeneric)（GPL-2.0），平台层、文件访问和声音混音由 `zephyr-components/doom` 提供。示例是 `samples/doom_player`：从 TF 卡读 WAD 文件，320×200 的画面送到显示的视频层并缩放到整屏，音效从片上 codec 输出，屏幕上用 LVGL 画一组半透明的虚拟按键，用触摸屏操作。
 
 ```mermaid

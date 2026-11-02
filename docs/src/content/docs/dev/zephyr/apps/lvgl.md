@@ -2,6 +2,11 @@
 title: "LVGL - GUI"
 ---
 
+:::note[Version scope]
+Zephyr 4.2.2 and 4.5.0 coexist. The original examples, captures and target results on this page use the 4.2.2 baseline; 4.5 changes are identified separately. Select matching kernel and component branches and separate environments/build directories using the [version and migration guide](../zephyr-4-5.md). A 4.5 build or host-test pass does not update the version of an existing board result.
+:::
+
+
 LVGL is an embedded graphics library: widgets (buttons, labels, sliders, charts, …), styles, animations, and touch events all come ready-made. On the F101 with Zephyr, LVGL is built into the application as a west module (`modules/lib/gui/lvgl`, version 9.3.0), drawing to the screen through the standard display interface and reading the touchscreen through the standard input subsystem. No `zephyr-components` and no external assets are needed.
 
 ```mermaid
@@ -19,6 +24,13 @@ This page covers, in order: preparation, building and running the hello program,
 
 Before you start, first complete [Setting up the development environment](../zephyr-setup-env.md) and [Getting the Zephyr source](../zephyr-get-source.md).
 
+
+## LVGL versions and the maintained example
+
+The 4.2.2 manifest pins LVGL 9.3; 4.5 pins LVGL 9.6. Existing 9.3 benchmark logs and screenshots below are retained unchanged. For 4.5, the display-pipeline class, text/image-cache interfaces and custom RVV blend hooks were adapted to 9.6. Use the headers and renderer from the matching branch rather than copying internal 9.3 hooks.
+
+The maintained hello example is `zephyr-components/examples/lvgl_hello`. It and the upstream LVGL demo configurations passed the 4.5 build checks; fresh display/touch, scalar/vector comparison and performance results are still needed.
+
 ## Preparation
 
 | Item | Description |
@@ -28,7 +40,7 @@ Before you start, first complete [Setting up the development environment](../zep
 | Touch | the GT967 touch controller on the carrier board, at 0x5d on `i2c1`; in the devicetree it is the `touch` node, see [I2C](../drivers/i2c.md). It runs without touch too, you just cannot tap the widgets |
 | Assets | not needed. The fonts and icons are compiled into LVGL, and the demo images are compiled into the demo |
 | External hardware | only a board that can display. The official demo's music player makes no sound; it is only a UI |
-| hello program | `examples/lvgl_hello/`, source in [Creating a minimal UI](#creating-a-minimal-ui) below |
+| hello program | `zephyr-components/examples/lvgl_hello/`, source in [Creating a minimal UI](#creating-a-minimal-ui) below |
 
 :::note
 The commands and logs in this page are for the `yuzukineko` board (carrier board, DSI panel). `f101_evb` is a 1024×600 RGB panel with no GT967.
@@ -42,12 +54,12 @@ Run this in the workspace:
 ```sh
 . ~/f101-zephyr/env.sh
 cd ~/f101-zephyr
-west build -b yuzukineko -d build/lvgl-hello examples/lvgl_hello
+west build -b yuzukineko -d build/lvgl-hello zephyr-components/examples/lvgl_hello
 ```
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/apps-lvgl/build.cast" data-speed="6"></div>
 
-The output is `build/lvgl-hello/zephyr/zephyr.bin`, about 2.7 MB (2733692 bytes), linked at `0x40000000`, like any other Zephyr program. The 1.5 MiB framebuffer and the 64 KiB LVGL memory pool are static arrays and make up most of it.
+The output is `build/lvgl-hello/zephyr/zephyr.bin`, about 2.7 MB (2733692 bytes), linked at `0x40000000` as a RAM image. The 1.5 MiB framebuffer and the 64 KiB LVGL memory pool are static arrays and make up most of it.
 
 ## Running
 

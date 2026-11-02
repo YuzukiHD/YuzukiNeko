@@ -2,7 +2,12 @@
 title: "NekoBox - 媒体与游戏盒"
 ---
 
-NekoBox 是 YuzukiNeko 的媒体与游戏应用：触摸界面（LVGL，1024×768），有带时钟的主屏、TF 卡文件浏览器、视频播放器（MP4 H.264 + AAC）、来自手机或 PC 的 DLNA 视频投屏、支持双指缩放的照片查看器、NES / Game Boy / Game Boy Color / Game Boy Advance 游戏、计算器、USB 副屏、带网络校时的 Wi-Fi，以及设置界面。它是一个应用而不是模块，并且<strong>直接在 SPI NOR flash 中原地运行</strong>（XIP）。代码在 `zephyr-components/nekobox`。
+:::note[版本范围]
+Zephyr 4.2.2 与 4.5.0 并存。本页原有示例、录像及板上结果使用 4.2.2 基线，4.5 的变化另行说明。请按[版本与迁移指南](../zephyr-4-5.md)选择配套的内核、组件分支及独立环境和构建目录。4.5 编译或主机测试通过，不会改变已有板上结果的版本归属。
+:::
+
+
+NekoBox 是 YuzukiNeko 的媒体与游戏应用：触摸界面（LVGL，1024×768），有带时钟的主屏、TF 卡文件浏览器、视频播放器（MP4 H.264 + AAC）、来自手机或 PC 的 DLNA 视频投屏、Android Miracast 无线屏幕镜像、支持双指缩放的照片查看器、NES / Game Boy / Game Boy Color / Game Boy Advance 游戏、计算器、USB 副屏、带网络校时的 Wi-Fi，以及设置界面。它是一个应用而不是模块，并且<strong>直接在 SPI NOR flash 中原地运行</strong>（XIP）。代码在 `zephyr-components/nekobox`。
 
 每个功能都是一个有独立开关的<strong>特性</strong>（`CONFIG_NEKOBOX_FEATURE_*`）。关掉的特性不会被编译，也不会留下磁贴、设置行或文件类型；`main()` 里没有对应的 `#ifdef`。特性把自己提供的东西（界面、主屏磁贴、设置行、文件类型、启动步骤）登记在由链接器收集的记录里，所以新增特性只是新增一个目录，其他地方都不用改。
 
@@ -19,6 +24,7 @@ NekoBox 是 YuzukiNeko 的媒体与游戏应用：触摸界面（LVGL，1024×76
 | USB 副屏 | `NEKOBOX_FEATURE_USB_DISPLAY` | 电脑的扩展屏，带触摸 |
 | 网络 | `NEKOBOX_FEATURE_NET` | Wi-Fi（AIC8800，保存密码）和 NTP 校时 |
 | DLNA | `NEKOBOX_FEATURE_DLNA` | 接收手机或 PC 的 H.264/AAC MP4 视频，带下载进度、播放控制和 Wi-Fi 设置 |
+| Miracast | `NEKOBOX_FEATURE_MIRACAST` | Android 无线显示，进入自动接收，离开恢复普通 Wi-Fi 与 DLNA |
 | 蓝牙 | `NEKOBOX_FEATURE_BT` | 启动时检查一次，然后随芯片一起关闭；结果显示在设置里 |
 
 ```mermaid
@@ -27,7 +33,7 @@ flowchart TB
         direction TB
         MAIN["main()<br/>依次运行启动阶段"] --> UI["ui/ 界面管理器<br/>ui_goto(name)"]
         UI --- REG["注册表（链接器段）<br/>NEKOBOX_SCREEN / HOME_TILE /<br/>SETTINGS_ROW / FILE_HANDLER / INIT"]
-        FEAT["features/&lt;name&gt;/<br/>home files settings video photos<br/>calculator games usbdisplay net dlna"] -->|"登记"| REG
+        FEAT["features/&lt;name&gt;/<br/>home files settings video photos<br/>calculator games usbdisplay net dlna miracast"] -->|"登记"| REG
         CORE["core/ app storage cfg clock cpu"] --> UI
     end
     UI -->|"LVGL"| ARGB["ARGB 层 1024x768"]
@@ -57,14 +63,14 @@ LVGL 把界面画在 ARGB 帧缓冲层上。视频、照片、游戏和 USB 屏�
 
 要快速拖动视频，请让编码器每一到两秒放一个关键帧（`-g 30`）：拖动要从目标位置之前的关键帧开始解码，只有开头一个关键帧的文件拖动一次要几秒。
 
-卡槽没有插卡检测信号，所以有个线程每 3 秒尝试挂载缺失的卡，并发现不再响应的卡。播放器没有卡也能启动，卡出现后会自动接上（界面随后从卡里重新读取保存的主题和亮度）。
+应用当前未使用卡槽的插卡检测 GPIO，所以有个线程每 3 秒尝试挂载缺失的卡，并发现不再响应的卡。播放器没有卡也能启动，卡出现后会自动接上（界面随后从卡里重新读取保存的主题和亮度）。
 
 ## 编译
 
 ```mermaid
 flowchart LR
     A["env.sh"] --> B["west build -b yuzukineko<br/>-d build/nekobox"]
-    B --> C["ZEPHYR_EXTRA_MODULES：mgba、gbsp、nes、aic8800、dlna"]
+    B --> C["ZEPHYR_EXTRA_MODULES：mgba、gbsp、nes、aic8800、dlna、miracast"]
     C --> D["build/nekobox/zephyr/zephyr.bin"]
 ```
 
@@ -74,7 +80,7 @@ cd ~/f101-zephyr
 west build -b yuzukineko -d build/nekobox zephyr-components/nekobox
 ```
 
-顶层 `CMakeLists.txt` 通过 `ZEPHYR_EXTRA_MODULES` 加入放在应用旁边的模拟器、Wi-Fi 和 DLNA 模块（`../mgba`、`../gbsp`、`../nes`、`../aic8800`、`../dlna`），命令行不需要再传参数。输出是 `build/nekobox/zephyr/zephyr.bin`；镜像链接在 XIP 窗口，而不是像其他示例那样链接在 `0x40000000`。
+顶层 `CMakeLists.txt` 通过 `ZEPHYR_EXTRA_MODULES` 加入放在应用旁边的模拟器、Wi-Fi、DLNA 和 Miracast 模块（`../mgba`、`../gbsp`、`../nes`、`../aic8800`、`../dlna`、`../miracast`），命令行不需要再传参数。输出是 `build/nekobox/zephyr/zephyr.bin`；镜像链接在 XIP 窗口，而不是像其他示例那样链接在 `0x40000000`。
 
 ## 运行：从 flash 原地执行
 
@@ -93,14 +99,31 @@ flowchart LR
 ```
 
 ```sh
+mkdir -p out
+xfel version
 xfel spinor write 0x80000 build/nekobox/zephyr/zephyr.bin
-xfel write 0x20000 zephyr-components/nekobox/tools/xip-boot_fel.bin
+xfel spinor read 0x80000 "$(wc -c < build/nekobox/zephyr/zephyr.bin)" out/nekobox-readback.bin
+sha256sum build/nekobox/zephyr/zephyr.bin out/nekobox-readback.bin
+```
+
+先按[编译与运行](../zephyr-build-run.md)从当前 SyterKit 源码构建 loader。确认芯片 ID 为 `0x00193700`、写入输出无误、两个散列一致，再下载本次 loader：
+
+```sh
+xfel write 0x20000 out/syterkit/build/yuzukineko/app_sram/xip-boot/xip-boot_fel.bin
+```
+
+检查写入结果后，单独执行：
+
+```sh
 xfel exec 0x20000
 ```
 
-`tools/xip-boot_fel.bin` 是带保存采样点的加载器（没有这个的旧版本启动时没有任何输出，所以不要用旧版本覆盖它）。采样点保存在 flash 的参数区，这个流程不会动它。
+NOR `0x20000` 的采样参数与 loader 的 RAM 地址属于不同地址空间；此流程保留参数和空启动区。文中 312 MHz 与 540p 的性能现象属于旧构建记录，当前 loader 的时钟与 4.5 性能需按实际构建和实机结果确认。
 
 ### 完整 flash 镜像
+
+仅在需要可独立启动的整镜像时使用。本操作会覆盖 NOR 启动区和应用前的参数区，下一次上电不再自动进入 FEL；日常开发使用上面的 RAM loader 流程。
+
 
 `tools/mkimage.py` 把引导桩（`xip-boot_spi.bin`）放在 flash 开头、应用放在 `0x80000`，合成一个文件；应用之前的所有内容都会被覆盖。
 
@@ -170,7 +193,17 @@ nekobox: 1024 x 768
 
 游戏运行时后台活动会被暂停：Wi-Fi 芯片关闭、卡扫描等待，让模拟器用上全部 CPU。
 
+## Miracast 无线屏幕镜像
+
+首页的 **Miracast** 打开后自动启动接收器，在支持 Miracast 的 Android 手机上的无线显示／屏幕镜像菜单中选择 **NekoBox Miracast**。页面提供停止和重试，离开时结束播放并恢复普通 Wi-Fi 与先前启用的 DLNA。此功能不需要 TF 卡或 ADB，不支持仅有 Google Cast 的发送端。
+
+`CONFIG_NEKOBOX_FEATURE_MIRACAST=n` 移除实现与首页入口；`CONFIG_NEKOBOX_MIRACAST_NAME` 设置 1–32 字节的可打印 ASCII 名称。P2P GO 接管无线接口，不能与 STA/DLNA 并行。默认协商 640×480p60 H.264 与 LPCM，实际吞吐量需要上板确认。接收器、播放器、协议限制和验证入口见 [Miracast](miracast.md)。
+
+4.5 默认 NekoBox XIP 构建及 Miracast 生命周期主机检查已通过；真实手机发现、画面、声音与长时间运行尚未验证。功能位于 `src/features/miracast/`，复用 `../miracast/`；网络线程排队提交状态，UI 线程控制播放器与页面生命周期。
+
 ## DLNA 视频投屏
+
+可复用协议接口与媒体限制另见 [DLNA 组件](../components/dlna.md)。
 
 ### 开始接收
 
@@ -744,7 +777,7 @@ void ui_loop(void)
 
 ### 存储卡
 
-`storage.c` 在启动时挂载存储卡，之后由一个线程监视它。卡槽没有插卡检测信号，所以没有卡时每 3 秒尝试一次，已挂载的卡每两轮扫描读一次（扇区 0）。连续两次读失败就认为卡不在了：卸载它并改变世代计数，所有显示卡上数据的界面据此重新查看：
+`storage.c` 在启动时挂载存储卡，之后由一个线程监视它。应用当前未使用卡槽的插卡检测 GPIO，所以没有卡时每 3 秒尝试一次，已挂载的卡每两轮扫描读一次（扇区 0）。连续两次读失败就认为卡不在了：卸载它并改变世代计数，所有显示卡上数据的界面据此重新查看：
 
 ```mermaid
 stateDiagram-v2
@@ -2650,7 +2683,7 @@ src/
   debug/           统计与自测（NEKOBOX_DEBUG）
 ```
 
-特性有：`home`、`files`、`settings`（`brightness_row.c`、`theme_rows.c`）、`video`（`player*.c` 是引擎，`ui_player.c`、`recent.c`、`history.c`）、`photos`、`calculator`、`games`、`usbdisplay`、`net`（`net.c`、`wifi_ui.c`、`bt.c`）、`dlna`（`cast.c`、`fetch.c`、`ui_cast.c`、`settings_row.c`）。
+特性有：`home`、`files`、`settings`（`brightness_row.c`、`theme_rows.c`）、`video`（`player*.c` 是引擎，`ui_player.c`、`recent.c`、`history.c`）、`photos`、`calculator`、`games`、`usbdisplay`、`net`（`net.c`、`wifi_ui.c`、`bt.c`）、`dlna`（`cast.c`、`fetch.c`、`ui_cast.c`、`settings_row.c`）、`miracast`（接收页与生命周期）。
 
 ## 配置选项
 

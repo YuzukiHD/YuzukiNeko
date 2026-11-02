@@ -2,7 +2,12 @@
 title: "Zephyr development"
 ---
 
-[Zephyr](https://www.zephyrproject.org) is an open-source real-time operating system (RTOS) for resource-constrained devices. The F101 Zephyr support is a fork of upstream Zephyr: [`YuzukiHD/zephyr`](https://github.com/YuzukiHD/zephyr), default branch `zephyr-v4.2.2-f101`, based on Zephyr v4.2.2.
+:::note[Version scope]
+Zephyr 4.2.2 and 4.5.0 coexist. The original examples, captures and target results on this page use the 4.2.2 baseline; 4.5 changes are identified separately. Select matching kernel and component branches and separate environments/build directories using the [version and migration guide](zephyr-4-5.md). A 4.5 build or host-test pass does not update the version of an existing board result.
+:::
+
+
+[Zephyr](https://www.zephyrproject.org) is an open-source real-time operating system (RTOS) for resource-constrained devices. The F101 Zephyr support is a fork of upstream Zephyr: [`YuzukiHD/zephyr`](https://github.com/YuzukiHD/zephyr), retaining `zephyr-v4.2.2-f101` (4.2.2) alongside the separate `zephyr-v4.5.0-f101` (4.5.0) port branch; see the [version and migration guide](zephyr-4-5.md) for matching components.
 
 - <strong>SoC</strong>: `sun252i_f101`, one XuanTie C907 core (`rv32imafdcv`, with the vector extension and an optional Sv32 MMU), on-chip SRAM plus 16 MB PSRAM, with no external DDR.
 - <strong>Board support</strong>: `yuzukineko` (this board, console on UART1 at PB00/PB01) and `f101_evb` (the F101 evaluation board, console on UART3 at PE08/PE09).
@@ -13,6 +18,8 @@ title: "Zephyr development"
 The Zephyr board and driver code lives in the fork above, not in the YuzukiNeko hardware repository.
 :::
 
+The versions coexist for an approximately one-month transition: the plan is to complete the merge and stop maintaining 4.2.2 around 2026-12-02, then maintain 4.5. Original examples and target records keep their version scope.
+
 ## Where to start
 
 Read the following three pages in order and you can get a program running on the board:
@@ -21,12 +28,19 @@ Read the following three pages in order and you can get a program running on the
 | --- | --- |
 | [Set up the development environment](zephyr-setup-env.md) | Host dependencies, Python virtual environment, west, the XuanTie toolchain, `env.sh` |
 | [Get the Zephyr source](zephyr-get-source.md) | `west init` / `west update`, directory structure, Python dependencies, building `hello_world` to verify |
-| [Build and run](zephyr-build-run.md) | Three ways to run: download to RAM, xfel direct NOR write, UF2 drag-and-drop download |
+| [Build and run](zephyr-build-run.md) | RAM images, XIP development preserving FEL, and optional standalone/UF2 boot |
 
 Other pages:
 
 | Page | Description |
 | --- | --- |
+| [Versions and 4.5 changes](zephyr-4-5.md) | Coexistence, dependencies, API changes and verification scope |
+| [NekoBox](apps/nekobox.md) | Media, games, DLNA and Miracast home applications |
+| [Bilibili](apps/bilibili.md) | Online video client |
+| [MicroPython](apps/micropython.md) | Python REPL and peripheral scripts |
+| [PocketJS applications](apps/pocketjs.md) | Solid/TSX UI development, packaging, player and benchmark |
+| [Miracast](apps/miracast.md) | Android wireless display / screen mirroring |
+| [gpSP](apps/gpsp.md) | GBA emulator with dynamic recompilation |
 | [MP4 player](apps/mp4-player.md) | Play MP4 from a TF card: H.264 hardware decode + AAC software decode |
 | [ncnn - neural-network inference](apps/ncnn.md) | ncnn inference library + RVV, benchmark |
 | [Doom - game](apps/doom.md) | doomgeneric, touch-screen buttons |
@@ -58,20 +72,22 @@ Driver pages (each has a devicetree, Kconfig, one complete example per interface
 | [G2D 2D accelerator](drivers/g2d.md) | Fill, blit, rotate, YUV, blend |
 | [Video engine vdec](drivers/vdec.md) | JPEG, PNG, MJPEG, H.264 decoding |
 
-Component pages (the same specification, covering protocol stacks and libraries; each has an architecture diagram, a data-flow diagram and board logs):
+Component pages cover configuration, integration, interfaces and available verification for protocol stacks and libraries:
 
 | Page | Description |
 | --- | --- |
+| [PocketJS runtime](components/pocketjs.md) | QuickJS-ng, Rust UI, RGB565 rendering, G2D/RVV and resource ownership |
 | [CherryUSB - USB protocol stack](components/cherryusb.md) | Device stack, host stack, CDC ACM, MSC |
 | [SD - SD card protocol stack](components/sd.md) | SD subsystem, disk access, FAT filesystem |
 | [AIC8800 WIFI - wireless adapter driver](components/aic8800-wifi.md) | SDIO, firmware download, scan, connect |
 | [AIC8800 Bluetooth - Bluetooth driver](components/aic8800-bt.md) | HCI, advertising, scan, connect |
+| [DLNA](components/dlna.md) | UPnP renderer, progressive downloads and playback control |
 | [AAC - AAC decoder](components/aac.md) | OpenCORE AAC decoding |
 | [MP4 - MP4 demuxing](components/mp4.md) | moov parsing, sample reading, seek |
 
 ## Driver support
 
-The drivers are written to Zephyr's own APIs, and the devicetree bindings are in `dts/bindings/*/allwinner,sunxi-*.yaml`.
+The drivers are written to Zephyr's own APIs, and the devicetree bindings are in `dts/bindings/`.
 
 | Category | Description |
 | --- | --- |

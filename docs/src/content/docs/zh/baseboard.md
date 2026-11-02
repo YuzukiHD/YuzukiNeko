@@ -73,7 +73,7 @@ title: "YuzukiCube-M 底板"
 ## 装上底板后的引脚冲突
 
 - `PE0`–`PE5` 被 Wi-Fi 的 SDIO 占用，而模块的 I2S0 要用到 `PE4`，`PD6`–`PD9` 也被 `UART4`、`BT-RST-N`、`DSI-RST` 占住，所以<strong>底板上 I2S0 不可用</strong>。
-- 模块文档里 `PE10` 是板载音频功放使能；底板的功放使能改用 `PD4`（`PA-SHDN`），`PE10` 让给了 `WL-REG-ON`。
+- 当前 Zephyr 的 `yuzukineko` 板级使用 `PD4`（`PA-SHDN`）控制功放、`PE10` 控制 `WL-REG-ON`，与底板一致。EVB 的功放使能脚不同，不能套用其布线。
 - `PD0`–`PD3` 在模块上是普通 GPIO 或 SPI1，底板上用于触摸。
 
 ## 文件

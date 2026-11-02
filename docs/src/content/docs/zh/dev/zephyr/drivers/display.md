@@ -2,6 +2,11 @@
 title: "显示"
 ---
 
+:::note[版本范围]
+Zephyr 4.2.2 与 4.5.0 并存。本页原有示例、录像及板上结果使用 4.2.2 基线，4.5 的变化另行说明。请按[版本与迁移指南](../zephyr-4-5.md)选择配套的内核、组件分支及独立环境和构建目录。4.5 编译或主机测试通过，不会改变已有板上结果的版本归属。
+:::
+
+
 F101 的显示由一条固定的流水线组成：显示引擎（DE）把几个图层叠起来，时序控制器（TCON LCD）产生屏幕需要的时序，后面接一个编码器——并口 RGB、LVDS 或者 MIPI DSI——再接到屏幕上。Zephyr 里把整条流水线做成一个显示设备，应用用标准的 `<zephyr/drivers/display.h>` 写帧缓冲，驱动在 `drivers/display/sunxi/`。
 
 ```mermaid
@@ -32,6 +37,17 @@ flowchart LR
 | 背光 | PWM 背光（`pwm-backlight`）或 GPIO 背光（`gpio-backlight`） |
 | 面板初始化 | 设备树里的命令序列：上电时序、DSI 的 DCS/Generic 命令、软件模拟 SPI 的命令 |
 | 不支持 | 读帧缓冲、改像素格式、改方向（见后面的接口） |
+
+
+## 在 4.5 构建仓库内的示例
+
+激活配套的 4.5 分支和环境后，可直接构建维护中的示例。下文完整代码保留 4.2.2 教程基线，当前头文件与 API 字段以所选分支中的示例为准。
+
+```sh
+west build -b yuzukineko -d build/zephyr-4.5.0/display_api zephyr-components/examples/display_api
+```
+
+该配置已通过 `yuzukineko` 的 4.5 组件构建检查，尚无新的 4.5 板上日志；请按实际镜像布局选择 [RAM 或 XIP 流程](../zephyr-build-run.md)。
 
 ## 设备树
 

@@ -2,6 +2,11 @@
 title: "安卓投屏"
 ---
 
+:::note[版本范围]
+Zephyr 4.2.2 与 4.5.0 并存。本页原有示例、录像及板上结果使用 4.2.2 基线，4.5 的变化另行说明。请按[版本与迁移指南](../zephyr-4-5.md)选择配套的内核、组件分支及独立环境和构建目录。4.5 编译或主机测试通过，不会改变已有板上结果的版本归属。
+:::
+
+
 把安卓手机的屏幕投到板子的屏幕上，并把触摸和导航键传回手机。板子通过 WiFi 连到手机的 adbd（ADB over TCP），在手机上启动 [scrcpy](https://github.com/Genymobile/scrcpy) 的服务端，服务端把屏幕编码成 H.264 流发回来，板子用片上视频引擎解码，送到显示的视频层。示例是 `zephyr-components/android-screen-mirror/samples/mirror_player`，组件本身（ADB 客户端、配对、scrcpy 客户端）在同一个目录的 `src/` 里。
 
 ```mermaid
@@ -16,6 +21,19 @@ flowchart TB
 ```
 
 开始前请先完成 [配置开发环境](../zephyr-setup-env.md) 和 [获取 Zephyr 代码](../zephyr-get-source.md)。WiFi 部分用的是 [AIC8800 WIFI](../components/aic8800-wifi.md) 驱动，扫描、连接、DHCP 的细节看那一篇。
+
+
+## 4.5 加密变化与协议选择
+
+4.5 模块通过原生 Mbed TLS/PSA 配置启用 RSA、X.509、SHA、HKDF 和 AES-GCM，RSA 生成与 HKDF 改用 PSA API。使用 `CONFIG_MBEDTLS_SSL_PROTO_TLS1_3=y`，旧的 `mirror_mbedtls.h` 用户头文件已移除；仅在 4.2.2 分支保留旧头文件与配置。维护中的样例已在 4.5 构建，加密主机回归通过 ASan/UBSan 及独立的 RSA、证书和 HKDF/GCM 检查：
+
+```sh
+sh zephyr-components/android-screen-mirror/tests/host/run.sh
+```
+
+此主机测试需要 CMake、主机 C 编译器、Python 的 `cryptography` 包以及按 4.5 manifest 检出的 Mbed TLS／TF-PSA-Crypto 依赖。
+
+本接收器使用 ADB/scrcpy，需要开发者调试。希望使用手机的无线显示／屏幕镜像菜单且无需 ADB 时，请使用 [Miracast](miracast.md)。新的 4.5 固件尚未完成手机互通验证。
 
 ## 准备
 
@@ -301,7 +319,7 @@ wifi: address 192.168.1.55
 | `CONFIG_MIRROR_ADB_RX_BUFFER` | 262144 | 每条流的接收环形缓冲（字节）。满了以后接收线程等读者取走，TCP 窗口随之收紧 |
 | `CONFIG_MIRROR_ADB_TRACE` | 0 | 设为 1，每收到一个 ADB 包打印一行包头 |
 
-使用组件的应用还必须设 `CONFIG_MBEDTLS_USER_CONFIG_FILE="mirror_mbedtls.h"`，头文件在 `android-screen-mirror/include/`，用来打开 PEM、X.509 生成和 TLS 密钥导出等 mbed TLS 功能。
+4.2.2 基线使用 `CONFIG_MBEDTLS_USER_CONFIG_FILE="mirror_mbedtls.h"` 启用 PEM、X.509 生成和 TLS 密钥导出。4.5 已删除该头文件，改由组件原生 Kconfig 选择依赖，不要在 4.5 设置该用户配置。
 
 ### 示例（`samples/mirror_player/Kconfig`）
 
@@ -343,7 +361,7 @@ wifi: address 192.168.1.55
 | `CONFIG_NET_BUF_DATA_SIZE=1536` | 每个网络缓冲的数据区 |
 | `CONFIG_NET_IPV4_IGMP=y` | 加入 mDNS 组播组 |
 | `CONFIG_NET_CONTEXT_REUSEADDR=y`、`CONFIG_NET_CONTEXT_REUSEPORT=y` | mDNS 的 5353 端口复用 |
-| `CONFIG_MBEDTLS_TLS_VERSION_1_3=y` | 无线调试的 TLS 1.3 |
+| `CONFIG_MBEDTLS_TLS_VERSION_1_3=y` (4.2.2); `CONFIG_MBEDTLS_SSL_PROTO_TLS1_3=y` (4.5) | 无线调试的 TLS 1.3 |
 | `CONFIG_MBEDTLS_HEAP_SIZE=131072` | mbed TLS 专用堆，生成 RSA 密钥和 TLS 握手要用 |
 | `CONFIG_TEST_RANDOM_GENERATOR=y` | SoC 的随机数发生器还没有驱动，用伪随机源。ADB 密钥、TLS 和配对都用它，不能用于正式产品 |
 | `CONFIG_HEAP_MEM_POOL_SIZE=262144` | 内核堆，AIC8800 驱动从这里分配；ADB 收发缓冲和 1 MiB 的视频包缓冲用 `malloc()` |

@@ -2,7 +2,12 @@
 title: "NekoBox - media and game box"
 ---
 
-NekoBox is the media and game application of the YuzukiNeko: a touch user interface (LVGL, 1024×768) with a home screen and a clock, a file browser for the TF card, a video player (MP4 H.264 + AAC), DLNA video casting from a phone or PC, a photo viewer with pinch zoom, NES / Game Boy / Game Boy Color / Game Boy Advance games, a calculator, the USB second screen, Wi-Fi with network time and a settings screen. It is an application, not a module, and it runs <strong>in place from the SPI NOR flash</strong> (XIP). The code is in `zephyr-components/nekobox`.
+:::note[Version scope]
+Zephyr 4.2.2 and 4.5.0 coexist. The original examples, captures and target results on this page use the 4.2.2 baseline; 4.5 changes are identified separately. Select matching kernel and component branches and separate environments/build directories using the [version and migration guide](../zephyr-4-5.md). A 4.5 build or host-test pass does not update the version of an existing board result.
+:::
+
+
+NekoBox is the media and game application of the YuzukiNeko: a touch user interface (LVGL, 1024×768) with a home screen and a clock, a file browser for the TF card, a video player (MP4 H.264 + AAC), DLNA video casting from a phone or PC, Android Miracast wireless screen mirroring, a photo viewer with pinch zoom, NES / Game Boy / Game Boy Color / Game Boy Advance games, a calculator, the USB second screen, Wi-Fi with network time and a settings screen. It is an application, not a module, and it runs <strong>in place from the SPI NOR flash</strong> (XIP). The code is in `zephyr-components/nekobox`.
 
 Every function is a <strong>feature</strong> with a switch of its own (`CONFIG_NEKOBOX_FEATURE_*`). A feature that is switched off is not built and leaves no tile, no settings row and no file type behind; `main()` has no `#ifdef` for it. The features register what they offer (screens, home tiles, settings rows, file types, start steps) in records that the linker collects, so a new feature is a new directory and nothing else has to be edited.
 
@@ -19,6 +24,7 @@ Every function is a <strong>feature</strong> with a switch of its own (`CONFIG_N
 | USB Display | `NEKOBOX_FEATURE_USB_DISPLAY` | second screen of a PC, with touch |
 | Network | `NEKOBOX_FEATURE_NET` | Wi-Fi (AIC8800, saved passwords) and the time from NTP |
 | DLNA | `NEKOBOX_FEATURE_DLNA` | receive H.264/AAC MP4 videos from a phone or PC, with download progress, playback controls and Wi-Fi settings |
+| Miracast | `NEKOBOX_FEATURE_MIRACAST` | Android wireless display; starts on entry and restores normal Wi-Fi/DLNA on exit |
 | Bluetooth | `NEKOBOX_FEATURE_BT` | checked once at start and then switched off with the chip; the result is shown in the settings |
 
 ```mermaid
@@ -27,7 +33,7 @@ flowchart TB
         direction TB
         MAIN["main()<br/>runs the start stages"] --> UI["ui/ screen manager<br/>ui_goto(name)"]
         UI --- REG["registries (linker sections)<br/>NEKOBOX_SCREEN / HOME_TILE /<br/>SETTINGS_ROW / FILE_HANDLER / INIT"]
-        FEAT["features/&lt;name&gt;/<br/>home files settings video photos<br/>calculator games usbdisplay net dlna"] -->|"register"| REG
+        FEAT["features/&lt;name&gt;/<br/>home files settings video photos<br/>calculator games usbdisplay net dlna miracast"] -->|"register"| REG
         CORE["core/ app storage cfg clock cpu"] --> UI
     end
     UI -->|"LVGL"| ARGB["ARGB plane 1024x768"]
@@ -57,14 +63,14 @@ Put the files on a TF card (FAT or exFAT, long file names). Nothing is formatted
 
 For a quick seek in a video give the encoder a key frame every one or two seconds (`-g 30`): a seek has to decode from the key frame before the position, and a file with one key frame at the start takes seconds to seek.
 
-The slot has no card-detect signal, so a thread tries to mount a missing card every 3 seconds and notices a card that stops answering. The player starts without a card and picks it up when it appears (the interface then reloads the saved theme and brightness from it).
+The application does not currently use the slot’s card-detect GPIO, so a thread tries to mount a missing card every 3 seconds and notices a card that stops answering. The player starts without a card and picks it up when it appears (the interface then reloads the saved theme and brightness from it).
 
 ## Building
 
 ```mermaid
 flowchart LR
     A["env.sh"] --> B["west build -b yuzukineko<br/>-d build/nekobox"]
-    B --> C["ZEPHYR_EXTRA_MODULES: mgba, gbsp, nes, aic8800, dlna"]
+    B --> C["ZEPHYR_EXTRA_MODULES: mgba, gbsp, nes, aic8800, dlna, miracast"]
     C --> D["build/nekobox/zephyr/zephyr.bin"]
 ```
 
@@ -74,7 +80,7 @@ cd ~/f101-zephyr
 west build -b yuzukineko -d build/nekobox zephyr-components/nekobox
 ```
 
-The top `CMakeLists.txt` adds the emulator, Wi-Fi and DLNA modules that sit next to the application (`../mgba`, `../gbsp`, `../nes`, `../aic8800`, `../dlna`) with `ZEPHYR_EXTRA_MODULES`, so nothing has to be passed on the command line. The output is `build/nekobox/zephyr/zephyr.bin`; the image is linked into the XIP window, not at `0x40000000` like the other samples.
+The top `CMakeLists.txt` adds the emulator, Wi-Fi, DLNA and Miracast modules that sit next to the application (`../mgba`, `../gbsp`, `../nes`, `../aic8800`, `../dlna`, `../miracast`) with `ZEPHYR_EXTRA_MODULES`, so nothing has to be passed on the command line. The output is `build/nekobox/zephyr/zephyr.bin`; the image is linked into the XIP window, not at `0x40000000` like the other samples.
 
 ## Running: XIP from the flash
 
@@ -93,14 +99,31 @@ flowchart LR
 ```
 
 ```sh
+mkdir -p out
+xfel version
 xfel spinor write 0x80000 build/nekobox/zephyr/zephyr.bin
-xfel write 0x20000 zephyr-components/nekobox/tools/xip-boot_fel.bin
+xfel spinor read 0x80000 "$(wc -c < build/nekobox/zephyr/zephyr.bin)" out/nekobox-readback.bin
+sha256sum build/nekobox/zephyr/zephyr.bin out/nekobox-readback.bin
+```
+
+First build the loader from current SyterKit sources as described in [Build and run](../zephyr-build-run.md). Confirm chip ID `0x00193700`, successful write output and matching hashes, then download that loader:
+
+```sh
+xfel write 0x20000 out/syterkit/build/yuzukineko/app_sram/xip-boot/xip-boot_fel.bin
+```
+
+Check the write result, then execute separately:
+
+```sh
 xfel exec 0x20000
 ```
 
-`tools/xip-boot_fel.bin` is the loader with the saved sampling point (a stub without it starts silently, so do not replace it with an older build). The sampling point is kept in the parameter area of the flash and is not touched by this flow.
+The sampling parameters at NOR `0x20000` and the loader's RAM address are separate address spaces; this flow preserves the parameters and empty boot area. The 312 MHz/540p performance observations describe an older build; check the current loader's clocks and 4.5 performance against the actual build and target results.
 
 ### Complete flash image
+
+Use this only when a complete standalone boot image is required. It overwrites the NOR boot area and parameters before the application; the next power-on no longer enters FEL automatically. Use the RAM loader flow above for daily development.
+
 
 `tools/mkimage.py` puts the boot stub (`xip-boot_spi.bin`) at the start of the flash and the application at `0x80000` into one file; everything in front of the application is overwritten.
 
@@ -170,7 +193,17 @@ While it runs, `ui: worst redraw <n> ms, <n> slower than 30 ms` appears every 5 
 
 Background activity is held back while a game runs: the Wi-Fi chip is switched off and the card scan waits, so the emulator gets all of the CPU.
 
+## Miracast wireless screen mirroring
+
+The **Miracast** home tile starts receiving automatically. In a Miracast-capable Android phone's Wireless display / Screen mirroring menu, select **NekoBox Miracast**. The page provides stop/retry controls; leaving ends playback and restores normal Wi-Fi and previously enabled DLNA. No TF card or ADB is needed; Google-Cast-only sources are unsupported.
+
+`CONFIG_NEKOBOX_FEATURE_MIRACAST=n` removes the implementation and home entry. `CONFIG_NEKOBOX_MIRACAST_NAME` sets a name of 1–32 printable ASCII bytes. P2P GO owns the radio and cannot run alongside STA/DLNA. The default offer is 640×480p60 H.264 and LPCM; actual throughput needs target checks. See [Miracast](miracast.md) for the receiver/player, protocol limits and verification commands.
+
+The default NekoBox XIP build and Miracast lifecycle host checks passed on 4.5; actual phone discovery, picture, sound and extended running remain unverified. The feature is under `src/features/miracast/` and reuses `../miracast/`; network workers queue state changes, while the UI thread controls player and screen lifecycle.
+
 ## DLNA video casting
+
+See the [DLNA component](../components/dlna.md) for the reusable protocol interface and media limits.
 
 ### Start receiving
 
@@ -744,7 +777,7 @@ void ui_loop(void)
 
 ### The card
 
-`storage.c` mounts the card at the start and then watches it from a thread. The slot has no card-detect signal, so a missing card is tried every 3 seconds and a mounted card is read (sector 0) every second scan. Two failed reads in a row mean the card is gone: it is unmounted and the generation counter changes, which tells every screen that shows card data to look again:
+`storage.c` mounts the card at the start and then watches it from a thread. The application does not currently use the slot’s card-detect GPIO, so a missing card is tried every 3 seconds and a mounted card is read (sector 0) every second scan. Two failed reads in a row mean the card is gone: it is unmounted and the generation counter changes, which tells every screen that shows card data to look again:
 
 ```mermaid
 stateDiagram-v2
@@ -2650,7 +2683,7 @@ src/
   debug/           statistics and the self tests (NEKOBOX_DEBUG)
 ```
 
-Features: `home`, `files`, `settings` (`brightness_row.c`, `theme_rows.c`), `video` (`player*.c` engine, `ui_player.c`, `recent.c`, `history.c`), `photos`, `calculator`, `games`, `usbdisplay`, `net` (`net.c`, `wifi_ui.c`, `bt.c`), `dlna` (`cast.c`, `fetch.c`, `ui_cast.c`, `settings_row.c`).
+Features: `home`, `files`, `settings` (`brightness_row.c`, `theme_rows.c`), `video` (`player*.c` engine, `ui_player.c`, `recent.c`, `history.c`), `photos`, `calculator`, `games`, `usbdisplay`, `net` (`net.c`, `wifi_ui.c`, `bt.c`), `dlna` (`cast.c`, `fetch.c`, `ui_cast.c`, `settings_row.c`), `miracast` (receiver page and lifecycle).
 
 ## Configuration options
 

@@ -2,6 +2,11 @@
 title: "ncnn - 神经网络推理"
 ---
 
+:::note[版本范围]
+Zephyr 4.2.2 与 4.5.0 并存。本页原有示例、录像及板上结果使用 4.2.2 基线，4.5 的变化另行说明。请按[版本与迁移指南](../zephyr-4-5.md)选择配套的内核、组件分支及独立环境和构建目录。4.5 编译或主机测试通过，不会改变已有板上结果的版本归属。
+:::
+
+
 [ncnn](https://github.com/Tencent/ncnn) 是腾讯开源的轻量神经网络推理框架。`zephyr-components/ncnn` 把它做成一个 Zephyr 模块：ncnn 本身是子模块 `ncnn/ncnn`，用它自己的 CMake 工程另外编成静态库，再链进固件。F101 的 C907 核带 RISC-V 向量扩展（RVV 1.0，VLEN 128 位），模块在固件打开向量扩展时让 ncnn 使用它自带的 RVV 内核。
 
 组件自带一个 benchmark 示例 `samples/benchmark`：把 ncnn 的 `benchncnn` 编进固件，在板子上依次跑几个内置网络，从串口打印每个网络的单次推理耗时。<strong>这个示例不加载真实模型文件，也不输出识别结果</strong>，它测的是“这块板子跑某个网络要多久”。

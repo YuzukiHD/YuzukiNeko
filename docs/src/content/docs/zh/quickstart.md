@@ -65,6 +65,8 @@ title: "快速开始"
 
 适合需要完整 RTOS、驱动和多媒体功能的用户。Zephyr 的 `yuzukineko` 板级支持在 F101 工作区内，见 [Zephyr](dev/zephyr/index.md)。
 
+Zephyr 4.2.2 与 4.5.0 同时保留，先按[版本指南](dev/zephyr/zephyr-4-5.md)选择配套分支。开发优先用 RAM 下载或保留空启动区的 XIP loader 流程；独立启动镜像和 UF2 安装会改变自动 FEL 行为。应用入口见 [NekoBox](dev/zephyr/apps/nekobox.md)、[Miracast](dev/zephyr/apps/miracast.md) 与 [DLNA](dev/zephyr/components/dlna.md)。
+
 ## 下一步
 
 - 想接外设 → [引脚排布](hardware/pinout.md)

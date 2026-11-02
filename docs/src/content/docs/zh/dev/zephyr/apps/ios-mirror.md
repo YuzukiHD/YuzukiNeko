@@ -2,6 +2,11 @@
 title: "iOS 投屏 - AirPlay"
 ---
 
+:::note[版本范围]
+Zephyr 4.2.2 与 4.5.0 并存。本页原有示例、录像及板上结果使用 4.2.2 基线，4.5 的变化另行说明。请按[版本与迁移指南](../zephyr-4-5.md)选择配套的内核、组件分支及独立环境和构建目录。4.5 编译或主机测试通过，不会改变已有板上结果的版本归属。
+:::
+
+
 把 iPhone 的屏幕投到板子上：板子加入 WiFi，以 AirPlay 接收端的身份出现在 iPhone“控制中心 - 屏幕镜像”的列表里，iPhone 选中它以后，把屏幕内容编码成 H.264 流发过来，板子用片上视频引擎解码，直接送到显示的视频层。示例是 `zephyr-components/ios-screen-mirror/samples/ios_player`。
 
 组件 `ios-screen-mirror` 的协议部分来自 [RPiPlay](https://github.com/FD-/RPiPlay)（AirPlay 镜像接收端，含 FairPlay 握手），作为 git 子模块放在 `rpiplay/`。原库依赖的 OpenSSL、Bonjour（mDNSResponder）、libplist 在这里分别换成了 mbedTLS、Zephyr 自带的 DNS-SD 应答器和一个很小的二进制 plist 读写器（`src/plist.c`）。
@@ -24,6 +29,11 @@ flowchart TB
 :::caution[许可证：GPL-3.0]
 RPiPlay 的许可证是 GPL-3.0，所以整个 `ios-screen-mirror` 组件按 GPL-3.0 对待（`Kconfig` 的帮助文字、`CMakeLists.txt`、示例的源码头都写着 `GPL-3.0-or-later`；`src/ios_dnssd.c` 等少数文件头是 Apache-2.0，但它们和 RPiPlay 链接在同一个镜像里）。编进镜像并分发的固件，需要按 GPL-3.0 提供对应的源码。只想用其他协议的投屏，不要打开 `CONFIG_IOS_MIRROR`，不会链入这部分代码。
 :::
+
+
+## 4.5 兼容变化
+
+配套的 4.5 分支已为 Mbed TLS 4/TF-PSA-Crypto 更新 SHA-512、AES-CTR、AES-CBC 配置和加密头文件。请使用该分支的 Kconfig，不要复制旧私有头文件或加密配置。接收器已在 `yuzukineko` 上通过 4.5 编译；下文录像和 AirPlay 现象仍属于原有 4.2.2 验证范围，需要重新进行实体 iOS 设备的发现、播放和重连检查。
 
 ## 准备
 

@@ -23,6 +23,7 @@ Then open <http://localhost:4321/YuzukiNeko/>.
 To see the build result exactly as it is online:
 
 ```sh
+npm run check:i18n
 npm run build      # Output goes to docs/dist/
 npm run preview    # Preview the build result
 ```
@@ -30,3 +31,5 @@ npm run preview    # Preview the build result
 - The pages are Markdown files under `docs/src/content/docs/`; for the writing style and directory conventions see `docs/README.md`.
 - After changing a build plugin or the styles, if pages are still stale, delete `docs/.astro` and `docs/node_modules/.astro` and restart; Astro caches rendered results by page content.
 - After a push to `main`, GitHub Actions builds and publishes to GitHub Pages automatically.
+
+Add both language versions and update the sidebar for new articles. State the applicable Zephyr version (4.2.2/4.5), matching branches and verification conditions. Preserve real historical logs and distinguish compilation from target results. Before submitting, run the bilingual check, build the site and check local links in generated pages.

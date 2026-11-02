@@ -73,7 +73,7 @@ The base board has no battery or charging circuit; `VSYS-5V` comes entirely from
 ## Pin conflicts with the base board fitted
 
 - `PE0`–`PE5` are taken by the Wi-Fi SDIO, and the module's I2S0 needs `PE4`, while `PD6`–`PD9` are also taken by `UART4`, `BT-RST-N` and `DSI-RST`, so <strong>I2S0 is unavailable on the base board</strong>.
-- In the module documentation `PE10` is the onboard audio amplifier enable; the base board uses `PD4` (`PA-SHDN`) for amplifier enable instead and gives `PE10` to `WL-REG-ON`.
+- The current `yuzukineko` Zephyr board uses `PD4` (`PA-SHDN`) for amplifier enable and `PE10` for `WL-REG-ON`, matching this base board. The EVB uses a different amplifier-enable pin and its wiring must not be copied here.
 - On the module `PD0`–`PD3` are ordinary GPIO or SPI1; on the base board they are used for touch.
 
 ## Files

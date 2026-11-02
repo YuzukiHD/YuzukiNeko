@@ -2,17 +2,20 @@
 title: "编译与运行"
 ---
 
-这一页说明怎样编译 Zephyr 程序，并用三种方式把它放到 YuzukiNeko 上运行：
+:::note[版本范围]
+Zephyr 4.2.2 与 4.5.0 并存。本页原有示例、录像及板上结果使用 4.2.2 基线，4.5 的变化另行说明。请按[版本与迁移指南](zephyr-4-5.md)选择配套的内核、组件分支及独立环境和构建目录。4.5 编译或主机测试通过，不会改变已有板上结果的版本归属。
+:::
 
-| 方式 | 程序放在哪 | 断电后 | 需要 | 适合 |
-| --- | --- | --- | --- | --- |
-| [方式一：下载到 RAM 运行](#方式一下载到-ram-运行) | PSRAM | 丢失 | FEL + xfel | 开发调试，改一次跑一次 |
-| [方式二：xfel 直接写 NOR](#方式二xfel-直接写-nor) | SPI NOR | 保留，上电自动运行 | NOR 里有加载器；每次进 FEL + xfel | 固定一个程序，不想装 UF2 下载器 |
-| [方式三：UF2 拖放下载](#方式三uf2-拖放下载) | SPI NOR | 保留，上电自动运行 | NOR 里有加载器和 UF2 下载器；只需要 USB 线 | 日常下载的通用方式 |
 
-三种方式用的是<strong>同一个</strong> `zephyr.bin`，不需要分别编译。方式二和方式三都要先在 NOR 里装好加载器，见 [NOR 启动的共同基础](#nor-启动的共同基础)。
+本页适用于配套的 4.2.2 和 4.5.0 环境；4.5 使用独立构建目录，见[版本指南](zephyr-4-5.md)。先完成[环境配置](zephyr-setup-env.md)、[源码获取](zephyr-get-source.md)和 [FEL 工具安装](../../boot/fel.md)。
 
-开始前请先完成 [配置开发环境](zephyr-setup-env.md) 和 [获取 Zephyr 代码](zephyr-get-source.md)，并安装好 xfel（见 [FEL 下载模式与工具](../../boot/fel.md)）。
+| 镜像与用途 | 流程 | 断电后 |
+| --- | --- | --- |
+| 普通 RAM 应用 | FEL 初始化 PSRAM，再下载到 ELF 指定地址执行 | 镜像丢失 |
+| XIP 开发应用 | NOR `0x80000` 写应用并校验，从 RAM 执行当前 XIP loader | 应用保留；启动区为空时回到 FEL |
+| 可独立启动的 RAM 应用 | 可选的旧 NOR/UF2 布局，安装 `flash-boot` 与头页 | 自动从 NOR 加载到 RAM |
+
+**先检查镜像类型。** RAM 和 XIP 不能共用下载地址，也不能把 XIP `zephyr.bin` 交给旧 UF2 的 `app` 流程。开发默认保留 NOR 启动区为空，断电后可自动进入 FEL；下文的 NOR/UF2 安装是单独选择的独立启动方案。
 
 ## 编译
 
@@ -37,7 +40,7 @@ west build -b yuzukineko -d build/hello zephyr/samples/hello_world
 | `zephyr.bin` | 裸二进制，下载到板子的就是它 |
 | `zephyr.elf` | 带符号的 ELF，调试和看内存布局用 |
 
-镜像的链接地址和入口都是 `0x40000000`（PSRAM 的起点附近）。工具链是玄铁 900 的 newlib GCC，通过 `ZEPHYR_TOOLCHAIN_VARIANT=cross-compile` 接入，由 `env.sh` 设置。
+这里默认 hello-world 的 RAM 镜像使用 `0x40000000`；其他应用应核对 `zephyr/.config`、`zephyr/zephyr.dts` 及 ELF 的载入地址和入口。工具链是玄铁 900 的 newlib GCC，通过 `ZEPHYR_TOOLCHAIN_VARIANT=cross-compile` 接入，由 `env.sh` 设置。
 
 重新编译同一个目录用 `west build -d build/hello`；换了板级或想从头来，加 `-p always`。
 
@@ -85,9 +88,46 @@ picocom -b 115200 /dev/ttyUSB0
 - <strong>每次下载都要重新上电进入 FEL。</strong>`exec` 之后 CPU 已离开 BROM，FEL 不再可用。
 - 这条路径跳过了 boot0 和 u-boot，SoC 早期初始化（CPU CSR、控制台时钟）由 Zephyr 自己负责。
 - `exec` 之后不要再用 `xfel read32`、`hexdump` 查看状态，USB 链路已断。要查状态只能在 `exec` 之前。
-- `exec` 之后看到 `usb bulk send/recv error`，说明 CPU 已经在跑你的代码，属正常现象，但<strong>不代表 Zephyr 本身运行正常</strong>，以控制台输出为准。
+- `exec` 之后看到 `usb bulk send/recv error`，可能是 ROM USB 连接在跳转后断开；不能据此证明程序已经运行，以本次镜像的控制台输出为准。
+
+## XIP 开发：应用留在 NOR，loader 在 RAM 运行
+
+NekoBox、Bilibili 和 Miracast 的 XIP 配置使用此流程。两版 Zephyr 均需使用与当前 SPIF 布局匹配的 loader；不要盲用应用 `tools/` 中残留的旧 `.bin`。
+
+先获取当前 SyterKit 源码（尚未克隆时执行 `git clone https://github.com/YuzukiHD/SyterKit.git`），在已设置 `CROSS_COMPILE` 的工作区构建：
+
+```sh
+make -C SyterKit O=../out/syterkit CROSS_COMPILE="$CROSS_COMPILE" yuzukineko_rv32_sram_defconfig
+make -C SyterKit O=../out/syterkit CROSS_COMPILE="$CROSS_COMPILE" -j8 xip-boot
+```
+
+检查构建退出码、loader 来源、时间和 SHA-256。下例使用本次 NekoBox 的产物；其他应用替换为对应 XIP 构建目录：
+
+```sh
+mkdir -p out
+xfel version
+xfel spinor write 0x80000 build/nekobox/zephyr/zephyr.bin
+xfel spinor read 0x80000 "$(wc -c < build/nekobox/zephyr/zephyr.bin)" out/nekobox-readback.bin
+sha256sum build/nekobox/zephyr/zephyr.bin out/nekobox-readback.bin
+```
+
+只有芯片为 F101 `0x00193700`、scratchpad 为 `0x00020000` 且两个散列一致，才继续。多板连接时确认目标断电会使该 USB 设备消失。主机需要操作实际上传并核对的产物；PowerShell 用 `(Get-Item <file>).Length` 取长度，以 `Get-FileHash` 比较。
+
+```sh
+xfel write 0x20000 out/syterkit/build/yuzukineko/app_sram/xip-boot/xip-boot_fel.bin
+```
+
+检查写入结果后，单独执行：
+
+```sh
+xfel exec 0x20000
+```
+
+NOR 的 `0x20000` 保存采样参数，RAM 的 `0x20000` 装载 loader，属于不同地址空间。**不把 `xip-boot_spi.bin` 写到 NOR 起始位置**，保留自动 FEL。每轮下载重新进入 FEL；跳转后用串口判断启动，不再调用 `xfel read32`。完整地址布局见 [SPI NOR 布局与备份](../../boot/flash-layout.md)。
 
 ## NOR 启动的共同基础
+
+以下保留 4.2.2 文档的独立启动／UF2 安装流程及固定的 SyterKit 版本。只适用于普通 RAM 镜像；安装后会改变自动 FEL 行为，与上面的 XIP 开发布局互斥。
 
 方式二和方式三都把程序写进板载的 16 MiB SPI NOR，由 Flash 里的加载器在上电时取出来运行。这一节说明它是怎么工作的，以及怎样装加载器。
 
@@ -117,14 +157,11 @@ picocom -b 115200 /dev/ttyUSB0
 
 ### 准备工具
 
-`mkuf2.py` 在 `zephyr-components` 仓库里，是只依赖标准库的 Python 脚本，不用装额外的包。仓库的作用见 [获取 zephyr-components](zephyr-get-source.md#获取-zephyr-components)；已经克隆过的，跳过下面的 `git clone`：
+`mkuf2.py` 在 `zephyr-components` 仓库里，是只依赖标准库的 Python 脚本，不用装额外的包。仓库的作用见 [获取 zephyr-components](zephyr-get-source.md#应用与模块)；已经克隆过的，跳过下面的 `git clone`：
 
 ```sh
 cd ~/f101-zephyr
 git clone https://github.com/YuzukiHD/zephyr-components.git
-# 默认使用最新的 main。下面这行会固定到本文最初验证时的旧提交（2026-10-10），
-# 它早于 gbsp/ 和 nekobox/，除非确实需要那个版本，否则保持注释掉。
-# git -C zephyr-components checkout 282361ce5883bd65c228da584758e4796bf439e7
 mkdir -p out
 ```
 

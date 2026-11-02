@@ -36,7 +36,7 @@ You should check the SHA-256 both before and after writing.
 
 ## Common layouts
 
-How Flash is divided depends on which software set you have installed. The same board can have one of the following layouts; <strong>they are mutually incompatible</strong>, and switching between them requires rewriting the boot part.
+How Flash is divided depends on which software set you have installed. The same board can have one of the following layouts; <strong>they are mutually incompatible</strong>, standalone layouts need matching boot code, while XIP development preserves an empty boot area.
 
 ### RustSBI + Asterinas image
 
@@ -63,6 +63,16 @@ The complete image is written to `0x000000..0x6d0000`; `0x6d0000..0x1000000` is 
 
 The complete image covers <strong>the entire 16 MiB</strong>, including the overlay partition, so writing it discards the changes already persisted on the board. See [Prebuilt images](../dev/linux/linux-prebuilt.md) for details.
 
+### Zephyr XIP development layout (4.2.2 and 4.5)
+
+| Content | NOR offset | Notes |
+| --- | --- | --- |
+| Boot area | from `0x000000` | Keep free of a valid boot header so power-on enters FEL |
+| Sampling parameters | `0x020000` | Preserve; do not overwrite with an application or legacy UF2 loader |
+| XIP application | `0x080000` | Write the current application and read back the same length for verification |
+
+The current `xip-boot_fel.bin` executes from RAM `0x20000`; it is not written to NOR `0x20000`. The application maps at `0x0e000000`. See [Build and run](../dev/zephyr/zephyr-build-run.md) for the procedure and current loader build. Install NOR boot code only for an intentionally standalone image; full-image packaging overwrites the region before the application and requires separate handling of the parameters.
+
 ### UF2 layout
 
 | Content | NOR offset |
@@ -70,12 +80,14 @@ The complete image covers <strong>the entire 16 MiB</strong>, including the over
 | SyterKit loader (three copies) | `0x000000` / `0x010000` / `0x020000` |
 | Saved Flash sampling-point parameters | `0x02f000` |
 | System program header page (UF2 downloader) | `0x030000` |
-| Application header page (Zephyr application) | `0x200000` (at most about `0x4CF000` bytes) |
+| Application header page (Zephyr application) | `0x200000` (at most about `0x9F0000` bytes) |
+
+Application payload is limited to `0x9F0000` bytes plus a separate 4 KiB header; system payload is limited to `0x1CF000` bytes. This layout copies ordinary RAM images to PSRAM and cannot load an XIP image.
 
 See [UF2 drag-and-drop flashing](../dev/zephyr/zephyr-uf2.md) for details.
 
 :::tip
-The regions in the tables above overlap (for example, they all place SyterKit starting at `0x000000`), so <strong>do not mix layouts on the same Flash</strong>. When switching from one layout to another, write the complete boot part of the new layout and read it back with `xfel spinor read` to confirm.
+The regions in the tables above overlap (for example, standalone layouts place boot code at `0x000000`), so <strong>do not mix layouts on the same Flash</strong>. Choose the boot policy before changing layouts: retain an empty boot area for FEL development, or install matching boot code for standalone operation, then verify with `xfel spinor read`.
 :::
 
 ## Pre-write checklist

@@ -2,6 +2,11 @@
 title: "MP4 - MP4 解封装"
 ---
 
+:::note[版本范围]
+Zephyr 4.2.2 与 4.5.0 并存。本页原有示例、录像及板上结果使用 4.2.2 基线，4.5 的变化另行说明。请按[版本与迁移指南](../zephyr-4-5.md)选择配套的内核、组件分支及独立环境和构建目录。4.5 编译或主机测试通过，不会改变已有板上结果的版本归属。
+:::
+
+
 MP4 解封装库把一个 MP4（ISO base media file）文件里的 <strong>H.264 视频轨</strong>和 <strong>AAC 音频轨</strong>的样本表读进内存，然后按解码顺序一个一个给出样本在文件中的位置、大小、时间戳和是否关键帧。它不解码，也不读样本内容：拿到位置和大小之后，调用者自己去文件里读，再交给视频引擎 [vdec](../drivers/vdec.md) 或 AAC 解码器。
 
 库的源码是 `zephyr/lib/mp4/mp4.c`，头文件是 `zephyr/include/zephyr/mp4.h`，应用里 `#include <zephyr/mp4.h>`。Kconfig 在 `zephyr/lib/mp4/Kconfig`（选项 `CONFIG_MP4_DEMUX`），由 `zephyr/lib/Kconfig` 引入，`zephyr/lib/CMakeLists.txt` 在选项打开时编译它。库只用 `malloc()`/`free()` 和 `<zephyr/sys/byteorder.h>`，不依赖文件系统和任何设备。
@@ -9,6 +14,17 @@ MP4 解封装库把一个 MP4（ISO base media file）文件里的 <strong>H.264
 文件通过调用者给的读回调 `mp4_read_t` 访问，可以是内存数组、SD 卡上的 FAT 文件，或者其他能按偏移读的东西。库认识第一条 H.264 轨道（样本描述 `avc1` 或 `avc3`）和第一条 AAC 轨道（`mp4a`），其余轨道和编码忽略。样本表整个读进堆里，大小约 `4×样本数 + 4×块数 + 8×(stsc + stts + ctts 项数) + 4×关键帧数` 字节，下面用的 3 秒片段两条轨道加起来约 3 KB。
 
 本文只讲这个库本身。用它做的完整播放器见 [MP4 播放器](../apps/mp4-player.md)。
+
+
+## 在 4.5 构建仓库内的示例
+
+激活配套的 4.5 分支和环境后，可直接构建维护中的示例。下文完整代码保留 4.2.2 教程基线，当前头文件与 API 字段以所选分支中的示例为准。
+
+```sh
+west build -b yuzukineko -d build/zephyr-4.5.0/mp4_api zephyr-components/examples/mp4_api
+```
+
+该配置已通过 `yuzukineko` 的 4.5 组件构建检查，尚无新的 4.5 板上日志；请按实际镜像布局选择 [RAM 或 XIP 流程](../zephyr-build-run.md)。
 
 ## 架构与数据流
 

@@ -20,6 +20,10 @@ YuzukiNeko is a development board based on the <strong>Allwinner F101 series SoC
 | Flash ready-made firmware (RustSBI + Asterinas, Linux + Buildroot) | [RustSBI + Asterinas](dev/asterinas/rustsbi-asterinas.md), [Prebuilt Linux images](dev/linux/linux-prebuilt.md) |
 | Use the base board for display, Wi-Fi, CAN and audio | [YuzukiCube-M base board](baseboard.md) |
 | Write programs | [Zephyr development](dev/zephyr/index.md), [Linux development](dev/linux/index.md), [RustSBI + Asterinas](dev/asterinas/rustsbi-asterinas.md) |
+| Choose Zephyr 4.2.2 or 4.5.0 | [Versions and 4.5 changes](dev/zephyr/zephyr-4-5.md) |
+| Use a media and game box | [NekoBox](dev/zephyr/apps/nekobox.md), [Bilibili](dev/zephyr/apps/bilibili.md) |
+| Cast from a phone | [Miracast wireless display](dev/zephyr/apps/miracast.md), [DLNA video](dev/zephyr/components/dlna.md), [Android ADB](dev/zephyr/apps/android-mirror.md), [AirPlay](dev/zephyr/apps/ios-mirror.md) |
+| Build scripted interfaces | [MicroPython](dev/zephyr/apps/micropython.md), [PocketJS applications](dev/zephyr/apps/pocketjs.md) and [runtime component](dev/zephyr/components/pocketjs.md) |
 | Print an enclosure | [3D-printed enclosure](shell.md) |
 
 ## Board specifications
@@ -28,7 +32,7 @@ YuzukiNeko is a development board based on the <strong>Allwinner F101 series SoC
 | --- | --- |
 | SoC | F101S3, XuanTie C907 RISC-V CPU (rv32imacfdv, with 64-bit support), QFN68 (7 mm × 7 mm) |
 | Cache | 32 KB I-cache + 16 KB D-cache |
-| Memory | SiP 16-bit PSRAM, up to 16 MiB (16 MiB on this board; V1.5 targets the 32 MiB configuration) |
+| Memory | SiP 16-bit PSRAM: F101S3 16 MiB; F101S4 32 MiB with the matching board revision |
 | Storage | 16 MiB external NOR Flash with XIP support |
 | Expansion | Pico-style 2 × 20 pin header |
 | USB | USB-C connector; the SoC provides one USB 2.0 DRD controller |
@@ -38,6 +42,8 @@ YuzukiNeko is a development board based on the <strong>Allwinner F101 series SoC
 :::caution
 The onboard NOR Flash is a system resource: it holds the bootloader and the firmware. Erasing and writing it carelessly will stop the board from booting from Flash, so always [back it up](boot/flash-layout.md#back-up-the-whole-flash) first.
 :::
+
+Both Zephyr versions currently configure 16 MiB RAM in the board DTS; 32 MiB hardware does not imply that software enables or has verified the full capacity.
 
 ## SoC capabilities
 

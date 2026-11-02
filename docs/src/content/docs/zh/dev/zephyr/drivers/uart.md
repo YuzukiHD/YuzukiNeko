@@ -2,6 +2,11 @@
 title: "UART"
 ---
 
+:::note[版本范围]
+Zephyr 4.2.2 与 4.5.0 并存。本页原有示例、录像及板上结果使用 4.2.2 基线，4.5 的变化另行说明。请按[版本与迁移指南](../zephyr-4-5.md)选择配套的内核、组件分支及独立环境和构建目录。4.5 编译或主机测试通过，不会改变已有板上结果的版本归属。
+:::
+
+
 F101 有 6 个 UART（`uart0`…`uart5`）。Zephyr 里用的是上游的 NS16550 驱动（`drivers/serial/uart_ns16550.c`），因为 F101 的 UART 是 Synopsys DesignWare APB UART（16550 兼容）。F101 的移植只做了三件事：设备树节点、时钟/复位、让 SoC 默认选中 `UART_NS16550_DW8250_DW_APB`。接口是标准的 `<zephyr/drivers/uart.h>`。
 
 | 项目 | 内容 |
@@ -12,6 +17,39 @@ F101 有 6 个 UART（`uart0`…`uart5`）。Zephyr 里用的是上游的 NS1655
 | 校验 | 无、偶校验（奇校验返回 `-ENOTSUP`） |
 | 流控 | `uart_configure` 接受无、RTS/CTS、DTR/DSR 并记录；硬件自动流控见下面的说明 |
 | 接口 | 轮询（`uart_poll_in`/`uart_poll_out`）、中断（`uart_irq_*`、`uart_fifo_*`） |
+
+
+
+## 4.5 中断 API 变化
+
+4.5 的 `uart_irq_update()` 返回 `void`，下文旧的 `while (uart_irq_update(dev) && ...)` 属于 4.2.2 用法。维护中的中断处理先更新状态，再检查待处理工作：
+
+```c
+while (true) {
+	uart_irq_update(dev);
+	if (!uart_irq_is_pending(dev)) {
+		break;
+	}
+	if (uart_irq_rx_ready(dev)) {
+		rx_ready(dev);
+	}
+	if (uart_irq_tx_ready(dev)) {
+		tx_ready(dev);
+	}
+}
+```
+
+`rx_ready()` 和 `tx_ready()` 是 `examples/uart_api/src/main.c` 中的辅助函数。新应用不要读取 `uart_irq_update()` 的返回值。
+
+## 在 4.5 构建仓库内的示例
+
+激活配套的 4.5 分支和环境后，可直接构建维护中的示例。下文完整代码保留 4.2.2 教程基线，当前头文件与 API 字段以所选分支中的示例为准。
+
+```sh
+west build -b yuzukineko -d build/zephyr-4.5.0/uart_api zephyr-components/examples/uart_api
+```
+
+该配置已通过 `yuzukineko` 的 4.5 组件构建检查，尚无新的 4.5 板上日志；请按实际镜像布局选择 [RAM 或 XIP 流程](../zephyr-build-run.md)。
 
 ## 设备树
 

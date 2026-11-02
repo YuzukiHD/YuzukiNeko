@@ -2,6 +2,11 @@
 title: "PWM-BL - analog backlight"
 ---
 
+:::note[Version scope]
+Zephyr 4.2.2 and 4.5.0 coexist. The original examples, captures and target results on this page use the 4.2.2 baseline; 4.5 changes are identified separately. Select matching kernel and component branches and separate environments/build directories using the [version and migration guide](../zephyr-4-5.md). A 4.5 build or host-test pass does not update the version of an existing board result.
+:::
+
+
 PWM_BL is the module on the F101 dedicated to driving the LCD backlight, and it is a device separate from the general-purpose [PWM](pwm.md). It does not produce square waves of arbitrary frequency: it controls two on-chip boost (BOOST) circuits and adjusts the brightness of the backlight LEDs through the size of the "sink current"; dimming has both a digital and an analog form. In Zephyr it is the `pwm_bl` device, the interface is still the standard `<zephyr/drivers/pwm.h>`, and the driver is `drivers/pwm/pwm_sunxi_bl.c`.
 
 | Item | Content |
@@ -15,6 +20,17 @@ PWM_BL is the module on the F101 dedicated to driving the LCD backlight, and it 
 | Board | The RGB panel backlight of `f101_evb` is connected here; the backlight of `yuzukineko` is on channel 2 of the general-purpose PWM and does not use PWM_BL |
 
 The demonstration in this page runs on `yuzukineko`: an overlay switches `pwm_bl` on (using only PB2 and PB3, without touching the console on PB0 and PB1), and since no backlight on this board is connected to PWM_BL, the demonstration reads the module's registers back to see the brightness the driver wrote into them, without measuring the output.
+
+
+## Build the checked-in example on 4.5
+
+With the matching 4.5 branches and environment active, build the maintained example directly. The complete listings later in this article retain the 4.2.2 tutorial baseline; the example in the selected branch is the reference for current headers and API fields.
+
+```sh
+west build -b yuzukineko -d build/zephyr-4.5.0/pwm_bl_api zephyr-components/examples/pwm_bl_api
+```
+
+This configuration passed the 4.5 component build check for `yuzukineko`. It has no new 4.5 target log; use the [RAM or XIP flow](../zephyr-build-run.md) matching the actual image layout.
 
 ## Devicetree
 

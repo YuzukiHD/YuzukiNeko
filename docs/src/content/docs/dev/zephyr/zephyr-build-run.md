@@ -2,17 +2,20 @@
 title: "Building and running"
 ---
 
-This page explains how to build a Zephyr program and get it running on the YuzukiNeko in three ways:
+:::note[Version scope]
+Zephyr 4.2.2 and 4.5.0 coexist. The original examples, captures and target results on this page use the 4.2.2 baseline; 4.5 changes are identified separately. Select matching kernel and component branches and separate environments/build directories using the [version and migration guide](zephyr-4-5.md). A 4.5 build or host-test pass does not update the version of an existing board result.
+:::
 
-| Method | Where the program lives | After power-off | Requires | Suited to |
-| --- | --- | --- | --- | --- |
-| [Method 1: download to RAM and run](#method-1-download-to-ram-and-run) | PSRAM | Lost | FEL + xfel | Development and debugging; build once, run once |
-| [Method 2: write NOR directly with xfel](#method-2-write-nor-directly-with-xfel) | SPI NOR | Retained, runs automatically on power-up | A loader in NOR; enter FEL + xfel each time | One fixed program, without installing a UF2 downloader |
-| [Method 3: UF2 drag-and-drop download](#method-3-uf2-drag-and-drop-download) | SPI NOR | Retained, runs automatically on power-up | A loader and the UF2 downloader in NOR; only a USB cable | The general everyday download method |
 
-All three methods use <strong>the same</strong> `zephyr.bin`; there is no need to build separately for each. Methods 2 and 3 both require the loader to be installed in NOR first, see [The common basis for NOR boot](#the-common-basis-for-nor-boot).
+This page applies to matched 4.2.2 and 4.5.0 environments; use separate build outputs for 4.5 as described in the [version guide](zephyr-4-5.md). First complete [environment setup](zephyr-setup-env.md), [source setup](zephyr-get-source.md) and [FEL tool installation](../../boot/fel.md).
 
-Before you start, complete [Configuring the development environment](zephyr-setup-env.md) and [Getting the Zephyr source](zephyr-get-source.md), and install xfel (see [FEL download mode and tools](../../boot/fel.md)).
+| Image and purpose | Procedure | After power loss |
+| --- | --- | --- |
+| Ordinary RAM application | Initialize PSRAM through FEL, then download/execute at the ELF address | Image is lost |
+| XIP development application | Write/verify the app at NOR `0x80000`, then execute a current XIP loader from RAM | App remains; an empty boot area returns to FEL |
+| Standalone RAM application | Optional legacy NOR/UF2 layout with `flash-boot` and image headers | Automatically loads from NOR into RAM |
+
+**Check the image type first.** RAM and XIP do not share download addresses, and an XIP `zephyr.bin` cannot use the legacy UF2 `app` flow. Development preserves an empty NOR boot area so power cycling returns to FEL; the NOR/UF2 installation below is a separate choice for standalone boot.
 
 ## Building
 
@@ -37,7 +40,7 @@ The output is under `build/hello/zephyr/`:
 | `zephyr.bin` | Bare binary; this is what gets downloaded to the board |
 | `zephyr.elf` | ELF with symbols, for debugging and inspecting the memory layout |
 
-The image's link address and entry point are both `0x40000000` (near the start of PSRAM). The toolchain is the XuanTie 900 newlib GCC, wired in through `ZEPHYR_TOOLCHAIN_VARIANT=cross-compile`, set by `env.sh`.
+The default hello-world RAM image uses `0x40000000`; for other applications check `zephyr/.config`, `zephyr/zephyr.dts` and the ELF load address and entry. The toolchain is the XuanTie 900 newlib GCC, wired in through `ZEPHYR_TOOLCHAIN_VARIANT=cross-compile`, set by `env.sh`.
 
 To rebuild the same directory, use `west build -d build/hello`; if you changed the board or want to start over, add `-p always`.
 
@@ -85,9 +88,46 @@ Points to note:
 - <strong>Every download needs a fresh power-up into FEL.</strong> After `exec` the CPU has left the BROM and FEL is no longer available.
 - This path skips boot0 and u-boot, so the early SoC initialization (CPU CSR, console clock) is handled by Zephyr itself.
 - Do not use `xfel read32` or `hexdump` to check status after `exec`; the USB link is already gone. Status can only be checked before `exec`.
-- Seeing `usb bulk send/recv error` after `exec` means the CPU is already running your code, which is normal, but it <strong>does not mean Zephyr itself is running correctly</strong>; go by the console output.
+- Seeing `usb bulk send/recv error` after `exec` may mean the ROM USB connection disconnected after the jump; it does not establish execution. Check the current image’s console output.
+
+## XIP development: application in NOR, loader in RAM
+
+Use this flow for NekoBox, Bilibili and the Miracast XIP configuration. Both Zephyr versions require a loader matching the current SPIF layout; do not rely on a stale `.bin` in an application's `tools/` directory.
+
+Obtain current SyterKit sources first (run `git clone https://github.com/YuzukiHD/SyterKit.git` if not already cloned), then build in the workspace with `CROSS_COMPILE` set:
+
+```sh
+make -C SyterKit O=../out/syterkit CROSS_COMPILE="$CROSS_COMPILE" yuzukineko_rv32_sram_defconfig
+make -C SyterKit O=../out/syterkit CROSS_COMPILE="$CROSS_COMPILE" -j8 xip-boot
+```
+
+Check the build exit status, loader source revision, timestamp and SHA-256. This example uses the current NekoBox output; substitute the matching XIP build directory for another app:
+
+```sh
+mkdir -p out
+xfel version
+xfel spinor write 0x80000 build/nekobox/zephyr/zephyr.bin
+xfel spinor read 0x80000 "$(wc -c < build/nekobox/zephyr/zephyr.bin)" out/nekobox-readback.bin
+sha256sum build/nekobox/zephyr/zephyr.bin out/nekobox-readback.bin
+```
+
+Continue only for the F101 ID `0x00193700`, scratchpad `0x00020000`, and matching hashes. With multiple boards connected, confirm the USB device disappears when the target loses power. Use the actual uploaded and verified artifacts on the host; in PowerShell obtain length with `(Get-Item <file>).Length` and compare `Get-FileHash` results.
+
+```sh
+xfel write 0x20000 out/syterkit/build/yuzukineko/app_sram/xip-boot/xip-boot_fel.bin
+```
+
+Check the write result, then execute separately:
+
+```sh
+xfel exec 0x20000
+```
+
+NOR `0x20000` stores sampling parameters; RAM `0x20000` holds the loader. These are different address spaces. **Keep `xip-boot_spi.bin` out of the NOR boot area** to retain automatic FEL entry. Re-enter FEL for each download; after execution check the serial console rather than using `xfel read32`. See [SPI NOR layout and backup](../../boot/flash-layout.md).
 
 ## The common basis for NOR boot
+
+The following retains the 4.2.2 standalone/UF2 installation and its pinned SyterKit revision. It accepts ordinary RAM images, changes automatic FEL entry, and is incompatible with the XIP development layout above.
 
 Methods 2 and 3 both write the program into the onboard 16 MiB SPI NOR, and a loader in the Flash fetches it out and runs it at power-up. This section explains how that works and how to install the loader.
 
@@ -117,15 +157,11 @@ Once NOR holds a valid loader, the board boots straight from Flash at power-up a
 
 ### Preparing the tools
 
-`mkuf2.py` lives in the `zephyr-components` repository; it is a Python script that only needs the standard library, with no extra packages to install. For what the repository is for, see [Get zephyr-components](zephyr-get-source.md#get-zephyr-components); if you have already cloned it, skip the `git clone` below:
+`mkuf2.py` lives in the `zephyr-components` repository; it is a Python script that only needs the standard library, with no extra packages to install. For what the repository is for, see [Get zephyr-components](zephyr-get-source.md#applications-and-modules); if you have already cloned it, skip the `git clone` below:
 
 ```sh
 cd ~/f101-zephyr
 git clone https://github.com/YuzukiHD/zephyr-components.git
-# By default use the latest main. The line below pins the older commit that the steps of
-# this page were first verified on (2026-10-10); it predates gbsp/ and nekobox/, so leave it
-# commented out unless you need exactly that version.
-# git -C zephyr-components checkout 282361ce5883bd65c228da584758e4796bf439e7
 mkdir -p out
 ```
 

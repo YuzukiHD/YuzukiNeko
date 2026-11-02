@@ -2,6 +2,11 @@
 title: "LVGL - 图形界面"
 ---
 
+:::note[版本范围]
+Zephyr 4.2.2 与 4.5.0 并存。本页原有示例、录像及板上结果使用 4.2.2 基线，4.5 的变化另行说明。请按[版本与迁移指南](../zephyr-4-5.md)选择配套的内核、组件分支及独立环境和构建目录。4.5 编译或主机测试通过，不会改变已有板上结果的版本归属。
+:::
+
+
 LVGL 是一个嵌入式图形库：控件（按钮、标签、滑条、图表……）、样式、动画、触摸事件都有现成的。在 F101 的 Zephyr 上，LVGL 作为 west 模块（`modules/lib/gui/lvgl`，版本 9.3.0）编进应用，通过标准的显示接口画到屏幕上，通过标准的输入子系统读触摸屏。不需要 `zephyr-components`，也不需要外部素材。
 
 ```mermaid
@@ -19,6 +24,13 @@ flowchart TB
 
 开始前请先完成 [配置开发环境](../zephyr-setup-env.md) 和 [获取 Zephyr 代码](../zephyr-get-source.md)。
 
+
+## LVGL 版本与维护中的示例
+
+4.2.2 manifest 固定 LVGL 9.3，4.5 固定 LVGL 9.6；下文已有的 9.3 benchmark 日志和截图保持原样。4.5 已适配 9.6 的显示流水线类、文字／图像缓存接口及自定义 RVV blend hook。请使用配套分支的头文件与渲染器，不要直接复制 9.3 的内部 hook。
+
+维护中的 hello 示例位于 `zephyr-components/examples/lvgl_hello`，它和上游 LVGL demo 配置均已通过 4.5 构建检查；显示／触摸、标量／向量对比和性能仍需新的实机结果。
+
 ## 准备
 
 | 项 | 说明 |
@@ -28,7 +40,7 @@ flowchart TB
 | 触摸 | 载板上的 GT967 触摸控制器，在 `i2c1` 的 0x5d，设备树里是 `touch` 节点，见 [I2C](../drivers/i2c.md)。没有触摸也能跑，只是点不了控件 |
 | 素材 | 不需要。字体、图标都编进了 LVGL；demo 的图片也编在 demo 里 |
 | 外部硬件 | 只要板子能显示。官方 demo 的音乐播放器不会出声，它只是个界面 |
-| hello 程序 | `examples/lvgl_hello/`，源码见下面的 [新建一个最小的 UI](#新建一个最小的-ui) |
+| hello 程序 | `zephyr-components/examples/lvgl_hello/`，源码见下面的 [新建一个最小的 UI](#新建一个最小的-ui) |
 
 :::note
 本文的命令和日志都是 `yuzukineko` 板（载板，DSI 屏）。`f101_evb` 是 1024×600 的 RGB 屏，没有 GT967。
@@ -42,7 +54,7 @@ flowchart TB
 ```sh
 . ~/f101-zephyr/env.sh
 cd ~/f101-zephyr
-west build -b yuzukineko -d build/lvgl-hello examples/lvgl_hello
+west build -b yuzukineko -d build/lvgl-hello zephyr-components/examples/lvgl_hello
 ```
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/apps-lvgl/build.cast" data-speed="6"></div>

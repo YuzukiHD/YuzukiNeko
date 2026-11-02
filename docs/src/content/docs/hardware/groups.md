@@ -67,4 +67,4 @@ Mainly `PD0`–`PD9`, `PD12`–`PD22`, plus some `PE` pins. For the exact F2–F
 ## Two easy-to-hit conflicts
 
 - <strong>Display and DBI/SPI1 share `PD0`–`PD5`</strong>: the LCD data lines occupy these pins, and only one of the two can be selected at a time.
-- <strong>I2S0 and SDC2 share `PE0`–`PE4`</strong>, and `PE2` is also the VBUS switch in USB host mode; in configurations that use USB host, I2S0 has no available pins.
+- <strong>The I2S0 PE-pin group and SDC2 share `PE0`–`PE4`</strong>; the alternative PD group above still needs checks against display and Bluetooth control pins. The `yuzukineko` carrier uses `PE2` as the Wi-Fi SDIO clock, so the EVB USB VBUS wiring cannot be applied directly.

@@ -2,6 +2,11 @@
 title: "HTML renderer - litehtml"
 ---
 
+:::note[Version scope]
+Zephyr 4.2.2 and 4.5.0 coexist. The original examples, captures and target results on this page use the 4.2.2 baseline; 4.5 changes are identified separately. Select matching kernel and component branches and separate environments/build directories using the [version and migration guide](../zephyr-4-5.md). A 4.5 build or host-test pass does not update the version of an existing board result.
+:::
+
+
 Draws HTML pages from the TF card onto the screen. [litehtml](https://github.com/litehtml/litehtml) (v0.9) parses the HTML, applies the CSS, and lays it out; the rendering layer on the board (`lh_render.cpp`) draws the laid-out boxes into an RGB565 buffer and hands it to the display engine. The component is `zephyr-components/litehtml`, and the sample is `samples/html_viewer`.
 
 There is no browser engine: <strong>no JavaScript runs, there is no network access, and there is no touch or button input</strong>. When the page is too long it scrolls down on its own and comes back when it reaches the end.
