@@ -114,7 +114,7 @@ function mermaidSkeleton(blocks) {
         .replace(/-\.(?:(?!\.->)[\s\S])*\.->/g, '-..->')
         // sequence-diagram message text and notes sit after a colon and are prose
         .replace(
-          /^(\s*(?:Note\s+(?:over|left of|right of)\s+[^:]+|[^\s:]+\s*[-=][-=)>x|]*\s*[^\s:]+))\s*:.*$/,
+          /^(\s*(?:[Nn]ote\s+(?:over|left of|right of)\s+[^:]+|[^\s:]+\s*[-=][-=)>x|]*\s*[^\s:]+))\s*:.*$/,
           '$1',
         )
         // sequence-diagram block keywords carry a prose label after the keyword
@@ -204,7 +204,7 @@ function analyze(text) {
     for (const m of line.matchAll(/(!?)\[[^\]]*\]\(([^)\s]+)\)/g)) {
       const target = m[2];
       if (m[1] === '!') doc.images.push(target);
-      else if (/\.md(?:$|#)/i.test(target) && !URL_LIKE.test(target)) doc.links.push(target);
+      else if ((target.startsWith('#') || /\.md(?:$|#)/i.test(target)) && !URL_LIKE.test(target)) doc.links.push(target);
     }
   });
 
