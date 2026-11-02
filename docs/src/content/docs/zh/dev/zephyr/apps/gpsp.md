@@ -2,6 +2,11 @@
 title: "gpSP - GBA 模拟器（动态重编译）"
 ---
 
+:::note[版本范围]
+Zephyr 4.2.2 与 4.5.0 并存。本页原有示例、录像及板上结果使用 4.2.2 基线，4.5 的变化另行说明。请按[版本与迁移指南](../zephyr-4-5.md)选择配套的内核、组件分支及独立环境和构建目录。4.5 编译或主机测试通过，不会改变已有板上结果的版本归属。
+:::
+
+
 用 [gpSP](https://github.com/libretro/gpsp) 内核在板子上运行 Game Boy Advance 游戏，带 <strong>RISC-V 动态重编译器</strong>：游戏的 ARM 代码在运行时被翻译成 RISC-V 代码并原生执行，而不是逐条解释。ROM 从 TF 卡读取，240×160 的游戏画面交给显示引擎的视频层并放大到整个屏幕，声音经片上 codec 走 I2S 输出，屏幕上叠加一层用 LVGL 画的半透明按钮，用触摸屏操作。代码在 `zephyr-components/gbsp`（GPL-2.0-or-later），示例是 `samples/gbsp_player`。
 
 它是 [mGBA](mgba.md) 之外的第二个 GBA 内核。接口相同（`gbsp_*` 函数与 mGBA 的 `gba_*` 函数含义一致），示例选项和主循环也相同，所以可以在同一个游戏上对比两个内核，也可以把两者链接进同一个镜像。同一个 ROM 上 gpSP 每帧耗时约为 mGBA 的 1/2.4 到 1/2.7（见[与 mGBA 的速度对比](#与-mgba-的速度对比)）。只支持 GBA ROM；Game Boy / Game Boy Color 请用 mGBA。

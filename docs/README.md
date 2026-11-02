@@ -49,7 +49,7 @@ npm run check:i18n # 校验中英两棵树是否对得上
 `npm run check:i18n` 逐页比对中英两棵树，可以只查一个页面：
 
 ```sh
-npm run check:i18n                       # 全部 57 对
+npm run check:i18n                       # 全部页面对
 npm run check:i18n -- dev/zephyr/drivers/gpio
 npm run check:i18n -- --verbose          # 额外列出代码块里被翻译的标注
 ```
@@ -67,7 +67,7 @@ npm run check:i18n -- --verbose          # 额外列出代码块里被翻译的�
 | 锚点 | 每个 `#锚点` 都能在对应语言的页面上找到同名标题（锚点按各语言自己的标题推导，允许中英不同） |
 | 图片 | 两棵树的 `figures/` 逐字节相同 |
 
-全绿时输出一行汇总，例如 `check-i18n: 57 page pair(s) OK, 31 translated label(s) in code listings`。
+全绿时输出页面对数及代码标注翻译数，实际数量以检查输出为准。
 
 ### 翻译约定
 

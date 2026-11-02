@@ -2,6 +2,11 @@
 title: "Windows 95 - Bochs x86 emulation"
 ---
 
+:::note[Version scope]
+Zephyr 4.2.2 and 4.5.0 coexist. The original examples, captures and target results on this page use the 4.2.2 baseline; 4.5 changes are identified separately. Select matching kernel and component branches and separate environments/build directories using the [version and migration guide](../zephyr-4-5.md). A 4.5 build or host-test pass does not update the version of an existing board result.
+:::
+
+
 Use [Bochs](https://github.com/bochs-emu/Bochs) on the board to emulate a 486-class x86 PC and boot Windows 95 from a disk image on a TF card. The component is `~/f101-zephyr/zephyr-components/bochs` and the example is `samples/pc`. Bochs is an interpreter written in C++; on a RISC-V board it runs entirely in software with no hardware acceleration, so it is very slow.
 
 ```mermaid

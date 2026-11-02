@@ -2,6 +2,11 @@
 title: "Win95 - Bochs x86 模拟"
 ---
 
+:::note[版本范围]
+Zephyr 4.2.2 与 4.5.0 并存。本页原有示例、录像及板上结果使用 4.2.2 基线，4.5 的变化另行说明。请按[版本与迁移指南](../zephyr-4-5.md)选择配套的内核、组件分支及独立环境和构建目录。4.5 编译或主机测试通过，不会改变已有板上结果的版本归属。
+:::
+
+
 在板子上用 [Bochs](https://github.com/bochs-emu/Bochs) 模拟一台 486 级的 x86 PC，从 TF 卡上的磁盘镜像启动 Windows 95。组件是 `~/f101-zephyr/zephyr-components/bochs`，示例是 `samples/pc`。Bochs 是用 C++ 写的解释型模拟器，在 RISC-V 板子上整个跑在软件里，没有任何硬件加速，所以很慢。
 
 ```mermaid

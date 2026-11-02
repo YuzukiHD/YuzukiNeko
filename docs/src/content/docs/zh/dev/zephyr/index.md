@@ -2,7 +2,12 @@
 title: "Zephyr 开发"
 ---
 
-[Zephyr](https://www.zephyrproject.org) 是一个面向资源受限设备的开源实时操作系统（RTOS）。F101 的 Zephyr 支持是上游 Zephyr 的一个 fork：[`YuzukiHD/zephyr`](https://github.com/YuzukiHD/zephyr)，默认分支 `zephyr-v4.2.2-f101`，基于 Zephyr v4.2.2。
+:::note[版本范围]
+Zephyr 4.2.2 与 4.5.0 并存。本页原有示例、录像及板上结果使用 4.2.2 基线，4.5 的变化另行说明。请按[版本与迁移指南](zephyr-4-5.md)选择配套的内核、组件分支及独立环境和构建目录。4.5 编译或主机测试通过，不会改变已有板上结果的版本归属。
+:::
+
+
+[Zephyr](https://www.zephyrproject.org) 是一个面向资源受限设备的开源实时操作系统（RTOS）。F101 的 Zephyr 支持是上游 Zephyr 的一个 fork：[`YuzukiHD/zephyr`](https://github.com/YuzukiHD/zephyr)，保留 `zephyr-v4.2.2-f101`（4.2.2），并提供独立的 `zephyr-v4.5.0-f101`（4.5.0）移植分支；两版配套关系见[版本与迁移指南](zephyr-4-5.md)。
 
 - <strong>SoC</strong>：`sun252i_f101`，一个玄铁 C907 核（`rv32imafdcv`，带向量扩展，可选 Sv32 MMU），片内 SRAM 加 16 MB PSRAM，没有外部 DDR。
 - <strong>板级</strong>：`yuzukineko`（本板，控制台为 UART1 的 PB00/PB01）和 `f101_evb`（F101 评估板，控制台为 UART3 的 PE08/PE09）。
@@ -13,6 +18,8 @@ title: "Zephyr 开发"
 Zephyr 的板级和驱动代码在上面这个 fork 里，不在 YuzukiNeko 硬件仓库中。
 :::
 
+当前为约一个月的过渡共存期：计划约 2026-12-02 完成合并并停止维护 4.2.2，之后维护 4.5。原有示例和板上记录保留其版本范围。
+
 ## 从哪里开始
 
 按顺序读下面三页，就能把一个程序跑在板子上：
@@ -21,12 +28,19 @@ Zephyr 的板级和驱动代码在上面这个 fork 里，不在 YuzukiNeko 硬�
 | --- | --- |
 | [配置开发环境](zephyr-setup-env.md) | 主机依赖、Python 虚拟环境、west、玄铁工具链、`env.sh` |
 | [获取 Zephyr 代码](zephyr-get-source.md) | `west init` / `west update`、目录结构、Python 依赖、编译 `hello_world` 验证 |
-| [编译与运行](zephyr-build-run.md) | 三种运行方式：下载到 RAM、xfel 直接写 NOR、UF2 拖放下载 |
+| [编译与运行](zephyr-build-run.md) | 区分 RAM、保留 FEL 的 XIP 开发及可选独立启动／UF2 |
 
 其余页面：
 
 | 页面 | 说明 |
 | --- | --- |
+| [版本与 4.5 变更](zephyr-4-5.md) | 两版共存、依赖、API 变化和验证范围 |
+| [NekoBox](apps/nekobox.md) | 媒体、游戏、DLNA 和 Miracast 首页应用 |
+| [Bilibili](apps/bilibili.md) | 在线视频客户端 |
+| [MicroPython](apps/micropython.md) | Python REPL 与外设脚本 |
+| [PocketJS 应用](apps/pocketjs.md) | Solid／TSX 界面开发、打包、播放器与 benchmark |
+| [Miracast](apps/miracast.md) | Android 无线显示／屏幕镜像 |
+| [gpSP](apps/gpsp.md) | 带动态重编译的 GBA 模拟器 |
 | [MP4 播放器](apps/mp4-player.md) | 从 TF 卡播放 MP4：H.264 硬解 + AAC 软解 |
 | [ncnn - 神经网络推理](apps/ncnn.md) | ncnn 推理库 + RVV，benchmark |
 | [Doom - 游戏](apps/doom.md) | doomgeneric，触摸屏按键 |
@@ -58,20 +72,22 @@ Zephyr 的板级和驱动代码在上面这个 fork 里，不在 YuzukiNeko 硬�
 | [G2D 2D 加速器](drivers/g2d.md) | 填充、搬运、旋转、YUV、混合 |
 | [视频引擎 vdec](drivers/vdec.md) | JPEG、PNG、MJPEG、H.264 解码 |
 
-组件页（同样的规格，讲协议栈和库，每页都有架构图、数据流图和上板日志）：
+组件页介绍协议栈和库的配置、接入、接口及已有验证：
 
 | 页面 | 内容 |
 | --- | --- |
+| [PocketJS 运行时](components/pocketjs.md) | QuickJS-ng、Rust UI、RGB565 渲染、G2D／RVV 与资源所有权 |
 | [CherryUSB - USB 协议栈](components/cherryusb.md) | 设备栈、主机栈、CDC ACM、MSC |
 | [SD - SD 卡协议栈](components/sd.md) | SD 子系统、磁盘访问、FAT 文件系统 |
 | [AIC8800 WIFI - 无线网卡驱动](components/aic8800-wifi.md) | SDIO、固件下载、扫描、连接 |
 | [AIC8800 蓝牙 - 蓝牙驱动](components/aic8800-bt.md) | HCI、广播、扫描、连接 |
+| [DLNA](components/dlna.md) | UPnP 媒体接收、渐进下载与播放控制 |
 | [AAC - AAC 解码器](components/aac.md) | OpenCORE AAC 解码 |
 | [MP4 - MP4 解封装](components/mp4.md) | moov 解析、sample 读取、seek |
 
 ## 驱动支持情况
 
-驱动按 Zephyr 自己的 API 编写，设备树 binding 在 `dts/bindings/*/allwinner,sunxi-*.yaml`。
+驱动按 Zephyr 自己的 API 编写，设备树 binding 在 `dts/bindings/`。
 
 | 类别 | 内容 |
 | --- | --- |

@@ -2,6 +2,11 @@
 title: "AUDIO - Audio Driver"
 ---
 
+:::note[Version scope]
+Zephyr 4.2.2 and 4.5.0 coexist. The original examples, captures and target results on this page use the 4.2.2 baseline; 4.5 changes are identified separately. Select matching kernel and component branches and separate environments/build directories using the [version and migration guide](../zephyr-4-5.md). A 4.5 build or host-test pass does not update the version of an existing board result.
+:::
+
+
 F101 has three audio controllers. In Zephyr they all carry audio data through the standard I2S interface `<zephyr/drivers/i2s.h>`; the analog part of the on-chip codec additionally uses the audio codec interface `<zephyr/audio/codec.h>` to control volume, mute and input selection.
 
 ```mermaid
@@ -34,6 +39,17 @@ The three I2S devices share the DMA ring and queue in `drivers/i2s/i2s_sunxi_str
 | Channels | 1 or 2 for transmit, 1 for receive | 1…16 | 1 or 2 |
 | Format | Fixed | I2S, left-justified, right-justified, PCM short frame, PCM long frame; master, slave; inverted clock; internal loopback | Internal loopback |
 | Analog part | Headphone output, microphone, FM, line input, 3 input selections | None | None |
+
+
+## Build the checked-in example on 4.5
+
+With the matching 4.5 branches and environment active, build the maintained example directly. The complete listings later in this article retain the 4.2.2 tutorial baseline; the example in the selected branch is the reference for current headers and API fields.
+
+```sh
+west build -b yuzukineko -d build/zephyr-4.5.0/audio_api zephyr-components/examples/audio_api
+```
+
+This configuration passed the 4.5 component build check for `yuzukineko`. It has no new 4.5 target log; use the [RAM or XIP flow](../zephyr-build-run.md) matching the actual image layout.
 
 ## Devicetree
 

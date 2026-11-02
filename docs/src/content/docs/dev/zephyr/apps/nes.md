@@ -2,6 +2,11 @@
 title: "NES - FC emulator"
 ---
 
+:::note[Version scope]
+Zephyr 4.2.2 and 4.5.0 coexist. The original examples, captures and target results on this page use the 4.2.2 baseline; 4.5 changes are identified separately. Select matching kernel and component branches and separate environments/build directories using the [version and migration guide](../zephyr-4-5.md). A 4.5 build or host-test pass does not update the version of an existing board result.
+:::
+
+
 Reads `.nes` games from the TF card and runs them. The emulation core is [nofrendo](https://github.com/ducalex/retro-go); the picture (RGB565) is handed to the display engine's scaling video plane, the sound goes over I2S to the on-chip codec, and the gamepad buttons are semi-transparent buttons drawn on LVGL and operated with the touchscreen. The code is in `zephyr-components/nes` (nofrendo plus a layer of Zephyr glue), and the sample is `samples/nes_player`.
 
 ```mermaid

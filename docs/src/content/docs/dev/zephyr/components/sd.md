@@ -2,6 +2,11 @@
 title: "SD - SD card protocol stack"
 ---
 
+:::note[Version scope]
+Zephyr 4.2.2 and 4.5.0 coexist. The original examples, captures and target results on this page use the 4.2.2 baseline; 4.5 changes are identified separately. Select matching kernel and component branches and separate environments/build directories using the [version and migration guide](../zephyr-4-5.md). A 4.5 build or host-test pass does not update the version of an existing board result.
+:::
+
+
 The SD component is the software above the SD host controller driver ([SDHC](../drivers/sdhc.md)): the SD protocol stack that initializes the card, the disk interface that reads and writes the card by sector, and the `fs_*` interface that puts a FAT filesystem on the card. All three layers can be used on their own.
 
 This code ships with Zephyr upstream, and the F101 fork does not change it. What the F101 side provides is the SDHC host controller driver (`drivers/sdhc/sdhc_sunxi.c`), and the disk child node named `SD` under `smhc0` in the board devicetree. This page describes how to use this stack on `yuzukineko`, and every interface comes with its output on the board.
@@ -14,6 +19,17 @@ Source locations (all under `~/f101-zephyr/`):
 * Host controller: `zephyr/drivers/sdhc/sdhc_sunxi.c`.
 
 A few prerequisites on `yuzukineko`: the `SD` disk has only `SDMMC_STACK` enabled, not the MMC (eMMC) stack; the SDIO stack is used by the WiFi/Bluetooth chip, see [AIC8800 WIFI](aic8800-wifi.md). The bus is 4 bit, and the 1.8 V UHS mode and SPI mode are not supported. The filesystem is FAT12/16/32, plus exFAT when `CONFIG_FS_FATFS_EXFAT` is enabled, with long file name support. The disk name `SD` corresponds to the FatFs mount point `/SD:`.
+
+
+## Build the checked-in example on 4.5
+
+With the matching 4.5 branches and environment active, build the maintained example directly. The complete listings later in this article retain the 4.2.2 tutorial baseline; the example in the selected branch is the reference for current headers and API fields.
+
+```sh
+west build -b yuzukineko -d build/zephyr-4.5.0/sd_api zephyr-components/examples/sd_api
+```
+
+This configuration passed the 4.5 component build check for `yuzukineko`. It has no new 4.5 target log; use the [RAM or XIP flow](../zephyr-build-run.md) matching the actual image layout.
 
 ## Architecture
 

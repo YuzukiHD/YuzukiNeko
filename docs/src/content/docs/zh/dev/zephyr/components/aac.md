@@ -2,6 +2,11 @@
 title: "AAC - AAC 解码器"
 ---
 
+:::note[版本范围]
+Zephyr 4.2.2 与 4.5.0 并存。本页原有示例、录像及板上结果使用 4.2.2 基线，4.5 的变化另行说明。请按[版本与迁移指南](../zephyr-4-5.md)选择配套的内核、组件分支及独立环境和构建目录。4.5 编译或主机测试通过，不会改变已有板上结果的版本归属。
+:::
+
+
 AAC 解码器把 AAC 音频帧解成 16 位 PCM。它是 OpenCORE（Android 早期的多媒体框架）里的定点 AAC 解码器：只用整数运算，不用 libm，在没有 FPU 参与的情况下就能在板子上实时解码。Zephyr 里把它作为一个库放进来，应用直接调用它的 C 接口 `<pvmp4audiodecoder_api.h>`，不经过设备模型。
 
 源码分两部分。Zephyr 一侧的胶水在 `zephyr/lib/opencore_aac/`（`Kconfig`、`CMakeLists.txt`、`include/oscl_base.h`、`include/oscl_mem.h`），解码器本体在 west 项目 `modules/lib/opencore` 的 `codecs_v2/audio/aac/dec/`（`src/` 下 142 个 `.cpp` 文件，`include/` 下是对外头文件）。应用里 `#include <pvmp4audiodecoder_api.h>`，`CONFIG_OPENCORE_AAC=y` 之后头文件路径自动加到所有目标。`CONFIG_OPENCORE_AAC` 由 `zephyr/lib/Kconfig` 引入，`zephyr/lib/CMakeLists.txt` 在选项打开时编译这个库。
@@ -9,6 +14,17 @@ AAC 解码器把 AAC 音频帧解成 16 位 PCM。它是 OpenCORE（Android 早�
 这个构建能解的是 AAC-LC，单声道和双声道。编译时没有定义 `AAC_PLUS`，所以 HE-AAC 的 SBR 和 PS 不解码。输入可以是 ADTS（解码器自己找帧头），也可以是没有帧头的原始帧（先用 `AudioSpecificConfig` 配置，MP4 文件里的音频样本就是这种）。输出是 16 位有符号 PCM，左右声道交错，每帧每声道 1024 个样本。解码器状态 48680 字节，由调用者分配，库内部不调用 `malloc`；库的目标文件合计 58486 字节（示例用 `-Og` 编译）。除了 `memset`、`memcpy` 等 C 库函数（`oscl_mem.h` 映射过去），它不依赖任何设备。
 
 胶水层很薄。解码器的源文件是用 `.cpp` 扩展名写的 C 代码，`CMakeLists.txt` 把它们用 C 编译（`set_source_files_properties(... LANGUAGE C)`），排除掉 C++ 封装类 `decoder_aac.cpp`；`oscl_base.h` 提供原来来自 OpenCORE 基础库的整数类型和几个宏，`oscl_mem.h` 把 `oscl_memset` 等映射到标准 C 函数。
+
+
+## 在 4.5 构建仓库内的示例
+
+激活配套的 4.5 分支和环境后，可直接构建维护中的示例。下文完整代码保留 4.2.2 教程基线，当前头文件与 API 字段以所选分支中的示例为准。
+
+```sh
+west build -b yuzukineko -d build/zephyr-4.5.0/aac_api zephyr-components/examples/aac_api
+```
+
+该配置已通过 `yuzukineko` 的 4.5 组件构建检查，尚无新的 4.5 板上日志；请按实际镜像布局选择 [RAM 或 XIP 流程](../zephyr-build-run.md)。
 
 ## 架构与数据流
 

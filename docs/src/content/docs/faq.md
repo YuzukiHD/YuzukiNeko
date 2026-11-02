@@ -45,3 +45,14 @@ This image's serial input is sensitive to long strings; set the terminal's trans
 
 <strong>Why can't USB device/host functions and downloading be used at the same time?</strong>
 The board has only one USB-C port, which is also the FEL download port. Download first, then switch to the peripheral.
+
+## Zephyr versions and casting
+
+**Does 4.5 replace 4.2.2?**
+Both coexist during an approximately one-month transition. The plan is to complete the merge and stop maintaining 4.2.2 around 2026-12-02, then maintain 4.5. Match the kernel and component branches, and separate Python environments, dependencies and build outputs; see [Versions and 4.5 changes](dev/zephyr/zephyr-4-5.md). Historical logs do not establish execution of new firmware.
+
+**Can an NekoBox XIP image go straight into RAM or app.uf2?**
+It cannot use ordinary RAM-image addresses or the old UF2 copy-to-RAM flow. For development write NOR `0x80000`, verify readback, then run a current loader from RAM, preserving the empty boot area and sampling parameters; see [Build and run](dev/zephyr/zephyr-build-run.md).
+
+**Which casting method should an Android phone use?**
+Wireless display / Screen mirroring uses [Miracast](dev/zephyr/apps/miracast.md) and requires phone support. Video apps sending media addresses use [DLNA](dev/zephyr/components/dlna.md). Developer debugging and touch return use [ADB/scrcpy](dev/zephyr/apps/android-mirror.md). Miracast owns the radio and cannot run alongside STA/DLNA.

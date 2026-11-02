@@ -2,6 +2,11 @@
 title: "Android screen mirroring"
 ---
 
+:::note[Version scope]
+Zephyr 4.2.2 and 4.5.0 coexist. The original examples, captures and target results on this page use the 4.2.2 baseline; 4.5 changes are identified separately. Select matching kernel and component branches and separate environments/build directories using the [version and migration guide](../zephyr-4-5.md). A 4.5 build or host-test pass does not update the version of an existing board result.
+:::
+
+
 Mirror an Android phone's screen onto the board's screen and send touch and navigation keys back to the phone. The board connects to the phone's adbd over WiFi (ADB over TCP), starts the [scrcpy](https://github.com/Genymobile/scrcpy) server on the phone, the server encodes the screen into an H.264 stream and sends it back, and the board decodes it with the on-chip video engine and sends it to the display video plane. The example is `zephyr-components/android-screen-mirror/samples/mirror_player`; the component itself (ADB client, pairing, scrcpy client) is in the `src/` of the same directory.
 
 ```mermaid
@@ -16,6 +21,19 @@ flowchart TB
 ```
 
 Before you start, complete [Setting up the development environment](../zephyr-setup-env.md) and [Getting the Zephyr source](../zephyr-get-source.md). The WiFi part uses the [AIC8800 WIFI](../components/aic8800-wifi.md) driver; for the details of scanning, connecting and DHCP see that page.
+
+
+## 4.5 crypto changes and protocol choice
+
+On 4.5 the module selects native Mbed TLS/PSA options for RSA, X.509, SHA, HKDF and AES-GCM. RSA generation and HKDF use PSA APIs. Use `CONFIG_MBEDTLS_SSL_PROTO_TLS1_3=y`; the old `mirror_mbedtls.h` user header is removed. Keep the old header/configuration only with the 4.2.2 branch. The maintained sample built on 4.5, and its crypto host regression passed with ASan/UBSan plus independent RSA, certificate and HKDF/GCM checks:
+
+```sh
+sh zephyr-components/android-screen-mirror/tests/host/run.sh
+```
+
+This host test needs CMake, a host C compiler, Python’s `cryptography` package and the Mbed TLS/TF-PSA-Crypto revisions selected by the 4.5 manifest.
+
+This receiver uses ADB/scrcpy and developer debugging. For the phone's Wireless display / Screen mirroring menu without ADB, use [Miracast](miracast.md). Phone interoperability on the new 4.5 firmware remains unverified.
 
 ## Preparation
 
@@ -301,7 +319,7 @@ The text in the status bar comes from `ui_set_status()`; what `main.c` and `scrc
 | `CONFIG_MIRROR_ADB_RX_BUFFER` | 262144 | Receive ring buffer per stream (bytes). Once it is full the receive thread waits for the reader to take data, and the TCP window tightens accordingly |
 | `CONFIG_MIRROR_ADB_TRACE` | 0 | Set to 1 to print one packet-header line per ADB packet received |
 
-An application using the component must also set `CONFIG_MBEDTLS_USER_CONFIG_FILE="mirror_mbedtls.h"`; the header is in `android-screen-mirror/include/` and is used to enable mbed TLS features such as PEM, X.509 generation and TLS key export.
+The 4.2.2 baseline uses `CONFIG_MBEDTLS_USER_CONFIG_FILE="mirror_mbedtls.h"` for PEM, X.509 creation and TLS key export. On 4.5 the header is removed and native component Kconfig selects the dependencies; do not set that user configuration on 4.5.
 
 ### Example (`samples/mirror_player/Kconfig`)
 
@@ -343,7 +361,7 @@ An application using the component must also set `CONFIG_MBEDTLS_USER_CONFIG_FIL
 | `CONFIG_NET_BUF_DATA_SIZE=1536` | Data area of each network buffer |
 | `CONFIG_NET_IPV4_IGMP=y` | Joining the mDNS multicast group |
 | `CONFIG_NET_CONTEXT_REUSEADDR=y`, `CONFIG_NET_CONTEXT_REUSEPORT=y` | Port 5353 multiplexing for mDNS |
-| `CONFIG_MBEDTLS_TLS_VERSION_1_3=y` | TLS 1.3 for wireless debugging |
+| `CONFIG_MBEDTLS_TLS_VERSION_1_3=y` (4.2.2); `CONFIG_MBEDTLS_SSL_PROTO_TLS1_3=y` (4.5) | TLS 1.3 for wireless debugging |
 | `CONFIG_MBEDTLS_HEAP_SIZE=131072` | Dedicated mbed TLS heap, needed to generate the RSA key and do the TLS handshake |
 | `CONFIG_TEST_RANDOM_GENERATOR=y` | The SoC's random-number generator has no driver yet, so a pseudo-random source is used. The ADB key, TLS and pairing all use it, and it must not be used in a product |
 | `CONFIG_HEAP_MEM_POOL_SIZE=262144` | Kernel heap, from which the AIC8800 driver allocates; the ADB send/receive buffers and the 1 MiB video packet buffer use `malloc()` |

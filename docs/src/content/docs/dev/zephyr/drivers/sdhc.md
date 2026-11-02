@@ -2,6 +2,11 @@
 title: "SDHC host controller"
 ---
 
+:::note[Version scope]
+Zephyr 4.2.2 and 4.5.0 coexist. The original examples, captures and target results on this page use the 4.2.2 baseline; 4.5 changes are identified separately. Select matching kernel and component branches and separate environments/build directories using the [version and migration guide](../zephyr-4-5.md). A 4.5 build or host-test pass does not update the version of an existing board result.
+:::
+
+
 The F101 has two SD/MMC host controllers (SMHC): `smhc0` connects to the TF card slot on the board, `smhc2` connects to the SDIO of the WiFi module. The driver in Zephyr is `drivers/sdhc/sdhc_sunxi.c`, which implements the SD host controller interface `<zephyr/drivers/sdhc.h>`.
 
 This layer only deals with the "controller": issuing commands, receiving responses, moving data blocks, setting the clock and the bus width, detecting the card. The card identification flow, the disk interface and the filesystem are another layer above it and do not belong to this driver (they are provided later by a separate Zephyr component). So the demo in this page uses no disk and no filesystem, and instead brings the card up step by step with the commands of the SD specification.
@@ -15,6 +20,22 @@ This layer only deals with the "controller": issuing commands, receiving respons
 | Card detection | `cd-gpios`; `yuzukineko` uses PF6, a low level means a card is present |
 | Transfer | DMA (internal descriptors); unaligned buffers go through the bounce buffer in the driver |
 | Card type | SD cards (the demo in this page); `smhc2` connects to an SDIO WiFi chip; SPI mode is not supported |
+
+
+
+## 4.5 host-property change
+
+Four-bit bus support moved from `props.host_caps.bus_4_bit_support` to `props.bus_4_bit_support`. After a successful `sdhc_get_host_props()` call, use the new field on 4.5; the complete legacy listings below retain the old location. Other capabilities, such as eight-bit support, remain under `host_caps`. The driver API declaration also uses `DEVICE_API` on 4.5.
+
+## Build the checked-in example on 4.5
+
+With the matching 4.5 branches and environment active, build the maintained example directly. The complete listings later in this article retain the 4.2.2 tutorial baseline; the example in the selected branch is the reference for current headers and API fields.
+
+```sh
+west build -b yuzukineko -d build/zephyr-4.5.0/sdhc_api zephyr-components/examples/sdhc_api
+```
+
+This configuration passed the 4.5 component build check for `yuzukineko`. It has no new 4.5 target log; use the [RAM or XIP flow](../zephyr-build-run.md) matching the actual image layout.
 
 ## Devicetree
 

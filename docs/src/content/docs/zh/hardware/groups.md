@@ -67,4 +67,4 @@ title: "常用外设引脚组合"
 ## 两个容易踩的冲突
 
 - <strong>显示与 DBI/SPI1 共用 `PD0`–`PD5`</strong>：LCD 数据线占用这些脚，同一时刻只能二选一。
-- <strong>I2S0 与 SDC2 共用 `PE0`–`PE4`</strong>，`PE2` 在 USB 主机模式下还是 VBUS 开关；在使用 USB 主机的配置里 I2S0 没有可用的引脚。
+- <strong>I2S0 的 PE 引脚组与 SDC2 共用 `PE0`–`PE4`</strong>；上表的 PD 备选组仍需检查显示、蓝牙控制等占用。`yuzukineko` 底板将 `PE2` 用作 Wi-Fi SDIO 时钟，不能直接套用 EVB 的 USB VBUS 接线。

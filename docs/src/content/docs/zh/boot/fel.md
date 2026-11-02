@@ -5,7 +5,7 @@ title: "FEL 下载模式与工具"
 F101 的 BROM 里有一个 USB 下载模式，叫 <strong>FEL</strong>。在 FEL 下，主机可以通过 USB 读写 SPI NOR、把程序载入内存并运行。本板的所有下载方式（xfel、rfel、从 FEL 启动 UF2 加载器）都基于它。
 
 :::tip
-<strong>xfel 和 rfel 是同一类工具：</strong>都是在主机上通过 FEL 与板子通信的下载工具，子命令同名，功能相同。<strong>二选一安装即可</strong>，不需要两个都装。本站的命令都以 xfel 为例，用 rfel 时把 `xfel` 换成 `rfel`。
+<strong>xfel 与 rfel 都通过 FEL 与板子通信。</strong><strong>可按平台和功能选择其一</strong>。两者有 `version`、`spinor read/write` 等共同基本操作，但 RAM 初始化、架构切换和执行命令应以各版本的 `--help` 为准，不能将所有 xfel 命令机械替换为 rfel。
 :::
 
 ## 进入 FEL
@@ -25,6 +25,8 @@ xfel version
 :::caution
 <strong>板子已经从 Flash 启动时，不会自己进入 FEL。</strong> 一旦 SPI NOR 里有有效的启动加载器，上电就直接运行它，必须按住 FEL 键才能进入下载模式。反过来，Flash 的首扇区为空时，BROM 每次上电都会落到 FEL。
 :::
+
+核对 F101 的芯片 ID **`0x00193700`** 和 scratchpad **`0x00020000`**。`0x00191800 (V881)`、scratchpad `0x0011fc00` 是另一个目标，不能按 F101 操作。多设备连接时，通过目标断电后 USB 设备消失来确认归属，再进行写入或执行。
 
 ## 安装 xfel
 
@@ -109,7 +111,7 @@ SUBSYSTEM=="usb", ATTR{idVendor}=="1f3a", ATTR{idProduct}=="efe8", TAG+="uaccess
 | `xfel spinor write <addr> <file>` | 写 Flash（自动擦除所需扇区） |
 | `xfel reset` | 复位板子 |
 
-rfel 的子命令与之同名，把 `xfel` 换成 `rfel` 即可。
+表中的共同 Flash 操作可用 rfel 的对应命令；执行前检查所装版本的帮助。
 
 :::caution
 <strong>某些命令的限制</strong>：`xfel ddr f101-s3`（初始化 RAM）加 `xfel write` + `xfel exec` 可以把程序直接载入 RAM 运行，不经 Flash，是开发 Zephyr 等裸机程序时的常用流程；这条流程需要<strong>每次重新上电进入 FEL</strong>，因为 `exec` 之后 FEL 不再可用。写 Flash 的流程（本站的固件刷写）<strong>不需要</strong>执行 `ddr`。
@@ -121,5 +123,7 @@ rfel 的子命令与之同名，把 `xfel` 换成 `rfel` 即可。
 | --- | --- |
 | `unsupported chip` | 工具版本不支持 F101，升级 xfel / rfel |
 | 找不到设备 | 没进入 FEL；线缆是否带数据；Windows 是否装了 WinUSB |
-| `usb bulk send/recv error` | 如果发生在 `exec` 之后：CPU 已离开 BROM，程序在跑，属正常现象 |
+| `usb bulk send/recv error` | 如果发生在 `exec` 之后：ROM USB 连接可能已在跳转后断开；以本次镜像串口日志判断是否运行 |
 | 权限不足（Linux） | 配置 udev 规则，见上 |
+
+部分 xfel 失败仍返回退出码 0。写入时同时检查输出，并在启动前读回相同长度、比较 SHA-256；USB 接口消失不能替代运行证据。

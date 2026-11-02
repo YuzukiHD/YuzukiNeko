@@ -2,6 +2,11 @@
 title: "iOS screen mirroring - AirPlay"
 ---
 
+:::note[Version scope]
+Zephyr 4.2.2 and 4.5.0 coexist. The original examples, captures and target results on this page use the 4.2.2 baseline; 4.5 changes are identified separately. Select matching kernel and component branches and separate environments/build directories using the [version and migration guide](../zephyr-4-5.md). A 4.5 build or host-test pass does not update the version of an existing board result.
+:::
+
+
 Mirror the iPhone's screen onto the board: the board joins WiFi and appears in the iPhone's "Control Center - Screen Mirroring" list as an AirPlay receiver; once the iPhone picks it, the phone encodes its screen into an H.264 stream and sends it over, and the board decodes it with the on-chip video engine and sends it straight to the display's video plane. The sample is `zephyr-components/ios-screen-mirror/samples/ios_player`.
 
 The protocol part of the `ios-screen-mirror` component comes from [RPiPlay](https://github.com/FD-/RPiPlay) (an AirPlay mirroring receiver with the FairPlay handshake), kept as a git submodule under `rpiplay/`. The OpenSSL, Bonjour (mDNSResponder) and libplist that the original library depends on are replaced here by mbedTLS, Zephyr's own DNS-SD responder, and a very small binary plist reader/writer (`src/plist.c`).
@@ -24,6 +29,11 @@ Before you start, complete [Setting up the development environment](../zephyr-se
 :::caution[License: GPL-3.0]
 RPiPlay is licensed GPL-3.0, so the whole `ios-screen-mirror` component is treated as GPL-3.0 (the `Kconfig` help text, `CMakeLists.txt` and the sample's source headers all say `GPL-3.0-or-later`; a few files such as `src/ios_dnssd.c` have an Apache-2.0 header, but they link into the same image as RPiPlay). Firmware that is built into an image and distributed must offer the corresponding source under GPL-3.0. If you only want screen mirroring over other protocols, leave `CONFIG_IOS_MIRROR` off and this code will not be linked in.
 :::
+
+
+## 4.5 compatibility
+
+The matching 4.5 branch updates SHA-512/AES-CTR/AES-CBC selections and the crypto headers for Mbed TLS 4/TF-PSA-Crypto. Use that branch's Kconfig rather than copying an older private-header or crypto configuration. The receiver compiled for `yuzukineko` on 4.5; the captures and AirPlay observations below retain their original 4.2.2 scope. A new physical iOS discovery, playback and reconnect check is still required.
 
 ## Preparation
 

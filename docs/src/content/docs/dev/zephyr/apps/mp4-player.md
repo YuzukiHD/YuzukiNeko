@@ -2,6 +2,11 @@
 title: "MP4 Player"
 ---
 
+:::note[Version scope]
+Zephyr 4.2.2 and 4.5.0 coexist. The original examples, captures and target results on this page use the 4.2.2 baseline; 4.5 changes are identified separately. Select matching kernel and component branches and separate environments/build directories using the [version and migration guide](../zephyr-4-5.md). A 4.5 build or host-test pass does not update the version of an existing board result.
+:::
+
+
 Read an MP4 file from the TF card and play it: H.264 video is decoded by the on-chip video engine and sent straight to the display's video layer; AAC audio is decoded in software and output through the on-chip codec. The example is `samples/drivers/mp4_player`, in the F101 Zephyr fork; it does not need `zephyr-components`.
 
 ```mermaid

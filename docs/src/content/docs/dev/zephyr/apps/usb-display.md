@@ -2,6 +2,11 @@
 title: "USB secondary display - a second screen for a computer"
 ---
 
+:::note[Version scope]
+Zephyr 4.2.2 and 4.5.0 coexist. The original examples, captures and target results on this page use the 4.2.2 baseline; 4.5 changes are identified separately. Select matching kernel and component branches and separate environments/build directories using the [version and migration guide](../zephyr-4-5.md). A 4.5 build or host-test pass does not update the version of an existing board result.
+:::
+
+
 Plug the F101 board into a USB port of a Windows computer and the computer gains another display: the host-side driver compresses the desktop picture into JPEG, sends it to the board over a USB bulk endpoint, and the board decodes it with the on-chip video engine and puts it straight onto the video layer of the display. The same USB device also carries a HID multi-touch screen interface, so the touch screen on the board can send touches back. The example is `samples/drivers/usb/cherryusb_display` in the workspace; it uses the vendor display class of CherryUSB and does not need `zephyr-components`.
 
 Before you start, complete [Set up the development environment](../zephyr-setup-env.md) and [Get the Zephyr source](../zephyr-get-source.md).

@@ -2,6 +2,11 @@
 title: "G2D - 2D graphics acceleration"
 ---
 
+:::note[Version scope]
+Zephyr 4.2.2 and 4.5.0 coexist. The original examples, captures and target results on this page use the 4.2.2 baseline; 4.5 changes are identified separately. Select matching kernel and component branches and separate environments/build directories using the [version and migration guide](../zephyr-4-5.md). A 4.5 build or host-test pass does not update the version of an existing board result.
+:::
+
+
 G2D is the F101's 2D graphics accelerator: without going through the CPU, it does rectangle fills, blits (which can convert pixel format, scale, rotate and flip at the same time) and alpha blending between memory buffers. In Zephyr it is made into a `g2d` device, the interface is `<zephyr/drivers/g2d.h>`, and the driver is in `drivers/g2d/`.
 
 Operations are queued first, then handed to the hardware one by one by the driver's thread, completing in the order they were submitted.
@@ -15,6 +20,17 @@ Operations are queued first, then handed to the hardware one by one by the drive
 | Queue depth | devicetree `queue-depth`, default 8 |
 | Cache | before an operation the driver cleans and invalidates the destination region, and cleans the source region and the blend's background region; after the operation it invalidates the destination region. With `G2D_FLAG_NO_CACHE_OPS` none of this is done |
 | Restrictions | the destination format cannot be YUV; rotation requires the source and destination to have the same format and the same size (after rotation), 4-byte-aligned addresses and an 8-byte-aligned destination pitch; the blend's background must be RGB and the same size as the destination region |
+
+
+## Build the checked-in example on 4.5
+
+With the matching 4.5 branches and environment active, build the maintained example directly. The complete listings later in this article retain the 4.2.2 tutorial baseline; the example in the selected branch is the reference for current headers and API fields.
+
+```sh
+west build -b yuzukineko -d build/zephyr-4.5.0/g2d_api zephyr-components/examples/g2d_api
+```
+
+This configuration passed the 4.5 component build check for `yuzukineko`. It has no new 4.5 target log; use the [RAM or XIP flow](../zephyr-build-run.md) matching the actual image layout.
 
 ## Devicetree
 

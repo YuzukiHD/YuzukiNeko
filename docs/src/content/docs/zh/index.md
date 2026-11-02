@@ -20,6 +20,10 @@ YuzukiNeko 是一块基于 <strong>Allwinner F101 系列 SoC</strong> 的开发�
 | 刷入现成的固件（RustSBI + Asterinas、Linux + Buildroot） | [RustSBI + Asterinas](dev/asterinas/rustsbi-asterinas.md)、[预编译 Linux 镜像](dev/linux/linux-prebuilt.md) |
 | 用底板接显示、Wi-Fi、CAN、音频 | [YuzukiCube-M 底板](baseboard.md) |
 | 写程序 | [Zephyr 开发](dev/zephyr/index.md)、[Linux 开发](dev/linux/index.md)、[RustSBI + Asterinas](dev/asterinas/rustsbi-asterinas.md) |
+| 选择 Zephyr 4.2.2 或 4.5.0 | [版本与 4.5 变更](dev/zephyr/zephyr-4-5.md) |
+| 使用媒体与游戏盒 | [NekoBox](dev/zephyr/apps/nekobox.md)、[Bilibili](dev/zephyr/apps/bilibili.md) |
+| 从手机投屏 | [Miracast 无线显示](dev/zephyr/apps/miracast.md)、[DLNA 视频](dev/zephyr/components/dlna.md)、[Android ADB](dev/zephyr/apps/android-mirror.md)、[AirPlay](dev/zephyr/apps/ios-mirror.md) |
+| 使用脚本开发界面 | [MicroPython](dev/zephyr/apps/micropython.md)、[PocketJS 应用](dev/zephyr/apps/pocketjs.md)与[运行时组件](dev/zephyr/components/pocketjs.md) |
 | 打印外壳 | [3D 打印外壳](shell.md) |
 
 ## 板卡规格
@@ -28,7 +32,7 @@ YuzukiNeko 是一块基于 <strong>Allwinner F101 系列 SoC</strong> 的开发�
 | --- | --- |
 | SoC | F101S3，XuanTie C907 RISC-V CPU（rv32imacfdv，同时支持 64 位），QFN68（7 mm × 7 mm） |
 | 缓存 | 32 KB I-cache + 16 KB D-cache |
-| 内存 | SiP 16 位 PSRAM，最大 16 MiB（本板 16 MiB；V1.5 面向 32 MiB 配置） |
+| 内存 | SiP 16 位 PSRAM：F101S3 为 16 MiB，配套硬件版本的 F101S4 为 32 MiB |
 | 存储 | 16 MiB 外部 NOR Flash，支持 XIP |
 | 扩展 | Pico 风格 2 × 20 针排针 |
 | USB | USB-C 接口；SoC 提供 1 路 USB 2.0 DRD 控制器 |
@@ -38,6 +42,8 @@ YuzukiNeko 是一块基于 <strong>Allwinner F101 系列 SoC</strong> 的开发�
 :::caution
 板载 NOR Flash 属于系统资源：里面存放启动加载器和固件。随意擦写会让板子无法从 Flash 启动，务必先[备份](boot/flash-layout.md#备份整片-flash)。
 :::
+
+当前两版 Zephyr 的板级 DTS 均按 16 MiB RAM 配置；32 MiB 硬件不代表软件已启用并验证全部容量。
 
 ## SoC 能力
 

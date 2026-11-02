@@ -2,6 +2,11 @@
 title: "SPI"
 ---
 
+:::note[版本范围]
+Zephyr 4.2.2 与 4.5.0 并存。本页原有示例、录像及板上结果使用 4.2.2 基线，4.5 的变化另行说明。请按[版本与迁移指南](../zephyr-4-5.md)选择配套的内核、组件分支及独立环境和构建目录。4.5 编译或主机测试通过，不会改变已有板上结果的版本归属。
+:::
+
+
 F101 有 2 个 SPI 控制器，在 Zephyr 里是 `spi0` 和 `spi1`，接口是标准的 `<zephyr/drivers/spi.h>`，驱动是 `drivers/spi/spi_sunxi.c`，另外有一个扩展头文件 `<zephyr/drivers/spi/spi_sunxi.h>`。
 
 | 项目 | 内容 |
@@ -15,6 +20,17 @@ F101 有 2 个 SPI 控制器，在 Zephyr 里是 `spi0` 和 `spi1`，接口是�
 | 频率 | 3 kHz 以下返回 `-EINVAL`；24 MHz 以内用控制器自己的分频；更高的由 PLL 分频得到 |
 | 传输方式 | 轮询；256 字节及以上、64 字节（缓存行）对齐的读缓冲走 DMA |
 | 不支持 | 从机模式、环回（`SPI_MODE_LOOP`）、`SPI_HOLD_ON_CS`、非 8 位字长 |
+
+
+## 在 4.5 构建仓库内的示例
+
+激活配套的 4.5 分支和环境后，可直接构建维护中的示例。下文完整代码保留 4.2.2 教程基线，当前头文件与 API 字段以所选分支中的示例为准。
+
+```sh
+west build -b yuzukineko -d build/zephyr-4.5.0/spi_api zephyr-components/examples/spi_api
+```
+
+该配置已通过 `yuzukineko` 的 4.5 组件构建检查，尚无新的 4.5 板上日志；请按实际镜像布局选择 [RAM 或 XIP 流程](../zephyr-build-run.md)。
 
 ## 设备树
 

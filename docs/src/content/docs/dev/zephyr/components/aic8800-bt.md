@@ -2,6 +2,11 @@
 title: "AIC8800 Bluetooth - Bluetooth Driver"
 ---
 
+:::note[Version scope]
+Zephyr 4.2.2 and 4.5.0 coexist. The original examples, captures and target results on this page use the 4.2.2 baseline; 4.5 changes are identified separately. Select matching kernel and component branches and separate environments/build directories using the [version and migration guide](../zephyr-4-5.md). A 4.5 build or host-test pass does not update the version of an existing board result.
+:::
+
+
 The AIC8800 is a Wi-Fi + Bluetooth combo chip from AICSemi. This page covers its Bluetooth part: the Bluetooth controller in the chip speaks HCI (H:4, with hardware flow control) over UART, Zephyr's own Bluetooth Host runs on the SoC, and applications use the standard interfaces in `<zephyr/bluetooth/bluetooth.h>` without having to care about the chip. On the F101 side only two things have to be done: deliver the controller's firmware into the chip, and release the controller's reset when the HCI transport is opened. Both are done by the component's `src/aic_bt.c`.
 
 The Wi-Fi part is in another page: [AIC8800 WIFI](aic8800-wifi.md). The chip's SDIO bus, REG_ON power-up, where the firmware lives, how the firmware is downloaded and the chip identification are already written in the [Bus and firmware loading](aic8800-wifi.md#bus-and-firmware-loading) section of the Wi-Fi page and are not repeated here; the Bluetooth firmware, patch and configuration are delivered to the chip in the same SDIO download.
@@ -11,6 +16,17 @@ The Bluetooth controller's HCI goes over UART2, H:4, 115200, with hardware flow 
 When `bt_enable()` opens the HCI transport, if the chip has not started yet it first calls `aicz_wifi_start()` to start it, and if it has already started it returns immediately, so an application does not have to use Wi-Fi first. Conversely, the Bluetooth firmware and the Wi-Fi firmware are in the same SDIO download, so Bluetooth cannot be brought up without the Wi-Fi firmware starting.
 
 The controller reports HCI and LMP version 5.4 itself, manufacturer 0x0b3b; the local address is the public address the controller provides, and the Wi-Fi MAC is a different address. `BT_CLASSIC` is not enabled in the Zephyr host, so only low energy (LE) is available; the LE broadcaster, observer, peripheral and central roles are selected by the host's Kconfig.
+
+
+## Build the checked-in example on 4.5
+
+With the matching 4.5 branches and environment active, build the maintained example directly. The complete listings later in this article retain the 4.2.2 tutorial baseline; the example in the selected branch is the reference for current headers and API fields.
+
+```sh
+west build -b yuzukineko -d build/zephyr-4.5.0/aic8800_bt_api zephyr-components/examples/aic8800_bt_api
+```
+
+This configuration passed the 4.5 component build check for `yuzukineko`. It has no new 4.5 target log; use the [RAM or XIP flow](../zephyr-build-run.md) matching the actual image layout.
 
 ## Architecture
 

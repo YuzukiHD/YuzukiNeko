@@ -2,6 +2,11 @@
 title: "配置开发环境"
 ---
 
+:::note[版本范围]
+Zephyr 4.2.2 与 4.5.0 并存。本页原有示例、录像及板上结果使用 4.2.2 基线，4.5 的变化另行说明。请按[版本与迁移指南](zephyr-4-5.md)选择配套的内核、组件分支及独立环境和构建目录。4.5 编译或主机测试通过，不会改变已有板上结果的版本归属。
+:::
+
+
 这一页在 Linux 主机上准备好编译 YuzukiNeko 的 Zephyr 程序所需的一切：系统依赖、Python 虚拟环境、west、玄铁（XuanTie）工具链，以及下载用的 xfel。做完之后，下一篇 [获取 Zephyr 代码](zephyr-get-source.md) 才有地方放代码。
 
 :::caution
@@ -35,13 +40,13 @@ sudo apt install --no-install-recommends git cmake ninja-build gperf \
   xz-utils file make gcc gcc-multilib g++-multilib libsdl2-dev libmagic1
 ```
 
-Zephyr 4.2 对主要工具的最低版本要求如下，装完请核对：
+两版的最低版本要求如下，装完请按所选版本核对。下文 `.venv` 和 `env.sh` 保留 4.2.2 用法；4.5 使用独立虚拟环境，见[版本与迁移指南](zephyr-4-5.md)。
 
-| 工具 | 最低版本 | 检查命令 |
-| --- | --- | --- |
-| CMake | 3.20.5 | `cmake --version` |
-| Python | 3.10 | `python3 --version` |
-| 设备树编译器（dtc） | 1.4.6 | `dtc --version` |
+| 工具 | 4.2.2 最低版本 | 4.5.0 最低版本 | 检查命令 |
+| --- | --- | --- | --- |
+| CMake | 3.20.5 | 3.28 | `cmake --version` |
+| Python | 3.10 | 3.12 | `python3 --version` |
+| dtc | 1.4.6 | 1.4.6 | `dtc --version` |
 
 :::tip
 `gcc-multilib` / `g++-multilib` 只用于在主机上跑 native 仿真，编译 F101 目标不依赖它们。ARM64 主机上没有这两个包，直接从命令里去掉。

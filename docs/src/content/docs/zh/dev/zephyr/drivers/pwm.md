@@ -2,6 +2,11 @@
 title: "PWM"
 ---
 
+:::note[版本范围]
+Zephyr 4.2.2 与 4.5.0 并存。本页原有示例、录像及板上结果使用 4.2.2 基线，4.5 的变化另行说明。请按[版本与迁移指南](../zephyr-4-5.md)选择配套的内核、组件分支及独立环境和构建目录。4.5 编译或主机测试通过，不会改变已有板上结果的版本归属。
+:::
+
+
 F101 的通用 PWM 在 Zephyr 里是 `pwm` 设备，4 个通道，接口是标准的 `<zephyr/drivers/pwm.h>`，驱动是 `drivers/pwm/pwm_sunxi.c`。`yuzukineko` 板用它的通道 2（PD22）驱动 DSI 屏的背光。背光专用的 PWM_BL 模块（模拟调光、灌电流）是另一个独立的设备，见 [PWM-BL - 模拟背光](pwm-bl.md)。
 
 | 项目 | 内容 |
@@ -13,6 +18,17 @@ F101 的通用 PWM 在 Zephyr 里是 `pwm` 设备，4 个通道，接口是标�
 | 极性 | `PWM_POLARITY_NORMAL`、`PWM_POLARITY_INVERTED` |
 | 停止 | 脉宽为 0 时关闭输出并关掉该通道的时钟门 |
 | 不支持 | 极性以外的标志（`-ENOTSUP`），输入捕获 |
+
+
+## 在 4.5 构建仓库内的示例
+
+激活配套的 4.5 分支和环境后，可直接构建维护中的示例。下文完整代码保留 4.2.2 教程基线，当前头文件与 API 字段以所选分支中的示例为准。
+
+```sh
+west build -b yuzukineko -d build/zephyr-4.5.0/pwm_api zephyr-components/examples/pwm_api
+```
+
+该配置已通过 `yuzukineko` 的 4.5 组件构建检查，尚无新的 4.5 板上日志；请按实际镜像布局选择 [RAM 或 XIP 流程](../zephyr-build-run.md)。
 
 ## 设备树
 

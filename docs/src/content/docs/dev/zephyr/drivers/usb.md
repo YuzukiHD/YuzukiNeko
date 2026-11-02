@@ -2,6 +2,11 @@
 title: "USB"
 ---
 
+:::note[Version scope]
+Zephyr 4.2.2 and 4.5.0 coexist. The original examples, captures and target results on this page use the 4.2.2 baseline; 4.5 changes are identified separately. Select matching kernel and component branches and separate environments/build directories using the [version and migration guide](../zephyr-4-5.md). A 4.5 build or host-test pass does not update the version of an existing board result.
+:::
+
+
 F101 has one USB 2.0 OTG controller (a Mentor MUSB core) and one EHCI/OHCI host controller, sharing the same UTMI PHY. Zephyr does not use the upstream USB device stack here but the [CherryUSB](https://github.com/cherry-embedded/CherryUSB) stack, with F101 providing the board-level glue (`drivers/usb/cherryusb/`) and the PHY driver (`drivers/usb/phy/usb_phy_sunxi.c`).
 
 ```mermaid
@@ -23,6 +28,17 @@ flowchart TB
 | Transfer | In device mode the CPU moves the FIFO data (the PIO bit of the `VEND0` register); the USB block's own DMA is not used |
 
 This page demonstrates device mode: a CDC ACM virtual serial port that sends back exactly what the host writes to it.
+
+
+## Build the checked-in example on 4.5
+
+With the matching 4.5 branches and environment active, build the maintained example directly. The complete listings later in this article retain the 4.2.2 tutorial baseline; the example in the selected branch is the reference for current headers and API fields.
+
+```sh
+west build -b yuzukineko -d build/zephyr-4.5.0/usb_api zephyr-components/examples/usb_api
+```
+
+This configuration passed the 4.5 component build check for `yuzukineko`. It has no new 4.5 target log; use the [RAM or XIP flow](../zephyr-build-run.md) matching the actual image layout.
 
 ## Devicetree
 

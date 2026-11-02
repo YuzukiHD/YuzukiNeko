@@ -45,3 +45,14 @@ SoC 只给出逻辑电平，要外置 CAN 收发器和终端电阻。
 
 <strong>为什么 USB 设备/主机功能和下载不能同时用？</strong>
 板子只有一个 USB-C 口，它同时是 FEL 下载口。先下载，再换接外设。
+
+## Zephyr 版本与投屏
+
+**4.5 会替换 4.2.2 吗？**
+两版在约一个月过渡期内共存，计划约 2026-12-02 完成合并并停止维护 4.2.2，之后维护 4.5。内核与组件分支应配套；Python 环境、依赖和构建目录也要分开，见[版本与 4.5 变更](dev/zephyr/zephyr-4-5.md)。旧日志不代表新固件已经上板。
+
+**NekoBox 的 XIP 镜像能直接写到 RAM 或转换成 app.uf2 吗？**
+不能套用普通 RAM 镜像地址或旧 UF2 的复制加载流程。开发时写入 NOR `0x80000`，读回校验，再从 RAM 运行当前 loader，保留空启动区和采样参数，见[编译与运行](dev/zephyr/zephyr-build-run.md)。
+
+**Android 手机应该选哪种投屏？**
+无线显示／屏幕镜像使用 [Miracast](dev/zephyr/apps/miracast.md)，需要手机支持该协议；视频应用发送媒体地址使用 [DLNA](dev/zephyr/components/dlna.md)；开发者调试与触摸回传使用 [ADB/scrcpy](dev/zephyr/apps/android-mirror.md)。Miracast 独占无线接口，不能与 STA/DLNA 同时运行。

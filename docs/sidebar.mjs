@@ -115,6 +115,11 @@ export const sidebar = [
         "slug": "dev/zephyr"
       },
       {
+        "label": "Zephyr 4.2.2 and 4.5.0",
+        "translations": { "zh-CN": "Zephyr 4.2.2 与 4.5.0" },
+        "slug": "dev/zephyr/zephyr-4-5"
+      },
+      {
         "label": "Setting up the build environment",
         "translations": { "zh-CN": "配置开发环境" },
         "slug": "dev/zephyr/zephyr-setup-env"
@@ -165,6 +170,11 @@ export const sidebar = [
             "slug": "dev/zephyr/apps/micropython"
           },
           {
+            "label": "PocketJS - JavaScript UI applications",
+            "translations": { "zh-CN": "PocketJS - JavaScript UI 应用" },
+            "slug": "dev/zephyr/apps/pocketjs"
+          },
+          {
             "label": "ncnn - neural-network inference",
             "translations": { "zh-CN": "ncnn - 神经网络推理" },
             "slug": "dev/zephyr/apps/ncnn"
@@ -198,6 +208,11 @@ export const sidebar = [
             "label": "Android mirroring - scrcpy",
             "translations": { "zh-CN": "安卓投屏 - Scrcpy" },
             "slug": "dev/zephyr/apps/android-mirror"
+          },
+          {
+            "label": "Miracast - Android wireless display",
+            "translations": { "zh-CN": "Miracast - Android 无线显示" },
+            "slug": "dev/zephyr/apps/miracast"
           },
           {
             "label": "iOS mirroring - AirPlay",
@@ -294,6 +309,11 @@ export const sidebar = [
         "collapsed": true,
         "items": [
           {
+            "label": "PocketJS - UI runtime component",
+            "translations": { "zh-CN": "PocketJS - UI 运行时组件" },
+            "slug": "dev/zephyr/components/pocketjs"
+          },
+          {
             "label": "CherryUSB - USB stack",
             "translations": { "zh-CN": "CherryUSB - USB 协议栈" },
             "slug": "dev/zephyr/components/cherryusb"
@@ -312,6 +332,11 @@ export const sidebar = [
             "label": "AIC8800 Bluetooth - Bluetooth driver",
             "translations": { "zh-CN": "AIC8800 蓝牙 - 蓝牙驱动" },
             "slug": "dev/zephyr/components/aic8800-bt"
+          },
+          {
+            "label": "DLNA - UPnP media renderer",
+            "translations": { "zh-CN": "DLNA - UPnP 媒体接收器" },
+            "slug": "dev/zephyr/components/dlna"
           },
           {
             "label": "AAC - AAC decoder",

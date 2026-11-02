@@ -2,6 +2,11 @@
 title: "GPIO"
 ---
 
+:::note[版本范围]
+Zephyr 4.2.2 与 4.5.0 并存。本页原有示例、录像及板上结果使用 4.2.2 基线，4.5 的变化另行说明。请按[版本与迁移指南](../zephyr-4-5.md)选择配套的内核、组件分支及独立环境和构建目录。4.5 编译或主机测试通过，不会改变已有板上结果的版本归属。
+:::
+
+
 F101 的 GPIO 和引脚复用（pinctrl）在同一个 PIO 模块里：6 个 bank（PA…PF），每个 bank 32 根线，每个 bank 一个中断。Zephyr 里把每个 bank 做成一个 GPIO 设备（`gpioa`…`gpiof`），接口是标准的 `<zephyr/drivers/gpio.h>`，驱动是 `drivers/gpio/gpio_sunxi.c`。
 
 | 项目 | 内容 |
@@ -10,6 +15,17 @@ F101 的 GPIO 和引脚复用（pinctrl）在同一个 PIO 模块里：6 个 ban
 | 方向 | 输入、输出，可选内部上拉或下拉 |
 | 中断 | 上升沿、下降沿、双沿、高电平、低电平 |
 | 不支持 | 开漏、开源输出（`-ENOTSUP`），`gpio_pin_get_config` |
+
+
+## 在 4.5 构建仓库内的示例
+
+激活配套的 4.5 分支和环境后，可直接构建维护中的示例。下文完整代码保留 4.2.2 教程基线，当前头文件与 API 字段以所选分支中的示例为准。
+
+```sh
+west build -b yuzukineko -d build/zephyr-4.5.0/gpio_api zephyr-components/examples/gpio_api
+```
+
+该配置已通过 `yuzukineko` 的 4.5 组件构建检查，尚无新的 4.5 板上日志；请按实际镜像布局选择 [RAM 或 XIP 流程](../zephyr-build-run.md)。
 
 ## 设备树
 

@@ -2,6 +2,11 @@
 title: "SD - SD 卡协议栈"
 ---
 
+:::note[版本范围]
+Zephyr 4.2.2 与 4.5.0 并存。本页原有示例、录像及板上结果使用 4.2.2 基线，4.5 的变化另行说明。请按[版本与迁移指南](../zephyr-4-5.md)选择配套的内核、组件分支及独立环境和构建目录。4.5 编译或主机测试通过，不会改变已有板上结果的版本归属。
+:::
+
+
 SD 组件是 SD 主机控制器驱动（[SDHC](../drivers/sdhc.md)）之上的软件：初始化卡的 SD 协议栈、按扇区读写卡的磁盘接口，以及在卡上放 FAT 文件系统的 `fs_*` 接口。这三层都可以单独使用。
 
 这些代码是 Zephyr 上游自带的，F101 的 fork 没有改动它们。F101 这边提供的是 SDHC 主机控制器驱动（`drivers/sdhc/sdhc_sunxi.c`），以及板级设备树里 `smhc0` 下名为 `SD` 的磁盘子节点。这里写的是这套协议栈在 `yuzukineko` 上怎么用，每个接口都附有板子上的输出。
@@ -14,6 +19,17 @@ SD 组件是 SD 主机控制器驱动（[SDHC](../drivers/sdhc.md)）之上的�
 * 主机控制器：`zephyr/drivers/sdhc/sdhc_sunxi.c`。
 
 `yuzukineko` 上的几个前提：`SD` 磁盘只打开了 `SDMMC_STACK`，没有 MMC（eMMC）协议栈；SDIO 协议栈由 WiFi/蓝牙芯片使用，见 [AIC8800 WIFI](aic8800-wifi.md)。总线是 4 位，不支持 1.8 V 的 UHS 模式和 SPI 模式。文件系统是 FAT12/16/32，打开 `CONFIG_FS_FATFS_EXFAT` 后还有 exFAT，支持长文件名。磁盘名 `SD` 和 FatFs 的挂载点 `/SD:` 对应。
+
+
+## 在 4.5 构建仓库内的示例
+
+激活配套的 4.5 分支和环境后，可直接构建维护中的示例。下文完整代码保留 4.2.2 教程基线，当前头文件与 API 字段以所选分支中的示例为准。
+
+```sh
+west build -b yuzukineko -d build/zephyr-4.5.0/sd_api zephyr-components/examples/sd_api
+```
+
+该配置已通过 `yuzukineko` 的 4.5 组件构建检查，尚无新的 4.5 板上日志；请按实际镜像布局选择 [RAM 或 XIP 流程](../zephyr-build-run.md)。
 
 ## 架构
 

@@ -2,6 +2,11 @@
 title: "mGBA - GBA 模拟器"
 ---
 
+:::note[版本范围]
+Zephyr 4.2.2 与 4.5.0 并存。本页原有示例、录像及板上结果使用 4.2.2 基线，4.5 的变化另行说明。请按[版本与迁移指南](../zephyr-4-5.md)选择配套的内核、组件分支及独立环境和构建目录。4.5 编译或主机测试通过，不会改变已有板上结果的版本归属。
+:::
+
+
 在板子上运行 Game Boy Advance 游戏（也能跑 Game Boy / Game Boy Color）：模拟器核心是 [mGBA](https://github.com/mgba-emu/mgba)，ROM 从 TF 卡读取；游戏画面 240×160 交给显示引擎的视频层放大到整块屏幕；声音经 I2S 从片上 codec 输出；屏幕上叠一层 LVGL 画的半透明按键，用触摸屏操作。示例是 `zephyr-components/mgba/samples/gba_player`，mGBA 本体是组件里的 git 子模块（MPL-2.0），不需要 BIOS 文件。
 
 ```mermaid

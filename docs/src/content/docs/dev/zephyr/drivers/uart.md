@@ -2,6 +2,11 @@
 title: "UART"
 ---
 
+:::note[Version scope]
+Zephyr 4.2.2 and 4.5.0 coexist. The original examples, captures and target results on this page use the 4.2.2 baseline; 4.5 changes are identified separately. Select matching kernel and component branches and separate environments/build directories using the [version and migration guide](../zephyr-4-5.md). A 4.5 build or host-test pass does not update the version of an existing board result.
+:::
+
+
 The F101 has 6 UARTs (`uart0`…`uart5`). Zephyr uses the upstream NS16550 driver (`drivers/serial/uart_ns16550.c`), because the UART of the F101 is a Synopsys DesignWare APB UART (16550-compatible). The F101 port does only three things: the devicetree nodes, the clock/reset, and having the SoC select `UART_NS16550_DW8250_DW_APB` by default. The interface is the standard `<zephyr/drivers/uart.h>`.
 
 | Item | Content |
@@ -12,6 +17,39 @@ The F101 has 6 UARTs (`uart0`…`uart5`). Zephyr uses the upstream NS16550 drive
 | Parity | None, even (odd returns `-ENOTSUP`) |
 | Flow control | `uart_configure` accepts none, RTS/CTS and DTR/DSR and records them; for hardware automatic flow control see the note below |
 | Interface | Polling (`uart_poll_in`/`uart_poll_out`), interrupts (`uart_irq_*`, `uart_fifo_*`) |
+
+
+
+## 4.5 interrupt API change
+
+`uart_irq_update()` returns `void` on 4.5. The old `while (uart_irq_update(dev) && ...)` listing below is for 4.2.2. The maintained interrupt handler updates the state first, then checks pending work:
+
+```c
+while (true) {
+	uart_irq_update(dev);
+	if (!uart_irq_is_pending(dev)) {
+		break;
+	}
+	if (uart_irq_rx_ready(dev)) {
+		rx_ready(dev);
+	}
+	if (uart_irq_tx_ready(dev)) {
+		tx_ready(dev);
+	}
+}
+```
+
+`rx_ready()` and `tx_ready()` are the helpers in `examples/uart_api/src/main.c`. Do not use the return value of `uart_irq_update()` in new application code.
+
+## Build the checked-in example on 4.5
+
+With the matching 4.5 branches and environment active, build the maintained example directly. The complete listings later in this article retain the 4.2.2 tutorial baseline; the example in the selected branch is the reference for current headers and API fields.
+
+```sh
+west build -b yuzukineko -d build/zephyr-4.5.0/uart_api zephyr-components/examples/uart_api
+```
+
+This configuration passed the 4.5 component build check for `yuzukineko`. It has no new 4.5 target log; use the [RAM or XIP flow](../zephyr-build-run.md) matching the actual image layout.
 
 ## Devicetree
 

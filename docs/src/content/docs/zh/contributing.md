@@ -23,6 +23,7 @@ npm run dev     # 开发预览，改了页面会自动刷新
 要看和线上一样的构建结果：
 
 ```sh
+npm run check:i18n
 npm run build      # 输出到 docs/dist/
 npm run preview    # 预览构建结果
 ```
@@ -30,3 +31,5 @@ npm run preview    # 预览构建结果
 - 页面是 `docs/src/content/docs/` 下的 Markdown 文件，写法和目录约定见 `docs/README.md`。
 - 改了构建插件或样式后，如果页面还是旧的，删掉 `docs/.astro` 和 `docs/node_modules/.astro` 再重启，Astro 会按页面内容缓存渲染结果。
 - 推送到 `main` 后，GitHub Actions 会自动构建并发布到 GitHub Pages。
+
+新增文章同时提供中英文版本并更新侧栏。Zephyr 改动注明 4.2.2／4.5 适用范围、对应分支及验证条件；保留真实历史日志，不把编译通过描述成实机通过。提交前运行双语检查、站点构建并检查生成页面的本地链接。

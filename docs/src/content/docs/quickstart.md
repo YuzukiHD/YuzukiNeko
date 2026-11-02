@@ -65,6 +65,8 @@ If you want your changes to persist (a writable root filesystem that survives a 
 
 This suits users who need a full RTOS, drivers and multimedia features. Zephyr's `yuzukineko` board support lives in the F101 workspace, see [Zephyr](dev/zephyr/index.md).
 
+Zephyr 4.2.2 and 4.5.0 remain available together; choose matched branches using the [version guide](dev/zephyr/zephyr-4-5.md). Develop through RAM downloads or the XIP loader flow preserving an empty boot area; standalone images and UF2 installation change automatic FEL entry. Application entry points include [NekoBox](dev/zephyr/apps/nekobox.md), [Miracast](dev/zephyr/apps/miracast.md) and [DLNA](dev/zephyr/components/dlna.md).
+
 ## Next steps
 
 - Want to attach peripherals → [Pinout](hardware/pinout.md)

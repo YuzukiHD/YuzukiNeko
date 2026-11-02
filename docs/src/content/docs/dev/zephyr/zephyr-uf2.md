@@ -2,6 +2,16 @@
 title: "UF2 drag-and-drop flashing"
 ---
 
+:::caution[Image and layout]
+This retains the standalone/UF2 flow for ordinary RAM images; the 4.5 downloader also passed compilation. It installs NOR boot code, changes automatic FEL entry and is incompatible with the XIP development layout at `0x80000`. XIP images of NekoBox, Bilibili or Miracast cannot be packaged directly as this `app.uf2`. See [Build and run](zephyr-build-run.md) for development.
+:::
+
+
+:::note[Version scope]
+Zephyr 4.2.2 and 4.5.0 coexist. The original examples, captures and target results on this page use the 4.2.2 baseline; 4.5 changes are identified separately. Select matching kernel and component branches and separate environments/build directories using the [version and migration guide](zephyr-4-5.md). A 4.5 build or host-test pass does not update the version of an existing board result.
+:::
+
+
 The UF2 downloader is a small program that runs on the board: the board appears as a USB drive `F101BOOT`, and copying a `.uf2` file into it writes the file to SPI NOR and reboots automatically when done. Once it is installed, downloading an application no longer needs xfel and FEL. For installing the downloader itself and the day-to-day use of `.uf2` files, see [Build and run](zephyr-build-run.md#method-3-uf2-drag-and-drop-download); this page is the reference.
 
 ## Entering the downloader

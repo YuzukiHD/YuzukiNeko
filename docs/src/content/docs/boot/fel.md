@@ -5,7 +5,7 @@ title: "FEL download mode and tools"
 F101's BROM contains a USB download mode called <strong>FEL</strong>. Under FEL, the host can read and write SPI NOR over USB, and load a program into memory and run it. Every download method for this board (xfel, rfel, booting the UF2 loader from FEL) is based on it.
 
 :::tip
-<strong>xfel and rfel are the same kind of tool:</strong> both are download tools that talk to the board over FEL from the host, with identically named subcommands and the same functions. <strong>Install either one</strong>; you do not need both. The commands on this site use xfel as the example; with rfel, replace `xfel` with `rfel`.
+<strong>xfel and rfel both communicate with the board through FEL.</strong><strong>Choose one for the required platform and features</strong>. They share basic operations such as `version` and `spinor read/write`, but RAM initialization, architecture selection and execution commands depend on the tool version's `--help`; do not mechanically replace every xfel command with rfel.
 :::
 
 ## Entering FEL
@@ -109,7 +109,7 @@ Neither WinUSB nor udev rules are needed.
 | `xfel spinor write <addr> <file>` | Write Flash (erases the required sectors automatically) |
 | `xfel reset` | Reset the board |
 
-rfel's subcommands have the same names; just replace `xfel` with `rfel`.
+For the shared Flash operations above, use the corresponding rfel command after checking the installed version's help.
 
 :::caution
 <strong>Limits of some commands</strong>: `xfel ddr f101-s3` (initialise RAM) plus `xfel write` + `xfel exec` can load a program directly into RAM and run it without going through Flash, a common workflow when developing bare-metal programs such as Zephyr; this workflow requires <strong>re-entering FEL on every power-up</strong>, because FEL is no longer available after `exec`. The Flash-writing workflow (flashing firmware on this site) <strong>does not</strong> need the `ddr` command.
@@ -121,5 +121,7 @@ rfel's subcommands have the same names; just replace `xfel` with `rfel`.
 | --- | --- |
 | `unsupported chip` | The tool version does not support F101; upgrade xfel / rfel |
 | Device not found | Not in FEL; whether the cable carries data; whether WinUSB is installed on Windows |
-| `usb bulk send/recv error` | If it happens after `exec`: the CPU has left the BROM and the program is running, which is normal |
+| `usb bulk send/recv error` | If it happens after `exec`: the ROM USB link may have disconnected after the jump; check the current image’s serial log to establish execution |
 | Insufficient permissions (Linux) | Configure a udev rule, see above |
+
+Some xfel failures still return exit code 0. Check command output as well, then read back the same length and compare SHA-256 before starting. A disappearing USB interface does not establish successful execution.

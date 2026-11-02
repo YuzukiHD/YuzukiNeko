@@ -2,6 +2,11 @@
 title: "MicroPython - Python REPL and scripts"
 ---
 
+:::note[Version scope]
+Zephyr 4.2.2 and 4.5.0 coexist. The original examples, captures and target results on this page use the 4.2.2 baseline; 4.5 changes are identified separately. Select matching kernel and component branches and separate environments/build directories using the [version and migration guide](../zephyr-4-5.md). A 4.5 build or host-test pass does not update the version of an existing board result.
+:::
+
+
 Runs [MicroPython](https://micropython.org/) on the board: a Python REPL on the console, `machine` access to the pins and peripherals, the TF card mounted as a file system, the LCD, and an extra module `f101` for the hardware MicroPython has no generic binding for (the chip id, the 2D accelerator and audio output). The application is the <strong>unmodified MicroPython Zephyr port</strong> (a git submodule, MIT); `zephyr-components/micropython` adds the board configuration, the Zephyr module glue and the `f101` module. It is built for the `yuzukineko` board and the REPL is on the console, UART1 (PB0/PB1), 115200.
 
 ```mermaid
@@ -12,7 +17,7 @@ flowchart TB
     F101 -->|"hwinfo"| SID["fuses: chip id"]
     F101 -->|"g2d_*"| G2D["2D accelerator"]
     F101 -->|"i2s + codec"| AUDIO["on-chip codec"]
-    UART["UART3 console"] <-->|"keyboard + output"| MP
+    UART["UART1 console"] <-->|"keyboard + output"| MP
     MP -.->|"every output line"| SCR["screen console<br/>10x16 character grid on the LCD"]
 ```
 
@@ -44,26 +49,30 @@ A TF card is only needed for `/sd`. It is mounted by the port's `_boot.py` at st
 The build needs the submodules:
 
 ```sh
-git submodule update --init
-git -C zephyr-components/micropython/micropython submodule update --init --depth 1 \
-	lib/oofatfs lib/littlefs lib/micropython-lib
+git -C zephyr-components submodule update --init micropython/micropython
+git -C zephyr-components/micropython/micropython submodule update --init --depth 1 lib/micropython-lib
 ```
 
 ## Building
 
+Use this wrapper on 4.5 too, with output `build/zephyr-4.5.0/upy`. The build passed; target functions still need retesting.
+
+
 ```sh
 . ./env.sh
-zephyr-components/micropython/build.sh [build/upy] [-DCONFIG_MICROPY_HEAP_SIZE=...]
+zephyr-components/micropython/build.sh build/upy
 ```
 
 `build.sh` configures the build with the cross toolchain and then builds with `CROSS_COMPILE` <strong>unset</strong>: the build also compiles `mpy-cross` for the host, and with `CROSS_COMPILE` set it would be built for RISC-V and fail to link. Behind it is this `west` call, with the application `micropython/ports/zephyr`:
 
 ```sh
-west build -b yuzukineko -d build/upy --cmake-only micropython/ports/zephyr -- \
-	-DZEPHYR_EXTRA_MODULES=<this directory> \
-	-DEXTRA_CONF_FILE=conf/f101.conf \
-	-DEXTRA_DTC_OVERLAY_FILE=conf/f101.overlay \
-	-DUSER_C_MODULES=usermod/f101/micropython.cmake
+UPY_MODULE="$PWD/zephyr-components/micropython"
+west build -b yuzukineko -d build/upy --cmake-only "$UPY_MODULE/micropython/ports/zephyr" -- \
+  -DZEPHYR_EXTRA_MODULES="$UPY_MODULE" \
+  -DEXTRA_CONF_FILE="$UPY_MODULE/conf/f101.conf" \
+  -DEXTRA_DTC_OVERLAY_FILE="$UPY_MODULE/conf/f101.overlay" \
+  -DUSER_C_MODULES="$UPY_MODULE/usermod/f101/micropython.cmake"
+env -u CROSS_COMPILE cmake --build build/upy
 ```
 
 The image goes to `0x40000000` like the other samples. Extra arguments after the build directory are passed to CMake.

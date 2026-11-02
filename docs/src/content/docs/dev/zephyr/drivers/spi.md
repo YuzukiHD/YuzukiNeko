@@ -2,6 +2,11 @@
 title: "SPI"
 ---
 
+:::note[Version scope]
+Zephyr 4.2.2 and 4.5.0 coexist. The original examples, captures and target results on this page use the 4.2.2 baseline; 4.5 changes are identified separately. Select matching kernel and component branches and separate environments/build directories using the [version and migration guide](../zephyr-4-5.md). A 4.5 build or host-test pass does not update the version of an existing board result.
+:::
+
+
 F101 has 2 SPI controllers, `spi0` and `spi1` in Zephyr, with the standard `<zephyr/drivers/spi.h>` API; the driver is `drivers/spi/spi_sunxi.c`, and there is an extension header `<zephyr/drivers/spi/spi_sunxi.h>`.
 
 | Item | Content |
@@ -15,6 +20,17 @@ F101 has 2 SPI controllers, `spi0` and `spi1` in Zephyr, with the standard `<zep
 | Frequency | Below 3 kHz returns `-EINVAL`; up to 24 MHz uses the controller's own divider; higher is obtained from the PLL divider |
 | Transfer | Polling; reads of 256 bytes or more into a 64 byte (cache line) aligned buffer go through DMA |
 | Not supported | Slave mode, loopback (`SPI_MODE_LOOP`), `SPI_HOLD_ON_CS`, word lengths other than 8 bits |
+
+
+## Build the checked-in example on 4.5
+
+With the matching 4.5 branches and environment active, build the maintained example directly. The complete listings later in this article retain the 4.2.2 tutorial baseline; the example in the selected branch is the reference for current headers and API fields.
+
+```sh
+west build -b yuzukineko -d build/zephyr-4.5.0/spi_api zephyr-components/examples/spi_api
+```
+
+This configuration passed the 4.5 component build check for `yuzukineko`. It has no new 4.5 target log; use the [RAM or XIP flow](../zephyr-build-run.md) matching the actual image layout.
 
 ## Devicetree
 

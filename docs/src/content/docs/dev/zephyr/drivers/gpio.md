@@ -2,6 +2,11 @@
 title: "GPIO"
 ---
 
+:::note[Version scope]
+Zephyr 4.2.2 and 4.5.0 coexist. The original examples, captures and target results on this page use the 4.2.2 baseline; 4.5 changes are identified separately. Select matching kernel and component branches and separate environments/build directories using the [version and migration guide](../zephyr-4-5.md). A 4.5 build or host-test pass does not update the version of an existing board result.
+:::
+
+
 The GPIO and pin multiplexing (pinctrl) of the F101 live in the same PIO module: 6 banks (PA…PF), 32 lines per bank, one interrupt per bank. In Zephyr each bank is a GPIO device (`gpioa`…`gpiof`), the interface is the standard `<zephyr/drivers/gpio.h>`, and the driver is `drivers/gpio/gpio_sunxi.c`.
 
 | Item | Description |
@@ -10,6 +15,17 @@ The GPIO and pin multiplexing (pinctrl) of the F101 live in the same PIO module:
 | Direction | input, output, with optional internal pull-up or pull-down |
 | Interrupts | rising edge, falling edge, both edges, high level, low level |
 | Not supported | open drain, open source output (`-ENOTSUP`), `gpio_pin_get_config` |
+
+
+## Build the checked-in example on 4.5
+
+With the matching 4.5 branches and environment active, build the maintained example directly. The complete listings later in this article retain the 4.2.2 tutorial baseline; the example in the selected branch is the reference for current headers and API fields.
+
+```sh
+west build -b yuzukineko -d build/zephyr-4.5.0/gpio_api zephyr-components/examples/gpio_api
+```
+
+This configuration passed the 4.5 component build check for `yuzukineko`. It has no new 4.5 target log; use the [RAM or XIP flow](../zephyr-build-run.md) matching the actual image layout.
 
 ## Devicetree
 
