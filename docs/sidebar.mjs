@@ -375,6 +375,117 @@ export const sidebar = [
       {
         "label": "Linux + Buildroot",
         "slug": "dev/linux/linux-buildroot"
+      },
+      {
+        "label": "Linux apps",
+        "translations": { "zh-CN": "Linux 应用" },
+        "collapsed": true,
+        "items": [
+          {
+            "label": "Buildroot packages",
+            "translations": { "zh-CN": "Buildroot 软件包" },
+            "slug": "dev/linux/apps/buildroot-packages"
+          },
+          {
+            "label": "BusyBox - shell and applets",
+            "translations": { "zh-CN": "BusyBox - shell 与小工具" },
+            "slug": "dev/linux/apps/busybox"
+          },
+          {
+            "label": "Common commands",
+            "translations": { "zh-CN": "常用命令" },
+            "slug": "dev/linux/apps/linux-commands"
+          }
+        ]
+      },
+      {
+        "label": "Linux drivers",
+        "translations": { "zh-CN": "Linux 驱动" },
+        "collapsed": true,
+        "items": [
+          {
+            "label": "CCU - clocks and resets",
+            "translations": { "zh-CN": "CCU - 时钟与复位" },
+            "slug": "dev/linux/drivers/clock"
+          },
+          {
+            "label": "MBUS and SRAM - bus priority and on-chip memory",
+            "translations": { "zh-CN": "MBUS 与 SRAM - 总线优先级与片上内存" },
+            "slug": "dev/linux/drivers/mbus-sram"
+          },
+          {
+            "label": "PINCTRL - pin multiplexing and GPIO",
+            "translations": { "zh-CN": "PINCTRL - 引脚复用与 GPIO" },
+            "slug": "dev/linux/drivers/pinctrl-gpio"
+          },
+          {
+            "label": "UART - serial ports",
+            "translations": { "zh-CN": "UART - 串口" },
+            "slug": "dev/linux/drivers/uart"
+          },
+          {
+            "label": "I2C - the I²C bus",
+            "translations": { "zh-CN": "I2C - I²C 总线" },
+            "slug": "dev/linux/drivers/i2c"
+          },
+          {
+            "label": "SPI and DMA",
+            "translations": { "zh-CN": "SPI 与 DMA" },
+            "slug": "dev/linux/drivers/spi"
+          },
+          {
+            "label": "SPIF - SPI NOR flash",
+            "translations": { "zh-CN": "SPIF - SPI NOR Flash" },
+            "slug": "dev/linux/drivers/spif-nor"
+          },
+          {
+            "label": "SMHC - microSD card",
+            "translations": { "zh-CN": "SMHC - microSD 卡" },
+            "slug": "dev/linux/drivers/mmc"
+          },
+          {
+            "label": "Display - DE, TCON, DSI and the panel",
+            "translations": { "zh-CN": "显示 - DE、TCON、DSI 与屏幕" },
+            "slug": "dev/linux/drivers/display"
+          },
+          {
+            "label": "G2D - 2D graphics acceleration",
+            "translations": { "zh-CN": "G2D - 2D 图形加速" },
+            "slug": "dev/linux/drivers/g2d"
+          },
+          {
+            "label": "VE - video decoding",
+            "translations": { "zh-CN": "VE - 视频解码" },
+            "slug": "dev/linux/drivers/vdec"
+          },
+          {
+            "label": "USB - host and device",
+            "translations": { "zh-CN": "USB - 主机与设备" },
+            "slug": "dev/linux/drivers/usb"
+          }
+        ]
+      },
+      {
+        "label": "Linux components",
+        "translations": { "zh-CN": "Linux 组件" },
+        "collapsed": true,
+        "items": [
+          {
+            "label": "OpenSBI - SBI firmware",
+            "translations": { "zh-CN": "OpenSBI - SBI 固件" },
+            "slug": "dev/linux/components/opensbi"
+          },
+          {
+            "label": "SyterKit - the bootloader",
+            "translations": { "zh-CN": "SyterKit - 引导程序" },
+            "slug": "dev/linux/components/syterkit"
+          },
+          {
+            "label": "Buildroot external tree",
+            "translations": { "zh-CN": "Buildroot 外部树" },
+            "slug": "dev/linux/components/buildroot-external"
+          }
+        ]
       }
     ]
   },

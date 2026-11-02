@@ -17,45 +17,44 @@ Linux on F101 consists of three parts, and the boot chain is BROM → SyterKit �
 
 ## Driver support
 
-### Supported
+### Supported and tested
 
-Enabled in the devicetree, with the drivers compiled into the kernel:
+Enabled in the devicetree, compiled into the kernel, and exercised on the board:
 
-| Peripheral | Driver | Notes |
-| --- | --- | --- |
-| Clocks and reset | `sunxi-ng` CCU (including CPU PLL, DDR PLL, RTC clock) | Clock source for all peripherals |
-| Interrupts and timers | PLIC, CLINT | Built into the C907 |
-| Pin multiplexing and GPIO | `pinctrl-sun252i-f101`, GPIO character device | Provides `/dev/gpiochip*` |
-| UART1 | 8250 DesignWare | Console `ttyS1`, 115200 8N1, pins `PB0/PB1` |
-| I2C2 | `i2c-mv64xxx`, `i2c-dev` | `PB2` pin group, userspace via `/dev/i2c-*` |
-| SPI0 and onboard NOR | `spi-sun6i`, `spi-nor`, MTD | 16 MiB NOR, mounted by fixed partitions, see [Prebuilt images](linux-prebuilt.md#replacing-a-single-component) |
-| DMA | `sun6i-dma` | |
-| System control and SRAM | `sunxi_sram` | |
+| Peripheral | Driver | Notes | Documentation |
+| --- | --- | --- | --- |
+| Clocks and resets | `sunxi-ng` CCU | Clock source of every peripheral, including the C907 and PSRAM PLLs | [CCU](drivers/clock.md) |
+| Interrupts and timers | PLIC, CLINT | Built into the C907 | |
+| Pin multiplexing and GPIO | `pinctrl-sun252i-f101` | Six banks, external interrupts, GPIO character device | [PINCTRL](drivers/pinctrl-gpio.md) |
+| Memory bus priority | `sun252i-f101-mbus` | Priorities, bandwidth limits, traffic counters | [MBUS and SRAM](drivers/mbus-sram.md) |
+| On-chip SRAM | `sunxi_sram` | VE, display engine and USB FIFO sections | [MBUS and SRAM](drivers/mbus-sram.md) |
+| UART1 | 8250 DesignWare | Console `ttyS1`, 115200 8N1, `PB0`/`PB1` | [UART](drivers/uart.md) |
+| I2C2 | `i2c-mv64xxx` | `PB2`/`PB3`, userspace through `/dev/i2c-0` (the number is dynamic, see [I2C](drivers/i2c.md)) | [I2C](drivers/i2c.md) |
+| SPI0 and NOR | `spi-sun6i`, `spi-nor`, MTD | 16 MiB flash, root filesystem, DMA transfers | [SPI and DMA](drivers/spi.md), [SPIF](drivers/spif-nor.md) |
+| SPI flash controller | `spi-sunxi-spif` | Alternative controller for the same NOR, own devicetree variant | [SPIF](drivers/spif-nor.md) |
+| DMA | `sun6i-dma` | Eight channels, used by SPI | [SPI and DMA](drivers/spi.md) |
+| microSD | `sunxi-mmc` | SMHC0, 4-bit, 50 MHz, card detect on `PF6` | [SMHC](drivers/mmc.md) |
+| Display | `sun4i-drm`, `sun6i-dsi`, D-PHY, JD9168S panel | 1024x768 MIPI DSI panel, framebuffer console | [Display](drivers/display.md) |
+| G2D | `sun252i-g2d` | V4L2 memory to memory: convert, scale, rotate, flip | [G2D](drivers/g2d.md) |
+| Video engine | `cedrus` | JPEG and H.264 decoding, linear NV12 output | [VE](drivers/vdec.md) |
+| USB | MUSB OTG, EHCI, OHCI, `sun4i-usb-phy` | Device mode with configfs gadgets, host mode with root hubs | [USB](drivers/usb.md) |
 
-### Unverified
-
-The following have not been verified and may have problems.
+### Not enabled or not verified
 
 | Peripheral | Status |
 | --- | --- |
-| Video engine | The Cedrus driver (`VIDEO_SUNXI_CEDRUS`, V4L2 staging) is compiled in and enabled in the devicetree; it has not passed testing, and there is not enough memory on the board to verify it |
-| microSD (SMHC0) | The `sunxi-mmc` driver is compiled in; the board layer declares card detect `PF6` and 3.3 V power, but the status is `disabled`; it has not passed testing, and there is not enough memory on the board to verify it |
-| SMHC2 | The `sunxi-mmc` driver is compiled in; the SoC has a node, the board layer does not configure it; it has not passed testing, and there is not enough memory on the board to verify it |
-| UART0, UART2–UART5 | The 8250 DesignWare driver is compiled in; the SoC has nodes, but the board layer neither enables them nor configures pins |
-| I2C0, I2C1 | The `i2c-mv64xxx` driver is compiled in; the board layer neither enables them nor configures pins |
-| SPI1 | The `spi-sun6i` driver is compiled in; the board layer neither enables it nor configures pins |
-| PWM0 | The `pwm-sunxi` driver is compiled in; the board layer neither enables it nor configures pins |
-| Watchdog | The SoC devicetree has a node, but the kernel does not enable `CONFIG_WATCHDOG`, so the driver is not compiled in |
-| USB (host / device) | The kernel does not enable `CONFIG_USB`, and there is no USB node in the devicetree |
-| Display and RGB LCD | There is no display driver (`CONFIG_DRM` not enabled), and no display node in the devicetree |
-| G2D | No node in the devicetree and no driver in the kernel |
-| Audio (on-chip codec) | No node in the devicetree and no driver in the kernel |
-| ADC | No node in the devicetree, `CONFIG_IIO` not enabled |
-| RTC | Only the RTC clock controller, no RTC device, `CONFIG_RTC_CLASS` not enabled |
+| UART0, UART2 to UART5 | Nodes exist in the SoC devicetree but are `disabled`, and the board configures no pins for them |
+| I2C0, I2C1 | Same: `disabled` nodes, no pin groups in the board file |
+| SPI1 | `disabled`; shares the `PC` pads with SPI0, SMHC2 and SPIF |
+| eMMC (SMHC2) | `disabled`; shares the `PC` pads |
+| Watchdog | The SoC devicetree has the node, but `CONFIG_WATCHDOG` is not enabled, so no driver is built |
+| RTC | Only the RTC clock controller exists; there is no RTC device driver or battery-backed clock |
+| Audio (on-chip codec) | No node and no driver |
+| ADC | No node, `CONFIG_IIO` not enabled |
+| Camera (CSI) | No node and no driver |
+| Network | The kernel is built without `CONFIG_NET`; the USB gadget can declare ECM but there is no stack behind it |
 
-To use a peripheral that already has a node in the devicetree but is not enabled, edit `sun252i-f101-yuzukineko-common.dtsi`, set the corresponding node to `okay`, configure its pins, and rebuild the devicetree.
-
-Linux currently has no USB, display, G2D, or audio drivers; these classes of peripheral have drivers in [Zephyr](../zephyr/index.md).
+To use a peripheral whose node exists but is disabled, set it to `okay` in `sun252i-f101-yuzukineko-common.dtsi`, give it a pin group, and rebuild the devicetree.
 
 ## In this chapter
 
@@ -63,6 +62,24 @@ Linux currently has no USB, display, G2D, or audio drivers; these classes of per
 - [Manual build](linux-manual.md)
 - [Manual build RV64I](linux-manual-rv64.md)
 - [Linux + Buildroot](linux-buildroot.md)
+
+## Apps
+
+- [Buildroot packages](apps/buildroot-packages.md): what the root filesystem contains and how to add a package
+- [BusyBox](apps/busybox.md): the shell, the applets, init and the init scripts
+- [Common commands](apps/linux-commands.md): the commands that work on the board, grouped by task
+
+## Drivers
+
+- [CCU](drivers/clock.md), [MBUS and SRAM](drivers/mbus-sram.md), [PINCTRL](drivers/pinctrl-gpio.md)
+- [UART](drivers/uart.md), [I2C](drivers/i2c.md), [SPI and DMA](drivers/spi.md), [SPIF](drivers/spif-nor.md), [SMHC](drivers/mmc.md)
+- [Display](drivers/display.md), [G2D](drivers/g2d.md), [VE](drivers/vdec.md), [USB](drivers/usb.md)
+
+## Components
+
+- [OpenSBI](components/opensbi.md): the SBI firmware in M mode
+- [SyterKit](components/syterkit.md): the bootloader and the PSRAM bring-up
+- [Buildroot external tree](components/buildroot-external.md): the board configuration and image script
 
 :::tip
 Before flashing, read [FEL download mode and tools](../../boot/fel.md) and [SPI NOR layout and backup](../../boot/flash-layout.md), and back up the board's Flash. For a pure Rust system, see [Asterinas](../asterinas/rustsbi-asterinas.md).

@@ -17,45 +17,44 @@ F101 上的 Linux 由三部分组成，启动链为 BROM → SyterKit → OpenSB
 
 ## 驱动支持情况
 
-### 已支持
+### 已支持并验证
 
-设备树里已启用，驱动也编进了内核：
+设备树里已启用、驱动编进内核，并且在板上跑通过：
 
-| 外设 | 驱动 | 说明 |
-| --- | --- | --- |
-| 时钟与复位 | `sunxi-ng` CCU（含 CPU PLL、DDR PLL、RTC 时钟） | 所有外设的时钟来源 |
-| 中断与定时器 | PLIC、CLINT | C907 自带 |
-| 引脚复用与 GPIO | `pinctrl-sun252i-f101`，GPIO 字符设备 | 提供 `/dev/gpiochip*` |
-| UART1 | 8250 DesignWare | 控制台 `ttyS1`，115200 8N1，引脚 `PB0/PB1` |
-| I2C2 | `i2c-mv64xxx`，`i2c-dev` | 引脚 `PB2` 组，用户态走 `/dev/i2c-*` |
-| SPI0 与板载 NOR | `spi-sun6i`，`spi-nor`，MTD | 16 MiB NOR，按固定分区挂载，见[预编译镜像](linux-prebuilt.md#单独替换某个组件) |
-| DMA | `sun6i-dma` | |
-| 系统控制与 SRAM | `sunxi_sram` | |
+| 外设 | 驱动 | 说明 | 文档 |
+| --- | --- | --- | --- |
+| 时钟与复位 | `sunxi-ng` CCU | 所有外设的时钟来源，含 C907 与 PSRAM 的 PLL | [CCU](drivers/clock.md) |
+| 中断与定时器 | PLIC、CLINT | C907 自带 | |
+| 引脚复用与 GPIO | `pinctrl-sun252i-f101` | 六个端口，外部中断，GPIO 字符设备 | [PINCTRL](drivers/pinctrl-gpio.md) |
+| 内存总线优先级 | `sun252i-f101-mbus` | 优先级、带宽限制、流量计数器 | [MBUS 与 SRAM](drivers/mbus-sram.md) |
+| 片上 SRAM | `sunxi_sram` | VE、显示引擎和 USB FIFO 的分区 | [MBUS 与 SRAM](drivers/mbus-sram.md) |
+| UART1 | 8250 DesignWare | 控制台 `ttyS1`，115200 8N1，`PB0`/`PB1` | [UART](drivers/uart.md) |
+| I2C2 | `i2c-mv64xxx` | `PB2`/`PB3`，用户态走 `/dev/i2c-0`（编号是动态分配的，见 [I2C](drivers/i2c.md)） | [I2C](drivers/i2c.md) |
+| SPI0 与 NOR | `spi-sun6i`、`spi-nor`、MTD | 16 MiB Flash，根文件系统，DMA 传输 | [SPI 与 DMA](drivers/spi.md)、[SPIF](drivers/spif-nor.md) |
+| SPI Flash 控制器 | `spi-sunxi-spif` | 同一片 NOR 的另一种控制器，有独立的设备树变体 | [SPIF](drivers/spif-nor.md) |
+| DMA | `sun6i-dma` | 八个通道，SPI 使用 | [SPI 与 DMA](drivers/spi.md) |
+| microSD | `sunxi-mmc` | SMHC0，4 位，50 MHz，卡检测走 `PF6` | [SMHC](drivers/mmc.md) |
+| 显示 | `sun4i-drm`、`sun6i-dsi`、D-PHY、JD9168S 屏 | 1024x768 MIPI DSI 屏，framebuffer 控制台 | [显示](drivers/display.md) |
+| G2D | `sun252i-g2d` | V4L2 mem2mem：格式转换、缩放、旋转、翻转 | [G2D](drivers/g2d.md) |
+| 视频引擎 | `cedrus` | JPEG 与 H.264 解码，输出线性 NV12 | [VE](drivers/vdec.md) |
+| USB | MUSB OTG、EHCI、OHCI、`sun4i-usb-phy` | 设备模式下用 configfs 配 gadget，主机模式起 root hub | [USB](drivers/usb.md) |
 
-### 没验证
-
-下面这些没有验证过，可能存在问题。
+### 没启用或没验证
 
 | 外设 | 现状 |
 | --- | --- |
-| 视频引擎 | Cedrus 驱动（`VIDEO_SUNXI_CEDRUS`，V4L2 staging）已编入，设备树里已启用；没有测试通过，板上内存不够，没法验证 |
-| microSD（SMHC0） | `sunxi-mmc` 驱动已编入；板级写了卡检测 `PF6` 和 3.3 V 供电，但状态是 `disabled`；没有测试通过，板上内存不够，没法验证 |
-| SMHC2 | `sunxi-mmc` 驱动已编入；SoC 里有节点，板级没有配置；没有测试通过，板上内存不够，没法验证 |
-| UART0、UART2～UART5 | 8250 DesignWare 驱动已编入；SoC 里有节点，板级没有启用，也没有配置引脚 |
-| I2C0、I2C1 | `i2c-mv64xxx` 驱动已编入；板级没有启用，也没有配置引脚 |
-| SPI1 | `spi-sun6i` 驱动已编入；板级没有启用，也没有配置引脚 |
-| PWM0 | `pwm-sunxi` 驱动已编入；板级没有启用，也没有配置引脚 |
-| 看门狗 | SoC 设备树有节点，但内核没开 `CONFIG_WATCHDOG`，驱动没有编进去 |
-| USB（主机 / 设备） | 内核没开 `CONFIG_USB`，设备树里也没有 USB 节点 |
-| 显示与 RGB LCD | 没有显示驱动（`CONFIG_DRM` 未开），设备树里没有显示节点 |
-| G2D | 设备树里没有节点，内核里也没有驱动 |
-| 音频（片上 codec） | 设备树里没有节点，内核里也没有驱动 |
-| ADC | 设备树里没有节点，`CONFIG_IIO` 未开 |
-| RTC | 只有 RTC 时钟控制器，没有 RTC 设备，`CONFIG_RTC_CLASS` 未开 |
+| UART0、UART2～UART5 | SoC 设备树里有节点，但都是 `disabled`，板级也没有配引脚 |
+| I2C0、I2C1 | 同样是 `disabled` 的节点，板级文件里没有对应的引脚组 |
+| SPI1 | `disabled`；和 SPI0、SMHC2、SPIF 共用 `PC` 引脚 |
+| eMMC（SMHC2） | `disabled`；共用 `PC` 引脚 |
+| 看门狗 | SoC 设备树有节点，但没开 `CONFIG_WATCHDOG`，驱动没有编进去 |
+| RTC | 只有 RTC 时钟控制器，没有 RTC 设备驱动，也没有后备电池时钟 |
+| 音频（片上 codec） | 没有节点，也没有驱动 |
+| ADC | 没有节点，`CONFIG_IIO` 未开 |
+| 摄像头（CSI） | 没有节点，也没有驱动 |
+| 网络 | 内核没有开 `CONFIG_NET`；USB gadget 可以声明 ECM，但底下没有协议栈 |
 
-想用设备树里已有节点但没启用的外设，改 `sun252i-f101-yuzukineko-common.dtsi`，把对应节点设成 `okay`、配好引脚，重新构建设备树。
-
-Linux 暂时没有 USB、显示、G2D、音频的驱动；这几类外设在 [Zephyr](../zephyr/index.md) 里有驱动。
+想用设备树里已有节点但没启用的外设，改 `sun252i-f101-yuzukineko-common.dtsi`，把对应节点设成 `okay`、配上引脚组，重新构建设备树。
 
 ## 本章内容
 
@@ -63,6 +62,24 @@ Linux 暂时没有 USB、显示、G2D、音频的驱动；这几类外设在 [Ze
 - [手动构建](linux-manual.md)
 - [手动构建 RV64I](linux-manual-rv64.md)
 - [Linux + Buildroot](linux-buildroot.md)
+
+## 应用
+
+- [Buildroot 软件包](apps/buildroot-packages.md)：根文件系统里有什么，怎么加软件包
+- [BusyBox](apps/busybox.md)：shell、各种小工具、init 与启动脚本
+- [常用命令](apps/linux-commands.md)：板上能用的命令，按用途分组
+
+## 驱动
+
+- [CCU](drivers/clock.md)、[MBUS 与 SRAM](drivers/mbus-sram.md)、[PINCTRL](drivers/pinctrl-gpio.md)
+- [UART](drivers/uart.md)、[I2C](drivers/i2c.md)、[SPI 与 DMA](drivers/spi.md)、[SPIF](drivers/spif-nor.md)、[SMHC](drivers/mmc.md)
+- [显示](drivers/display.md)、[G2D](drivers/g2d.md)、[VE](drivers/vdec.md)、[USB](drivers/usb.md)
+
+## 组件
+
+- [OpenSBI](components/opensbi.md)：M 模式的 SBI 固件
+- [SyterKit](components/syterkit.md)：引导程序与 PSRAM 初始化
+- [Buildroot 外部树](components/buildroot-external.md)：板级配置与镜像打包脚本
 
 :::tip
 刷写前请先阅读 [FEL 下载模式与工具](../../boot/fel.md) 和 [SPI NOR 布局与备份](../../boot/flash-layout.md)，并备份板上 Flash。纯 Rust 的系统见 [Asterinas](../asterinas/rustsbi-asterinas.md)。
