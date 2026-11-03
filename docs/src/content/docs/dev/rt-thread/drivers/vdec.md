@@ -149,6 +149,34 @@ flowchart TD
 
 For display, construct `lcd_yuv` from the returned plane pointers, strides and dimensions. JPEG is normally full range; set color range/matrix from the actual stream metadata. Present with a blocking `lcd_show_yuv`, release the previous frame only after replacement has latched, and hide the video before releasing the final displayed frame. Returning from `lcd_show_yuv` does not mean the new frame is no longer being scanned. Closing a stream while holding a frame is supported, but blocks reuse of the decoder until release.
 
+Initialize the entire descriptor, including crop, UV order and range. Uninitialized `nv21` can swap Cb/Cr even when the decoder returns correct NV12. For the baseline JFIF JPEG path, this complete helper selects BT.601 full range and waits for presentation; the caller retains ownership of `frame` until replacement or hide:
+
+```c
+#include <rtthread.h>
+#include <stdbool.h>
+#include <vdec.h>
+#include <drv_display.h>
+int demo_present_jpeg(const struct vdec_frame *frame)
+{
+    if (!frame || (frame->format != VDEC_FORMAT_NV12 && frame->format != VDEC_FORMAT_NV21))
+        return -RT_EINVAL;
+    struct lcd_yuv image = {
+        .y = frame->plane[0], .uv = frame->plane[1],
+        .width = frame->width, .height = frame->height,
+        .stride_y = frame->stride[0], .stride_uv = frame->stride[1],
+        .nv21 = frame->format == VDEC_FORMAT_NV21,
+        .full_range = RT_TRUE, .bt709 = RT_FALSE, .nonblock = RT_FALSE,
+    };
+    return lcd_show_yuv(&image);
+}
+```
+
+This helper does not apply a JPEG range assumption to H.264: use the video stream's matrix/range metadata there.
+
 ## Validation and unsupported input
 
-`test_vdec` uses embedded `test_jpeg.h`, `test_png.h` and `test_h264.h` under `applications/tests/data/`. The board passed 13 checks, JPEG maximum luma error 1, PNG CRC `03c854ec`, 30 H.264 frames with no reference mismatch, and 320 JPEG lifetime/ring-wrap iterations with stable heap. Progressive JPEG, unsupported H.264 features, malformed data or insufficient picture budget can fail; report the returned errno and retain the input for diagnosis. MP4 is a container: use the existing `mp4_play <file>` application or a demuxer; do not feed MP4 bytes directly to Annex B input.
+`test_vdec` uses embedded `test_jpeg.h`, `test_png.h` and `test_h264.h` under `applications/tests/data/`. JPEG checks compare mean Y over every 16×16 block and mean Cb/Cr over each corresponding 8×8 block against the host decode, with tolerance 3, for both NV12 and NV21. The chroma reference uses FFmpeg `yuvj420p`; checking luma alone cannot detect a UV swap. PNG uses CRC `03c854ec`, H.264 compares 30 complete Y+UV frame CRCs, and the lifetime test runs 320 JPEG iterations with ring wrap and held-frame close/release.
+
+In a test image, run `usb_display_selftest`, then `test_display_jpeg`. The self-test checks the streaming scanout before retaining a separate 320×240 preview; the second command checks that preview. Both compare all eight top bars against host RGB, allowing 4 per channel. Left to right, expect **white, yellow, cyan, green, magenta, red, blue, black**. Use `usb_display_stop` to hide and free the preview. Internal writeback verifies the DE output, while the physical panel still needs visual confirmation.
+
+Progressive JPEG, unsupported H.264 features, malformed data or insufficient picture budget can fail; report the returned errno and retain the input for diagnosis. MP4 is a container: use the existing `mp4_play <file>` application or a demuxer; do not feed MP4 bytes directly to Annex B input.

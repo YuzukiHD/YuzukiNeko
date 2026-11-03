@@ -16,12 +16,17 @@ test_i2c i2c1
 test_touch
 test_rtc
 test_display_features
+usb_display_selftest
+test_display_jpeg
+usb_display_stop
 test_vdec
 test_sd
 free
 ```
 
 `test_all` runs the registered smoke groups, not every extended command. `test_touch` injects native input events as well as checking the real controller; `test_touch_watch 60` is the separate physical-finger check. Decoder reference media requirements are described on the [VE page](drivers/vdec.md). Do not run a test concurrently with an application using the same peripheral.
+
+The JPEG self-test checks streaming RGB before keeping a private preview; `test_display_jpeg` checks the retained image. It compares all eight color bars, while `test_vdec` checks Y, Cb and Cr separately for both NV12 and NV21. Luma-only checks in older test images did not cover the UV-order fault that changed yellow to cyan and cyan to brown.
 
 ## Observed YuzukiNeko results
 

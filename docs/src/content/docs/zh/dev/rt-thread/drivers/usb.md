@@ -83,6 +83,8 @@ usb_display_stop
 
 `usb_display_selftest` 解码并显示 30 帧内置 JPEG，不需要主机 USB 软件。`usb_display_start [width height [fps [quality [limit_KB]]]]` 枚举 vendor 显示 class，需要匹配的 Windows 显示驱动。描述符尺寸在本轮启动固定，DE 再缩放到面板。`usb_display_stop` 停止显示，不代表注销 USB class；选择 CDC 前重启。帧缓冲、压缩环和解码图片总量必须能放入 PSRAM。
 
+JPEG 路径完整初始化显示描述符，并选择 NV12、BT.601 全范围。自测清空 UI 覆盖层，释放解码器后保留独立的 112.5 KiB 预览；停止或下次运行时先关闭视频层再释放预览。在 `test_defconfig` 中还会通过 DE 回写校验流式显示的八条色带，随后运行 `test_display_jpeg` 可校验保留的预览。预期顺序为白、黄、青、绿、品红、红、蓝、黑，详见 [VE 验证流程](vdec.md#验证与不支持的输入)。
+
 可选旧 `touch` 桥使用 EVB 控制器协议，不是 YuzukiNeko GT967 的原生触摸路径。本板使用 [touch0](touch.md)。Windows 驱动安装和 PC 应用模式可参考 [Zephyr USB 副屏指南](../../zephyr/apps/usb-display.md)，但 RT-Thread 的命令与内存限制以本页为准。
 
 ## Host 模式与实际验证

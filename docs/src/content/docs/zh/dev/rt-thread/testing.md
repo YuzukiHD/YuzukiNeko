@@ -16,12 +16,17 @@ test_i2c i2c1
 test_touch
 test_rtc
 test_display_features
+usb_display_selftest
+test_display_jpeg
+usb_display_stop
 test_vdec
 test_sd
 free
 ```
 
 `test_all` 执行注册的冒烟测试组，不包含所有扩展命令。`test_touch` 检查实体控制器并注入原生输入事件；实物手指另用 `test_touch_watch 60` 验证。解码器参考素材要求见 [VE 页](drivers/vdec.md)。测试不能与占用同一外设的应用并发运行。
+
+JPEG 自测先检查流式显示的 RGB，再保留独立预览；`test_display_jpeg` 校验保留的图像，逐一比较八条色带。`test_vdec` 对 NV12、NV21 分别检查 Y、Cb 和 Cr。旧测试镜像只校验亮度，未覆盖使黄色变青、青色变棕的 UV 顺序错误。
 
 ## YuzukiNeko 实测结果
 

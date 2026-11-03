@@ -83,6 +83,8 @@ usb_display_stop
 
 `usb_display_selftest` decodes and presents 30 built-in JPEG frames without requiring USB host software. `usb_display_start [width height [fps [quality [limit_KB]]]]` enumerates a vendor display class for the matching Windows display driver. Descriptor dimensions are fixed for that boot; the DE scales the image to the panel. `usb_display_stop` stops presentation, not necessarily class enumeration. Restart before selecting CDC. Frame buffers, compressed ring and decoded pictures must all fit in PSRAM.
 
+The JPEG path initializes the complete display descriptor and selects NV12, BT.601 full range. The self-test clears the UI overlay and retains a private 112.5 KiB preview after releasing the decoder; stop or the next run frees it after hiding the video plane. In `test_defconfig`, it also verifies the eight streaming color bars through DE writeback. Run `test_display_jpeg` afterward to verify the retained preview. The expected order is white, yellow, cyan, green, magenta, red, blue, black; see the [VE validation procedure](vdec.md#validation-and-unsupported-input).
+
 The optional legacy `touch` bridge uses the EVB controller protocol; it is not the YuzukiNeko GT967 native-touch path. Use [touch0](touch.md) for this board. For driver installation and the PC-side application model see the [Zephyr USB display guide](../../zephyr/apps/usb-display.md), but keep the RT-Thread commands and memory limits from this page.
 
 ## Host mode and actual validation
