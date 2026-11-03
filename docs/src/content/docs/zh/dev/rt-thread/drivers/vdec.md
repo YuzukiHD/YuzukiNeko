@@ -149,6 +149,34 @@ flowchart TD
 
 显示时用返回的平面指针、stride 和尺寸构造 `lcd_yuv`。JPEG 通常为全范围，应按实际码流元数据设置范围与矩阵。阻塞调用 `lcd_show_yuv`，确认替换锁存后释放上一帧，最后一帧在关闭视频层后释放。`lcd_show_yuv` 返回不代表新帧已经不再被扫描。允许持帧关闭流，但释放前解码器不能被其他会话复用。
 
+必须初始化整个描述符，包括裁剪、UV 顺序和范围。未初始化的 `nv21` 会使正确的 NV12 解码结果交换 Cb/Cr。针对 baseline JFIF JPEG，下面的完整函数选择 BT.601 全范围并等待显示；调用者仍需保留 `frame`，直到替换锁存或关闭视频层：
+
+```c
+#include <rtthread.h>
+#include <stdbool.h>
+#include <vdec.h>
+#include <drv_display.h>
+int demo_present_jpeg(const struct vdec_frame *frame)
+{
+    if (!frame || (frame->format != VDEC_FORMAT_NV12 && frame->format != VDEC_FORMAT_NV21))
+        return -RT_EINVAL;
+    struct lcd_yuv image = {
+        .y = frame->plane[0], .uv = frame->plane[1],
+        .width = frame->width, .height = frame->height,
+        .stride_y = frame->stride[0], .stride_uv = frame->stride[1],
+        .nv21 = frame->format == VDEC_FORMAT_NV21,
+        .full_range = RT_TRUE, .bt709 = RT_FALSE, .nonblock = RT_FALSE,
+    };
+    return lcd_show_yuv(&image);
+}
+```
+
+该函数的 JPEG 范围假设不能直接用于 H.264，视频应采用码流的矩阵与范围元数据。
+
 ## 验证与不支持的输入
 
-`test_vdec` 使用 `applications/tests/data/` 的内置 `test_jpeg.h`、`test_png.h`、`test_h264.h`。本次通过 13 项检查：JPEG 最大亮度误差 1、PNG CRC `03c854ec`、H.264 30 帧无参考差异、320 次 JPEG 生命周期/回绕后堆占用一致。渐进 JPEG、不支持的 H.264 特性、损坏数据或帧池预算不足会失败，应报告 errno 并保留输入用于排查。MP4 是容器，应使用现有 `mp4_play <file>` 或解封装器，不能将 MP4 字节直接送入 Annex B 输入。
+`test_vdec` 使用 `applications/tests/data/` 的内置 `test_jpeg.h`、`test_png.h`、`test_h264.h`。JPEG 分别对 NV12、NV21 校验每个 16×16 块的 Y 均值与对应 8×8 块的 Cb/Cr 均值，允许与主机解码结果相差 3。色度参考采用 FFmpeg `yuvj420p`；只校验亮度无法发现 UV 交换。PNG 校验 CRC `03c854ec`，H.264 比较 30 帧完整 Y+UV 的 CRC，生命周期测试执行 320 次 JPEG，覆盖环形回绕和持帧关闭后释放。
+
+测试镜像中先执行 `usb_display_selftest`，再执行 `test_display_jpeg`。自测先校验流式显示的回写像素，再保留独立的 320×240 预览；第二条命令校验该预览。两者均比较顶部八条色带与主机 RGB，每通道容差 4。自左向右应为**白、黄、青、绿、品红、红、蓝、黑**。`usb_display_stop` 关闭并释放预览。内部回写验证 DE 输出，实体屏幕仍需要目视确认。
+
+渐进 JPEG、不支持的 H.264 特性、损坏数据或帧池预算不足会失败，应报告 errno 并保留输入用于排查。MP4 是容器，应使用现有 `mp4_play <file>` 或解封装器，不能将 MP4 字节直接送入 Annex B 输入。
