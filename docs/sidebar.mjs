@@ -353,6 +353,169 @@ export const sidebar = [
     ]
   },
   {
+    "label": "RT-Thread development",
+    "translations": {
+      "zh-CN": "RT-Thread 开发"
+    },
+    "collapsed": false,
+    "items": [
+      {
+        "label": "Introduction",
+        "translations": {
+          "zh-CN": "简介"
+        },
+        "slug": "dev/rt-thread"
+      },
+      {
+        "label": "Environment and source",
+        "translations": {
+          "zh-CN": "环境与源码"
+        },
+        "slug": "dev/rt-thread/setup"
+      },
+      {
+        "label": "Building and RAM boot",
+        "translations": {
+          "zh-CN": "构建与 RAM 启动"
+        },
+        "slug": "dev/rt-thread/build-run"
+      },
+      {
+        "label": "Device model and integration",
+        "translations": {
+          "zh-CN": "设备模型与应用接入"
+        },
+        "slug": "dev/rt-thread/architecture"
+      },
+      {
+        "label": "Regression and known limits",
+        "translations": {
+          "zh-CN": "回归与已知限制"
+        },
+        "slug": "dev/rt-thread/testing"
+      },
+      {
+        "label": "RT-Thread drivers",
+        "translations": {
+          "zh-CN": "RT-Thread 驱动"
+        },
+        "collapsed": true,
+        "items": [
+          {
+            "label": "System drivers",
+            "translations": { "zh-CN": "系统驱动" },
+            "slug": "dev/rt-thread/drivers/system"
+          },
+          {
+            "label": "GPIO and pinctrl",
+            "translations": {
+              "zh-CN": "GPIO 与引脚复用"
+            },
+            "slug": "dev/rt-thread/drivers/gpio"
+          },
+          {
+            "label": "UART",
+            "translations": {
+              "zh-CN": "UART 串口"
+            },
+            "slug": "dev/rt-thread/drivers/uart"
+          },
+          {
+            "label": "I2C",
+            "translations": {
+              "zh-CN": "I2C 总线"
+            },
+            "slug": "dev/rt-thread/drivers/i2c"
+          },
+          {
+            "label": "GT967 touch",
+            "translations": {
+              "zh-CN": "GT967 触摸"
+            },
+            "slug": "dev/rt-thread/drivers/touch"
+          },
+          {
+            "label": "SPI",
+            "translations": {
+              "zh-CN": "SPI 总线"
+            },
+            "slug": "dev/rt-thread/drivers/spi"
+          },
+          {
+            "label": "SPIF NOR and XIP",
+            "translations": {
+              "zh-CN": "SPIF NOR 与 XIP"
+            },
+            "slug": "dev/rt-thread/drivers/spif-nor"
+          },
+          {
+            "label": "PWM and backlight",
+            "translations": {
+              "zh-CN": "PWM 与背光"
+            },
+            "slug": "dev/rt-thread/drivers/pwm"
+          },
+          {
+            "label": "GPADC",
+            "translations": {
+              "zh-CN": "GPADC 采样"
+            },
+            "slug": "dev/rt-thread/drivers/adc"
+          },
+          {
+            "label": "RTC",
+            "translations": {
+              "zh-CN": "RTC 日历与闹钟"
+            },
+            "slug": "dev/rt-thread/drivers/rtc"
+          },
+          {
+            "label": "SD/MMC and FAT",
+            "translations": {
+              "zh-CN": "SD/MMC 与 FAT"
+            },
+            "slug": "dev/rt-thread/drivers/sdmmc"
+          },
+          {
+            "label": "Display",
+            "translations": {
+              "zh-CN": "显示"
+            },
+            "slug": "dev/rt-thread/drivers/display"
+          },
+          {
+            "label": "G2D acceleration",
+            "translations": {
+              "zh-CN": "G2D 加速"
+            },
+            "slug": "dev/rt-thread/drivers/g2d"
+          },
+          {
+            "label": "Video decoding",
+            "translations": {
+              "zh-CN": "视频解码"
+            },
+            "slug": "dev/rt-thread/drivers/vdec"
+          },
+          {
+            "label": "Audio",
+            "translations": {
+              "zh-CN": "音频"
+            },
+            "slug": "dev/rt-thread/drivers/audio"
+          },
+          {
+            "label": "USB and USB display",
+            "translations": {
+              "zh-CN": "USB 与 USB 副屏"
+            },
+            "slug": "dev/rt-thread/drivers/usb"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "label": "Linux development",
     "translations": { "zh-CN": "Linux 开发" },
     "collapsed": false,
