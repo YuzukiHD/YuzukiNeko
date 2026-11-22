@@ -106,13 +106,6 @@ The SoC code is in `soc/allwinner/sun252i_f101`, the SoC devicetree is in `dts/r
 Applications built on this port (emulators, WiFi, MicroPython, PocketJS and so on) live in the [`YuzukiHD/zephyr-components`](https://github.com/YuzukiHD/zephyr-components) repository. Each has a different status; the README in each directory is the reference for how to use it.
 :::
 
-## In this chapter
-
-- [Set up the development environment](zephyr-setup-env.md)
-- [Get the Zephyr source](zephyr-get-source.md)
-- [Build and run](zephyr-build-run.md)
-- [UF2 drag-and-drop flashing](zephyr-uf2.md)
-
 :::tip
 Before downloading, read [FEL download mode and tools](../../boot/fel.md) and [SPI NOR layout and backup](../../boot/flash-layout.md), and back up the on-board Flash. To run Linux, see [Linux development](../linux/index.md).
 :::

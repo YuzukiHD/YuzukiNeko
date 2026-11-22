@@ -106,13 +106,6 @@ SoC 代码在 `soc/allwinner/sun252i_f101`，SoC 设备树在 `dts/riscv/allwinn
 基于这套移植的应用（模拟器、WiFi、MicroPython、PocketJS 等）放在 [`YuzukiHD/zephyr-components`](https://github.com/YuzukiHD/zephyr-components) 仓库里，各自的状态不同，用法以各目录的 README 为准。
 :::
 
-## 本章内容
-
-- [配置开发环境](zephyr-setup-env.md)
-- [获取 Zephyr 代码](zephyr-get-source.md)
-- [编译与运行](zephyr-build-run.md)
-- [UF2 拖放烧录](zephyr-uf2.md)
-
 :::tip
 下载前请先阅读 [FEL 下载模式与工具](../../boot/fel.md) 和 [SPI NOR 布局与备份](../../boot/flash-layout.md)，并备份板上 Flash。要跑 Linux 请看 [Linux 开发](../linux/index.md)。
 :::

@@ -56,13 +56,6 @@ F101 上的 Linux 由三部分组成，启动链为 BROM → SyterKit → OpenSB
 
 想用设备树里已有节点但没启用的外设，改 `sun252i-f101-yuzukineko-common.dtsi`，把对应节点设成 `okay`、配上引脚组，重新构建设备树。
 
-## 本章内容
-
-- [预编译镜像](linux-prebuilt.md)
-- [手动构建](linux-manual.md)
-- [手动构建 RV64I](linux-manual-rv64.md)
-- [Linux + Buildroot](linux-buildroot.md)
-
 ## 应用
 
 - [Buildroot 软件包](apps/buildroot-packages.md)：根文件系统里有什么，怎么加软件包

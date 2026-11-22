@@ -14,22 +14,7 @@ The base board carries the core board as `U1` and adds the Wi-Fi/Bluetooth modul
 The core board on the base board is surface-mount soldered and cannot be removed. The core board can be used on its own; the base board only brings out peripheral connectors.
 :::
 
-The bare parts include 49 pads that require surface-mount soldering. This package is not suitable for hand soldering with a normal iron; use reflow or a rework station, or buy the assembled version.
-
-## Choosing the core board or base board
-
-| Need | Recommendation |
-| --- | --- |
-| Flash images and learn FEL only | The core board is sufficient; no base board needed |
-| Need display, audio, Wi-Fi or CAN | Use the YuzukiCube-M base board |
-| Design a custom carrier | Refer to the `01_Hardware` schematics and the 49-pad module |
-
-## Core board and base board connection methods
-
-| Method | Use case | Connection |
-| --- | --- | --- |
-| Core board standalone | Flashing, FEL, header experiments | USB-C power; headers connect peripherals |
-| Core board soldered to base board | Display, audio, Wi-Fi, CAN | 49-pad surface-mount soldering; base board brings out the connectors |
+The bare parts include 49 pads that require reflow or a rework station, not a normal soldering iron. Buy the assembled version if you do not want to solder.
 
 ## Core board parts
 
@@ -48,7 +33,7 @@ The bare parts include 49 pads that require surface-mount soldering. This packag
 
 ## Core board headers
 
-The headers use the Pico 2×20 layout. With the component side up and USB-C at the top, row 1 is `3V3` on the left and `5V` on the right, and row 2 has `GND` on the right. See [Pinout](../hardware/pinout.md) for the complete pin table.
+The headers use the Pico 2×20 layout. With the component side up and USB-C at the top, row 1 has `3V3` on the left and `5V` on the right, and row 2 has `GND` on the right. See [Pinout](../hardware/pinout.md) for the complete pin table.
 
 | Pin | Position | Function | Note |
 | --- | --- | --- | --- |
@@ -57,87 +42,15 @@ The headers use the Pico 2×20 layout. With the component side up and USB-C at t
 | `GND` | Row 2, right | Signal ground | Share ground with external devices |
 | GPIO | Remaining pins | 3.3 V logic input or output | Do not connect 5 V signals or power the board from the headers |
 
-## Common core board pin functions
-
-| Function | Example pins | Description |
-| --- | --- | --- |
-| UART1 console | `PB0` / `PB1` | 115200 8N1; default console for Zephyr, Linux and RustSBI |
-| UART0 | `PE0` / `PE1` | Secondary serial port |
-| TWI0 | `PE2` / `PE3` | I²C bus |
-| TWI1 | `PD8` / `PD9` | Touch or external I²C devices |
-| SPI1 | `PD0`–`PD6` | External SPI devices |
-| PWM0 | `PB0`–`PB3`, `PD6`–`PD9`, etc. | Multiple PWM outputs |
-| CAN0 | `PE0` / `PE1` or `PB2` / `PB3` | Requires an external transceiver |
-| `GPADC` | `GPADC` | Single-channel analog input |
-
-A pin can select only one alternate function at a time. See [Pinout](../hardware/pinout.md) and [Pin multiplexing](../hardware/mux.md) for the complete tables.
-
-## Base board devices and connectors
+## Base board
 
 | Base board photo | Base board schematic |
 | --- | --- |
 | <img src="assets/figures/base-board.webp" loading="eager" alt="The YuzukiCube-M base board with the core board installed"> | <img src="assets/figures/base-board-sch.webp" loading="eager" alt="YuzukiCube-M base board schematic"> |
 
+The base board adds Wi-Fi/Bluetooth, an audio amplifier, a CAN transceiver, a display FPC connector, a button and sockets. For designators, connector pinouts, power rails and pin conflicts, see the [YuzukiCube-M base board](../baseboard.md); for common peripheral pin groups, see [Peripheral pin groups](../hardware/groups.md).
+
 ![The base board without the core board, showing the 49-pad U1 footprint in the centre](figures/base-board-bare.webp)
-
-The second photo shows the base board before the core board is soldered; the centre area is the 49-pad `U1` footprint. On an assembled board this area is soldered and cannot be removed.
-
-| Designator | Device or connector | Function | Note |
-| --- | --- | --- | --- |
-| `U1` | YuzukiNeko-SMT module | Core board, 49 pads | Surface-mount soldered, not removable |
-| `U3` | AIC8800D80 | Wi-Fi/Bluetooth module | Antenna routed to `RF1` |
-| `U5` | TJA1051T/3 | CAN transceiver on CAN0 | A real bus still needs CANH/CANL wiring and termination |
-| `U2` | LPA4890MSF | Audio amplifier fed from `HPOUT` | Output to `CN3` |
-| `U4` | RY3730 | Display backlight boost | Outputs `VLED-A` / `VLED-K` |
-| `U10` | MT3520B | 5 V to 3.3 V buck | Supplies the base board's 3.3 V devices |
-| `FPC1` | 40-pin, 0.5 mm FPC | MIPI DSI, backlight and capacitive touch | Thin cable; insert with the power off |
-| `CN1` | 2-pin, 1.25 mm | CANH / CANL | CAN bus; termination required |
-| `CN2` | 5-pin, 1.25 mm | UART1 and UART4 | The console uses UART1 |
-| `CN3` | 2-pin, 1.25 mm | Speaker `SPKR+` / `SPKR-` | Output of the `U2` amplifier |
-| `RF1` | IPEX / u.FL | Wi-Fi/Bluetooth antenna | Press straight down; do not pull the cable |
-| `H1` | 2.54 mm 2-pin female header | `VSYS-5V` and `GND` | Do not power the base board from here |
-| `SW1` | Tactile button | `PD5` / `DOWN` | Not a reset button |
-
-## Base board connector quick reference
-
-| Need | Connector | Description |
-| --- | --- | --- |
-| Display and touch | `FPC1` | 40-pin 0.5 mm FPC, also carries backlight and touch |
-| Console serial | `CN2` pins 1/2/5 | UART1 RX/TX/GND |
-| Second serial port | `CN2` pins 3/4 | UART4 RX/TX |
-| Speaker | `CN3` | `SPKR+` / `SPKR-` |
-| CAN bus | `CN1` | CANH / CANL |
-| Wi-Fi/Bluetooth antenna | `RF1` | IPEX / u.FL |
-
-## Connector electrical characteristics
-
-| Connector | Level or type | Note |
-| --- | --- | --- |
-| GPIO | 3.3 V digital | Must not receive 5 V signals |
-| `GPADC` | Analog input | Input range is in the SoC documentation |
-| `CN1` | Differential CAN bus | Termination required; do not connect to power |
-| `CN3` | Analog audio output | Speaker only; do not connect to power or ground |
-| `CN2` | 3.3 V UART | Cross `TX`/`RX` |
-| `FPC1` | MIPI DSI, backlight and touch | Insert and remove with the power off |
-
-## Power
-
-| Rail | Source | Use | Note |
-| --- | --- | --- | --- |
-| `VSYS-5V` | Core board USB-C VBUS | Base board buck, CAN transceiver, audio amplifier, `H1` | Do not feed power back through `H1` |
-| `VCC-3V3` | `U10` buck from `VSYS-5V` | Base board 3.3 V devices | 3.3 V logic |
-| `VSYS-3V3` | Core board 3.3 V output | 3.3 V reference for the module and base board | Do not supply externally |
-| `VLED-A` / `VLED-K` | `U4` boost | Display backlight | Brightness controlled by `DSI-PWM` |
-
-The base board has no battery and no charging circuit. All external interfaces use 3.3 V logic; the `5V` pin is power only.
-
-## Power-up order
-
-- Connect the display, antenna, audio and serial first, then plug in USB.
-- Do not insert or remove FPC cables, 1.25 mm connectors or the antenna while powered.
-- After power-up, check the display and serial output first, then test touch, audio and wireless functions.
-- After power-off, wait a few seconds before powering up again so residual power does not affect detection.
-- Do not cut power during flashing, and do not connect or remove peripherals during a write.
 
 ## Revision identification
 
@@ -151,7 +64,9 @@ Look for the `V1.3`, `V1.4` or `V1.5` silkscreen near the edge of the board. Rev
 
 See [Errata and revision differences](../hardware/errata.md) when converting pin names.
 
-## Usage limits
+## Power-up order and limits
+
+Connect the display, antenna, audio and serial first, then plug in USB. Do not insert or remove FPC cables, 1.25 mm connectors or the antenna while powered; do not cut power during flashing.
 
 - The core board on the base board is not removable; do not pry it up or resolder it.
 - `PE0`–`PE5` are occupied by Wi-Fi SDIO, so I2S0 is not available on the base board.
