@@ -192,7 +192,7 @@ gpio-cells:
 
 ## 接口详解
 
-下面每个接口一个小标题：原型、驱动的行为、一个完整的示例函数和它在板子上的输出。示例来自文末的[完整演示程序](#完整演示程序)，里面的 `err()` 把返回值转成名字。接口里的“电平”都是逻辑电平：设备树里写了 `GPIO_ACTIVE_LOW` 的引脚，`gpio_pin_set_dt(spec, 1)` 输出的是低电平。带 `_raw` 的接口不看这个标志。
+下面按任务分组列出驱动实现的接口。每项的示例函数在页末[完整演示程序](#完整演示程序)里。
 
 演示用到 3 个引脚：
 
@@ -204,11 +204,9 @@ gpio-cells:
 
 PB2 和 PB3 在演示的 `app.overlay` 里通过 `zephyr,user` 节点引用。这是应用自己给引脚取名字的标准办法，不用改板级文件。
 
-### gpio_pin_configure_dt
+### 配置与读取
 
-```c
-int gpio_pin_configure_dt(const struct gpio_dt_spec *spec, gpio_flags_t extra_flags);
-```
+**`gpio_pin_configure_dt`** `int gpio_pin_configure_dt(const struct gpio_dt_spec *spec, gpio_flags_t extra_flags);`
 
 配置方向、初始电平和上下拉。
 
@@ -219,29 +217,6 @@ int gpio_pin_configure_dt(const struct gpio_dt_spec *spec, gpio_flags_t extra_fl
 | `GPIO_PULL_UP`、`GPIO_PULL_DOWN` | 打开对应的内部上拉或下拉；两个都不写则关闭上下拉 |
 | `GPIO_OPEN_DRAIN`、`GPIO_OPEN_SOURCE` | 返回 `-ENOTSUP` |
 
-```c
-/* gpio_pin_configure_dt: direction, initial level and pull resistor */
-static void demo_pin_configure_dt(void)
-{
-	int ret;
-
-	ret = gpio_pin_configure_dt(&led, GPIO_OUTPUT_INACTIVE);
-	printk("[configure] PD5 output, low                 = %s\n", err(ret));
-
-	ret = gpio_pin_configure_dt(&in, GPIO_INPUT | GPIO_PULL_UP);
-	printk("[configure] PB3 input with pull up         = %s\n", err(ret));
-
-	ret = gpio_pin_configure_dt(&in, GPIO_INPUT | GPIO_PULL_DOWN);
-	printk("[configure] PB3 input with pull down       = %s\n", err(ret));
-
-	ret = gpio_pin_configure_dt(&out, GPIO_OUTPUT | GPIO_OPEN_DRAIN);
-	printk("[configure] PB2 open drain output          = %s\n", err(ret));
-
-	ret = gpio_pin_configure_dt(&out, GPIO_OUTPUT | GPIO_OPEN_SOURCE);
-	printk("[configure] PB2 open source output         = %s\n", err(ret));
-}
-```
-
 ```text
 [configure] PD5 output, low                 = 0
 [configure] PB3 input with pull up         = 0
@@ -250,61 +225,18 @@ static void demo_pin_configure_dt(void)
 [configure] PB2 open source output         = -ENOTSUP
 ```
 
-### gpio_pin_set_dt
-
-```c
-int gpio_pin_set_dt(const struct gpio_dt_spec *spec, int value);
-```
+**`gpio_pin_set_dt`** `int gpio_pin_set_dt(const struct gpio_dt_spec *spec, int value);`
 
 设置输出的逻辑电平，1 是有效电平。
-
-```c
-/* gpio_pin_set_dt: the logical level of an output */
-static void demo_pin_set_dt(void)
-{
-	int ret;
-
-	gpio_pin_configure_dt(&led, GPIO_OUTPUT_INACTIVE);
-
-	ret = gpio_pin_set_dt(&led, 1);
-	printk("[set] gpio_pin_set_dt(PD5, 1)              = %s, register bit %d\n", err(ret),
-	       gpio_pin_get_raw(led.port, led.pin));
-
-	ret = gpio_pin_set_dt(&led, 0);
-	printk("[set] gpio_pin_set_dt(PD5, 0)              = %s, register bit %d\n", err(ret),
-	       gpio_pin_get_raw(led.port, led.pin));
-}
-```
 
 ```text
 [set] gpio_pin_set_dt(PD5, 1)              = 0, register bit 1
 [set] gpio_pin_set_dt(PD5, 0)              = 0, register bit 0
 ```
 
-### gpio_pin_toggle_dt
-
-```c
-int gpio_pin_toggle_dt(const struct gpio_dt_spec *spec);
-```
+**`gpio_pin_toggle_dt`** `int gpio_pin_toggle_dt(const struct gpio_dt_spec *spec);`
 
 把输出的电平翻转。
-
-```c
-/* gpio_pin_toggle_dt: invert an output; six calls make the LED blink three times */
-static void demo_pin_toggle_dt(void)
-{
-	int ret = gpio_pin_toggle_dt(&led);
-
-	printk("[toggle] gpio_pin_toggle_dt(PD5)           = %s, register bit %d\n", err(ret),
-	       gpio_pin_get_raw(led.port, led.pin));
-
-	for (int i = 0; i < 5; i++) {
-		k_msleep(100);
-		gpio_pin_toggle_dt(&led);
-	}
-	printk("[toggle] blinked the LED 3 times\n");
-}
-```
 
 ```text
 [toggle] gpio_pin_toggle_dt(PD5)           = 0, register bit 1
@@ -313,195 +245,68 @@ static void demo_pin_toggle_dt(void)
 
 最后一行对应 LED 闪烁 3 次。
 
-### gpio_pin_get_dt
-
-```c
-int gpio_pin_get_dt(const struct gpio_dt_spec *spec);
-```
+**`gpio_pin_get_dt`** `int gpio_pin_get_dt(const struct gpio_dt_spec *spec);`
 
 读引脚的逻辑电平。输出引脚读回的是写进去的值，不是引脚上的实际电平。
-
-```c
-/* gpio_pin_get_dt: the logical level of a pin. For an output pin it is the level that was written. */
-static void demo_pin_get_dt(void)
-{
-	int level;
-
-	gpio_pin_configure_dt(&led, GPIO_OUTPUT_ACTIVE);
-	level = gpio_pin_get_dt(&led);
-	printk("[get] PD5 written active, gpio_pin_get_dt   = %d\n", level);
-
-	gpio_pin_configure_dt(&led, GPIO_OUTPUT_INACTIVE);
-	level = gpio_pin_get_dt(&led);
-	printk("[get] PD5 written inactive, gpio_pin_get_dt = %d\n", level);
-}
-```
 
 ```text
 [get] PD5 written active, gpio_pin_get_dt   = 1
 [get] PD5 written inactive, gpio_pin_get_dt = 0
 ```
 
-### gpio_pin_get_raw
-
-```c
-int gpio_pin_get_raw(const struct device *port, gpio_pin_t pin);
-```
+**`gpio_pin_get_raw`** `int gpio_pin_get_raw(const struct device *port, gpio_pin_t pin);`
 
 读引脚上的实际电平，不看 `GPIO_ACTIVE_LOW`。PB3 悬空，所以打开上拉读到 1，打开下拉读到 0，这也是后面中断演示制造边沿的办法。
-
-```c
-/* gpio_pin_get_raw: the level of the pin, not looking at GPIO_ACTIVE_LOW. PB3 is not connected,
- * so the pull resistor decides.
- */
-static void demo_pin_get_raw(void)
-{
-	gpio_pin_configure_dt(&in, GPIO_INPUT | GPIO_PULL_UP);
-	k_msleep(1);
-	printk("[get_raw] PB3 with pull up                  = %d\n", gpio_pin_get_raw(in.port, in.pin));
-
-	gpio_pin_configure_dt(&in, GPIO_INPUT | GPIO_PULL_DOWN);
-	k_msleep(1);
-	printk("[get_raw] PB3 with pull down                = %d\n", gpio_pin_get_raw(in.port, in.pin));
-}
-```
 
 ```text
 [get_raw] PB3 with pull up                  = 1
 [get_raw] PB3 with pull down                = 0
 ```
 
-### gpio_port_get_raw
+### 整组操作与中断
 
-```c
-int gpio_port_get_raw(const struct device *port, gpio_port_value_t *value);
-```
+**`gpio_port_get_raw`** `int gpio_port_get_raw(const struct device *port, gpio_port_value_t *value);`
 
 一次读整个 bank 的 32 根线，`value` 的每一位对应一个引脚。
-
-```c
-/* gpio_port_get_raw: all 32 pins of the bank at once */
-static void demo_port_get_raw(void)
-{
-	gpio_port_value_t v;
-	int ret;
-
-	gpio_pin_configure_dt(&in, GPIO_INPUT | GPIO_PULL_UP);
-	k_msleep(1);
-	ret = gpio_port_get_raw(gpiob, &v);
-	printk("[port_get] gpio_port_get_raw(PB)            = %s, PB2 %d, PB3 %d\n", err(ret),
-	       !!(v & BIT(out.pin)), !!(v & BIT(in.pin)));
-}
-```
 
 ```text
 [port_get] gpio_port_get_raw(PB)            = 0, PB2 0, PB3 1
 ```
 
-### gpio_port_set_bits_raw
-
-```c
-int gpio_port_set_bits_raw(const struct device *port, gpio_port_pins_t pins);
-```
+**`gpio_port_set_bits_raw`** `int gpio_port_set_bits_raw(const struct device *port, gpio_port_pins_t pins);`
 
 把掩码里的引脚都拉高，一次寄存器写入完成。
-
-```c
-/* gpio_port_set_bits_raw: drive the pins of the mask high */
-static void demo_port_set_bits_raw(void)
-{
-	gpio_port_value_t v;
-	int ret;
-
-	gpio_pin_configure_dt(&out, GPIO_OUTPUT_INACTIVE);
-	ret = gpio_port_set_bits_raw(gpiob, BIT(out.pin));
-	gpio_port_get_raw(gpiob, &v);
-	printk("[set_bits] gpio_port_set_bits_raw(PB2)       = %s, PB2 %d\n", err(ret), !!(v & BIT(out.pin)));
-}
-```
 
 ```text
 [set_bits] gpio_port_set_bits_raw(PB2)       = 0, PB2 1
 ```
 
-### gpio_port_clear_bits_raw
-
-```c
-int gpio_port_clear_bits_raw(const struct device *port, gpio_port_pins_t pins);
-```
+**`gpio_port_clear_bits_raw`** `int gpio_port_clear_bits_raw(const struct device *port, gpio_port_pins_t pins);`
 
 把掩码里的引脚都拉低。
-
-```c
-/* gpio_port_clear_bits_raw: drive the pins of the mask low */
-static void demo_port_clear_bits_raw(void)
-{
-	gpio_port_value_t v;
-	int ret = gpio_port_clear_bits_raw(gpiob, BIT(out.pin));
-
-	gpio_port_get_raw(gpiob, &v);
-	printk("[clear_bits] gpio_port_clear_bits_raw(PB2)   = %s, PB2 %d\n", err(ret), !!(v & BIT(out.pin)));
-}
-```
 
 ```text
 [clear_bits] gpio_port_clear_bits_raw(PB2)   = 0, PB2 0
 ```
 
-### gpio_port_toggle_bits
-
-```c
-int gpio_port_toggle_bits(const struct device *port, gpio_port_pins_t pins);
-```
+**`gpio_port_toggle_bits`** `int gpio_port_toggle_bits(const struct device *port, gpio_port_pins_t pins);`
 
 把掩码里的引脚都翻转。
-
-```c
-/* gpio_port_toggle_bits: invert the pins of the mask */
-static void demo_port_toggle_bits(void)
-{
-	gpio_port_value_t v;
-	int ret = gpio_port_toggle_bits(gpiob, BIT(out.pin));
-
-	gpio_port_get_raw(gpiob, &v);
-	printk("[toggle_bits] gpio_port_toggle_bits(PB2)     = %s, PB2 %d\n", err(ret), !!(v & BIT(out.pin)));
-}
-```
 
 ```text
 [toggle_bits] gpio_port_toggle_bits(PB2)     = 0, PB2 1
 ```
 
-### gpio_port_set_masked_raw
-
-```c
-int gpio_port_set_masked_raw(const struct device *port, gpio_port_pins_t mask, gpio_port_value_t value);
-```
+**`gpio_port_set_masked_raw`** `int gpio_port_set_masked_raw(const struct device *port, gpio_port_pins_t mask, gpio_port_value_t value);`
 
 掩码里的引脚设成 `value` 里对应的位，其余引脚不变。
-
-```c
-/* gpio_port_set_masked_raw: set the pins of the mask to the matching bits of value, leave the others */
-static void demo_port_set_masked_raw(void)
-{
-	gpio_port_value_t v;
-	int ret = gpio_port_set_masked_raw(gpiob, BIT(out.pin), 0);
-
-	gpio_port_get_raw(gpiob, &v);
-	printk("[set_masked] gpio_port_set_masked_raw(PB2, 0) = %s, PB2 %d\n", err(ret),
-	       !!(v & BIT(out.pin)));
-}
-```
 
 ```text
 [set_masked] gpio_port_set_masked_raw(PB2, 0) = 0, PB2 0
 ```
 
-### gpio_init_callback
 
-```c
-void gpio_init_callback(struct gpio_callback *callback, gpio_callback_handler_t handler, gpio_port_pins_t pin_mask);
-```
+**`gpio_init_callback`** `void gpio_init_callback(struct gpio_callback *callback, gpio_callback_handler_t handler, gpio_port_pins_t pin_mask);`
 
 把处理函数和它关心的引脚掩码绑在一个 `struct gpio_callback` 上。回调在 PLIC 中断里执行，`pins` 参数是这个 bank 上本次待处理的所有引脚的位掩码，回调里不要做耗时的事。下面三个演示共用的变量和回调函数：
 
@@ -530,33 +335,15 @@ static void demo_init_callback(void)
 [init_callback] handler for pin mask 0x8
 ```
 
-### gpio_add_callback
-
-```c
-int gpio_add_callback(const struct device *port, struct gpio_callback *callback);
-```
+**`gpio_add_callback`** `int gpio_add_callback(const struct device *port, struct gpio_callback *callback);`
 
 把回调注册到 bank 上。
-
-```c
-/* gpio_add_callback: register it with the bank */
-static void demo_add_callback(void)
-{
-	int ret = gpio_add_callback(in.port, &cb);
-
-	printk("[add_callback] gpio_add_callback              = %s\n", err(ret));
-}
-```
 
 ```text
 [add_callback] gpio_add_callback              = 0
 ```
 
-### gpio_pin_interrupt_configure_dt
-
-```c
-int gpio_pin_interrupt_configure_dt(const struct gpio_dt_spec *spec, gpio_flags_t flags);
-```
+**`gpio_pin_interrupt_configure_dt`** `int gpio_pin_interrupt_configure_dt(const struct gpio_dt_spec *spec, gpio_flags_t flags);`
 
 | `flags` | 驱动的行为 |
 | --- | --- |
@@ -570,37 +357,6 @@ int gpio_pin_interrupt_configure_dt(const struct gpio_dt_spec *spec, gpio_flags_
 
 演示：PB3 先下拉，装载上升沿；改成上拉制造一个上升沿，回调触发 1 次；改回下拉是下降沿，不是装载的上升沿，回调次数是 0。
 
-```c
-/* gpio_pin_interrupt_configure_dt: arm the pin. The pull resistor is part of the pin configuration,
- * so after every gpio_pin_configure the interrupt is armed again.
- */
-static void demo_pin_interrupt_configure_dt(void)
-{
-	int ret;
-
-	gpio_pin_configure_dt(&in, GPIO_INPUT | GPIO_PULL_DOWN);
-	k_msleep(1);
-
-	ret = gpio_pin_interrupt_configure_dt(&in, GPIO_INT_EDGE_RISING);
-	printk("[interrupt] arm EDGE_RISING                 = %s\n", err(ret));
-
-	fired = 0;
-	gpio_pin_configure_dt(&in, GPIO_INPUT | GPIO_PULL_UP);
-	gpio_pin_interrupt_configure_dt(&in, GPIO_INT_EDGE_RISING);
-	k_msleep(20);
-	printk("[interrupt] pull up after arming rising     : %d callback(s), pins 0x%x\n", fired, last_pins);
-
-	fired = 0;
-	gpio_pin_configure_dt(&in, GPIO_INPUT | GPIO_PULL_DOWN);
-	gpio_pin_interrupt_configure_dt(&in, GPIO_INT_EDGE_RISING);
-	k_msleep(20);
-	printk("[interrupt] pull down after arming rising   : %d callback(s)\n", fired);
-
-	ret = gpio_pin_interrupt_configure_dt(&in, GPIO_INT_DISABLE);
-	printk("[interrupt] GPIO_INT_DISABLE                = %s\n", err(ret));
-}
-```
-
 ```text
 [interrupt] arm EDGE_RISING                 = 0
 [interrupt] pull up after arming rising     : 1 callback(s), pins 0x8
@@ -610,43 +366,17 @@ static void demo_pin_interrupt_configure_dt(void)
 
 `pins 0x8` 就是 PB3（第 3 位）。
 
-### gpio_get_pending_int
-
-```c
-int gpio_get_pending_int(const struct device *dev);
-```
+**`gpio_get_pending_int`** `int gpio_get_pending_int(const struct device *dev);`
 
 读这个 bank 的中断状态寄存器，每个引脚一位。中断处理函数会清掉已经处理的位，所以没有待处理的中断时读到 0。
-
-```c
-/* gpio_get_pending_int: the interrupt status register of the bank, one bit per pin */
-static void demo_get_pending_int(void)
-{
-	printk("[pending] gpio_get_pending_int(PB)           = 0x%x\n", gpio_get_pending_int(gpiob));
-}
-```
 
 ```text
 [pending] gpio_get_pending_int(PB)           = 0x0
 ```
 
-### gpio_remove_callback
-
-```c
-int gpio_remove_callback(const struct device *port, struct gpio_callback *callback);
-```
+**`gpio_remove_callback`** `int gpio_remove_callback(const struct device *port, struct gpio_callback *callback);`
 
 把回调从 bank 上取下来。
-
-```c
-/* gpio_remove_callback: take the handler out again */
-static void demo_remove_callback(void)
-{
-	int ret = gpio_remove_callback(in.port, &cb);
-
-	printk("[remove_callback] gpio_remove_callback        = %s\n", err(ret));
-}
-```
 
 ```text
 [remove_callback] gpio_remove_callback        = 0
@@ -665,7 +395,7 @@ gpio_api/
     └── main.c
 ```
 
-### CMakeLists.txt
+**CMakeLists.txt**
 
 ```cmake
 cmake_minimum_required(VERSION 3.20.0)
@@ -675,7 +405,7 @@ project(gpio_api)
 target_sources(app PRIVATE src/main.c)
 ```
 
-### prj.conf
+**prj.conf**
 
 ```ini
 CONFIG_GPIO=y
@@ -688,7 +418,7 @@ CONFIG_MAIN_STACK_SIZE=4096
 
 `CONFIG_MAIN_STACK_SIZE=4096` 不能省：默认的主线程栈只有 1024 字节，`printk` 就会把它用完，程序在显示初始化的时候就会因为 `Instruction Access fault` 停下来。
 
-### app.overlay
+**app.overlay**
 
 ```c
 /* PB2 and PB3 are free pins of the board (the UART1 flow control signals, not used) */
@@ -700,7 +430,7 @@ CONFIG_MAIN_STACK_SIZE=4096
 };
 ```
 
-### src/main.c
+**src/main.c**
 
 ```c
 /*
@@ -965,7 +695,7 @@ int main(void)
 }
 ```
 
-### 编译和运行
+**编译和运行**
 
 ```sh
 . ~/f101-zephyr/env.sh
