@@ -191,7 +191,7 @@ Enable `CONFIG_VDEC=y` in the application's `prj.conf`. The video engine driver,
 
 ## Interface reference
 
-`<zephyr/drivers/vdec.h>` has seven functions in all. Each function below is written out as "prototype → parameters → return value → description → example code → log". <strong>The logs are real output from running the demo program on `yuzukineko`</strong>; the complete source of the demo program is in [Complete demo program](#complete-demo-program) at the end.
+The driver implements the APIs below, grouped by task. Each demo function is in the [complete demo program](#complete-demo-program) at the end of the page.
 
 The `err()`, `show_frame()` and `luma_crc()` in the examples are small helpers in the demo program; their source is at the end.
 
@@ -201,7 +201,9 @@ The demo program's test data: for JPEG, PNG and H.264 it uses the pictures embed
 On a decode failure the driver prints an `<err>` log. Logs are emitted from a deferred context and interleave with the demo program's `printk` output, so the logs pasted below keep only the lines the demo program itself prints; for the driver logs see [Driver logs](#driver-logs).
 :::
 
-### vdec_decode_image
+### Image decoding
+
+**`vdec_decode_image`**
 
 Decode one JPEG or PNG.
 
@@ -237,33 +239,9 @@ Key points:
 - The `pts` of JPEG and PNG frames is `-1` (there is no timestamp).
 - PNG is `RGBA8888`: `plane[0]` is the pixels, `stride[0]` is the bytes per row (320×4=1280), `plane[1]` is NULL and `stride[1]` is 0. The byte order in memory is A, B, G, R.
 
-#### Example: JPEG
+**Example: JPEG**
 
 The demo program requests NV21, NV12, NV21 in turn and prints each call's return value, verifying that both formats decode. On success it also prints the frame info and the CRC of the luma plane, then releases it.
-
-```c
-static void demo_jpeg(void)
-{
-	static const enum vdec_format formats[] = {VDEC_FORMAT_NV21, VDEC_FORMAT_NV12, VDEC_FORMAT_NV21};
-	struct vdec_frame frame;
-	int64_t t;
-	int ret;
-
-	for (int i = 0; i < ARRAY_SIZE(formats); i++) {
-		t = k_uptime_get();
-		ret = vdec_decode_image(dev, VDEC_CODEC_JPEG, test_jpeg, sizeof(test_jpeg),
-					formats[i], &frame);
-		printk("[jpeg] vdec_decode_image(format %d) = %s, %lld ms\n", formats[i], err(ret),
-		       k_uptime_get() - t);
-		if (ret == 0) {
-			show_frame("[jpeg]", &frame);
-			printk("[jpeg] luma crc %08x\n", luma_crc(&frame));
-			vdec_frame_release(dev, &frame);
-			printk("[jpeg] vdec_frame_release done\n");
-		}
-	}
-}
-```
 
 Log:
 
@@ -284,29 +262,7 @@ Log:
 
 `format 2` is `VDEC_FORMAT_NV21` and `format 1` is `VDEC_FORMAT_NV12`, and all three succeeded. The frame is 320×240, both the luma and chroma `stride` are 320, and `pts` is -1. NV21 and NV12 are the same picture with the chroma byte order swapped, so the luma CRC is the same all three times.
 
-#### Example: PNG
-
-```c
-static void demo_png(void)
-{
-	struct vdec_frame frame;
-	int64_t t = k_uptime_get();
-	int ret;
-
-	ret = vdec_decode_image(dev, VDEC_CODEC_PNG, test_png, sizeof(test_png),
-				VDEC_FORMAT_RGBA8888, &frame);
-	printk("[png] vdec_decode_image(RGBA8888) = %s, %lld ms\n", err(ret), k_uptime_get() - t);
-	if (ret == 0) {
-		const uint8_t *p = frame.plane[0];
-
-		show_frame("[png]", &frame);
-		printk("[png] first pixel bytes (A, B, G, R): %02x %02x %02x %02x\n", p[0], p[1],
-		       p[2], p[3]);
-		vdec_frame_release(dev, &frame);
-		printk("[png] vdec_frame_release done\n");
-	}
-}
-```
+**Example: PNG**
 
 Log:
 
@@ -319,43 +275,7 @@ Log:
 
 `format 3` is `VDEC_FORMAT_RGBA8888`; the first `stride` entry is 1280 (320 pixels × 4 bytes) and the second is 0. The first pixel of the test picture has `ff` in all four bytes.
 
-#### Example: the various errors
-
-```c
-static void demo_image_errors(void)
-{
-	static const uint8_t garbage[16] = {0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55,
-					    0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55};
-	struct vdec_frame frame;
-	int ret;
-
-	ret = vdec_decode_image(dev, VDEC_CODEC_PNG, test_png, sizeof(test_png), VDEC_FORMAT_NV12,
-				&frame);
-	printk("[error] PNG as NV12             = %s\n", err(ret));
-	ret = vdec_decode_image(dev, VDEC_CODEC_JPEG, test_jpeg, sizeof(test_jpeg),
-				VDEC_FORMAT_RGBA8888, &frame);
-	printk("[error] JPEG as RGBA8888        = %s\n", err(ret));
-	ret = vdec_decode_image(dev, VDEC_CODEC_H264, test_jpeg, sizeof(test_jpeg),
-				VDEC_FORMAT_NV12, &frame);
-	printk("[error] H.264 to decode_image   = %s\n", err(ret));
-	ret = vdec_decode_image(dev, VDEC_CODEC_JPEG, garbage, sizeof(garbage), VDEC_FORMAT_NV12,
-				&frame);
-	printk("[error] 16 bytes of 0x55 (JPEG) = %s\n", err(ret));
-	ret = vdec_decode_image(dev, VDEC_CODEC_JPEG, test_jpeg, sizeof(test_jpeg) / 2,
-				VDEC_FORMAT_NV12, &frame);
-	printk("[error] half a JPEG             = %s\n", err(ret));
-	if (ret == 0) {
-		vdec_frame_release(dev, &frame);
-	}
-	/* the decoder must still work after the errors */
-	ret = vdec_decode_image(dev, VDEC_CODEC_JPEG, test_jpeg, sizeof(test_jpeg),
-				VDEC_FORMAT_NV12, &frame);
-	printk("[error] a good JPEG afterwards  = %s\n", err(ret));
-	if (ret == 0) {
-		vdec_frame_release(dev, &frame);
-	}
-}
-```
+**Example: the various errors**
 
 Log:
 
@@ -370,7 +290,7 @@ Log:
 
 The return value of each error is in the return-value table above. The last line shows that the decoder is still usable after the errors.
 
-### vdec_frame_release
+**`vdec_frame_release`**
 
 Give a frame back.
 
@@ -391,35 +311,9 @@ No return value.
 - Do not release a frame while the display engine or the 2D accelerator is still reading it. What the MP4 player does is "release one frame late".
 - Each frame may be released only once.
 
-#### Example: decode one picture and release it
+**Example: decode one picture and release it**
 
 Decode a JPEG, release it, then decode again right away. The `plane` address returned both times is the same, showing that the decoder took the same picture memory back into use, so the original pointer must not be read after the release:
-
-```c
-static void demo_frame_release(void)
-{
-	struct vdec_frame frame;
-	int ret;
-
-	ret = vdec_decode_image(dev, VDEC_CODEC_JPEG, test_jpeg, sizeof(test_jpeg),
-				VDEC_FORMAT_NV12, &frame);
-	printk("[release] first decode = %s, plane %p\n", err(ret), frame.plane[0]);
-	if (ret != 0) {
-		return;
-	}
-	vdec_frame_release(dev, &frame);
-	printk("[release] vdec_frame_release done\n");
-
-	/* the decoder is free again: the next picture can be decoded at once */
-	ret = vdec_decode_image(dev, VDEC_CODEC_JPEG, test_jpeg, sizeof(test_jpeg),
-				VDEC_FORMAT_NV12, &frame);
-	printk("[release] second decode = %s, plane %p\n", err(ret), frame.plane[0]);
-	if (ret == 0) {
-		vdec_frame_release(dev, &frame);
-		printk("[release] vdec_frame_release done\n");
-	}
-}
-```
 
 Log:
 
@@ -430,56 +324,9 @@ Log:
 [release] vdec_frame_release done
 ```
 
-#### Example: frames from a stream
+**Example: frames from a stream**
 
 With `holding_frames` set to 2, take frames without releasing any until it is blocked off (`-EBUSY`); then release all the frames held and the decoder becomes usable again:
-
-```c
-static void demo_hold(void)
-{
-	const struct vdec_stream_config cfg = {
-		.codec = VDEC_CODEC_H264,
-		.format = VDEC_FORMAT_NV12,
-		.holding_frames = 2,
-	};
-	struct vdec_frame held[8], frame;
-	struct vdec_stream *stream;
-	size_t off = 0, used, nal_end;
-	int n = 0, ret;
-
-	ret = vdec_stream_open(dev, &cfg, &stream);
-	printk("[hold] vdec_stream_open(holding_frames 2) = %s\n", err(ret));
-	if (ret != 0) {
-		return;
-	}
-	/* take frames and never give them back */
-	while (n < ARRAY_SIZE(held)) {
-		ret = vdec_stream_get_frame(dev, stream, &held[n]);
-		if (ret == 0) {
-			n++;
-			continue;
-		}
-		if (ret != -EAGAIN || off >= sizeof(test_h264)) {
-			break;
-		}
-		nal_end = next_start_code(test_h264, sizeof(test_h264), off + 4);
-		if (vdec_stream_feed(dev, stream, test_h264 + off, nal_end - off, -1, &used) == 0) {
-			off += used;
-		}
-	}
-	printk("[hold] %d frames held, get_frame = %s\n", n, err(ret));
-	for (int i = 0; i < n; i++) {
-		vdec_frame_release(dev, &held[i]);
-	}
-	ret = vdec_stream_get_frame(dev, stream, &frame);
-	printk("[hold] after releasing them, get_frame = %s\n", err(ret));
-	if (ret == 0) {
-		vdec_frame_release(dev, &frame);
-	}
-	vdec_stream_close(dev, stream);
-	printk("[hold] vdec_stream_close done\n");
-}
-```
 
 Log:
 
@@ -492,7 +339,9 @@ Log:
 
 `3 frames held, get_frame = -EBUSY` is the state before the release; after the release it becomes `-EAGAIN` (it wants more data, since this function feeds no more), no longer `-EBUSY`.
 
-### vdec_stream_open
+### Stream decoding
+
+**`vdec_stream_open`**
 
 Open a decode stream.
 
@@ -504,7 +353,7 @@ int vdec_stream_open(const struct device *dev, const struct vdec_stream_config *
 | Parameter | Description |
 | --- | --- |
 | `dev` | Video engine device |
-| `config` | Stream configuration; for the fields see [struct vdec_stream_config](#struct-vdec_stream_config) |
+| `config` | Stream configuration; for the fields see [structures and formats](#structures-and-formats) |
 | `stream` | Output; on success this receives the stream handle |
 
 | Return value | Meaning |
@@ -519,62 +368,9 @@ int vdec_stream_open(const struct device *dev, const struct vdec_stream_config *
 - `buffer_size` is the compressed-data buffer and must hold the largest group of NAL units of one `feed`; if unsure, give 1 MiB (which is what the MP4 player does); 0 is the default value.
 - `holding_frames` determines how many frames the application can hold at once; see the `-EBUSY` example.
 
-#### Example
+**Example**
 
 The function below tries six configurations through the same `open_and_close()`: three normal and three problematic. A successful stream is closed immediately so it does not tie up the decoder.
-
-```c
-static void open_and_close(const char *what, const struct vdec_stream_config *cfg)
-{
-	struct vdec_stream *stream;
-	int ret = vdec_stream_open(dev, cfg, &stream);
-
-	printk("[open] %-34s = %s\n", what, err(ret));
-	if (ret == 0) {
-		vdec_stream_close(dev, stream);
-	}
-}
-
-static void demo_stream_open(void)
-{
-	const struct vdec_stream_config mjpeg = {
-		.codec = VDEC_CODEC_JPEG,
-		.format = VDEC_FORMAT_NV12,
-		.width = 320,
-		.height = 240,
-	};
-	const struct vdec_stream_config h264 = {
-		.codec = VDEC_CODEC_H264,
-		.format = VDEC_FORMAT_NV12,
-	};
-	const struct vdec_stream_config h264_big = {
-		.codec = VDEC_CODEC_H264,
-		.format = VDEC_FORMAT_NV12,
-		.buffer_size = 1024 * 1024,
-		.no_cache_ops = true,
-		.holding_frames = 2,
-	};
-	const struct vdec_stream_config jpeg_no_size = {
-		.codec = VDEC_CODEC_JPEG,
-		.format = VDEC_FORMAT_NV12,
-	};
-	const struct vdec_stream_config png = {
-		.codec = VDEC_CODEC_PNG,
-		.format = VDEC_FORMAT_RGBA8888,
-	};
-	const struct vdec_stream_config h264_rgba = {
-		.codec = VDEC_CODEC_H264,
-		.format = VDEC_FORMAT_RGBA8888,
-	};
-
-	open_and_close("MJPEG 320x240", &mjpeg);
-	open_and_close("H.264", &h264);
-	open_and_close("H.264, 1 MiB buffer, hold 2", &h264_big);
-	open_and_close("JPEG without width/height", &jpeg_no_size);
-	open_and_close("PNG as a stream", &png);
-	open_and_close("H.264 as RGBA8888", &h264_rgba);
-}
-```
 
 Log:
 
@@ -591,7 +387,7 @@ Log:
 - `PNG as a stream`: PNG cannot be a stream and returns `-ENOTSUP`.
 - `H.264 as RGBA8888`: an H.264 stream cannot output RGBA8888 and returns `-ENOTSUP`.
 
-### vdec_stream_feed
+**`vdec_stream_feed`**
 
 Put compressed data into the stream's buffer.
 
@@ -618,46 +414,9 @@ int vdec_stream_feed(const struct device *dev, struct vdec_stream *stream,
 - In the demo program every call takes everything (`used` equals `len`).
 - MJPEG's `pts` comes back on the frame unchanged (see the log: 0, 100, …, 400). With H.264 fed block by block this is not the case: in the log the first frame's `pts` is 1, while the first slice block fed carried 2, so do not assume a frame's `pts` equals the block just fed.
 
-#### Example
+**Example**
 
 The function below tries three inputs: 16 bytes of `0x55` (no NAL), length 0, and the whole H.264 bitstream (21745 bytes) fed in one call.
-
-```c
-static void demo_stream_feed(void)
-{
-	const struct vdec_stream_config cfg = {
-		.codec = VDEC_CODEC_H264,
-		.format = VDEC_FORMAT_NV12,
-	};
-	static const uint8_t garbage[16] = {0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55,
-					    0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55};
-	struct vdec_stream *stream;
-	size_t used = 0;
-	int ret;
-
-	ret = vdec_stream_open(dev, &cfg, &stream);
-	printk("[feed] vdec_stream_open = %s\n", err(ret));
-	if (ret != 0) {
-		return;
-	}
-
-	/* data with no NAL unit in it */
-	ret = vdec_stream_feed(dev, stream, garbage, sizeof(garbage), -1, &used);
-	printk("[feed] 16 bytes of 0x55        = %s, used %zu\n", err(ret), used);
-
-	/* no data at all */
-	ret = vdec_stream_feed(dev, stream, test_h264, 0, -1, &used);
-	printk("[feed] 0 bytes                 = %s, used %zu\n", err(ret), used);
-
-	/* the whole clip, in Annex B form, in one call */
-	ret = vdec_stream_feed(dev, stream, test_h264, sizeof(test_h264), 0, &used);
-	printk("[feed] whole clip (%zu bytes) = %s, used %zu\n", sizeof(test_h264), err(ret),
-	       used);
-
-	vdec_stream_close(dev, stream);
-	printk("[feed] vdec_stream_close done\n");
-}
-```
 
 Log:
 
@@ -671,9 +430,9 @@ Log:
 
 - Data with no NAL and length 0 both return `-EINVAL` with `used` 0.
 - The whole bitstream fed in one call is taken in full (`used` equals `len`).
-- For a complete example of block-by-block feeding (splitting the bitstream at start codes, one `pts` per block) see `demo_stream_get_frame_h264()` in the [vdec_stream_get_frame](#vdec_stream_get_frame) section; for the one-picture-at-a-time MJPEG example see `demo_stream_get_frame_mjpeg()` in the same section.
+- For a complete example of block-by-block feeding (splitting the bitstream at start codes, one `pts` per block) see `demo_stream_get_frame_h264()` in the [stream decoding](#stream-decoding) section; for the one-picture-at-a-time MJPEG example see `demo_stream_get_frame_mjpeg()` in the same section.
 
-### vdec_stream_get_frame
+**`vdec_stream_get_frame`**
 
 Get the next frame; decoding is done here.
 
@@ -694,49 +453,9 @@ int vdec_stream_get_frame(const struct device *dev, struct vdec_stream *stream,
 - The decoder holds only a few pictures; release frames promptly with `vdec_frame_release()` or you get `-EBUSY`.
 - A frame taken carries the timestamp given at `feed`, but with H.264 fed block by block it does not correspond one-to-one with the block fed; see the `vdec_stream_feed` section.
 
-#### Example: MJPEG
+**Example: MJPEG**
 
 Each picture is fed in and a frame is taken out with `get_frame` right away, with `pts` coming back unchanged:
-
-```c
-static void demo_stream_get_frame_mjpeg(void)
-{
-	const struct vdec_stream_config cfg = {
-		.codec = VDEC_CODEC_JPEG,
-		.format = VDEC_FORMAT_NV12,
-		.width = 320,
-		.height = 240,
-	};
-	struct vdec_stream *stream;
-	struct vdec_frame frame;
-	size_t used;
-	int ret;
-
-	ret = vdec_stream_open(dev, &cfg, &stream);
-	printk("[mjpeg] vdec_stream_open = %s\n", err(ret));
-	if (ret != 0) {
-		return;
-	}
-	for (int i = 0; i < ARRAY_SIZE(test_mjpeg); i++) {
-		ret = vdec_stream_feed(dev, stream, test_mjpeg[i].data, test_mjpeg[i].len, i * 100,
-				       &used);
-		printk("[mjpeg] feed #%d (%u bytes, pts %d) = %s, used %zu\n", i, test_mjpeg[i].len,
-		       i * 100, err(ret), used);
-		ret = vdec_stream_get_frame(dev, stream, &frame);
-		printk("[mjpeg] get_frame = %s\n", err(ret));
-		if (ret == 0) {
-			show_frame("[mjpeg]", &frame);
-			vdec_frame_release(dev, &frame);
-		}
-	}
-	ret = vdec_stream_flush(dev, stream);
-	printk("[mjpeg] flush = %s\n", err(ret));
-	ret = vdec_stream_get_frame(dev, stream, &frame);
-	printk("[mjpeg] get_frame after flush = %s\n", err(ret));
-	vdec_stream_close(dev, stream);
-	printk("[mjpeg] vdec_stream_close done\n");
-}
-```
 
 Log:
 
@@ -762,99 +481,9 @@ Log:
 [mjpeg] vdec_stream_close done
 ```
 
-#### Example: the full H.264 loop
+**Example: the full H.264 loop**
 
 `open`, `feed`, `get_frame`, `flush` and `close` are strung together in one loop. The loop's rhythm is decided by `get_frame`'s return value: on `-EAGAIN` feed data, when the data runs out flush, on a frame validate the CRC and release, and exit on `-ENODATA`. The bitstream is split at the start code `00 00 00 01`, and `next_start_code()` finds the position of the next start code.
-
-```c
-static size_t next_start_code(const uint8_t *d, size_t len, size_t from)
-{
-	for (size_t i = from; i + 4 <= len; i++) {
-		if (d[i] == 0 && d[i + 1] == 0 && d[i + 2] == 0 && d[i + 3] == 1) {
-			return i;
-		}
-	}
-
-	return len;
-}
-
-static void demo_stream_get_frame_h264(void)
-{
-	const struct vdec_stream_config cfg = {
-		.codec = VDEC_CODEC_H264,
-		.format = VDEC_FORMAT_NV12,
-	};
-	struct vdec_stream *stream;
-	struct vdec_frame frame;
-	size_t off = 0, used, nal_end;
-	int frames = 0, calls = 0, nal = 0;
-	bool flushed = false;
-	int ret;
-
-	ret = vdec_stream_open(dev, &cfg, &stream);
-	printk("[h264] vdec_stream_open = %s\n", err(ret));
-	if (ret != 0) {
-		return;
-	}
-	while (true) {
-		ret = vdec_stream_get_frame(dev, stream, &frame);
-		if (calls++ < 12) {
-			printk("[h264] get_frame = %s\n", err(ret));
-		}
-		if (ret == 0) {
-			if (frames < 4) {
-				show_frame("[h264]", &frame);
-			}
-			if (frames < ARRAY_SIZE(test_h264_crc)) {
-				/* the same CRC the vdec h264 sample checks */
-				uint32_t crc = 0;
-
-				for (int y = 0; y < frame.height; y++) {
-					crc = crc32_ieee_update(crc, frame.plane[0] +
-							      y * frame.stride[0], frame.width);
-				}
-				for (int y = 0; y < frame.height / 2; y++) {
-					crc = crc32_ieee_update(crc, frame.plane[1] +
-							      y * frame.stride[1], frame.width);
-				}
-				if (crc != test_h264_crc[frames]) {
-					printk("[h264] frame %d: bad crc\n", frames);
-				}
-			}
-			frames++;
-			vdec_frame_release(dev, &frame);
-		} else if (ret == -ENODATA) {
-			break;
-		} else if (ret == -EAGAIN) {
-			if (off < sizeof(test_h264)) {
-				/* one NAL unit per call, so every call has a time stamp */
-				nal_end = next_start_code(test_h264, sizeof(test_h264), off + 4);
-				ret = vdec_stream_feed(dev, stream, test_h264 + off, nal_end - off,
-						       nal, &used);
-				if (nal < 6) {
-					printk("[h264] feed NAL #%d (type %d, %zu bytes, pts %d) = %s, used %zu\n",
-					       nal, test_h264[off + 4] & 0x1f, nal_end - off, nal,
-					       err(ret), used);
-				}
-				if (ret == 0) {
-					off += used;
-					nal++;
-				}
-			} else if (!flushed) {
-				ret = vdec_stream_flush(dev, stream);
-				printk("[h264] flush = %s (after %d NAL units)\n", err(ret), nal);
-				flushed = true;
-			}
-		} else {
-			printk("[h264] get_frame failed: %s\n", err(ret));
-			break;
-		}
-	}
-	printk("[h264] %d frames decoded, all CRCs checked\n", frames);
-	vdec_stream_close(dev, stream);
-	printk("[h264] vdec_stream_close done\n");
-}
-```
 
 Log (the first 12 `get_frame` calls, and the frame info):
 
@@ -889,56 +518,9 @@ Log (the first 12 `get_frame` calls, and the frame info):
 
 The first few lines show the rhythm: after opening, `get_frame` is first `-EAGAIN`; after feeding the SPS (type 7), the PPS (type 8) and the first slice (type 1), the first frame comes out; after that it is roughly "feed a block, get a frame". Block 2, 5650 bytes long, was cut out at a four-byte start code and also contains other NAL units separated by three-byte start codes, which does not affect decoding. At the end, after 33 blocks fed, it flushes and the remaining frames are drained. All 30 frames passed the CRC check (an error would print `bad crc`, and there is none in the log).
 
-#### Example: -EBUSY
+**Example: -EBUSY**
 
 `holding_frames` is set to 2, and then frames are taken without releasing:
-
-```c
-static void demo_hold(void)
-{
-	const struct vdec_stream_config cfg = {
-		.codec = VDEC_CODEC_H264,
-		.format = VDEC_FORMAT_NV12,
-		.holding_frames = 2,
-	};
-	struct vdec_frame held[8], frame;
-	struct vdec_stream *stream;
-	size_t off = 0, used, nal_end;
-	int n = 0, ret;
-
-	ret = vdec_stream_open(dev, &cfg, &stream);
-	printk("[hold] vdec_stream_open(holding_frames 2) = %s\n", err(ret));
-	if (ret != 0) {
-		return;
-	}
-	/* take frames and never give them back */
-	while (n < ARRAY_SIZE(held)) {
-		ret = vdec_stream_get_frame(dev, stream, &held[n]);
-		if (ret == 0) {
-			n++;
-			continue;
-		}
-		if (ret != -EAGAIN || off >= sizeof(test_h264)) {
-			break;
-		}
-		nal_end = next_start_code(test_h264, sizeof(test_h264), off + 4);
-		if (vdec_stream_feed(dev, stream, test_h264 + off, nal_end - off, -1, &used) == 0) {
-			off += used;
-		}
-	}
-	printk("[hold] %d frames held, get_frame = %s\n", n, err(ret));
-	for (int i = 0; i < n; i++) {
-		vdec_frame_release(dev, &held[i]);
-	}
-	ret = vdec_stream_get_frame(dev, stream, &frame);
-	printk("[hold] after releasing them, get_frame = %s\n", err(ret));
-	if (ret == 0) {
-		vdec_frame_release(dev, &frame);
-	}
-	vdec_stream_close(dev, stream);
-	printk("[hold] vdec_stream_close done\n");
-}
-```
 
 Log:
 
@@ -949,9 +531,9 @@ Log:
 [hold] vdec_stream_close done
 ```
 
-It returns `-EBUSY` only after 3 frames have been taken (the decoder never has fewer than 3 frame buffers, so with `holding_frames` set to 2 one extra frame can still be taken). It recovers after the release; see the [vdec_frame_release](#vdec_frame_release) section.
+It returns `-EBUSY` only after 3 frames have been taken (the decoder never has fewer than 3 frame buffers, so with `holding_frames` set to 2 one extra frame can still be taken). It recovers after the release; see the [image decoding](#image-decoding) section.
 
-### vdec_stream_flush
+**`vdec_stream_flush`**
 
 Tell the stream "there will be no more data".
 
@@ -967,52 +549,9 @@ int vdec_stream_flush(const struct device *dev, struct vdec_stream *stream);
 - It need only be called once. The demo program guarantees this with the `flushed` variable.
 - The header says: only after a flush are the frames not yet emitted by the decoder handed over. Without a flush, the last few frames of the video cannot be obtained.
 
-#### Example
+**Example**
 
 MJPEG stream: feed 3 pictures without taking any, then flush, then drain the frames one by one until `-ENODATA`:
-
-```c
-static void demo_stream_flush(void)
-{
-	const struct vdec_stream_config cfg = {
-		.codec = VDEC_CODEC_JPEG,
-		.format = VDEC_FORMAT_NV12,
-		.width = 320,
-		.height = 240,
-	};
-	struct vdec_stream *stream;
-	struct vdec_frame frame;
-	size_t used;
-	int taken = 0, ret;
-
-	ret = vdec_stream_open(dev, &cfg, &stream);
-	printk("[flush] vdec_stream_open = %s\n", err(ret));
-	if (ret != 0) {
-		return;
-	}
-
-	/* three pictures go in, none is taken out yet */
-	for (int i = 0; i < 3; i++) {
-		ret = vdec_stream_feed(dev, stream, test_mjpeg[i].data, test_mjpeg[i].len, i * 100,
-				       &used);
-		printk("[flush] feed #%d = %s\n", i, err(ret));
-	}
-
-	ret = vdec_stream_flush(dev, stream);
-	printk("[flush] vdec_stream_flush = %s\n", err(ret));
-
-	/* from now on get_frame hands out what is left, then returns -ENODATA */
-	while ((ret = vdec_stream_get_frame(dev, stream, &frame)) == 0) {
-		printk("[flush] get_frame = 0, pts %lld\n", frame.pts);
-		vdec_frame_release(dev, &frame);
-		taken++;
-	}
-	printk("[flush] get_frame = %s after %d frames\n", err(ret), taken);
-
-	vdec_stream_close(dev, stream);
-	printk("[flush] vdec_stream_close done\n");
-}
-```
 
 Log:
 
@@ -1031,7 +570,7 @@ Log:
 
 After the flush `get_frame` hands out 3 frames in turn (`pts` 0, 100, 200), then returns `-ENODATA`. For where the flush sits in an H.264 stream (called once after the data is fed) see `demo_stream_get_frame_h264()`, and `flush = 0 (after 33 NAL units)` in the log.
 
-### vdec_stream_close
+**`vdec_stream_close`**
 
 End a stream and yield the decoder.
 
@@ -1044,52 +583,9 @@ No return value.
 - Before the call, <strong>all frames of this stream must already be released</strong>.
 - After the close the `stream` handle is void, and the decoder can be used by other streams and `vdec_decode_image()`.
 
-#### Example
+**Example**
 
 Open an MJPEG stream, take a frame, release it, close; then open an H.264 stream to show that the decoder has been yielded:
-
-```c
-static void demo_stream_close(void)
-{
-	const struct vdec_stream_config mjpeg = {
-		.codec = VDEC_CODEC_JPEG,
-		.format = VDEC_FORMAT_NV12,
-		.width = 320,
-		.height = 240,
-	};
-	const struct vdec_stream_config h264 = {
-		.codec = VDEC_CODEC_H264,
-		.format = VDEC_FORMAT_NV12,
-	};
-	struct vdec_stream *stream;
-	struct vdec_frame frame;
-	size_t used;
-	int ret;
-
-	ret = vdec_stream_open(dev, &mjpeg, &stream);
-	printk("[close] open the MJPEG stream = %s\n", err(ret));
-	if (ret != 0) {
-		return;
-	}
-	vdec_stream_feed(dev, stream, test_mjpeg[0].data, test_mjpeg[0].len, 0, &used);
-	ret = vdec_stream_get_frame(dev, stream, &frame);
-	printk("[close] get_frame = %s\n", err(ret));
-	if (ret == 0) {
-		/* every frame has to be released before the stream is closed */
-		vdec_frame_release(dev, &frame);
-	}
-	vdec_stream_close(dev, stream);
-	printk("[close] vdec_stream_close done\n");
-
-	/* the decoder belongs to nobody now: another stream can be opened */
-	ret = vdec_stream_open(dev, &h264, &stream);
-	printk("[close] open an H.264 stream afterwards = %s\n", err(ret));
-	if (ret == 0) {
-		vdec_stream_close(dev, stream);
-		printk("[close] vdec_stream_close done\n");
-	}
-}
-```
 
 Log:
 
@@ -1103,7 +599,9 @@ Log:
 
 After the close the next stream can be opened normally.
 
-### struct vdec_stream_config
+### Structures and formats
+
+**`struct vdec_stream_config`**
 
 | Field | Description |
 | --- | --- |
@@ -1114,7 +612,7 @@ After the close the next stream can be opened normally.
 | `holding_frames` | Number of frames the application holds at once; 0 means the default of 3, and `VDEC_HOLD_NONE` means none. The decoder allocates 2 pictures plus this number. The real frame-buffer count is never below 3, so with it set to 2 you get `-EBUSY` only after holding 3 frames on an MJPEG stream |
 | `width`, `height` | Picture dimensions, needed only for a JPEG stream |
 
-### struct vdec_frame
+**`struct vdec_frame`**
 
 | Field | Description |
 | --- | --- |
@@ -1125,7 +623,7 @@ After the close the next stream can be opened normally.
 | `pts` | The timestamp given at `feed` |
 | `priv` | Driver-private; do not touch. The player uses `priv != NULL` to tell whether a `vdec_frame` variable holds a frame |
 
-### Frame formats
+**Frame formats**
 
 | Format | Value | Memory layout |
 | --- | --- | --- |
@@ -1197,7 +695,7 @@ ffmpeg -f lavfi -i testsrc2=size=320x240:rate=10 -frames:v 5 -q:v 5 f%d.jpg
 
 The test data for JPEG, PNG and H.264 uses the header files of the three samples under `samples/drivers/vdec/` directly, and `CMakeLists.txt` adds their directories to the header search path.
 
-### CMakeLists.txt
+**CMakeLists.txt**
 
 ```cmake
 cmake_minimum_required(VERSION 3.20.0)
@@ -1214,7 +712,7 @@ target_include_directories(app PRIVATE
 	${VDEC_SAMPLES}/h264/src)
 ```
 
-### prj.conf
+**prj.conf**
 
 ```ini
 CONFIG_FPU=y
@@ -1231,7 +729,7 @@ CONFIG_LOG_PRINTK=n
 CONFIG_CRC=y
 ```
 
-### src/main.c
+**src/main.c**
 
 ```c
 /*
@@ -1770,7 +1268,7 @@ int main(void)
 }
 ```
 
-### Build and run
+**Build and run**
 
 ```sh
 . ~/f101-zephyr/env.sh

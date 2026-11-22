@@ -207,7 +207,7 @@ properties:
 
 ## API reference
 
-Below, each API gets a heading: prototype, the behaviour of the driver, an example function and its output on the board. The demo reads the onboard SPI NOR flash (16 MiB, JEDEC ID `85 20 18`) on `spi0`; the flash holds the boot loader, so only read commands are sent, and no writes or erases. The examples come from the [complete demo program](#complete-demo-program) at the end of the page, where `err()` turns a return value into a name.
+The driver implements the APIs below, grouped by task. Each demo function is in the [complete demo program](#complete-demo-program) at the end of the page.
 
 All the examples use the same function to build a `struct spi_config`: chip select 0 (the hardware CS pin), 8 bit words, most significant bit first.
 
@@ -223,12 +223,9 @@ static struct spi_config cfg_at(uint32_t hz, uint32_t mode)
 }
 ```
 
-### spi_transceive
+### Transfers
 
-```c
-int spi_transceive(const struct device *dev, const struct spi_config *config,
-                   const struct spi_buf_set *tx_bufs, const struct spi_buf_set *rx_bufs);
-```
+**`spi_transceive`** `int spi_transceive(const struct device *dev, const struct spi_config *config, const struct spi_buf_set *tx_bufs, const struct spi_buf_set *rx_bufs);`
 
 Whether the total lengths of `tx_bufs` and `rx_bufs` are equal decides how the driver proceeds:
 
@@ -239,127 +236,24 @@ Whether the total lengths of `tx_bufs` and `rx_bufs` are equal decides how the d
 
 Devices such as SPI NOR that "send a command, read data" use the second form; it completes in one call, and the chip select stays active throughout. A single call transfers at most 16777215 (0xFFFFFF) bytes; more than that returns `-EMSGSIZE`.
 
-#### Example: command plus data
-
-```c
-/*
- * spi_transceive with a command phase: tx is 1 byte, rx is 3 bytes. When the two lengths differ the
- * driver throws away what comes in while the tx bytes go out, so rx[0] is the first byte after the
- * command. (With the same length on both sides it is a plain full duplex transfer, see below.)
- */
-static void demo_command_read(void)
-{
-	struct spi_config cfg = cfg_at(1000000, 0);
-	uint8_t cmd = CMD_JEDEC_ID;
-	uint8_t id[3] = { 0 };
-	struct spi_buf tx_buf = { .buf = &cmd, .len = 1 };
-	struct spi_buf rx_buf = { .buf = id, .len = sizeof(id) };
-	struct spi_buf_set tx = { .buffers = &tx_buf, .count = 1 };
-	struct spi_buf_set rx = { .buffers = &rx_buf, .count = 1 };
-	int ret;
-
-	ret = spi_transceive(spi, &cfg, &tx, &rx);
-	printk("[command] JEDEC ID (tx 1 byte, rx 3 bytes)   = %s: %02x %02x %02x\n", err(ret), id[0],
-	       id[1], id[2]);
-}
-```
+**Example: command plus data**
 
 ```text
 [command] JEDEC ID (tx 1 byte, rx 3 bytes)   = 0: 85 20 18
 ```
 
-#### Example: full duplex
+**Example: full duplex**
 
 With equal transmit and receive lengths, `rx[0]` is the byte received while the command goes out, not data. To read one byte such as a status register, send two bytes in each direction and the answer is the second one.
-
-```c
-/*
- * spi_transceive with equal lengths is a plain full duplex transfer: every tx byte clocks one rx
- * byte in, so the byte received while the command goes out is not data.
- */
-static void demo_full_duplex(void)
-{
-	struct spi_config cfg = cfg_at(1000000, 0);
-	uint8_t out[4] = { CMD_JEDEC_ID, 0, 0, 0 };
-	uint8_t in[4] = { 0xaa, 0xaa, 0xaa, 0xaa };
-	struct spi_buf tx_buf = { .buf = out, .len = sizeof(out) };
-	struct spi_buf rx_buf = { .buf = in, .len = sizeof(in) };
-	struct spi_buf_set tx = { .buffers = &tx_buf, .count = 1 };
-	struct spi_buf_set rx = { .buffers = &rx_buf, .count = 1 };
-	int ret;
-
-	ret = spi_transceive(spi, &cfg, &tx, &rx);
-	printk("[duplex] JEDEC ID (4 bytes both ways)         = %s: %02x %02x %02x %02x\n", err(ret),
-	       in[0], in[1], in[2], in[3]);
-
-	/* a command and one byte of answer: two bytes both ways, the answer is the second one */
-	out[0] = CMD_READ_STATUS;
-	out[1] = 0;
-	tx_buf.len = 2;
-	rx_buf.len = 2;
-	ret = spi_transceive(spi, &cfg, &tx, &rx);
-	printk("[duplex] status register (2 bytes both ways)  = %s: 0x%02x\n", err(ret), in[1]);
-}
-```
 
 ```text
 [duplex] JEDEC ID (4 bytes both ways)         = 0: ff 85 20 18
 [duplex] status register (2 bytes both ways)  = 0: 0x00
 ```
 
-#### Example: long reads and DMA
+**Example: long reads and DMA**
 
 When the read buffer is at least `CONFIG_SPI_SUNXI_DMA_MIN_LEN` (256) bytes and its address is 64 byte (cache line) aligned, the data is moved by the DMA; otherwise the CPU reads it from the receive FIFO. Both ways read the same data. Below, 4 KiB is read and a few clock frequencies are tried to see the time taken.
-
-```c
-/* A longer read: the first 16 bytes of the flash, and the speed at several clocks.
- * Reads of 256 bytes or more into a 64 byte (cache line) aligned buffer go through the DMA controller.
- */
-static void demo_read_flash(void)
-{
-	static uint8_t page[4096] __aligned(64);
-	static uint8_t first[4096];
-	struct spi_config cfg = cfg_at(1000000, 0);
-	uint8_t cmd[4] = { CMD_READ_DATA, 0, 0, 0 };		/* 24 bit address 0 */
-	struct spi_buf tx_buf = { .buf = cmd, .len = sizeof(cmd) };
-	struct spi_buf rx_buf = { .buf = page, .len = sizeof(page) };
-	struct spi_buf_set tx = { .buffers = &tx_buf, .count = 1 };
-	struct spi_buf_set rx = { .buffers = &rx_buf, .count = 1 };
-	static const uint32_t rates[] = { 1000000, 6000000, 24000000, 48000000 };
-	int ret;
-
-	ret = spi_transceive(spi, &cfg, &tx, &rx);
-	printk("[read] 4096 bytes at address 0 at 1 MHz        = %s\n", err(ret));
-	printk("[read] first 16 bytes:");
-	for (int i = 0; i < 16; i++) {
-		printk(" %02x", page[i]);
-	}
-	printk("\n");
-	memcpy(first, page, sizeof(page));
-
-	for (int i = 0; i < ARRAY_SIZE(rates); i++) {
-		cfg = cfg_at(rates[i], 0);
-		memset(page, 0, sizeof(page));
-		int64_t t0 = k_uptime_ticks();
-
-		ret = spi_transceive(spi, &cfg, &tx, &rx);
-		int64_t us = k_ticks_to_us_near64(k_uptime_ticks() - t0);
-
-		printk("[read] 4096 bytes at %2u MHz = %s, %lld us, %s\n", rates[i] / 1000000, err(ret),
-		       us, memcmp(first, page, sizeof(page)) == 0 ? "same data" : "DIFFERENT data");
-	}
-
-	/* a buffer that is not 64 byte aligned is read by the CPU */
-	static uint8_t odd[1 + 512] __aligned(64);
-
-	rx_buf.buf = odd + 1;
-	rx_buf.len = 512;
-	cfg = cfg_at(24000000, 0);
-	ret = spi_transceive(spi, &cfg, &tx, &rx);
-	printk("[read] 512 bytes into an unaligned buffer      = %s, %s\n", err(ret),
-	       memcmp(first, odd + 1, 512) == 0 ? "same data" : "DIFFERENT data");
-}
-```
 
 ```text
 [read] 4096 bytes at address 0 at 1 MHz        = 0
@@ -373,40 +267,9 @@ static void demo_read_flash(void)
 
 The start of the flash is empty (all `ff`); the boot loader is at later addresses. Above 24 MHz the driver no longer uses the controller's own divider but a PLL divider; above 60 MHz the returning data needs delayed sampling, see `sunxi_spi_set_sample`.
 
-#### Example: SPI modes
+**Example: SPI modes**
 
 `SPI_MODE_CPOL` and `SPI_MODE_CPHA` in `spi_config.operation` combine into the 4 modes, and `SPI_TRANSFER_LSB` selects least significant bit first.
-
-```c
-/* SPI mode 0 (CPOL 0, CPHA 0) and mode 3 (CPOL 1, CPHA 1) both work with a NOR flash */
-static void demo_modes(void)
-{
-	uint8_t cmd = CMD_JEDEC_ID;
-	uint8_t id[3];
-	struct spi_buf tx_buf = { .buf = &cmd, .len = 1 };
-	struct spi_buf rx_buf = { .buf = id, .len = sizeof(id) };
-	struct spi_buf_set tx = { .buffers = &tx_buf, .count = 1 };
-	struct spi_buf_set rx = { .buffers = &rx_buf, .count = 1 };
-	static const struct {
-		const char *name;
-		uint32_t mode;
-	} modes[] = {
-		{ "mode 0 (CPOL 0, CPHA 0)", 0 },
-		{ "mode 1 (CPOL 0, CPHA 1)", SPI_MODE_CPHA },
-		{ "mode 2 (CPOL 1, CPHA 0)", SPI_MODE_CPOL },
-		{ "mode 3 (CPOL 1, CPHA 1)", SPI_MODE_CPOL | SPI_MODE_CPHA },
-	};
-
-	for (int i = 0; i < ARRAY_SIZE(modes); i++) {
-		struct spi_config cfg = cfg_at(1000000, modes[i].mode);
-		int ret;
-
-		memset(id, 0, sizeof(id));
-		ret = spi_transceive(spi, &cfg, &tx, &rx);
-		printk("[mode] %s = %s: %02x %02x %02x\n", modes[i].name, err(ret), id[0], id[1], id[2]);
-	}
-}
-```
 
 ```text
 [mode] mode 0 (CPOL 0, CPHA 0) = 0: 85 20 18
@@ -417,57 +280,7 @@ static void demo_modes(void)
 
 SPI NOR specifies only mode 0 and mode 3; mode 2 reading no data is the device's doing.
 
-#### Example: configurations the driver refuses
-
-```c
-/* what the driver refuses */
-static void demo_unsupported(void)
-{
-	uint8_t cmd = CMD_JEDEC_ID;
-	uint8_t id[3];
-	struct spi_buf tx_buf = { .buf = &cmd, .len = 1 };
-	struct spi_buf rx_buf = { .buf = id, .len = sizeof(id) };
-	struct spi_buf_set tx = { .buffers = &tx_buf, .count = 1 };
-	struct spi_buf_set rx = { .buffers = &rx_buf, .count = 1 };
-	struct spi_config cfg;
-	int ret;
-
-	cfg = cfg_at(1000000, 0);
-	cfg.operation = SPI_OP_MODE_MASTER | SPI_WORD_SET(16);
-	ret = spi_transceive(spi, &cfg, &tx, &rx);
-	printk("[refuse] 16 bit words                        = %s\n", err(ret));
-
-	cfg = cfg_at(1000000, SPI_MODE_LOOP);
-	ret = spi_transceive(spi, &cfg, &tx, &rx);
-	printk("[refuse] SPI_MODE_LOOP                       = %s\n", err(ret));
-
-	cfg = cfg_at(1000000, SPI_HOLD_ON_CS);
-	ret = spi_transceive(spi, &cfg, &tx, &rx);
-	printk("[refuse] SPI_HOLD_ON_CS                      = %s\n", err(ret));
-
-	cfg = cfg_at(1000000, 0);
-	cfg.operation = SPI_OP_MODE_SLAVE | SPI_WORD_SET(8);
-	ret = spi_transceive(spi, &cfg, &tx, &rx);
-	printk("[refuse] slave mode                          = %s\n", err(ret));
-
-	cfg = cfg_at(1000000, 0);
-	cfg.slave = 4;
-	ret = spi_transceive(spi, &cfg, &tx, &rx);
-	printk("[refuse] chip select 4                       = %s\n", err(ret));
-
-	cfg = cfg_at(1000, 0);
-	ret = spi_transceive(spi, &cfg, &tx, &rx);
-	printk("[refuse] 1 kHz                               = %s\n", err(ret));
-
-	/* nothing to send or receive */
-	struct spi_buf_set none = { .buffers = NULL, .count = 0 };
-
-	cfg = cfg_at(1000000, 0);
-	ret = spi_transceive(spi, &cfg, &none, &none);
-	printk("[refuse] empty transfer                      = %s\n", err(ret));
-
-}
-```
+**Example: configurations the driver refuses**
 
 ```text
 [refuse] 16 bit words                        = -ENOTSUP
@@ -479,117 +292,36 @@ static void demo_unsupported(void)
 [refuse] empty transfer                      = 0
 ```
 
-### spi_write
-
-```c
-int spi_write(const struct device *dev, const struct spi_config *config, const struct spi_buf_set *tx_bufs);
-```
+**`spi_write`** `int spi_write(const struct device *dev, const struct spi_config *config, const struct spi_buf_set *tx_bufs);`
 
 Sends only, equivalent to `spi_transceive` with an empty rx, and each call has its own chip select cycle.
-
-```c
-/* spi_write: only sends. A write of the command alone and then a separate read is not what a NOR flash
- * wants (it needs the command and the read in the same chip select), but it is what spi_write does.
- */
-static void demo_spi_write(void)
-{
-	struct spi_config cfg = cfg_at(1000000, 0);
-	uint8_t cmd = CMD_JEDEC_ID;
-	struct spi_buf tx_buf = { .buf = &cmd, .len = 1 };
-	struct spi_buf_set tx = { .buffers = &tx_buf, .count = 1 };
-	int ret = spi_write(spi, &cfg, &tx);
-
-	printk("[split] spi_write(command)                    = %s\n", err(ret));
-}
-```
 
 ```text
 [split] spi_write(command)                    = 0
 ```
 
-### spi_read
-
-```c
-int spi_read(const struct device *dev, const struct spi_config *config, const struct spi_buf_set *rx_bufs);
-```
+**`spi_read`** `int spi_read(const struct device *dev, const struct spi_config *config, const struct spi_buf_set *rx_bufs);`
 
 Receives only, with an empty tx. The flash requires the command and the read data in the same chip select, so after a `spi_write` of the command a separate `spi_read` reads `ff ff ff`:
-
-```c
-/* spi_read: only receives, the chip select is a new one, so the flash has not seen a command */
-static void demo_spi_read(void)
-{
-	struct spi_config cfg = cfg_at(1000000, 0);
-	uint8_t id[3] = { 0 };
-	struct spi_buf rx_buf = { .buf = id, .len = sizeof(id) };
-	struct spi_buf_set rx = { .buffers = &rx_buf, .count = 1 };
-	int ret = spi_read(spi, &cfg, &rx);
-
-	printk("[split] spi_read(3 bytes), chip select again  = %s: %02x %02x %02x\n", err(ret), id[0],
-	       id[1], id[2]);
-}
-```
 
 ```text
 [split] spi_read(3 bytes), chip select again  = 0: ff ff ff
 ```
 
-### spi_release
-
-```c
-int spi_release(const struct device *dev, const struct spi_config *config);
-```
+**`spi_release`** `int spi_release(const struct device *dev, const struct spi_config *config);`
 
 After a transfer whose `operation` carries `SPI_LOCK_ON`, the bus is still held by that configuration and transfers from other threads wait; `spi_release` releases it.
-
-```c
-/* spi_release unlocks the bus that a spi_config with SPI_LOCK_ON holds. */
-static void demo_release(void)
-{
-	struct spi_config cfg = cfg_at(1000000, SPI_LOCK_ON);
-	uint8_t cmd = CMD_JEDEC_ID;
-	uint8_t id[3] = { 0 };
-	struct spi_buf tx_buf = { .buf = &cmd, .len = 1 };
-	struct spi_buf rx_buf = { .buf = id, .len = sizeof(id) };
-	struct spi_buf_set tx = { .buffers = &tx_buf, .count = 1 };
-	struct spi_buf_set rx = { .buffers = &rx_buf, .count = 1 };
-	int ret;
-
-	ret = spi_transceive(spi, &cfg, &tx, &rx);
-	printk("[release] transfer with SPI_LOCK_ON            = %s: %02x %02x %02x\n", err(ret), id[0],
-	       id[1], id[2]);
-	ret = spi_release(spi, &cfg);
-	printk("[release] spi_release                          = %s\n", err(ret));
-}
-```
 
 ```text
 [release] transfer with SPI_LOCK_ON            = 0: 85 20 18
 [release] spi_release                          = 0
 ```
 
-### sunxi_spi_set_sample
+### Sampling point
 
-```c
-int sunxi_spi_set_sample(const struct device *dev, uint8_t mode, uint8_t delay);
-```
+**`sunxi_spi_set_sample`** `int sunxi_spi_set_sample(const struct device *dev, uint8_t mode, uint8_t delay);`
 
 The header `<zephyr/drivers/spi/spi_sunxi.h>` is this driver's own extension. It chooses the sample point: `mode` is the number of half cycles the sampling is delayed by (0…6), and `delay` is the number of delay line stages added on top of that (0…63); it takes effect from the next transfer. If it is not called, above 60 MHz the sampling is delayed by one cycle automatically. Out-of-range parameters return `-EINVAL`.
-
-```c
-/* sunxi_spi_set_sample: choose the sample point of the returning data (mode 0..6, delay 0..63) */
-static void demo_set_sample(void)
-{
-	int ret;
-
-	ret = sunxi_spi_set_sample(spi, 7, 0);
-	printk("[sample] sunxi_spi_set_sample(mode 7)        = %s\n", err(ret));
-	ret = sunxi_spi_set_sample(spi, 0, 64);
-	printk("[sample] sunxi_spi_set_sample(delay 64)      = %s\n", err(ret));
-	ret = sunxi_spi_set_sample(spi, 0, 0);
-	printk("[sample] sunxi_spi_set_sample(mode 0, delay 0) = %s\n", err(ret));
-}
-```
 
 ```text
 [sample] sunxi_spi_set_sample(mode 7)        = -EINVAL
@@ -609,7 +341,7 @@ spi_api/
     └── main.c
 ```
 
-### CMakeLists.txt
+**CMakeLists.txt**
 
 ```cmake
 cmake_minimum_required(VERSION 3.20.0)
@@ -619,7 +351,7 @@ project(spi_api)
 target_sources(app PRIVATE src/main.c)
 ```
 
-### prj.conf
+**prj.conf**
 
 ```ini
 CONFIG_SPI=y
@@ -630,7 +362,7 @@ CONFIG_DEVMEM_SHELL=n
 CONFIG_LOG_PRINTK=n
 ```
 
-### src/main.c
+**src/main.c**
 
 ```c
 /*
@@ -929,7 +661,7 @@ int main(void)
 }
 ```
 
-### Build and run
+**Build and run**
 
 ```sh
 . ~/f101-zephyr/env.sh

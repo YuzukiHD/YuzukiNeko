@@ -159,7 +159,7 @@ When setting the brightness (`pwm_set_cycles`): `level = pulse × 256 ÷ period`
 
 ## API details
 
-Each API below gets its own short heading: the prototype, the driver's behavior, an example function, and its output on the board. The examples come from [the complete demonstration program](#the-complete-demonstration-program) at the end of the page, whose `err()` turns a return value into a name. The function that reads the registers and the macros it uses:
+The driver implements the APIs below, grouped by task. Each demo function is in the [complete demo program](#the-complete-demonstration-program) at the end of the page.
 
 ```c
 #define BASE		DT_REG_ADDR(DT_NODELABEL(pwm_bl))
@@ -180,39 +180,18 @@ static void show_regs(void)
 }
 ```
 
-### pwm_get_cycles_per_sec
+### Period and duty cycle
 
-```c
-int pwm_get_cycles_per_sec(const struct device *dev, uint32_t channel, uint64_t *cycles);
-```
+**`pwm_get_cycles_per_sec`** `int pwm_get_cycles_per_sec(const struct device *dev, uint32_t channel, uint64_t *cycles);`
 
 Returns how many cycles there are per second: 1 000 000 000, so the values of the pulse and the period are directly in nanoseconds. Only channel 0 exists, any other channel returns `-EINVAL`.
-
-```c
-/* pwm_get_cycles_per_sec: 1 GHz, so a cycle is a nanosecond and the ratios are exact */
-static void demo_cycles_per_sec(void)
-{
-	uint64_t hz;
-	int ret;
-
-	ret = pwm_get_cycles_per_sec(pwm_bl, 0, &hz);
-	printk("[clock] pwm_get_cycles_per_sec(channel 0)   = %s, %u Hz\n", err(ret), (uint32_t)hz);
-
-	ret = pwm_get_cycles_per_sec(pwm_bl, 1, &hz);
-	printk("[clock] pwm_get_cycles_per_sec(channel 1)   = %s\n", err(ret));
-}
-```
 
 ```text
 [clock] pwm_get_cycles_per_sec(channel 0)   = 0, 1000000000 Hz
 [clock] pwm_get_cycles_per_sec(channel 1)   = -EINVAL
 ```
 
-### pwm_set_cycles
-
-```c
-int pwm_set_cycles(const struct device *dev, uint32_t channel, uint32_t period, uint32_t pulse, pwm_flags_t flags);
-```
+**`pwm_set_cycles`** `int pwm_set_cycles(const struct device *dev, uint32_t channel, uint32_t period, uint32_t pulse, pwm_flags_t flags);`
 
 The brightness is determined by `pulse / period`. 100% gives 256, clamped to 200; 50% is 128; 5% is 12; 0.5% is 1. The flags are ignored.
 
@@ -220,24 +199,6 @@ The brightness is determined by `pulse / period`. 100% gives 256, clamped to 200
 | --- | --- |
 | Channel other than 0, period 0, or pulse greater than the period | `-EINVAL` |
 | Other | 0 |
-
-```c
-/* pwm_set_cycles: the level is pulse * 256 / period; 200 is the maximum, a level of 0 switches the
- * block off. The flags are ignored, there is no polarity.
- */
-static void demo_set_cycles(void)
-{
-	static const uint32_t pulse[] = { 20000, 10000, 5000, 1000, 100 };
-	int ret;
-
-	for (int i = 0; i < ARRAY_SIZE(pulse); i++) {
-		ret = pwm_set_cycles(pwm_bl, 0, 20000, pulse[i], 0);
-		printk("[cycles] pulse %5u of 20000 (%3u%%)         = %s\n", pulse[i], pulse[i] * 100 / 20000,
-		       err(ret));
-		show_regs();
-	}
-}
-```
 
 ```text
 [cycles] pulse 20000 of 20000 (100%)         = 0
@@ -252,29 +213,11 @@ static void demo_set_cycles(void)
          port 0 enabled 1, port 1 enabled 1, load current level 1 (maximum brightness code 3)
 ```
 
-### pwm_set
+### Setting the brightness
 
-```c
-int pwm_set(const struct device *dev, uint32_t channel, uint32_t period, uint32_t pulse, pwm_flags_t flags);
-```
+**`pwm_set`** `int pwm_set(const struct device *dev, uint32_t channel, uint32_t period, uint32_t pulse, pwm_flags_t flags);`
 
 The period and pulse are in nanoseconds (macros such as `PWM_USEC()` and `PWM_MSEC()`). The clock is 1 GHz, so no conversion is needed; whether the period is 20 µs or 1 ms does not affect the result, the same ratio gives the same level.
-
-```c
-/* pwm_set: the same in nanoseconds; the period does not change the output, only the ratio does */
-static void demo_set(void)
-{
-	int ret;
-
-	ret = pwm_set(pwm_bl, 0, PWM_USEC(20), PWM_USEC(10), PWM_POLARITY_NORMAL);
-	printk("[set] 20 us period, 10 us pulse                 = %s\n", err(ret));
-	show_regs();
-
-	ret = pwm_set(pwm_bl, 0, PWM_MSEC(1), PWM_USEC(500), PWM_POLARITY_INVERTED);
-	printk("[set] 1 ms period, 500 us pulse, inverted       = %s\n", err(ret));
-	show_regs();
-}
-```
 
 ```text
 [set] 20 us period, 10 us pulse                 = 0
@@ -283,11 +226,7 @@ static void demo_set(void)
          port 0 enabled 1, port 1 enabled 1, load current level 128 (maximum brightness code 3)
 ```
 
-### pwm_set_dt
-
-```c
-int pwm_set_dt(const struct pwm_dt_spec *spec, uint32_t period, uint32_t pulse);
-```
+**`pwm_set_dt`** `int pwm_set_dt(const struct pwm_dt_spec *spec, uint32_t period, uint32_t pulse);`
 
 The channel, device and flags come from the `pwms` property in the devicetree. The `bl` of the demonstration comes from `pwms = <&pwm_bl 0 20000 PWM_POLARITY_INVERTED>` in the `zephyr,user` node of the overlay.
 
@@ -311,28 +250,9 @@ static void demo_set_dt(void)
          port 0 enabled 1, port 1 enabled 1, load current level 64 (maximum brightness code 3)
 ```
 
-### pwm_set_pulse_dt
-
-```c
-int pwm_set_pulse_dt(const struct pwm_dt_spec *spec, uint32_t pulse);
-```
+**`pwm_set_pulse_dt`** `int pwm_set_pulse_dt(const struct pwm_dt_spec *spec, uint32_t pulse);`
 
 Uses the period written in the devicetree and supplies only the pulse. A pulse of 0 gives level 0, with both ports switched off, which is the way to turn the backlight off.
-
-```c
-/* pwm_set_pulse_dt: only the pulse; 0 switches the backlight off */
-static void demo_set_pulse_dt(void)
-{
-	int ret = pwm_set_pulse_dt(&bl, bl.period * 3 / 4);
-
-	printk("[dt] pwm_set_pulse_dt(3/4 of the period)        = %s\n", err(ret));
-	show_regs();
-
-	ret = pwm_set_pulse_dt(&bl, 0);
-	printk("[dt] pwm_set_pulse_dt(0)                        = %s\n", err(ret));
-	show_regs();
-}
-```
 
 ```text
 [dt] pwm_set_pulse_dt(3/4 of the period)        = 0
@@ -341,27 +261,9 @@ static void demo_set_pulse_dt(void)
          port 0 enabled 0, port 1 enabled 0, load current level 0 (maximum brightness code 3)
 ```
 
-### Arguments the driver rejects
+**Arguments the driver rejects**
 
 The driver checks three things, the channel number, the period and the pulse: only channel 0 exists, any other channel returns `-EINVAL` and the registers are left untouched.
-
-```c
-/* the arguments the driver refuses */
-static void demo_errors(void)
-{
-	int ret;
-
-	ret = pwm_set_cycles(pwm_bl, 0, 0, 0, 0);
-	printk("[error] period 0                                = %s\n", err(ret));
-
-	ret = pwm_set_cycles(pwm_bl, 0, 20000, 20001, 0);
-	printk("[error] pulse longer than the period            = %s\n", err(ret));
-
-	ret = pwm_set_cycles(pwm_bl, 5, 20000, 10000, 0);
-	printk("[error] channel 5 (only channel 0 exists)       = %s\n", err(ret));
-	show_regs();
-}
-```
 
 ```text
 [error] period 0                                = -EINVAL
@@ -383,7 +285,7 @@ pwm_bl_api/
     └── main.c
 ```
 
-### CMakeLists.txt
+**CMakeLists.txt**
 
 ```cmake
 cmake_minimum_required(VERSION 3.20.0)
@@ -393,7 +295,7 @@ project(pwm_bl_api)
 target_sources(app PRIVATE src/main.c)
 ```
 
-### prj.conf
+**prj.conf**
 
 ```ini
 CONFIG_PWM=y
@@ -404,7 +306,7 @@ CONFIG_DEVMEM_SHELL=n
 CONFIG_LOG_PRINTK=n
 ```
 
-### app.overlay
+**app.overlay**
 
 ```c
 /*
@@ -435,7 +337,7 @@ CONFIG_LOG_PRINTK=n
 };
 ```
 
-### src/main.c
+**src/main.c**
 
 ```c
 /*
@@ -582,7 +484,7 @@ int main(void)
 }
 ```
 
-### Building and running
+**Building and running**
 
 ```sh
 . ~/f101-zephyr/env.sh

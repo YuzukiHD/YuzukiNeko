@@ -159,7 +159,7 @@ pwm-cells:
 
 ## 接口详解
 
-下面每个接口一个小标题：原型、驱动的行为、示例函数和它在板子上的输出。示例来自文末的[完整演示程序](#完整演示程序)，里面的 `err()` 把返回值转成名字。读寄存器的函数和用到的宏：
+下面按任务分组列出驱动实现的接口。每项的示例函数在页末[完整演示程序](#完整演示程序)里。
 
 ```c
 #define BASE		DT_REG_ADDR(DT_NODELABEL(pwm_bl))
@@ -180,39 +180,18 @@ static void show_regs(void)
 }
 ```
 
-### pwm_get_cycles_per_sec
+### 周期与占空比
 
-```c
-int pwm_get_cycles_per_sec(const struct device *dev, uint32_t channel, uint64_t *cycles);
-```
+**`pwm_get_cycles_per_sec`** `int pwm_get_cycles_per_sec(const struct device *dev, uint32_t channel, uint64_t *cycles);`
 
 返回每秒多少个周期：1 000 000 000，所以脉宽和周期的数值直接就是纳秒。只有通道 0，别的通道返回 `-EINVAL`。
-
-```c
-/* pwm_get_cycles_per_sec: 1 GHz, so a cycle is a nanosecond and the ratios are exact */
-static void demo_cycles_per_sec(void)
-{
-	uint64_t hz;
-	int ret;
-
-	ret = pwm_get_cycles_per_sec(pwm_bl, 0, &hz);
-	printk("[clock] pwm_get_cycles_per_sec(channel 0)   = %s, %u Hz\n", err(ret), (uint32_t)hz);
-
-	ret = pwm_get_cycles_per_sec(pwm_bl, 1, &hz);
-	printk("[clock] pwm_get_cycles_per_sec(channel 1)   = %s\n", err(ret));
-}
-```
 
 ```text
 [clock] pwm_get_cycles_per_sec(channel 0)   = 0, 1000000000 Hz
 [clock] pwm_get_cycles_per_sec(channel 1)   = -EINVAL
 ```
 
-### pwm_set_cycles
-
-```c
-int pwm_set_cycles(const struct device *dev, uint32_t channel, uint32_t period, uint32_t pulse, pwm_flags_t flags);
-```
+**`pwm_set_cycles`** `int pwm_set_cycles(const struct device *dev, uint32_t channel, uint32_t period, uint32_t pulse, pwm_flags_t flags);`
 
 亮度由 `pulse / period` 决定。100% 得到 256，被限制到 200；50% 是 128；5% 是 12；0.5% 是 1。标志被忽略。
 
@@ -220,24 +199,6 @@ int pwm_set_cycles(const struct device *dev, uint32_t channel, uint32_t period, 
 | --- | --- |
 | 通道不是 0，周期 0，或脉宽大于周期 | `-EINVAL` |
 | 其他 | 0 |
-
-```c
-/* pwm_set_cycles: the level is pulse * 256 / period; 200 is the maximum, a level of 0 switches the
- * block off. The flags are ignored, there is no polarity.
- */
-static void demo_set_cycles(void)
-{
-	static const uint32_t pulse[] = { 20000, 10000, 5000, 1000, 100 };
-	int ret;
-
-	for (int i = 0; i < ARRAY_SIZE(pulse); i++) {
-		ret = pwm_set_cycles(pwm_bl, 0, 20000, pulse[i], 0);
-		printk("[cycles] pulse %5u of 20000 (%3u%%)         = %s\n", pulse[i], pulse[i] * 100 / 20000,
-		       err(ret));
-		show_regs();
-	}
-}
-```
 
 ```text
 [cycles] pulse 20000 of 20000 (100%)         = 0
@@ -252,29 +213,11 @@ static void demo_set_cycles(void)
          port 0 enabled 1, port 1 enabled 1, load current level 1 (maximum brightness code 3)
 ```
 
-### pwm_set
+### 设置亮度
 
-```c
-int pwm_set(const struct device *dev, uint32_t channel, uint32_t period, uint32_t pulse, pwm_flags_t flags);
-```
+**`pwm_set`** `int pwm_set(const struct device *dev, uint32_t channel, uint32_t period, uint32_t pulse, pwm_flags_t flags);`
 
 周期和脉宽用纳秒（`PWM_USEC()`、`PWM_MSEC()` 等宏）。时钟是 1 GHz，所以不需要换算；周期是 20 µs 还是 1 ms 不影响结果，比值一样级别就一样。
-
-```c
-/* pwm_set: the same in nanoseconds; the period does not change the output, only the ratio does */
-static void demo_set(void)
-{
-	int ret;
-
-	ret = pwm_set(pwm_bl, 0, PWM_USEC(20), PWM_USEC(10), PWM_POLARITY_NORMAL);
-	printk("[set] 20 us period, 10 us pulse                 = %s\n", err(ret));
-	show_regs();
-
-	ret = pwm_set(pwm_bl, 0, PWM_MSEC(1), PWM_USEC(500), PWM_POLARITY_INVERTED);
-	printk("[set] 1 ms period, 500 us pulse, inverted       = %s\n", err(ret));
-	show_regs();
-}
-```
 
 ```text
 [set] 20 us period, 10 us pulse                 = 0
@@ -283,11 +226,7 @@ static void demo_set(void)
          port 0 enabled 1, port 1 enabled 1, load current level 128 (maximum brightness code 3)
 ```
 
-### pwm_set_dt
-
-```c
-int pwm_set_dt(const struct pwm_dt_spec *spec, uint32_t period, uint32_t pulse);
-```
+**`pwm_set_dt`** `int pwm_set_dt(const struct pwm_dt_spec *spec, uint32_t period, uint32_t pulse);`
 
 通道、设备和标志来自设备树的 `pwms` 属性。演示的 `bl` 取自 overlay 里 `zephyr,user` 节点的 `pwms = <&pwm_bl 0 20000 PWM_POLARITY_INVERTED>`。
 
@@ -311,28 +250,9 @@ static void demo_set_dt(void)
          port 0 enabled 1, port 1 enabled 1, load current level 64 (maximum brightness code 3)
 ```
 
-### pwm_set_pulse_dt
-
-```c
-int pwm_set_pulse_dt(const struct pwm_dt_spec *spec, uint32_t pulse);
-```
+**`pwm_set_pulse_dt`** `int pwm_set_pulse_dt(const struct pwm_dt_spec *spec, uint32_t pulse);`
 
 用设备树里写的周期，只给脉宽。脉宽 0 得到级别 0，两个端口都关闭，这是关背光的办法。
-
-```c
-/* pwm_set_pulse_dt: only the pulse; 0 switches the backlight off */
-static void demo_set_pulse_dt(void)
-{
-	int ret = pwm_set_pulse_dt(&bl, bl.period * 3 / 4);
-
-	printk("[dt] pwm_set_pulse_dt(3/4 of the period)        = %s\n", err(ret));
-	show_regs();
-
-	ret = pwm_set_pulse_dt(&bl, 0);
-	printk("[dt] pwm_set_pulse_dt(0)                        = %s\n", err(ret));
-	show_regs();
-}
-```
 
 ```text
 [dt] pwm_set_pulse_dt(3/4 of the period)        = 0
@@ -341,27 +261,9 @@ static void demo_set_pulse_dt(void)
          port 0 enabled 0, port 1 enabled 0, load current level 0 (maximum brightness code 3)
 ```
 
-### 驱动拒绝的参数
+**驱动拒绝的参数**
 
 驱动检查通道号、周期和脉宽三项：只有通道 0，别的通道返回 `-EINVAL`，寄存器不动。
-
-```c
-/* the arguments the driver refuses */
-static void demo_errors(void)
-{
-	int ret;
-
-	ret = pwm_set_cycles(pwm_bl, 0, 0, 0, 0);
-	printk("[error] period 0                                = %s\n", err(ret));
-
-	ret = pwm_set_cycles(pwm_bl, 0, 20000, 20001, 0);
-	printk("[error] pulse longer than the period            = %s\n", err(ret));
-
-	ret = pwm_set_cycles(pwm_bl, 5, 20000, 10000, 0);
-	printk("[error] channel 5 (only channel 0 exists)       = %s\n", err(ret));
-	show_regs();
-}
-```
 
 ```text
 [error] period 0                                = -EINVAL
@@ -383,7 +285,7 @@ pwm_bl_api/
     └── main.c
 ```
 
-### CMakeLists.txt
+**CMakeLists.txt**
 
 ```cmake
 cmake_minimum_required(VERSION 3.20.0)
@@ -393,7 +295,7 @@ project(pwm_bl_api)
 target_sources(app PRIVATE src/main.c)
 ```
 
-### prj.conf
+**prj.conf**
 
 ```ini
 CONFIG_PWM=y
@@ -404,7 +306,7 @@ CONFIG_DEVMEM_SHELL=n
 CONFIG_LOG_PRINTK=n
 ```
 
-### app.overlay
+**app.overlay**
 
 ```c
 /*
@@ -435,7 +337,7 @@ CONFIG_LOG_PRINTK=n
 };
 ```
 
-### src/main.c
+**src/main.c**
 
 ```c
 /*
@@ -582,7 +484,7 @@ int main(void)
 }
 ```
 
-### 编译和运行
+**编译和运行**
 
 ```sh
 . ~/f101-zephyr/env.sh

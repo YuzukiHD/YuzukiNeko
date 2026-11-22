@@ -169,7 +169,7 @@ properties:
 
 ## 接口详解
 
-演示在 `yuzukineko` 上，卡槽里有一张 SDHC 卡，直接用 `sdhc_*` 函数操作控制器。每个接口一个小标题，下面是它的原型、行为和一个完整的示例函数。
+下面按任务分组列出驱动实现的接口。每项的示例函数在页末[完整演示程序](#完整演示程序)里。
 
 演示里重复用到的两个全局变量和辅助函数：
 
@@ -192,32 +192,11 @@ static int send(uint32_t opcode, uint32_t arg, uint32_t response_type, struct sd
 }
 ```
 
-### sdhc_get_host_props
+### 主机与卡
 
-```c
-int sdhc_get_host_props(const struct device *dev, struct sdhc_host_props *props);
-```
+**`sdhc_get_host_props`** `int sdhc_get_host_props(const struct device *dev, struct sdhc_host_props *props);`
 
 读控制器的能力：时钟范围、总线宽度、电压、速度模式，以及上电延时。
-
-```c
-/* sdhc_get_host_props: what the controller can do */
-static void demo_get_host_props(void)
-{
-	struct sdhc_host_props props;
-	int ret = sdhc_get_host_props(sdhc, &props);
-
-	printk("[props] sdhc_get_host_props = %s: clock %u..%u Hz, power-up delay %u ms\n", err(ret),
-	       props.f_min, props.f_max, props.power_delay);
-	printk("[props] 4 bit bus %d, 8 bit bus %d, high speed %d, 3.3 V %d, 3.0 V %d, 1.8 V %d, SDR50 %d, DDR50 %d, SPI mode %d\n",
-	       props.host_caps.bus_4_bit_support, props.host_caps.bus_8_bit_support,
-	       props.host_caps.high_spd_support, props.host_caps.vol_330_support,
-	       props.host_caps.vol_300_support, props.host_caps.vol_180_support,
-	       props.host_caps.sdr50_support, props.host_caps.ddr50_support, props.is_spi);
-	printk("[props] SDIO card interrupt %d, max current at 3.3 V %u mA\n",
-	       props.host_caps.sdio_async_interrupt_support, props.max_current_330);
-}
-```
 
 ```text
 [props] sdhc_get_host_props = 0: clock 400000..50000000 Hz, power-up delay 500 ms
@@ -225,55 +204,23 @@ static void demo_get_host_props(void)
 [props] SDIO card interrupt 1, max current at 3.3 V 200 mA
 ```
 
-### sdhc_card_present
-
-```c
-int sdhc_card_present(const struct device *dev);
-```
+**`sdhc_card_present`** `int sdhc_card_present(const struct device *dev);`
 
 读卡检测：有卡返回 1，没有返回 0。控制器节点有 `non-removable` 或没有 `cd-gpios` 时一直返回 1。
-
-```c
-/* sdhc_card_present: the card detect line (cd-gpios) */
-static void demo_card_present(void)
-{
-	int ret = sdhc_card_present(sdhc);
-
-	printk("[present] sdhc_card_present = %d\n", ret);
-}
-```
 
 ```text
 [present] sdhc_card_present = 1
 ```
 
-### sdhc_hw_reset
-
-```c
-int sdhc_hw_reset(const struct device *dev);
-```
+**`sdhc_hw_reset`** `int sdhc_hw_reset(const struct device *dev);`
 
 复位控制器，卡本身的状态不变。
-
-```c
-/* sdhc_hw_reset: reset the controller, the card keeps its state */
-static void demo_hw_reset(void)
-{
-	int ret = sdhc_hw_reset(sdhc);
-
-	printk("[reset] sdhc_hw_reset = %s\n", err(ret));
-}
-```
 
 ```text
 [reset] sdhc_hw_reset = 0
 ```
 
-### sdhc_set_io
-
-```c
-int sdhc_set_io(const struct device *dev, struct sdhc_io *io);
-```
+**`sdhc_set_io`** `int sdhc_set_io(const struct device *dev, struct sdhc_io *io);`
 
 设置供电、时钟、总线宽度和时序。卡上电后是 1 位总线，时钟不能超过 400 kHz，识别完以后才提高。
 
@@ -284,58 +231,6 @@ int sdhc_set_io(const struct device *dev, struct sdhc_io *io);
 | `bus_width` | 1、4、8；别的值返回 `-EINVAL` |
 | `timing` | `SDHC_TIMING_DDR50`、`DDR52` 打开双沿采样，其余是单沿 |
 | `signal_voltage` | 3.3 V；1.8 V、1.2 V 返回 `-ENOTSUP` |
-
-```c
-/* sdhc_set_io: power, clock, bus width and timing. A card starts in 1 bit mode at 400 kHz or less. */
-static void demo_set_io(void)
-{
-	struct sdhc_io io = {
-		.clock = 400000,
-		.bus_mode = SDHC_BUSMODE_PUSHPULL,
-		.power_mode = SDHC_POWER_ON,
-		.bus_width = SDHC_BUS_WIDTH1BIT,
-		.timing = SDHC_TIMING_LEGACY,
-		.signal_voltage = SD_VOL_3_3_V,
-	};
-	int ret;
-
-	ret = sdhc_set_io(sdhc, &io);
-	printk("[io] power on, 400 kHz, 1 bit, legacy timing    = %s\n", err(ret));
-	k_msleep(10);
-
-	io.clock = 25000000;
-	ret = sdhc_set_io(sdhc, &io);
-	printk("[io] 25 MHz                                   = %s\n", err(ret));
-
-	io.clock = 50000000;
-	io.timing = SDHC_TIMING_HS;
-	ret = sdhc_set_io(sdhc, &io);
-	printk("[io] 50 MHz, high speed timing                = %s\n", err(ret));
-
-	io.clock = 100000000;
-	ret = sdhc_set_io(sdhc, &io);
-	printk("[io] 100 MHz (above the maximum)               = %s\n", err(ret));
-
-	io.clock = 100000;
-	ret = sdhc_set_io(sdhc, &io);
-	printk("[io] 100 kHz (below the minimum)               = %s\n", err(ret));
-
-	io.clock = 400000;
-	io.timing = SDHC_TIMING_LEGACY;
-	io.signal_voltage = SD_VOL_1_8_V;
-	ret = sdhc_set_io(sdhc, &io);
-	printk("[io] 1.8 V signalling                          = %s\n", err(ret));
-
-	io.signal_voltage = SD_VOL_3_3_V;
-	io.bus_width = 3;
-	ret = sdhc_set_io(sdhc, &io);
-	printk("[io] a bus width of 3                          = %s\n", err(ret));
-
-	io.bus_width = SDHC_BUS_WIDTH1BIT;
-	ret = sdhc_set_io(sdhc, &io);
-	printk("[io] back to 400 kHz, 1 bit, 3.3 V             = %s\n", err(ret));
-}
-```
 
 ```text
 [io] power on, 400 kHz, 1 bit, legacy timing    = 0
@@ -348,11 +243,9 @@ static void demo_set_io(void)
 [io] back to 400 kHz, 1 bit, 3.3 V             = 0
 ```
 
-### sdhc_request
+### 请求与调优
 
-```c
-int sdhc_request(const struct device *dev, struct sdhc_command *cmd, struct sdhc_data *data);
-```
+**`sdhc_request`** `int sdhc_request(const struct device *dev, struct sdhc_command *cmd, struct sdhc_data *data);`
 
 发一条命令，需要数据的话带上 `data`。`struct sdhc_command` 填命令号、参数、期望的响应类型（`SD_RSP_TYPE_R1` 等，在 `<zephyr/sd/sd_spec.h>`）、重试次数和超时；响应在 `cmd->response[]` 里返回，R2 响应是 4 个字。`struct sdhc_data` 填起始块、块大小、块数、缓冲区和超时，传完后 `bytes_xfered` 是实际传输的字节数。
 
@@ -367,62 +260,9 @@ int sdhc_request(const struct device *dev, struct sdhc_command *cmd, struct sdhc
 
 下面分几个示例。
 
-#### 示例：识别卡
+**示例：识别卡**
 
 不带数据的命令。顺序是 SD 规范规定的：CMD0 复位，CMD8 检查电压，CMD55 加 ACMD41 反复询问直到卡上电完成，CMD2 读卡标识，CMD3 要相对地址，CMD9 读卡的特性数据，CMD7 选中卡。
-
-```c
-/* sdhc_request without data: the identification of the card. Every step prints the response. */
-static int bring_up_card(void)
-{
-	struct sdhc_command cmd;
-	int ret;
-
-	ret = send(SD_GO_IDLE_STATE, 0, SD_RSP_TYPE_NONE, &cmd);
-	printk("[card] CMD0  go idle                       = %s\n", err(ret));
-
-	/* CMD8: 2.7..3.6 V and a check pattern that the card repeats */
-	ret = send(SD_SEND_IF_COND, SD_IF_COND_VHS_3V3 | SD_IF_COND_CHECK, SD_RSP_TYPE_R7, &cmd);
-	printk("[card] CMD8  interface condition           = %s: R7 %08x\n", err(ret), cmd.response[0]);
-	if (ret != 0) {
-		return ret;
-	}
-
-	/* ACMD41: CMD55 first, then the operating condition, until the card says it is powered up */
-	for (int i = 0; i < 100; i++) {
-		ret = send(SD_APP_CMD, 0, SD_RSP_TYPE_R1, &cmd);
-		if (ret == 0) {
-			ret = send(SD_APP_SEND_OP_COND, SD_OCR_HOST_CAP_FLAG | 0x00ff8000, SD_RSP_TYPE_R3, &cmd);
-		}
-		if (ret != 0 || (cmd.response[0] & SD_OCR_PWR_BUSY_FLAG)) {
-			break;
-		}
-		k_msleep(10);
-	}
-	block_addressed = (cmd.response[0] & SD_OCR_CARD_CAP_FLAG) != 0;
-	printk("[card] ACMD41 operating condition          = %s: OCR %08x, %s\n", err(ret), cmd.response[0],
-	       block_addressed ? "block addressed (SDHC/SDXC)" : "byte addressed");
-	if (ret != 0) {
-		return ret;
-	}
-
-	ret = send(SD_ALL_SEND_CID, 0, SD_RSP_TYPE_R2, &cmd);
-	printk("[card] CMD2  CID                           = %s: %08x %08x %08x %08x\n", err(ret),
-	       cmd.response[0], cmd.response[1], cmd.response[2], cmd.response[3]);
-
-	ret = send(SD_SEND_RELATIVE_ADDR, 0, SD_RSP_TYPE_R6, &cmd);
-	rca = cmd.response[0] >> 16;
-	printk("[card] CMD3  relative address              = %s: RCA %04x\n", err(ret), rca);
-
-	ret = send(SD_SEND_CSD, rca << 16, SD_RSP_TYPE_R2, &cmd);
-	printk("[card] CMD9  CSD                           = %s: %08x %08x %08x %08x\n", err(ret),
-	       cmd.response[0], cmd.response[1], cmd.response[2], cmd.response[3]);
-
-	ret = send(SD_SELECT_CARD, rca << 16, SD_RSP_TYPE_R1b, &cmd);
-	printk("[card] CMD7  select the card               = %s\n", err(ret));
-	return ret;
-}
-```
 
 ```text
 [card] CMD0  go idle                       = 0
@@ -436,144 +276,39 @@ static int bring_up_card(void)
 
 `OCR c0ff8000`：最高位表示上电完成，第二位（CCS）表示是块寻址的 SDHC/SDXC 卡。
 
-#### 示例：切到 4 位总线
+**示例：切到 4 位总线**
 
 ACMD6 通知卡，`sdhc_set_io` 通知控制器，同时把时钟提到 25 MHz。
-
-```c
-/* switch to 4 data lines: ACMD6 tells the card, sdhc_set_io tells the controller */
-static void bus_width_4(void)
-{
-	struct sdhc_command cmd;
-	struct sdhc_io io = {
-		.clock = 25000000,
-		.bus_mode = SDHC_BUSMODE_PUSHPULL,
-		.power_mode = SDHC_POWER_ON,
-		.bus_width = SDHC_BUS_WIDTH4BIT,
-		.timing = SDHC_TIMING_LEGACY,
-		.signal_voltage = SD_VOL_3_3_V,
-	};
-	int ret = send(SD_APP_CMD, rca << 16, SD_RSP_TYPE_R1, &cmd);
-
-	if (ret == 0) {
-		ret = send(SD_APP_SET_BUS_WIDTH, 2, SD_RSP_TYPE_R1, &cmd);	/* 2 = 4 bit bus */
-	}
-	if (ret == 0) {
-		ret = sdhc_set_io(sdhc, &io);
-	}
-	printk("[card] ACMD6 4 bit bus, 25 MHz            = %s\n", err(ret));
-}
-```
 
 ```text
 [card] ACMD6 4 bit bus, 25 MHz            = 0
 ```
 
-#### 示例：读一个块
+**示例：读一个块**
 
 CMD17，带 `sdhc_data`。块 0 的最后两个字节是启动签名 `55 aa`。
-
-```c
-static void demo_request_read_one(void)
-{
-	struct sdhc_command cmd = { .opcode = SD_READ_SINGLE_BLOCK, .response_type = SD_RSP_TYPE_R1,
-				    .retries = 2, .timeout_ms = 200 };
-	struct sdhc_data data = { .block_addr = 0, .block_size = 512, .blocks = 1, .data = blocks,
-				  .timeout_ms = 500 };
-	int ret;
-
-	cmd.arg = block_addressed ? 0 : 0 * 512;
-	ret = sdhc_request(sdhc, &cmd, &data);
-	printk("[read1] CMD17 block 0                      = %s: %u bytes, R1 %08x, signature %02x %02x\n",
-	       err(ret), data.bytes_xfered, cmd.response[0], blocks[510], blocks[511]);
-}
-```
 
 ```text
 [read1] CMD17 block 0                      = 0: 512 bytes, R1 00000900, signature 55 aa
 ```
 
-#### 示例：读多个块
+**示例：读多个块**
 
 CMD18 一次读 8 块（4096 字节），不需要再发 CMD12。第一个块和 CMD17 读到的一样。
-
-```c
-/* CMD18 reads several blocks; the controller ends the transfer itself, no CMD12 is needed. */
-static void demo_request_read_many(void)
-{
-	struct sdhc_command cmd = { .opcode = SD_READ_MULTIPLE_BLOCK, .response_type = SD_RSP_TYPE_R1,
-				    .retries = 2, .timeout_ms = 200 };
-	struct sdhc_data data = { .block_addr = 0, .block_size = 512, .blocks = 8, .data = blocks,
-				  .timeout_ms = 1000 };
-	static uint8_t first[512];
-	int ret;
-
-	memcpy(first, blocks, sizeof(first));
-	memset(blocks, 0, sizeof(blocks));
-	cmd.arg = block_addressed ? 0 : 0;
-	ret = sdhc_request(sdhc, &cmd, &data);
-	printk("[readN] CMD18 8 blocks from 0               = %s: %u bytes, first block %s\n", err(ret),
-	       data.bytes_xfered, memcmp(first, blocks, 512) == 0 ? "same as CMD17" : "DIFFERENT");
-}
-```
 
 ```text
 [readN] CMD18 8 blocks from 0               = 0: 4096 bytes, first block same as CMD17
 ```
 
-#### 示例：读卡状态
+**示例：读卡状态**
 
 CMD13 的响应是卡的状态寄存器，第 9…12 位是卡的状态，4 表示传输状态。
-
-```c
-/* the card state after all this: CMD13 returns the status register */
-static void demo_request_status(void)
-{
-	struct sdhc_command cmd;
-	int ret = send(SD_SEND_STATUS, rca << 16, SD_RSP_TYPE_R1, &cmd);
-
-	printk("[status] CMD13 card status                 = %s: R1 %08x, state %u (4 = transfer)\n",
-	       err(ret), cmd.response[0], (cmd.response[0] >> 9) & 0xf);
-}
-```
 
 ```text
 [status] CMD13 card status                 = 0: R1 00000900, state 4 (4 = transfer)
 ```
 
-#### 示例：出错的请求
-
-```c
-/* requests the controller or the card refuses */
-static void demo_request_errors(void)
-{
-	struct sdhc_command cmd = { .opcode = SD_READ_SINGLE_BLOCK, .response_type = SD_RSP_TYPE_R1,
-				    .retries = 0, .timeout_ms = 200 };
-	struct sdhc_data data = { .block_addr = 0, .block_size = 512, .blocks = 1, .data = NULL,
-				  .timeout_ms = 500 };
-	int ret;
-
-	ret = sdhc_request(sdhc, &cmd, &data);
-	printk("[request] data without a buffer            = %s\n", err(ret));
-
-	data.data = blocks;
-	data.blocks = 0;
-	ret = sdhc_request(sdhc, &cmd, &data);
-	printk("[request] zero blocks                      = %s\n", err(ret));
-
-	/* the card has RCA 0x0001; a command addressed to another RCA is ignored by it, so no response comes */
-	ret = send(SD_SEND_STATUS, 0x1234 << 16, SD_RSP_TYPE_R1, &cmd);
-	printk("[request] CMD13 to an address nobody has   = %s\n", err(ret));
-
-	/* a block far beyond the end of the card: the card does not send the data */
-	cmd.opcode = SD_READ_SINGLE_BLOCK;
-	cmd.arg = 0xfffffff0;
-	cmd.response_type = SD_RSP_TYPE_R1;
-	data.blocks = 1;
-	ret = sdhc_request(sdhc, &cmd, &data);
-	printk("[request] CMD17 beyond the end of the card  = %s\n", err(ret));
-}
-```
+**示例：出错的请求**
 
 ```text
 [request] data without a buffer            = -EINVAL
@@ -582,55 +317,25 @@ static void demo_request_errors(void)
 [request] CMD17 beyond the end of the card  = -ETIMEDOUT
 ```
 
-### sdhc_card_busy
-
-```c
-int sdhc_card_busy(const struct device *dev);
-```
+**`sdhc_card_busy`** `int sdhc_card_busy(const struct device *dev);`
 
 读 DAT0 线：卡正忙（写入或编程中，DAT0 被拉低）返回 1，空闲返回 0。
-
-```c
-/* sdhc_card_busy: 1 while the card holds DAT0 low (during a write or a programming step) */
-static void demo_card_busy(void)
-{
-	int ret = sdhc_card_busy(sdhc);
-
-	printk("[busy] sdhc_card_busy = %d\n", ret);
-}
-```
 
 ```text
 [busy] sdhc_card_busy = 0
 ```
 
-### sdhc_execute_tuning
-
-```c
-int sdhc_execute_tuning(const struct device *dev);
-```
+**`sdhc_execute_tuning`** `int sdhc_execute_tuning(const struct device *dev);`
 
 采样点调谐，只有 1.8 V 的 UHS 模式（SDR50、SDR104）需要。这个控制器不支持这些模式，所以返回 `-ENOTSUP`。
-
-```c
-/* sdhc_execute_tuning: only the UHS modes at 1.8 V need it, which this controller does not do */
-static void demo_execute_tuning(void)
-{
-	int ret = sdhc_execute_tuning(sdhc);
-
-	printk("[tuning] sdhc_execute_tuning = %s\n", err(ret));
-}
-```
 
 ```text
 [tuning] sdhc_execute_tuning = -ENOTSUP
 ```
 
-### sdhc_enable_interrupt
+### 中断
 
-```c
-int sdhc_enable_interrupt(const struct device *dev, sdhc_interrupt_cb_t callback, int sources, void *user_data);
-```
+**`sdhc_enable_interrupt`** `int sdhc_enable_interrupt(const struct device *dev, sdhc_interrupt_cb_t callback, int sources, void *user_data);`
 
 注册回调。`sources` 可以是：
 
@@ -642,46 +347,14 @@ int sdhc_enable_interrupt(const struct device *dev, sdhc_interrupt_cb_t callback
 
 回调的 `reason` 是上面某个值。演示把卡留在槽里 100 毫秒，没有事件；拔出或插入卡时回调会被调用。
 
-```c
-static volatile int events;
-
-static void on_card_event(const struct device *dev, int reason, const void *user_data)
-{
-	events++;
-}
-
-static void demo_enable_interrupt(void)
-{
-	int ret = sdhc_enable_interrupt(sdhc, on_card_event, SDHC_INT_INSERTED | SDHC_INT_REMOVED, NULL);
-
-	printk("[irq] sdhc_enable_interrupt(inserted | removed) = %s\n", err(ret));
-	k_msleep(100);
-	printk("[irq] events in 100 ms with the card left alone = %d\n", events);
-}
-```
-
 ```text
 [irq] sdhc_enable_interrupt(inserted | removed) = 0
 [irq] events in 100 ms with the card left alone = 0
 ```
 
-### sdhc_disable_interrupt
-
-```c
-int sdhc_disable_interrupt(const struct device *dev, int sources);
-```
+**`sdhc_disable_interrupt`** `int sdhc_disable_interrupt(const struct device *dev, int sources);`
 
 关掉指定的事件；关掉最后一个卡检测事件时，同时关掉卡检测引脚的 GPIO 中断。
-
-```c
-/* sdhc_disable_interrupt: switch the events off again */
-static void demo_disable_interrupt(void)
-{
-	int ret = sdhc_disable_interrupt(sdhc, SDHC_INT_INSERTED | SDHC_INT_REMOVED);
-
-	printk("[irq] sdhc_disable_interrupt                   = %s\n", err(ret));
-}
-```
 
 ```text
 [irq] sdhc_disable_interrupt                   = 0
@@ -699,7 +372,7 @@ sdhc_api/
     └── main.c
 ```
 
-### CMakeLists.txt
+**CMakeLists.txt**
 
 ```cmake
 cmake_minimum_required(VERSION 3.20.0)
@@ -709,7 +382,7 @@ project(sdhc_api)
 target_sources(app PRIVATE src/main.c)
 ```
 
-### prj.conf
+**prj.conf**
 
 ```ini
 CONFIG_SDHC=y
@@ -720,7 +393,7 @@ CONFIG_DEVMEM_SHELL=n
 CONFIG_LOG_PRINTK=n
 ```
 
-### src/main.c
+**src/main.c**
 
 ```c
 /*
@@ -1067,7 +740,7 @@ int main(void)
 }
 ```
 
-### 编译和运行
+**编译和运行**
 
 ```sh
 . ~/f101-zephyr/env.sh

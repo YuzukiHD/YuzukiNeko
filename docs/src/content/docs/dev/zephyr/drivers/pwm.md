@@ -143,7 +143,7 @@ The properties of the backlight node `pwm-backlight` (`dts/bindings/display/sunx
 
 ## API reference
 
-Each interface below has a subheading of its own: the prototype, what the driver does, the example function and its output on the board. The demos use channel 2. It is the channel of the display backlight, so the screen brightness follows every call: first 10%, 50%, 90%, then back to the default level. The examples come from the [complete demo program](#complete-demo-program) at the end, whose `err()` turns the return value into a name.
+The driver implements the APIs below, grouped by task. Each demo function is in the [complete demo program](#complete-demo-program) at the end of the page.
 
 After each call the program reads the registers of the channel back and prints the values the driver actually programmed: the clock source, the M divider, the prescaler, the polarity, the period count and the active count. Output period = clock source frequency ÷ M divider ÷ prescaler ÷ period count. The function that reads the registers and the macros it uses:
 
@@ -171,39 +171,18 @@ static void show_regs(void)
 }
 ```
 
-### pwm_get_cycles_per_sec
+### Period and duty cycle
 
-```c
-int pwm_get_cycles_per_sec(const struct device *dev, uint32_t channel, uint64_t *cycles);
-```
+**`pwm_get_cycles_per_sec`** `int pwm_get_cycles_per_sec(const struct device *dev, uint32_t channel, uint64_t *cycles);`
 
 Returns the unit of "period" in `pwm_set_cycles`, how many cycles per second: 24000000. A channel number above 3 returns `-EINVAL`.
-
-```c
-/* pwm_get_cycles_per_sec: the unit of the cycles of pwm_set_cycles */
-static void demo_cycles_per_sec(void)
-{
-	uint64_t hz;
-	int ret;
-
-	ret = pwm_get_cycles_per_sec(pwm, CH, &hz);
-	printk("[clock] pwm_get_cycles_per_sec(channel %u) = %s, %u Hz\n", CH, err(ret), (uint32_t)hz);
-
-	ret = pwm_get_cycles_per_sec(pwm, 4, &hz);
-	printk("[clock] pwm_get_cycles_per_sec(channel 4) = %s\n", err(ret));
-}
-```
 
 ```text
 [clock] pwm_get_cycles_per_sec(channel 2) = 0, 24000000 Hz
 [clock] pwm_get_cycles_per_sec(channel 4) = -EINVAL
 ```
 
-### pwm_set_cycles
-
-```c
-int pwm_set_cycles(const struct device *dev, uint32_t channel, uint32_t period, uint32_t pulse, pwm_flags_t flags);
-```
+**`pwm_set_cycles`** `int pwm_set_cycles(const struct device *dev, uint32_t channel, uint32_t period, uint32_t pulse, pwm_flags_t flags);`
 
 The unit of the period and the pulse is the cycle of 24 MHz, so `24000` cycles are 1 ms. With `PWM_POLARITY_INVERTED` the pulse is the low part of the period. The first call also turns the channel on.
 
@@ -213,32 +192,7 @@ The unit of the period and the pulse is the cycle of 24 MHz, so `24000` cycles a
 | A flag other than the polarity | `-ENOTSUP` |
 | A period that does not fit into the 16-bit count plus divider | `-ERANGE` |
 
-#### Example: different duty cycles and polarities
-
-```c
-/* pwm_set_cycles: period and pulse in cycles of the 24 MHz reference clock. 24000 cycles are
- * 1 ms, a frequency of 1 kHz. PWM_POLARITY_INVERTED makes the pulse the low part of the period,
- * which is how the backlight of the board is wired (low = on).
- */
-static void demo_set_cycles(void)
-{
-	static const uint32_t pulse[] = { 2400, 12000, 21600 };
-	int ret;
-
-	for (int i = 0; i < ARRAY_SIZE(pulse); i++) {
-		ret = pwm_set_cycles(pwm, CH, 24000, pulse[i], PWM_POLARITY_INVERTED);
-		printk("[cycles] 1 kHz, pulse %5u of 24000 (%2u%%), inverted = %s\n", pulse[i],
-		       pulse[i] * 100 / 24000, err(ret));
-		show_regs();
-		k_msleep(1000);
-	}
-
-	ret = pwm_set_cycles(pwm, CH, 24000, 12000, PWM_POLARITY_NORMAL);
-	printk("[cycles] 1 kHz, 50%%, normal polarity            = %s\n", err(ret));
-	show_regs();
-	k_msleep(500);
-}
-```
+**Example: different duty cycles and polarities**
 
 ```text
 [cycles] 1 kHz, pulse  2400 of 24000 (10%), inverted = 0
@@ -251,30 +205,7 @@ static void demo_set_cycles(void)
          enabled 1, clock source 0, divider 1/1, prescaler 1, normal, period 24000 counts, active 12000 counts
 ```
 
-#### Example: arguments the driver refuses
-
-```c
-/* what the driver refuses */
-static void demo_errors(void)
-{
-	int ret;
-
-	ret = pwm_set_cycles(pwm, 4, 24000, 12000, 0);
-	printk("[error] channel 4                       = %s\n", err(ret));
-
-	ret = pwm_set_cycles(pwm, CH, 0, 0, 0);
-	printk("[error] period 0                        = %s\n", err(ret));
-
-	ret = pwm_set_cycles(pwm, CH, 24000, 24001, 0);
-	printk("[error] pulse longer than the period    = %s\n", err(ret));
-
-	ret = pwm_set_cycles(pwm, CH, 24000, 12000, BIT(1));
-	printk("[error] a flag other than the polarity  = %s\n", err(ret));
-
-	ret = pwm_set_cycles(pwm, CH, 1, 1, 0);
-	printk("[error] period of 1 cycle (41.7 ns)     = %s\n", err(ret));
-}
-```
+**Example: arguments the driver refuses**
 
 ```text
 [error] channel 4                       = -EINVAL
@@ -284,45 +215,13 @@ static void demo_errors(void)
 [error] period of 1 cycle (41.7 ns)     = 0
 ```
 
-### pwm_set
+### Setting the output
 
-```c
-int pwm_set(const struct device *dev, uint32_t channel, uint32_t period, uint32_t pulse, pwm_flags_t flags);
-```
+**`pwm_set`** `int pwm_set(const struct device *dev, uint32_t channel, uint32_t period, uint32_t pulse, pwm_flags_t flags);`
 
 The period and the pulse are in nanoseconds, written with macros such as `PWM_USEC()`, `PWM_MSEC()` and `PWM_SEC()`. The API first converts them to cycles of 24 MHz (rounded down) and hands them to `pwm_set_cycles`, so short periods are rounded: 200 ns is 4.8 cycles, rounded to 4 cycles (166.7 ns); a period shorter than one cycle (41.7 ns) converts to 0 and returns `-EINVAL`.
 
 The driver picks the clock from the period automatically: a period of no more than 334 ns uses the 100 MHz clock source, which counts more finely; otherwise it uses 24 MHz, searching from M divider 1 up through the prescaler for the first combination into which the 16-bit count fits. A 50 Hz servo signal uses prescaler 8, and 0.5 Hz uses M divider 4 with prescaler 184.
-
-```c
-/* pwm_set: the same in nanoseconds; the API converts to cycles of the 24 MHz reference, and a period
- * shorter than one cycle (41.7 ns) becomes 0 cycles and is refused.
- */
-static void demo_set(void)
-{
-	int ret;
-
-	ret = pwm_set(pwm, CH, PWM_USEC(100), PWM_USEC(25), PWM_POLARITY_NORMAL);
-	printk("[set] 10 kHz, 25%%                                = %s\n", err(ret));
-	show_regs();
-
-	ret = pwm_set(pwm, CH, PWM_MSEC(20), PWM_USEC(1500), PWM_POLARITY_NORMAL);
-	printk("[set] 50 Hz, 1.5 ms (a servo in the middle)      = %s\n", err(ret));
-	show_regs();
-
-	ret = pwm_set(pwm, CH, PWM_SEC(2), PWM_SEC(1), PWM_POLARITY_NORMAL);
-	printk("[set] 0.5 Hz, 50%%                                = %s\n", err(ret));
-	show_regs();
-
-	ret = pwm_set(pwm, CH, 200, 100, PWM_POLARITY_NORMAL);
-	printk("[set] 200 ns period (5 MHz), 50%%                 = %s\n", err(ret));
-	show_regs();
-
-	ret = pwm_set(pwm, CH, 10, 5, PWM_POLARITY_NORMAL);
-	printk("[set] 10 ns period (less than one 24 MHz cycle) = %s\n", err(ret));
-	show_regs();
-}
-```
 
 ```text
 [set] 10 kHz, 25%                                = 0
@@ -339,11 +238,7 @@ static void demo_set(void)
 
 The last call returns `-EINVAL`, and the registers of the channel keep the values of the previous call.
 
-### pwm_set_dt
-
-```c
-int pwm_set_dt(const struct pwm_dt_spec *spec, uint32_t period, uint32_t pulse);
-```
+**`pwm_set_dt`** `int pwm_set_dt(const struct pwm_dt_spec *spec, uint32_t period, uint32_t pulse);`
 
 The channel, the device and the polarity come from the `pwms` property of the devicetree node, so an application need not hard-code the channel number; the period and the pulse are in nanoseconds. `spec` is taken with `PWM_DT_SPEC_GET(node)`:
 
@@ -366,11 +261,7 @@ static void demo_set_dt(void)
          enabled 1, clock source 0, divider 1/1, prescaler 1, inverted, period 24000 counts, active 18000 counts
 ```
 
-### pwm_set_pulse_dt
-
-```c
-int pwm_set_pulse_dt(const struct pwm_dt_spec *spec, uint32_t pulse);
-```
+**`pwm_set_pulse_dt`** `int pwm_set_pulse_dt(const struct pwm_dt_spec *spec, uint32_t pulse);`
 
 Uses the period written in the devicetree node (`backlight_dsi` is 1 ms) and gives only the pulse. A pulse of 0 is the way to stop PWM in Zephyr: the driver clears the enable bit of the channel and gates its clock, and a non-zero pulse sets it going again.
 
@@ -430,7 +321,7 @@ pwm_api/
     └── main.c
 ```
 
-### CMakeLists.txt
+**CMakeLists.txt**
 
 ```cmake
 cmake_minimum_required(VERSION 3.20.0)
@@ -440,7 +331,7 @@ project(pwm_api)
 target_sources(app PRIVATE src/main.c)
 ```
 
-### prj.conf
+**prj.conf**
 
 ```ini
 CONFIG_PWM=y
@@ -451,7 +342,7 @@ CONFIG_DEVMEM_SHELL=n
 CONFIG_LOG_PRINTK=n
 ```
 
-### src/main.c
+**src/main.c**
 
 ```c
 /*
@@ -653,7 +544,7 @@ int main(void)
 }
 ```
 
-### Build and run
+**Build and run**
 
 ```sh
 . ~/f101-zephyr/env.sh
