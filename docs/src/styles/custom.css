@@ -34,3 +34,8 @@ pre.mermaid {
 .sl-markdown-content table {
 	width: 100%;
 }
+
+/* keep side-by-side figure and schematic cells top-aligned */
+.sl-markdown-content td {
+	vertical-align: top;
+}
