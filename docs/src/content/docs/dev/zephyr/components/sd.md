@@ -1704,8 +1704,6 @@ Below, item by item: what was verified, how it was verified, and what was seen o
 
 ## Full demonstration program
 
-All the examples and logs above come from this one program. Create a directory, put the files below into it, and it can be built like any other Zephyr application.
-
 ```text
 sd_api/
 ├── CMakeLists.txt

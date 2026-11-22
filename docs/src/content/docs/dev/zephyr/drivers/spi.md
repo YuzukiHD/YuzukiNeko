@@ -207,8 +207,6 @@ properties:
 
 ## API reference
 
-The driver implements the APIs below, grouped by task. Each demo function is in the [complete demo program](#complete-demo-program) at the end of the page.
-
 All the examples use the same function to build a `struct spi_config`: chip select 0 (the hardware CS pin), 8 bit words, most significant bit first.
 
 ```c
@@ -330,8 +328,6 @@ The header `<zephyr/drivers/spi/spi_sunxi.h>` is this driver's own extension. It
 ```
 
 ## Complete demo program
-
-All the examples and logs above come from this one program. Create a directory, put the files below in it, and it builds like any other Zephyr application.
 
 ```text
 spi_api/

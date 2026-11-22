@@ -159,8 +159,6 @@ pwm-cells:
 
 ## 接口详解
 
-下面按任务分组列出驱动实现的接口。每项的示例函数在页末[完整演示程序](#完整演示程序)里。
-
 ```c
 #define BASE		DT_REG_ADDR(DT_NODELABEL(pwm_bl))
 #define PORT_STRIDE	0x200
@@ -274,7 +272,7 @@ static void demo_set_dt(void)
 
 ## 完整演示程序
 
-上面所有示例和日志都来自这一个程序。建一个目录，放进下面的文件，就可以像其他 Zephyr 应用一样编译。
+
 
 ```text
 pwm_bl_api/

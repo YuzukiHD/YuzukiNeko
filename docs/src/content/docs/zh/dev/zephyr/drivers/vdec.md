@@ -191,8 +191,6 @@ const struct device *dev = DEVICE_DT_GET(DT_NODELABEL(ve));
 
 ## 接口详解
 
-下面按任务分组列出驱动实现的接口。每项的示例函数在页末[完整演示程序](#完整演示程序)里。
-
 示例里的 `err()`、`show_frame()`、`luma_crc()` 是演示程序里的小工具，源码在文末。
 
 演示程序的测试数据：JPEG、PNG 和 H.264 用的是 `samples/drivers/vdec/` 里三个示例内嵌的图片（都是 320×240）。MJPEG 用 ffmpeg 生成了 5 张 320×240 的 JPEG。
@@ -676,7 +674,7 @@ west build -b yuzukineko -d build/vdec-jpeg zephyr/samples/drivers/vdec/jpeg
 
 ## 完整演示程序
 
-上面所有示例和日志都来自这一个程序。建一个目录，放进下面的文件，就可以像其他 Zephyr 应用一样编译。
+
 
 ```text
 vdec_api/

@@ -179,8 +179,6 @@ The detailed multiplexing of the pins is in the [pin multiplexing table](../../.
 
 ## API reference
 
-The driver implements the APIs below, grouped by task. Each demo function is in the [complete demo program](#complete-demo-program) at the end of the page.
-
 | Serial port | Position | Purpose |
 | --- | --- | --- |
 | UART1 | PB00/PB01, the console of the board | The host is at the other end and can really send characters in |
@@ -312,8 +310,6 @@ UART4 is enabled in the board file, but nothing is connected to PD6/PD7. The dem
 ```
 
 ## Complete demo program
-
-All the examples and logs above come from this one program. Create a directory, put the files below into it, and it builds like any other Zephyr application.
 
 ```text
 uart_api/

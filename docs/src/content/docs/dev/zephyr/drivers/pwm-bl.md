@@ -159,8 +159,6 @@ When setting the brightness (`pwm_set_cycles`): `level = pulse × 256 ÷ period`
 
 ## API details
 
-The driver implements the APIs below, grouped by task. Each demo function is in the [complete demo program](#the-complete-demonstration-program) at the end of the page.
-
 ```c
 #define BASE		DT_REG_ADDR(DT_NODELABEL(pwm_bl))
 #define PORT_STRIDE	0x200
@@ -273,8 +271,6 @@ The driver checks three things, the channel number, the period and the pulse: on
 ```
 
 ## The complete demonstration program
-
-All the examples and logs above come from this one program. Create a directory, put the files below into it, and it can be built like any other Zephyr application.
 
 ```text
 pwm_bl_api/

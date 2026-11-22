@@ -160,8 +160,6 @@ usbhci: usb@4101000 {
 
 ## 接口详解
 
-下面按任务分组列出驱动实现的接口。每项的示例函数在页末[完整演示程序](#完整演示程序)里。
-
 演示由两个源文件组成。CherryUSB 的头文件和 Zephyr 的头文件有同名的宏（比如 `__PACKED`），不能放在同一个源文件里包含，所以 CherryUSB 相关的代码在 `cdc_echo.c`，Zephyr 相关的在 `main.c`，两边用几个外部函数连接。CherryUSB 的日志宏 `USB_LOG_RAW` 被板子的 `usb_config.h` 映射到 `printk`。
 
 ### 描述符与注册
@@ -407,7 +405,7 @@ usb_api done
 
 ## 完整演示程序
 
-上面所有示例和日志都来自这一个程序。建一个目录，放进下面的文件，就可以像其他 Zephyr 应用一样编译。
+
 
 ```text
 usb_api/

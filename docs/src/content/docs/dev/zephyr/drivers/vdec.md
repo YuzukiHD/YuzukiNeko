@@ -191,8 +191,6 @@ Enable `CONFIG_VDEC=y` in the application's `prj.conf`. The video engine driver,
 
 ## Interface reference
 
-The driver implements the APIs below, grouped by task. Each demo function is in the [complete demo program](#complete-demo-program) at the end of the page.
-
 The `err()`, `show_frame()` and `luma_crc()` in the examples are small helpers in the demo program; their source is at the end.
 
 The demo program's test data: for JPEG, PNG and H.264 it uses the pictures embedded in the three samples under `samples/drivers/vdec/` (all 320×240); for MJPEG, five 320×240 JPEGs were generated with ffmpeg.

@@ -152,8 +152,6 @@ properties:
 
 ## Interface details
 
-The driver implements the APIs below, grouped by task. Each demo function is in the [complete demonstration program](#the-complete-demonstration-program) at the end of the page.
-
 The GT967's register addresses are 16-bit and big-endian, and its product ID register `0x8140` holds 4 ASCII bytes, `"967"` plus a 0. At the moment reset is released it takes its address from the level of the INT pin: INT low is `0x5d`, INT high is `0x14`. The demonstration program does this first with `touch_reset()`, and the real touch driver `drivers/input/input_gt967.c` does the same; this function uses only the [GPIO](gpio.md) interface:
 
 ```c
@@ -281,8 +279,6 @@ When the address is sent and no device acknowledges, the driver returns `-EIO` a
 ```
 
 ## The complete demonstration program
-
-All the examples and logs above come from this one program. Create a directory, put the files below into it, and it can be built like any other Zephyr application.
 
 ```text
 i2c_api/

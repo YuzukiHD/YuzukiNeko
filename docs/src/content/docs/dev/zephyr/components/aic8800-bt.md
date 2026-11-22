@@ -723,8 +723,6 @@ Verifies the receive path: the controller's LE advertising reports travel over U
 
 ## Complete demo program
 
-All the examples and logs above come from this one program. Create a directory, put the files below in it, and it can be built like any other Zephyr application.
-
 ```text
 aic8800_bt_api/
 ├── CMakeLists.txt

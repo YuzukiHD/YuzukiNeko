@@ -208,8 +208,6 @@ S/PDIF 的输出脚是 `OWA-OUT`：PD22（复用功能 2）或 PE6（复用功�
 
 ## 接口详解
 
-下面按任务分组列出驱动实现的接口。每项的示例函数在页末[完整演示程序](#完整演示程序)里。
-
 ```c
 static const struct device *const codec_i2s = DEVICE_DT_GET(DT_NODELABEL(audio_codec));
 
@@ -668,7 +666,7 @@ I2S0 的回环通过：比较了 47992 帧，没有一帧不同。S/PDIF 的回�
 
 ## 完整演示程序
 
-上面所有示例和日志都来自这一个程序。建一个目录，放进下面的文件，就可以像其他 Zephyr 应用一样编译。
+
 
 ```text
 audio_api/

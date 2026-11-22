@@ -169,8 +169,6 @@ properties:
 
 ## Interface details
 
-The driver implements the APIs below, grouped by task. Each demo function is in the [complete demo program](#complete-demo-program) at the end of the page.
-
 The two global variables and the helper function used repeatedly in the demo:
 
 ```c
@@ -361,8 +359,6 @@ Switches off the given events; when the last card detect event is switched off, 
 ```
 
 ## Complete demo program
-
-All the examples and logs above come from this single program. Create a directory, put the files below in it, and it builds like any other Zephyr application.
 
 ```text
 sdhc_api/

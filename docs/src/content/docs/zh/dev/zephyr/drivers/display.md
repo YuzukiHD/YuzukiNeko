@@ -951,8 +951,6 @@ display: dphy: D-PHY 4 lane(s), HS clock 324000000 Hz
 
 ## 接口详解
 
-下面按任务分组列出驱动实现的接口。每项的示例函数在页末[完整演示程序](#完整演示程序)里。
-
 ### 能力与状态
 
 **`display_get_capabilities`** `void display_get_capabilities(const struct device *dev, struct display_capabilities *capabilities);`
@@ -1112,7 +1110,7 @@ static void demo_show_yuv(void)
 
 ## 完整演示程序
 
-上面所有示例和日志都来自这一个程序。建一个目录，放进下面的文件，就可以像其他 Zephyr 应用一样编译。
+
 
 ```text
 display_api/

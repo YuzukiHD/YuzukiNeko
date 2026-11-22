@@ -88,8 +88,6 @@ g2d: g2d@5410000 {
 
 ## Interface reference
 
-The driver implements the APIs below, grouped by task. Each demo function is in the [complete demo program](#the-complete-demo-program) at the end of the page.
-
 ```c
 static const struct device *const g2d = DEVICE_DT_GET(DT_NODELABEL(g2d));
 ```
@@ -365,8 +363,6 @@ Use the G2D to draw a few colour blocks in a 320×240 buffer, blend a translucen
 ```
 
 ## The complete demo program
-
-All the examples and logs above come from this one program. Create a directory, put the files below in it, and it can be built like any other Zephyr application.
 
 ```text
 g2d_api/

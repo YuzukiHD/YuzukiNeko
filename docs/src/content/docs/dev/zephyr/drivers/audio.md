@@ -208,8 +208,6 @@ The output pin of S/PDIF is `OWA-OUT`: PD22 (mux function 2) or PE6 (mux functio
 
 ## API in detail
 
-The driver implements the APIs below, grouped by task. Each demo function is in the [complete demo program](#complete-demo-program) at the end of the page.
-
 ```c
 static const struct device *const codec_i2s = DEVICE_DT_GET(DT_NODELABEL(audio_codec));
 

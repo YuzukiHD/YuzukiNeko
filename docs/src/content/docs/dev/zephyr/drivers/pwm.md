@@ -143,8 +143,6 @@ The properties of the backlight node `pwm-backlight` (`dts/bindings/display/sunx
 
 ## API reference
 
-The driver implements the APIs below, grouped by task. Each demo function is in the [complete demo program](#complete-demo-program) at the end of the page.
-
 After each call the program reads the registers of the channel back and prints the values the driver actually programmed: the clock source, the M divider, the prescaler, the polarity, the period count and the active count. Output period = clock source frequency ÷ M divider ÷ prescaler ÷ period count. The function that reads the registers and the macros it uses:
 
 ```c
@@ -310,8 +308,6 @@ static void demo_stop(void)
 ```
 
 ## Complete demo program
-
-All the examples and logs above come from this one program. Create a directory, put the files below into it, and it builds like any other Zephyr application.
 
 ```text
 pwm_api/

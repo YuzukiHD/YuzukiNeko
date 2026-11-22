@@ -160,8 +160,6 @@ To use host mode on your own board, write `vbus-gpios` in `usbphy` (the driver d
 
 ## API reference
 
-The driver implements the APIs below, grouped by task. Each demo function is in the [complete demo program](#complete-demo-program) at the end of the page.
-
 The demo is made of two source files. The CherryUSB headers and the Zephyr headers define macros with the same names (such as `__PACKED`) and cannot be included in the same source file, so the CherryUSB code is in `cdc_echo.c` and the Zephyr code in `main.c`, connected by a few external functions. CherryUSB's log macro `USB_LOG_RAW` is mapped to `printk` by the board's `usb_config.h`.
 
 ### Descriptors and registration
@@ -406,8 +404,6 @@ usb_api done
 | The final `DTR 0` | The script closed the port |
 
 ## Complete demo program
-
-All the examples and logs above come from this one program. Create a directory, put the files below in it, and it builds like any other Zephyr application.
 
 ```text
 usb_api/
