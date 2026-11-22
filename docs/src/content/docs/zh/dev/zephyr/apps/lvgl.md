@@ -2,11 +2,6 @@
 title: "LVGL - 图形界面"
 ---
 
-:::note[版本范围]
-本页示例与板上结果基于 Zephyr 4.2.2；4.5 的差异见[版本与迁移指南](../zephyr-4-5.md)。
-:::
-
-
 LVGL 是一个嵌入式图形库：控件（按钮、标签、滑条、图表……）、样式、动画、触摸事件都有现成的。在 F101 的 Zephyr 上，LVGL 作为 west 模块（`modules/lib/gui/lvgl`，版本 9.3.0）编进应用，通过标准的显示接口画到屏幕上，通过标准的输入子系统读触摸屏。不需要 `zephyr-components`，也不需要外部素材。
 
 ```mermaid
@@ -24,10 +19,11 @@ flowchart TB
 
 开始前请先完成 [配置开发环境](../zephyr-setup-env.md) 和 [获取 Zephyr 代码](../zephyr-get-source.md)。
 
-
 ## LVGL 版本与维护中的示例
 
 4.2.2 manifest 固定 LVGL 9.3，4.5 固定 LVGL 9.6；下文已有的 9.3 benchmark 日志和截图保持原样。4.5 已适配 9.6 的显示流水线类、文字／图像缓存接口及自定义 RVV blend hook。请使用配套分支的头文件与渲染器，不要直接复制 9.3 的内部 hook。
+
+4.5 的 LVGL 变化见[版本与迁移指南](../zephyr-4-5.md)。
 
 维护中的 hello 示例位于 `zephyr-components/examples/lvgl_hello`，它和上游 LVGL demo 配置均已通过 4.5 构建检查；显示／触摸、标量／向量对比和性能仍需新的实机结果。
 
@@ -49,7 +45,6 @@ flowchart TB
 ## 编译
 
 在工作区里执行：
-
 
 ```sh
 . ~/f101-zephyr/env.sh
@@ -161,7 +156,6 @@ benchmark 通过 LVGL 日志打印汇总表。`zephyr/modules/lvgl/lvgl.c` 的 `
 
 demo 的 `samples/modules/lvgl/demos/boards/` 下有 `yuzukineko.conf` 和 `yuzukineko.overlay`，Zephyr 编译 `yuzukineko` 板时会自动合并它们：
 
-
 ```text
 # yuzukineko: 1024x768 MIPI DSI panel, RGB565 frame buffer, GT967 touch panel
 CONFIG_INPUT=y
@@ -201,7 +195,6 @@ xfel exec 0x40000000
 可选的 demo 有：
 
 benchmark 自己依次跑完所有场景，约 70 秒后串口输出汇总表（时间单位毫秒，Avg. time 是渲染加刷新）：
-
 
 ```text
 [00:00:00.564,000] <inf> gt967: GT967 firmware 0x1040, 1024x768
@@ -573,7 +566,6 @@ int main(void)
 - 74–78 行：主循环。`lv_timer_handler()` 返回距离下一次需要调用的毫秒数，睡这么久（最长 1 秒）。动画和事件都靠它驱动，不要把它饿死。
 
 字体：`lv_font_montserrat_28` 要用到，必须有 `CONFIG_LV_FONT_MONTSERRAT_28=y`，没打开就编译不过。LVGL 自带的 Montserrat 字体只含 ASCII 和少量符号，<strong>不含中文</strong>。要显示中文需要自己用 LVGL 的字体转换工具生成 C 字体文件加进工程。
-
 
 ## 配置选项
 

@@ -2,11 +2,6 @@
 title: "G2D 2D 加速器"
 ---
 
-:::note[版本范围]
-本页示例与板上结果基于 Zephyr 4.2.2；4.5 的差异见[版本与迁移指南](../zephyr-4-5.md)。
-:::
-
-
 G2D 是 F101 的 2D 图形加速器：不经过 CPU，在内存缓冲区之间做矩形填充、搬运（可同时转换像素格式、缩放、旋转、翻转）和 Alpha 混合。Zephyr 里把它做成 `g2d` 设备，接口是 `<zephyr/drivers/g2d.h>`，驱动在 `drivers/g2d/`。
 
 操作先进队列，由驱动的线程一个个交给硬件，按提交的顺序完成。
@@ -20,17 +15,6 @@ G2D 是 F101 的 2D 图形加速器：不经过 CPU，在内存缓冲区之间�
 | 队列深度 | 设备树 `queue-depth`，默认 8 |
 | 缓存 | 驱动在操作前清并失效（clean and invalidate）目的区域，清（clean）源区域和混合的背景区域；操作后使目的区域失效（invalidate）。带 `G2D_FLAG_NO_CACHE_OPS` 则都不做 |
 | 限制 | 目的格式不能是 YUV；旋转要求源和目的同格式、同尺寸（转后）、地址 4 字节对齐、目的行距 8 字节对齐；混合的背景必须是 RGB 且和目的区域一样大 |
-
-
-## 在 4.5 构建仓库内的示例
-
-4.5 分支可直接构建这些示例；下文代码仍是 4.2.2 基线，字段以所选分支为准。
-
-```sh
-west build -b yuzukineko -d build/zephyr-4.5.0/g2d_api zephyr-components/examples/g2d_api
-```
-
-4.5 组件构建通过，未有板上日志；启动方式见 [RAM 或 XIP 流程](../zephyr-build-run.md)。
 
 ## 设备树
 

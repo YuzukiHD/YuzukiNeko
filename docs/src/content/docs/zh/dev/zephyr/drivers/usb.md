@@ -2,11 +2,6 @@
 title: "USB"
 ---
 
-:::note[版本范围]
-本页示例与板上结果基于 Zephyr 4.2.2；4.5 的差异见[版本与迁移指南](../zephyr-4-5.md)。
-:::
-
-
 F101 有一个 USB 2.0 OTG 控制器（Mentor MUSB 内核）和一个 EHCI/OHCI 主机控制器，共用同一个 UTMI PHY。Zephyr 里没有走上游的 USB 设备栈，而是用 [CherryUSB](https://github.com/cherry-embedded/CherryUSB) 协议栈，F101 这边提供板级胶水（`drivers/usb/cherryusb/`）和 PHY 驱动（`drivers/usb/phy/usb_phy_sunxi.c`）。
 
 ```mermaid
@@ -28,17 +23,6 @@ flowchart TB
 | 传输 | 设备模式由 CPU 搬运 FIFO 数据（`VEND0` 寄存器的 PIO 位），不用 USB 自带的 DMA |
 
 本文演示的是设备模式：一个 CDC ACM 虚拟串口，主机往里写什么，板子就原样回什么。
-
-
-## 在 4.5 构建仓库内的示例
-
-4.5 分支可直接构建这些示例；下文代码仍是 4.2.2 基线，字段以所选分支为准。
-
-```sh
-west build -b yuzukineko -d build/zephyr-4.5.0/usb_api zephyr-components/examples/usb_api
-```
-
-4.5 组件构建通过，未有板上日志；启动方式见 [RAM 或 XIP 流程](../zephyr-build-run.md)。
 
 ## 设备树
 

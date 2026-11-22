@@ -2,11 +2,6 @@
 title: "HTML 渲染器 - litehtml"
 ---
 
-:::note[版本范围]
-本页示例与板上结果基于 Zephyr 4.2.2；4.5 的差异见[版本与迁移指南](../zephyr-4-5.md)。
-:::
-
-
 把 TF 卡上的 HTML 页面画到屏幕上。[litehtml](https://github.com/litehtml/litehtml)（v0.9）负责解析 HTML、套 CSS、排版，板子上的渲染层（`lh_render.cpp`）把排好的盒子画进一块 RGB565 缓冲，再交给显示引擎。组件是 `zephyr-components/litehtml`，示例是 `samples/html_viewer`。
 
 没有浏览器内核：<strong>不跑 JavaScript，不联网，没有触摸或按键输入</strong>。页面太长时自己往下滚，滚到头再回来。
@@ -601,7 +596,6 @@ west build -b yuzukineko -d build/html zephyr-components/litehtml/samples/html_v
 - 屏幕画面固定 1024×600，屏幕是 1024×768，上下有黑边。
 - 页面大到放不进内存时必须分片；分片模式下跨片的选择器和需要看整页的规则不起作用，翻到新的一片有停顿。
 - 网页需要先用 `tools/scrape_page.py` 转换，转换后的版式是近似的。
-
 
 ## 排错
 

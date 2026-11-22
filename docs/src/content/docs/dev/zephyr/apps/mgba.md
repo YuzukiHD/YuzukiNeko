@@ -2,11 +2,6 @@
 title: "mGBA - GBA emulator"
 ---
 
-:::note[Version scope]
-Examples and board results on this page use the Zephyr 4.2.2 baseline; 4.5 differences are in the [version and migration guide](../zephyr-4-5.md).
-:::
-
-
 Runs Game Boy Advance games on the board (Game Boy / Game Boy Color work too): the emulator core is [mGBA](https://github.com/mgba-emu/mgba) and the ROM is read from the TF card; the 240×160 game picture is handed to the display engine's video plane and scaled up to the whole screen; the sound goes out over I2S from the on-chip codec; and a layer of semi-transparent buttons drawn with LVGL is overlaid on the screen and operated with the touchscreen. The sample is `zephyr-components/mgba/samples/gba_player`; mGBA itself is a git submodule in the component (MPL-2.0), and no BIOS file is needed.
 
 ```mermaid

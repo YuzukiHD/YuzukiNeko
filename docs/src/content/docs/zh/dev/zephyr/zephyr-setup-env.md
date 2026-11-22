@@ -2,11 +2,6 @@
 title: "配置开发环境"
 ---
 
-:::note[版本范围]
-本页示例与板上结果基于 Zephyr 4.2.2；4.5 的差异见[版本与迁移指南](zephyr-4-5.md)。
-:::
-
-
 这一页在 Linux 主机上准备好编译 YuzukiNeko 的 Zephyr 程序所需的一切：系统依赖、Python 虚拟环境、west、玄铁（XuanTie）工具链，以及下载用的 xfel。做完之后，下一篇 [获取 Zephyr 代码](zephyr-get-source.md) 才有地方放代码。
 
 :::caution

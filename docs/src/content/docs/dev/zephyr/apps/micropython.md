@@ -2,11 +2,6 @@
 title: "MicroPython - Python REPL and scripts"
 ---
 
-:::note[Version scope]
-Examples and board results on this page use the Zephyr 4.2.2 baseline; 4.5 differences are in the [version and migration guide](../zephyr-4-5.md).
-:::
-
-
 Runs [MicroPython](https://micropython.org/) on the board: a Python REPL on the console, `machine` access to the pins and peripherals, the TF card mounted as a file system, the LCD, and an extra module `f101` for the hardware MicroPython has no generic binding for (the chip id, the 2D accelerator and audio output). The application is the <strong>unmodified MicroPython Zephyr port</strong> (a git submodule, MIT); `zephyr-components/micropython` adds the board configuration, the Zephyr module glue and the `f101` module. It is built for the `yuzukineko` board and the REPL is on the console, UART1 (PB0/PB1), 115200.
 
 ```mermaid
@@ -57,6 +52,7 @@ git -C zephyr-components/micropython/micropython submodule update --init --depth
 
 Use this wrapper on 4.5 too, with output `build/zephyr-4.5.0/upy`. The build passed; target functions still need retesting.
 
+4.5 build and verification status is in the [version and migration guide](../zephyr-4-5.md).
 
 ```sh
 . ./env.sh

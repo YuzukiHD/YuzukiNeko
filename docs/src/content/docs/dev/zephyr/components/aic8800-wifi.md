@@ -2,11 +2,6 @@
 title: "AIC8800 WIFI - Wireless NIC Driver"
 ---
 
-:::note[Version scope]
-Examples and board results on this page use the Zephyr 4.2.2 baseline; 4.5 differences are in the [version and migration guide](../zephyr-4-5.md).
-:::
-
-
 The AIC8800 is a Wi-Fi + Bluetooth combo chip from AICSemi; on the `yuzukineko` board it is wired to the SoC over SDIO. This component is its Wi-Fi part. The source lives in `~/f101-zephyr/zephyr-components/aic8800` and is a Zephyr module (`zephyr/module.yml`), containing the FullMAC host driver (command queue, TX/RX descriptors, firmware download), a ported wpa_supplicant, and the adaptation layer to the Zephyr kernel, the SDIO stack and the network stack.
 
 The driver registers a layer-2 Ethernet Wi-Fi NIC `wlan0` with Zephyr; applications use `net_mgmt` Wi-Fi requests to scan, connect, disconnect and read status, obtain an address over DHCPv4 once connected, and after that send and receive data with ordinary BSD sockets. The Bluetooth part is in another page: [AIC8800 BT](aic8800-bt.md). The two parts share the same chip, the same SDIO and the same REG_ON, and the firmware is downloaded in the same boot, so the later section "Bus and firmware loading" applies to Bluetooth as well.
@@ -18,23 +13,13 @@ A few points in the source that relate to the Zephyr interfaces:
 * Only STA mode is wired up. There is code for AP, P2P and RF test in the source, but it is not attached to Zephyr's Wi-Fi management interface and applications cannot use it.
 * The management interface accepts only open networks and WPA2-PSK. `AIC8800_WPA3` only compiles the SAE handshake; an SAE in a connect request is rejected by the driver.
 
-
-
 ## 4.5 network and optional WPA3 changes
 
 The 4.5 Ethernet-capability callback accepts the network interface. Optional `CONFIG_AIC8800_WPA3` uses the TF-PSA-Crypto SAE backend, explicit curve configuration and a random callback for EC multiplication; secp192r1 is rejected. WPA3-enabled scan builds passed, but router interoperability has not been rechecked on 4.5. Older tables/logs below describe their original configuration.
 
+4.5 WPA3 and networking changes are in the [version and migration guide](../zephyr-4-5.md).
+
 The driver also provides Wi-Fi Direct GO control for [Miracast](../apps/miracast.md). This owns the radio and cannot run alongside the normal STA/DLNA connection; it does not imply general concurrent STA+P2P support.
-
-## Build the checked-in example on 4.5
-
-The 4.5 branches build these examples directly; the listings below stay on the 4.2.2 baseline, and the selected branch is the reference for current fields.
-
-```sh
-west build -b yuzukineko -d build/zephyr-4.5.0/aic8800_wifi_api zephyr-components/examples/aic8800_wifi_api
-```
-
-4.5 component build passes; no target log yet. Boot it with the [RAM or XIP flow](../zephyr-build-run.md).
 
 ## Architecture
 

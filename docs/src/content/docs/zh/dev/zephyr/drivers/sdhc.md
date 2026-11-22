@@ -2,11 +2,6 @@
 title: "SDHC 主机控制器"
 ---
 
-:::note[版本范围]
-本页示例与板上结果基于 Zephyr 4.2.2；4.5 的差异见[版本与迁移指南](../zephyr-4-5.md)。
-:::
-
-
 F101 有两个 SD/MMC 主机控制器（SMHC）：`smhc0` 接板上的 TF 卡槽，`smhc2` 接 WiFi 模块的 SDIO。Zephyr 里的驱动是 `drivers/sdhc/sdhc_sunxi.c`，实现的是 SD 主机控制器接口 `<zephyr/drivers/sdhc.h>`。
 
 这一层只管“控制器”：发命令、收响应、搬数据块、设时钟和总线宽度、检测卡。卡的识别流程、磁盘接口和文件系统是在它上面的另一层，不属于这个驱动（后面由单独的 Zephyr 组件提供）。所以本文的演示不用磁盘和文件系统，而是直接用 SD 规范里的命令把卡一步步初始化起来。
@@ -21,21 +16,11 @@ F101 有两个 SD/MMC 主机控制器（SMHC）：`smhc0` 接板上的 TF 卡槽
 | 传输 | DMA（内部描述符），不对齐的缓冲区经过驱动里的弹跳缓冲区 |
 | 卡类型 | SD 卡（本文演示）；`smhc2` 接 SDIO 的 WiFi 芯片；不支持 SPI 模式 |
 
-
-
 ## 4.5 主机属性变化
 
 四位总线支持从 `props.host_caps.bus_4_bit_support` 移到 `props.bus_4_bit_support`。`sdhc_get_host_props()` 成功后，4.5 应读取新字段；下文旧版完整代码保留原字段位置。八位支持等其他能力仍在 `host_caps` 中；4.5 驱动 API 声明也改用 `DEVICE_API`。
 
-## 在 4.5 构建仓库内的示例
-
-4.5 分支可直接构建这些示例；下文代码仍是 4.2.2 基线，字段以所选分支为准。
-
-```sh
-west build -b yuzukineko -d build/zephyr-4.5.0/sdhc_api zephyr-components/examples/sdhc_api
-```
-
-4.5 组件构建通过，未有板上日志；启动方式见 [RAM 或 XIP 流程](../zephyr-build-run.md)。
+4.5 的完整驱动变化见[版本与迁移指南](../zephyr-4-5.md)。
 
 ## 设备树
 

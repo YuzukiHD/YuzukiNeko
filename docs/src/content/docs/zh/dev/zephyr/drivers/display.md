@@ -2,11 +2,6 @@
 title: "显示"
 ---
 
-:::note[版本范围]
-本页示例与板上结果基于 Zephyr 4.2.2；4.5 的差异见[版本与迁移指南](../zephyr-4-5.md)。
-:::
-
-
 F101 的显示由一条固定的流水线组成：显示引擎（DE）把几个图层叠起来，时序控制器（TCON LCD）产生屏幕需要的时序，后面接一个编码器——并口 RGB、LVDS 或者 MIPI DSI——再接到屏幕上。Zephyr 里把整条流水线做成一个显示设备，应用用标准的 `<zephyr/drivers/display.h>` 写帧缓冲，驱动在 `drivers/display/sunxi/`。
 
 ```mermaid
@@ -27,6 +22,8 @@ flowchart LR
     P2 --> BL
 ```
 
+4.5 的显示与 LVGL 变化见[版本与迁移指南](../zephyr-4-5.md)。
+
 三种输出同一时间只开一种。`yuzukineko` 板接的是 MIPI DSI 屏（载板上的 1024×768 IPS 屏），`f101_evb` 接的是 RGB 屏（1024×600）。本文先讲设备树里这条流水线的各个节点，再分别讲怎么适配一块新的 RGB 屏和 MIPI DSI 屏，最后是显示接口。
 
 | 项目 | 内容 |
@@ -37,17 +34,6 @@ flowchart LR
 | 背光 | PWM 背光（`pwm-backlight`）或 GPIO 背光（`gpio-backlight`） |
 | 面板初始化 | 设备树里的命令序列：上电时序、DSI 的 DCS/Generic 命令、软件模拟 SPI 的命令 |
 | 不支持 | 读帧缓冲、改像素格式、改方向（见后面的接口） |
-
-
-## 在 4.5 构建仓库内的示例
-
-4.5 分支可直接构建这些示例；下文代码仍是 4.2.2 基线，字段以所选分支为准。
-
-```sh
-west build -b yuzukineko -d build/zephyr-4.5.0/display_api zephyr-components/examples/display_api
-```
-
-4.5 组件构建通过，未有板上日志；启动方式见 [RAM 或 XIP 流程](../zephyr-build-run.md)。
 
 ## 设备树
 

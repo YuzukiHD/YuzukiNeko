@@ -2,11 +2,6 @@
 title: "SDHC host controller"
 ---
 
-:::note[Version scope]
-Examples and board results on this page use the Zephyr 4.2.2 baseline; 4.5 differences are in the [version and migration guide](../zephyr-4-5.md).
-:::
-
-
 The F101 has two SD/MMC host controllers (SMHC): `smhc0` connects to the TF card slot on the board, `smhc2` connects to the SDIO of the WiFi module. The driver in Zephyr is `drivers/sdhc/sdhc_sunxi.c`, which implements the SD host controller interface `<zephyr/drivers/sdhc.h>`.
 
 This layer only deals with the "controller": issuing commands, receiving responses, moving data blocks, setting the clock and the bus width, detecting the card. The card identification flow, the disk interface and the filesystem are another layer above it and do not belong to this driver (they are provided later by a separate Zephyr component). So the demo in this page uses no disk and no filesystem, and instead brings the card up step by step with the commands of the SD specification.
@@ -21,21 +16,11 @@ This layer only deals with the "controller": issuing commands, receiving respons
 | Transfer | DMA (internal descriptors); unaligned buffers go through the bounce buffer in the driver |
 | Card type | SD cards (the demo in this page); `smhc2` connects to an SDIO WiFi chip; SPI mode is not supported |
 
-
-
 ## 4.5 host-property change
 
 Four-bit bus support moved from `props.host_caps.bus_4_bit_support` to `props.bus_4_bit_support`. After a successful `sdhc_get_host_props()` call, use the new field on 4.5; the complete legacy listings below retain the old location. Other capabilities, such as eight-bit support, remain under `host_caps`. The driver API declaration also uses `DEVICE_API` on 4.5.
 
-## Build the checked-in example on 4.5
-
-The 4.5 branches build these examples directly; the listings below stay on the 4.2.2 baseline, and the selected branch is the reference for current fields.
-
-```sh
-west build -b yuzukineko -d build/zephyr-4.5.0/sdhc_api zephyr-components/examples/sdhc_api
-```
-
-4.5 component build passes; no target log yet. Boot it with the [RAM or XIP flow](../zephyr-build-run.md).
+The full set of 4.5 driver changes is in the [version and migration guide](../zephyr-4-5.md).
 
 ## Devicetree
 

@@ -2,11 +2,6 @@
 title: "Bilibili - 视频客户端"
 ---
 
-:::note[版本范围]
-本页示例与板上结果基于 Zephyr 4.2.2；4.5 的差异见[版本与迁移指南](../zephyr-4-5.md)。
-:::
-
-
 Bilibili 是 YuzukiNeko 上的 B 站客户端：触摸界面（LVGL，1024×768），有封面卡片、带拼音输入法的搜索、边下载边播放的播放器、滚动弹幕、扫码登录和 Wi-Fi 设置。它是一个应用而不是模块，和 [NekoBox](nekobox.md) 一样<strong>直接在 SPI NOR flash 中原地运行</strong>（XIP），并且用 NekoBox 的播放器文件编译。代码在 `zephyr-components/bilibili-tv`。
 
 本页按模块讲它是怎么做的，每个模块都附上代码：线程和命令队列、HTTP 与 TLS 客户端、带签名的网页接口、视频流怎样找到并下载、播放器、弹幕，以及界面的每个部分。
@@ -24,10 +19,11 @@ Bilibili 是 YuzukiNeko 上的 B 站客户端：触摸界面（LVGL，1024×768�
 
 开始之前，请先完成[配置开发环境](../zephyr-setup-env.md)和[获取 Zephyr 源码](../zephyr-get-source.md)。
 
-
 ## 4.5 兼容变化
 
 4.5 分支更新 TLS/PSA 配置、LVGL 9.6 的文字测量与图像缓存，以及 RVV alpha 边界混合。请配套 Zephyr 分支并使用新输出目录。应用已编译通过；下文详细 UI／内部代码和板上现象保留 4.2.2 基线。4.5 的网络登录、CDN 播放、音频、触摸与持续内存占用仍需上板验证。
+
+4.5 的兼容变化见[版本与迁移指南](../zephyr-4-5.md)。
 
 ## 构建与运行
 
@@ -61,7 +57,6 @@ sha256sum build/bili/zephyr/zephyr.bin out/bili-readback.bin
 ```
 
 确认 F101 芯片 ID、写入输出及相同长度读回的散列后，按[编译与运行](../zephyr-build-run.md)下载当前源码构建的 `xip-boot_fel.bin` 到 RAM `0x20000`，检查写入结果，再单独执行。保留 NOR `0x20000` 参数及空启动区；4.5 替换为其独立构建目录。
-
 
 TF 卡上需要：
 

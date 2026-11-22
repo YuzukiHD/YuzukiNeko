@@ -2,11 +2,6 @@
 title: "UART"
 ---
 
-:::note[Version scope]
-Examples and board results on this page use the Zephyr 4.2.2 baseline; 4.5 differences are in the [version and migration guide](../zephyr-4-5.md).
-:::
-
-
 The F101 has 6 UARTs (`uart0`…`uart5`). Zephyr uses the upstream NS16550 driver (`drivers/serial/uart_ns16550.c`), because the UART of the F101 is a Synopsys DesignWare APB UART (16550-compatible). The F101 port does only three things: the devicetree nodes, the clock/reset, and having the SoC select `UART_NS16550_DW8250_DW_APB` by default. The interface is the standard `<zephyr/drivers/uart.h>`.
 
 | Item | Content |
@@ -17,8 +12,6 @@ The F101 has 6 UARTs (`uart0`…`uart5`). Zephyr uses the upstream NS16550 drive
 | Parity | None, even (odd returns `-ENOTSUP`) |
 | Flow control | `uart_configure` accepts none, RTS/CTS and DTR/DSR and records them; for hardware automatic flow control see the note below |
 | Interface | Polling (`uart_poll_in`/`uart_poll_out`), interrupts (`uart_irq_*`, `uart_fifo_*`) |
-
-
 
 ## 4.5 interrupt API change
 
@@ -41,15 +34,7 @@ while (true) {
 
 `rx_ready()` and `tx_ready()` are the helpers in `examples/uart_api/src/main.c`. Do not use the return value of `uart_irq_update()` in new application code.
 
-## Build the checked-in example on 4.5
-
-The 4.5 branches build these examples directly; the listings below stay on the 4.2.2 baseline, and the selected branch is the reference for current fields.
-
-```sh
-west build -b yuzukineko -d build/zephyr-4.5.0/uart_api zephyr-components/examples/uart_api
-```
-
-4.5 component build passes; no target log yet. Boot it with the [RAM or XIP flow](../zephyr-build-run.md).
+Other 4.5 API changes are in the [version and migration guide](../zephyr-4-5.md).
 
 ## Devicetree
 

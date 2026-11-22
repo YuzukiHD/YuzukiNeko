@@ -2,11 +2,6 @@
 title: "I2C"
 ---
 
-:::note[Version scope]
-Examples and board results on this page use the Zephyr 4.2.2 baseline; 4.5 differences are in the [version and migration guide](../zephyr-4-5.md).
-:::
-
-
 The F101 has 3 two-wire interface controllers (TWI), which are `i2c0`, `i2c1` and `i2c2` in Zephyr; the interface is the standard `<zephyr/drivers/i2c.h>`, and the driver is `drivers/i2c/i2c_sunxi.c`.
 
 | Item | Content |
@@ -17,17 +12,6 @@ The F101 has 3 two-wire interface controllers (TWI), which are `i2c0`, `i2c1` an
 | Address | 7-bit; 10-bit addresses return `-ENOTSUP` |
 | Transfer mode | Polling, no interrupts; a mutex is held during a transfer |
 | Not supported | Fast+ (1 MHz), slave mode, `i2c_get_config` |
-
-
-## Build the checked-in example on 4.5
-
-The 4.5 branches build these examples directly; the listings below stay on the 4.2.2 baseline, and the selected branch is the reference for current fields.
-
-```sh
-west build -b yuzukineko -d build/zephyr-4.5.0/i2c_api zephyr-components/examples/i2c_api
-```
-
-4.5 component build passes; no target log yet. Boot it with the [RAM or XIP flow](../zephyr-build-run.md).
 
 ## Devicetree
 

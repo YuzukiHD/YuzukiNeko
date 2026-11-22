@@ -2,11 +2,6 @@
 title: "MP4 播放器"
 ---
 
-:::note[版本范围]
-本页示例与板上结果基于 Zephyr 4.2.2；4.5 的差异见[版本与迁移指南](../zephyr-4-5.md)。
-:::
-
-
 从 TF 卡读取 MP4 文件并播放：H.264 视频由片上视频引擎解码，直接送到显示的视频层；AAC 音频用软件解码，从片上 codec 输出。示例是 `samples/drivers/mp4_player`，放在 F101 的 Zephyr fork 里，不需要 `zephyr-components`。
 
 ```mermaid

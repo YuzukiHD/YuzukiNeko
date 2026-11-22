@@ -2,11 +2,6 @@
 title: "MP4 - MP4 demux"
 ---
 
-:::note[Version scope]
-Examples and board results on this page use the Zephyr 4.2.2 baseline; 4.5 differences are in the [version and migration guide](../zephyr-4-5.md).
-:::
-
-
 The MP4 demux library reads the sample tables of the <strong>H.264 video track</strong> and the <strong>AAC audio track</strong> of an MP4 (ISO base media file) into memory, then hands out, one by one in decode order, each sample's position in the file, size, timestamp and whether it is a keyframe. It does not decode and does not read the sample contents: once it has the position and size, the caller reads from the file itself and hands the data to the video engine [vdec](../drivers/vdec.md) or an AAC decoder.
 
 The library's source is `zephyr/lib/mp4/mp4.c` and its header is `zephyr/include/zephyr/mp4.h`; in an application, `#include <zephyr/mp4.h>`. Kconfig is in `zephyr/lib/mp4/Kconfig` (option `CONFIG_MP4_DEMUX`), pulled in by `zephyr/lib/Kconfig`, and `zephyr/lib/CMakeLists.txt` compiles it when the option is on. The library uses only `malloc()`/`free()` and `<zephyr/sys/byteorder.h>`; it depends on no file system and no device.
@@ -14,17 +9,6 @@ The library's source is `zephyr/lib/mp4/mp4.c` and its header is `zephyr/include
 The file is accessed through a caller-supplied read callback, `mp4_read_t`, and can be a memory array, a FAT file on an SD card, or anything else that can be read by offset. The library recognises the first H.264 track (sample description `avc1` or `avc3`) and the first AAC track (`mp4a`); other tracks and codecs are ignored. The whole sample tables are read into the heap, about `4×samples + 4×chunks + 8×(stsc + stts + ctts entries) + 4×keyframes` bytes; for the 3-second clip used below the two tracks together take about 3 KB.
 
 This page covers the library itself only. For the complete player built with it see [MP4 player](../apps/mp4-player.md).
-
-
-## Build the checked-in example on 4.5
-
-The 4.5 branches build these examples directly; the listings below stay on the 4.2.2 baseline, and the selected branch is the reference for current fields.
-
-```sh
-west build -b yuzukineko -d build/zephyr-4.5.0/mp4_api zephyr-components/examples/mp4_api
-```
-
-4.5 component build passes; no target log yet. Boot it with the [RAM or XIP flow](../zephyr-build-run.md).
 
 ## Architecture and data flow
 

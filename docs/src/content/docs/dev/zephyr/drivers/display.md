@@ -2,11 +2,6 @@
 title: "Display"
 ---
 
-:::note[Version scope]
-Examples and board results on this page use the Zephyr 4.2.2 baseline; 4.5 differences are in the [version and migration guide](../zephyr-4-5.md).
-:::
-
-
 The F101 display is one fixed pipeline: the display engine (DE) stacks several layers, the timing controller (TCON LCD) generates the timings the screen needs, and behind that sits an encoder — parallel RGB, LVDS or MIPI DSI — which connects to the screen. In Zephyr the whole pipeline is made into one display device, an application writes the frame buffer with the standard `<zephyr/drivers/display.h>`, and the driver lives in `drivers/display/sunxi/`.
 
 ```mermaid
@@ -27,6 +22,8 @@ flowchart LR
     P2 --> BL
 ```
 
+4.5 display and LVGL changes are in the [version and migration guide](../zephyr-4-5.md).
+
 Only one of the three outputs is enabled at a time. The `yuzukineko` board is connected to a MIPI DSI panel (the 1024×768 IPS panel on the carrier board), and `f101_evb` to an RGB panel (1024×600). This page first covers the nodes of this pipeline in the devicetree, then how to adapt a new RGB panel and a new MIPI DSI panel respectively, and finally the display interface.
 
 | Item | Content |
@@ -37,17 +34,6 @@ Only one of the three outputs is enabled at a time. The `yuzukineko` board is co
 | Backlight | PWM backlight (`pwm-backlight`) or GPIO backlight (`gpio-backlight`) |
 | Panel initialization | A command sequence in the devicetree: power-up timings, DSI DCS/Generic commands, software-emulated SPI commands |
 | Not supported | Reading the frame buffer, changing the pixel format, changing the orientation (see the interface below) |
-
-
-## Build the checked-in example on 4.5
-
-The 4.5 branches build these examples directly; the listings below stay on the 4.2.2 baseline, and the selected branch is the reference for current fields.
-
-```sh
-west build -b yuzukineko -d build/zephyr-4.5.0/display_api zephyr-components/examples/display_api
-```
-
-4.5 component build passes; no target log yet. Boot it with the [RAM or XIP flow](../zephyr-build-run.md).
 
 ## Devicetree
 

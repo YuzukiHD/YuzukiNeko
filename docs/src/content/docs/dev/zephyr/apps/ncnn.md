@@ -2,11 +2,6 @@
 title: "ncnn - neural-network inference"
 ---
 
-:::note[Version scope]
-Examples and board results on this page use the Zephyr 4.2.2 baseline; 4.5 differences are in the [version and migration guide](../zephyr-4-5.md).
-:::
-
-
 [ncnn](https://github.com/Tencent/ncnn) is a lightweight neural-network inference framework open-sourced by Tencent. `zephyr-components/ncnn` turns it into a Zephyr module: ncnn itself is the submodule `ncnn/ncnn`, built separately into a static library by its own CMake project, and then linked into the firmware. The C907 core of the F101 has the RISC-V vector extension (RVV 1.0, VLEN 128 bits), and the module makes ncnn use its own RVV kernels when the firmware enables the vector extension.
 
 The component ships with a benchmark example, `samples/benchmark`: it builds ncnn's `benchncnn` into the firmware, runs several built-in networks one after another on the board, and prints each network's single-inference time over the serial port. <strong>This example does not load real model files and does not output recognition results</strong>; what it measures is "how long this board takes to run a given network".

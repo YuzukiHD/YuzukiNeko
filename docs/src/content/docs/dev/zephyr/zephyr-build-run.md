@@ -2,11 +2,6 @@
 title: "Building and running"
 ---
 
-:::note[Version scope]
-Examples and board results on this page use the Zephyr 4.2.2 baseline; 4.5 differences are in the [version and migration guide](zephyr-4-5.md).
-:::
-
-
 This page applies to matched 4.2.2 and 4.5.0 environments; use separate build outputs for 4.5 as described in the [version guide](zephyr-4-5.md). First complete [environment setup](zephyr-setup-env.md), [source setup](zephyr-get-source.md) and [FEL tool installation](../../boot/fel.md).
 
 | Image and purpose | Procedure | After power loss |

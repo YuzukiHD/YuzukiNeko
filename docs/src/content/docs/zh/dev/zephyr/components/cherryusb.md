@@ -2,11 +2,6 @@
 title: "CherryUSB - USB 协议栈"
 ---
 
-:::note[版本范围]
-本页示例与板上结果基于 Zephyr 4.2.2；4.5 的差异见[版本与迁移指南](../zephyr-4-5.md)。
-:::
-
-
 [CherryUSB](https://github.com/cherry-embedded/CherryUSB) 是一个跨 RTOS 的 USB 设备/主机协议栈。F101 的 Zephyr 里没有用上游的 USB 设备栈，USB 功能都由它提供：设备栈把板子变成 CDC ACM 串口、U 盘、HID 等 USB 设备，主机栈在 EHCI/OHCI 控制器上枚举外接的 U 盘、串口、键鼠。
 
 [USB](../drivers/usb.md) 一页讲的是下面一层：OTG 控制器、EHCI/OHCI 主机控制器和 PHY 的设备树、PHY 的获取与释放，并用一个 CDC ACM 回显演示了设备模式的基本用法。这一页讲协议栈本身：组件怎么分层、Kconfig 怎么选、板级胶水要提供什么、`usbd_*`、`usbh_*` 每个接口怎么用。
@@ -18,17 +13,6 @@ Kconfig 里能打开的设备类有 CDC ACM、HID、MSC、音频、视频、RNDI
 运行方式：主机栈有自己的线程，根 hub 线程处理端口变化和枚举；设备栈的端点回调和类回调直接在中断里运行，不能阻塞。
 
 哪些接口在板上验证过、哪些没有，写在[验证项](#验证项)一节。
-
-
-## 在 4.5 构建仓库内的示例
-
-4.5 分支可直接构建这些示例；下文代码仍是 4.2.2 基线，字段以所选分支为准。
-
-```sh
-west build -b yuzukineko -d build/zephyr-4.5.0/cherryusb_api zephyr-components/examples/cherryusb_api
-```
-
-4.5 组件构建通过，未有板上日志；启动方式见 [RAM 或 XIP 流程](../zephyr-build-run.md)。
 
 ## 源码位置
 

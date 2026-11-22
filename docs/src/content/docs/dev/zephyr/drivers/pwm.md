@@ -2,11 +2,6 @@
 title: "PWM"
 ---
 
-:::note[Version scope]
-Examples and board results on this page use the Zephyr 4.2.2 baseline; 4.5 differences are in the [version and migration guide](../zephyr-4-5.md).
-:::
-
-
 The general-purpose PWM of the F101 is the `pwm` device in Zephyr, with 4 channels, a standard `<zephyr/drivers/pwm.h>` interface and the driver `drivers/pwm/pwm_sunxi.c`. The `yuzukineko` board uses its channel 2 (PD22) to drive the backlight of the DSI display. The backlight-specific PWM_BL module (analog dimming, current sink) is a separate device, see [PWM-BL - analog backlight](pwm-bl.md).
 
 | Item | Content |
@@ -18,17 +13,6 @@ The general-purpose PWM of the F101 is the `pwm` device in Zephyr, with 4 channe
 | Polarity | `PWM_POLARITY_NORMAL`, `PWM_POLARITY_INVERTED` |
 | Stop | A pulse of 0 turns the output off and gates the clock of that channel |
 | Unsupported | Flags other than the polarity (`-ENOTSUP`), input capture |
-
-
-## Build the checked-in example on 4.5
-
-The 4.5 branches build these examples directly; the listings below stay on the 4.2.2 baseline, and the selected branch is the reference for current fields.
-
-```sh
-west build -b yuzukineko -d build/zephyr-4.5.0/pwm_api zephyr-components/examples/pwm_api
-```
-
-4.5 component build passes; no target log yet. Boot it with the [RAM or XIP flow](../zephyr-build-run.md).
 
 ## Devicetree
 

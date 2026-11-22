@@ -2,11 +2,6 @@
 title: "Doom - the Doom game"
 ---
 
-:::note[Version scope]
-Examples and board results on this page use the Zephyr 4.2.2 baseline; 4.5 differences are in the [version and migration guide](../zephyr-4-5.md).
-:::
-
-
 Running Doom on the board: the game engine is [doomgeneric](https://github.com/ozkl/doomgeneric) (GPL-2.0), and the platform layer, file access and sound mixing come from `zephyr-components/doom`. The example is `samples/doom_player`: it reads the WAD file from the TF card, the 320×200 picture goes to the display video plane and is scaled to the whole screen, sound effects come out of the on-chip codec, and a set of semi-transparent on-screen buttons is drawn with LVGL and operated from the touchscreen.
 
 ```mermaid

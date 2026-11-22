@@ -2,11 +2,6 @@
 title: "I2C"
 ---
 
-:::note[版本范围]
-本页示例与板上结果基于 Zephyr 4.2.2；4.5 的差异见[版本与迁移指南](../zephyr-4-5.md)。
-:::
-
-
 F101 有 3 个两线接口控制器（TWI），在 Zephyr 里是 `i2c0`、`i2c1`、`i2c2`，接口是标准的 `<zephyr/drivers/i2c.h>`，驱动是 `drivers/i2c/i2c_sunxi.c`。
 
 | 项目 | 内容 |
@@ -17,17 +12,6 @@ F101 有 3 个两线接口控制器（TWI），在 Zephyr 里是 `i2c0`、`i2c1`
 | 地址 | 7 位；10 位地址返回 `-ENOTSUP` |
 | 传输方式 | 轮询，不用中断；传输期间持有一把互斥锁 |
 | 不支持 | 快速+（1 MHz）、从机模式、`i2c_get_config` |
-
-
-## 在 4.5 构建仓库内的示例
-
-4.5 分支可直接构建这些示例；下文代码仍是 4.2.2 基线，字段以所选分支为准。
-
-```sh
-west build -b yuzukineko -d build/zephyr-4.5.0/i2c_api zephyr-components/examples/i2c_api
-```
-
-4.5 组件构建通过，未有板上日志；启动方式见 [RAM 或 XIP 流程](../zephyr-build-run.md)。
 
 ## 设备树
 

@@ -2,17 +2,13 @@
 title: "RISC-V vector extension (RVV)"
 ---
 
-:::note[Version scope]
-Examples and board results on this page use the Zephyr 4.2.2 baseline; 4.5 differences are in the [version and migration guide](zephyr-4-5.md).
-:::
-
-
 This page introduces the RISC-V vector extension (RVV) and how to use it on YuzukiNeko's Zephyr: which configuration to enable, what interfaces exist, what to watch out for when writing code, and examples that compile as they are.
-
 
 ## 4.5 port changes
 
 The 4.2.2 RVV implementation remains available. On 4.5, vector status is enabled before C startup, all vector registers are preserved in the SoC exception frame, and generated-offset includes use the `zephyr/` namespace. `CONFIG_SUN252I_F101_RVV` remains the switch. RVV/MMU/XIP and LVGL configurations compiled, but context-switch correctness, scalar/vector rendering equivalence and performance still require target checks. Existing measurements below belong to their original builds.
+
+4.5 RVV changes are in the [version and migration guide](zephyr-4-5.md).
 
 ## What RVV is
 

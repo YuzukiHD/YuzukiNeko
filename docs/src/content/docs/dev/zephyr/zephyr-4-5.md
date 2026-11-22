@@ -59,16 +59,41 @@ Do not reuse a 4.2.2 CMake cache for 4.5.0, or run both versions concurrently wh
 | Area | Port changes and application impact |
 | --- | --- |
 | CPU and devicetree | The CPU uses `riscv,isa-base` and `riscv,isa-extensions`. Cache instructions use `RISCV_ISA_EXT_XTHEAD_CMO`. The F101 GPIO compatible is `allwinner,sun252i-f101-gpio`; the upstream `allwinner,sunxi-gpio` binding remains separate. |
-| Driver API | Audio, SDHC and vdec use `DEVICE_API`. `uart_irq_update()` returns `void`; call it before checking `uart_irq_is_pending()`. Four-bit SDHC support is `props.bus_4_bit_support`. See the version-specific notes in the [UART](drivers/uart.md), [SDHC](drivers/sdhc.md) and [vdec](drivers/vdec.md) articles. |
-| Display and LVGL | The pipeline root inherits the display-controller class. LVGL 9.6 requires updated image-cache, text-measurement and blend hooks, including masked fills and alpha boundaries in the RVV renderer. Old internal LVGL hooks should not be copied unchanged. |
+| Driver API | [Audio](drivers/audio.md), SDHC and vdec use `DEVICE_API`. `uart_irq_update()` returns `void`; call it before checking `uart_irq_is_pending()`. Four-bit SDHC support is `props.bus_4_bit_support`. See the version-specific notes in the [UART](drivers/uart.md), [SDHC](drivers/sdhc.md) and [vdec](drivers/vdec.md) articles. |
+| Display and LVGL | The pipeline root inherits the display-controller class; see [Display](drivers/display.md). [LVGL](apps/lvgl.md) 9.6 requires updated image-cache, text-measurement and blend hooks, including masked fills and alpha boundaries in the RVV renderer. Old internal LVGL hooks should not be copied unchanged. |
 | Android mirroring | RSA generation and HKDF use PSA APIs; PK, X.509 and TLS interfaces and native Kconfig selections were updated. Use `MBEDTLS_SSL_PROTO_TLS1_3`; the old `mirror_mbedtls.h` user configuration is removed on 4.5. |
 | iOS and Bilibili | SHA-512/AES and TLS selections and crypto headers were updated. Bilibili also uses the new LVGL interfaces. |
-| AIC8800 | The Ethernet capability callback takes the interface. The optional WPA3 SAE backend uses TF-PSA-Crypto configuration, a random callback for EC multiplication, and rejects the removed secp192r1 group. |
+| [AIC8800](components/aic8800-wifi.md) | The Ethernet capability callback takes the interface. The optional WPA3 SAE backend uses TF-PSA-Crypto configuration, a random callback for EC multiplication, and rejects the removed secp192r1 group. |
 | RVV | `SUN252I_F101_RVV` remains optional. Vector status is enabled before C startup, and the exception frame saves all vector registers. [RVV](zephyr-riscv-vector.md) explains the configuration. |
 | MMU and paging | Machine-mode Sv32 retains its restrictions: no SMP, PMP userspace or supervisor mode. Mapping APIs return the status required by 4.5; the kernel stays resident. Backing stores are under `subsys/mem_mgmt/demand_paging/backing_store`; SD page I/O retains mutex serialization. |
 | Decoder examples | Fixture headers are `jpeg_cases.h`, `png_cases.h` and `h264_cases.h`. The H.264 example accepts three- and four-byte Annex B start codes. Use the example from the selected component branch. |
 
 Both boards retain their pin assignments and the 16 MiB DTS RAM region at `0x40000000`. A hardware revision with more PSRAM does not automatically enlarge the Zephyr region. RAM and XIP boot requirements are separate from the Zephyr version; see [Build and run](zephyr-build-run.md). Preserve the FEL development boot flow and the NOR sampling-parameter region.
+
+## Checked-in examples on 4.5
+
+These 18 component builds pass on 4.5; there are no target logs yet. Boot them with the [RAM or XIP flow](zephyr-build-run.md).
+
+| Page | Build command |
+| --- | --- |
+| [AAC](components/aac.md) | `west build -b yuzukineko -d build/zephyr-4.5.0/aac_api zephyr-components/examples/aac_api` |
+| [AIC8800 Bluetooth](components/aic8800-bt.md) | `west build -b yuzukineko -d build/zephyr-4.5.0/aic8800_bt_api zephyr-components/examples/aic8800_bt_api` |
+| [AIC8800 Wi-Fi](components/aic8800-wifi.md) | `west build -b yuzukineko -d build/zephyr-4.5.0/aic8800_wifi_api zephyr-components/examples/aic8800_wifi_api` |
+| [CherryUSB](components/cherryusb.md) | `west build -b yuzukineko -d build/zephyr-4.5.0/cherryusb_api zephyr-components/examples/cherryusb_api` |
+| [MP4](components/mp4.md) | `west build -b yuzukineko -d build/zephyr-4.5.0/mp4_api zephyr-components/examples/mp4_api` |
+| [SD](components/sd.md) | `west build -b yuzukineko -d build/zephyr-4.5.0/sd_api zephyr-components/examples/sd_api` |
+| [Audio](drivers/audio.md) | `west build -b yuzukineko -d build/zephyr-4.5.0/audio_api zephyr-components/examples/audio_api` |
+| [Display](drivers/display.md) | `west build -b yuzukineko -d build/zephyr-4.5.0/display_api zephyr-components/examples/display_api` |
+| [G2D](drivers/g2d.md) | `west build -b yuzukineko -d build/zephyr-4.5.0/g2d_api zephyr-components/examples/g2d_api` |
+| [GPIO](drivers/gpio.md) | `west build -b yuzukineko -d build/zephyr-4.5.0/gpio_api zephyr-components/examples/gpio_api` |
+| [I2C](drivers/i2c.md) | `west build -b yuzukineko -d build/zephyr-4.5.0/i2c_api zephyr-components/examples/i2c_api` |
+| [PWM backlight](drivers/pwm-bl.md) | `west build -b yuzukineko -d build/zephyr-4.5.0/pwm_bl_api zephyr-components/examples/pwm_bl_api` |
+| [PWM](drivers/pwm.md) | `west build -b yuzukineko -d build/zephyr-4.5.0/pwm_api zephyr-components/examples/pwm_api` |
+| [SDHC](drivers/sdhc.md) | `west build -b yuzukineko -d build/zephyr-4.5.0/sdhc_api zephyr-components/examples/sdhc_api` |
+| [SPI](drivers/spi.md) | `west build -b yuzukineko -d build/zephyr-4.5.0/spi_api zephyr-components/examples/spi_api` |
+| [UART](drivers/uart.md) | `west build -b yuzukineko -d build/zephyr-4.5.0/uart_api zephyr-components/examples/uart_api` |
+| [USB](drivers/usb.md) | `west build -b yuzukineko -d build/zephyr-4.5.0/usb_api zephyr-components/examples/usb_api` |
+| [vdec](drivers/vdec.md) | `west build -b yuzukineko -d build/zephyr-4.5.0/vdec_api zephyr-components/examples/vdec_api` |
 
 ## Verification recorded for 4.5
 

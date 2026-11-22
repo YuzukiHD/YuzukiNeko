@@ -2,11 +2,6 @@
 title: "Video engine vdec"
 ---
 
-:::note[Version scope]
-Examples and board results on this page use the Zephyr 4.2.2 baseline; 4.5 differences are in the [version and migration guide](../zephyr-4-5.md).
-:::
-
-
 The video engine on the F101 can decode <strong>JPEG</strong>, <strong>PNG</strong> and <strong>H.264</strong> in hardware. In Zephyr it is made into a device whose interface is `<zephyr/drivers/vdec.h>`, with the driver under `drivers/vdec/sunxi/`.
 
 | Codec | Usage | Output format |
@@ -24,23 +19,13 @@ What the output formats mean:
 | `VDEC_FORMAT_NV21` | Same, but the interleaving order is Cr/Cb |
 | `VDEC_FORMAT_RGBA8888` | 32-bit little-endian word with R in the most significant byte and A in the least significant byte (the byte order in memory is A, B, G, R) |
 
-
-
 ## 4.5 fixtures and stream parsing
 
 Use `zephyr-components/examples/vdec_api` on 4.5. Its CMake includes the JPEG, PNG and H.264 sample `src/` directories; the fixture headers are `jpeg_cases.h`, `png_cases.h` and `h264_cases.h`. JPEG uses `jpg_s320x240`, PNG uses `png_rgba8`, and H.264 uses `h264_base` with `crc_base`. The MJPEG loop uses three 320×240 JPEGs: `jpg_s320x240`, `jpg_q2_test` and `jpg_q31_test`. The old generated `test_*.h` instructions and five-frame logs below describe the 4.2.2 tutorial, not the current fixtures.
 
+4.5 example and test-data changes are in the [version and migration guide](../zephyr-4-5.md).
+
 The maintained Annex B scanner accepts three- and four-byte start codes, and reads the NAL type after the actual prefix length. The current JPEG/PNG/H.264 samples perform case/CRC checks; do not enable the removed `CONFIG_SAMPLE_VDEC_DUMP` on 4.5. Successful compilation does not validate decoded output on the target.
-
-## Build the checked-in example on 4.5
-
-The 4.5 branches build these examples directly; the listings below stay on the 4.2.2 baseline, and the selected branch is the reference for current fields.
-
-```sh
-west build -b yuzukineko -d build/zephyr-4.5.0/vdec_api zephyr-components/examples/vdec_api
-```
-
-4.5 component build passes; no target log yet. Boot it with the [RAM or XIP flow](../zephyr-build-run.md).
 
 ## Devicetree
 

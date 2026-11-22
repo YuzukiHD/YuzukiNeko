@@ -2,11 +2,6 @@
 title: "UART"
 ---
 
-:::note[版本范围]
-本页示例与板上结果基于 Zephyr 4.2.2；4.5 的差异见[版本与迁移指南](../zephyr-4-5.md)。
-:::
-
-
 F101 有 6 个 UART（`uart0`…`uart5`）。Zephyr 里用的是上游的 NS16550 驱动（`drivers/serial/uart_ns16550.c`），因为 F101 的 UART 是 Synopsys DesignWare APB UART（16550 兼容）。F101 的移植只做了三件事：设备树节点、时钟/复位、让 SoC 默认选中 `UART_NS16550_DW8250_DW_APB`。接口是标准的 `<zephyr/drivers/uart.h>`。
 
 | 项目 | 内容 |
@@ -17,8 +12,6 @@ F101 有 6 个 UART（`uart0`…`uart5`）。Zephyr 里用的是上游的 NS1655
 | 校验 | 无、偶校验（奇校验返回 `-ENOTSUP`） |
 | 流控 | `uart_configure` 接受无、RTS/CTS、DTR/DSR 并记录；硬件自动流控见下面的说明 |
 | 接口 | 轮询（`uart_poll_in`/`uart_poll_out`）、中断（`uart_irq_*`、`uart_fifo_*`） |
-
-
 
 ## 4.5 中断 API 变化
 
@@ -41,15 +34,7 @@ while (true) {
 
 `rx_ready()` 和 `tx_ready()` 是 `examples/uart_api/src/main.c` 中的辅助函数。新应用不要读取 `uart_irq_update()` 的返回值。
 
-## 在 4.5 构建仓库内的示例
-
-4.5 分支可直接构建这些示例；下文代码仍是 4.2.2 基线，字段以所选分支为准。
-
-```sh
-west build -b yuzukineko -d build/zephyr-4.5.0/uart_api zephyr-components/examples/uart_api
-```
-
-4.5 组件构建通过，未有板上日志；启动方式见 [RAM 或 XIP 流程](../zephyr-build-run.md)。
+其余 4.5 API 变化见[版本与迁移指南](../zephyr-4-5.md)。
 
 ## 设备树
 

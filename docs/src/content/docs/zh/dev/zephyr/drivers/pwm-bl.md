@@ -2,11 +2,6 @@
 title: "PWM-BL - 模拟背光"
 ---
 
-:::note[版本范围]
-本页示例与板上结果基于 Zephyr 4.2.2；4.5 的差异见[版本与迁移指南](../zephyr-4-5.md)。
-:::
-
-
 PWM_BL 是 F101 上专门驱动 LCD 背光的模块，和通用的 [PWM](pwm.md) 是两个独立的设备。它不产生任意频率的方波：它控制片内的两个升压（BOOST）电路，通过“灌电流”的大小调节背光 LED 的亮度，调光有数字加模拟两种方式。在 Zephyr 里它是 `pwm_bl` 设备，接口仍然是标准的 `<zephyr/drivers/pwm.h>`，驱动是 `drivers/pwm/pwm_sunxi_bl.c`。
 
 | 项目 | 内容 |
@@ -20,17 +15,6 @@ PWM_BL 是 F101 上专门驱动 LCD 背光的模块，和通用的 [PWM](pwm.md)
 | 板子 | `f101_evb` 的 RGB 屏背光接在这里；`yuzukineko` 的背光在通用 PWM 的通道 2，不用 PWM_BL |
 
 本文的演示在 `yuzukineko` 上运行：用 overlay 把 `pwm_bl` 打开（只用 PB2、PB3，不动 PB0、PB1 的控制台），这块板上没有接 PWM_BL 的背光，所以演示读回模块的寄存器来看驱动写进去的亮度，没有测输出。
-
-
-## 在 4.5 构建仓库内的示例
-
-4.5 分支可直接构建这些示例；下文代码仍是 4.2.2 基线，字段以所选分支为准。
-
-```sh
-west build -b yuzukineko -d build/zephyr-4.5.0/pwm_bl_api zephyr-components/examples/pwm_bl_api
-```
-
-4.5 组件构建通过，未有板上日志；启动方式见 [RAM 或 XIP 流程](../zephyr-build-run.md)。
 
 ## 设备树
 

@@ -3,9 +3,8 @@ title: "Zephyr development"
 ---
 
 :::note[Version scope]
-Examples and board results on this page use the Zephyr 4.2.2 baseline; 4.5 differences are in the [version and migration guide](zephyr-4-5.md).
+All examples, listings, logs and board results in this chapter use the Zephyr 4.2.2 baseline unless a page-local 4.5 note says otherwise. For 4.5 branches, environment, API changes, build commands and verification status, see the [version and migration guide](zephyr-4-5.md).
 :::
-
 
 [Zephyr](https://www.zephyrproject.org) is an open-source real-time operating system (RTOS) for resource-constrained devices. The F101 Zephyr support is a fork of upstream Zephyr: [`YuzukiHD/zephyr`](https://github.com/YuzukiHD/zephyr), retaining `zephyr-v4.2.2-f101` (4.2.2) alongside the separate `zephyr-v4.5.0-f101` (4.5.0) port branch; see the [version and migration guide](zephyr-4-5.md) for matching components.
 

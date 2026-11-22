@@ -2,11 +2,6 @@
 title: "AAC - AAC decoder"
 ---
 
-:::note[Version scope]
-Examples and board results on this page use the Zephyr 4.2.2 baseline; 4.5 differences are in the [version and migration guide](../zephyr-4-5.md).
-:::
-
-
 The AAC decoder decodes AAC audio frames into 16-bit PCM. It is the fixed-point AAC decoder from OpenCORE (Android's early multimedia framework): it uses only integer arithmetic and no libm, and can decode in real time on the board without an FPU. In Zephyr it is included as a library, and the application calls its C interface `<pvmp4audiodecoder_api.h>` directly, without going through the device model.
 
 The source is in two parts. The Zephyr-side glue is in `zephyr/lib/opencore_aac/` (`Kconfig`, `CMakeLists.txt`, `include/oscl_base.h`, `include/oscl_mem.h`), and the decoder itself is in the west project `modules/lib/opencore`, under `codecs_v2/audio/aac/dec/` (142 `.cpp` files under `src/`, with the public headers under `include/`). In the application you `#include <pvmp4audiodecoder_api.h>`, and once `CONFIG_OPENCORE_AAC=y` the header path is added to all targets automatically. `CONFIG_OPENCORE_AAC` is brought in by `zephyr/lib/Kconfig`, and `zephyr/lib/CMakeLists.txt` builds this library when the option is on.
@@ -14,17 +9,6 @@ The source is in two parts. The Zephyr-side glue is in `zephyr/lib/opencore_aac/
 This build decodes AAC-LC, mono and stereo. `AAC_PLUS` is not defined at build time, so HE-AAC's SBR and PS are not decoded. The input can be ADTS (the decoder finds the frame headers itself), or raw frames without headers (configured first with `AudioSpecificConfig`; the audio samples in an MP4 file are of this kind). The output is signed 16-bit PCM, left and right channels interleaved, 1024 samples per channel per frame. The decoder state is 48680 bytes, allocated by the caller; the library does not call `malloc` internally. The library's object files total 58486 bytes (the example is built with `-Og`). Apart from C library functions such as `memset` and `memcpy` (mapped through `oscl_mem.h`), it does not depend on any device.
 
 The glue layer is thin. The decoder's source files are C code written with a `.cpp` extension; `CMakeLists.txt` compiles them as C (`set_source_files_properties(... LANGUAGE C)`), excluding the C++ wrapper class `decoder_aac.cpp`; `oscl_base.h` provides the integer types and a few macros that originally came from the OpenCORE base library, and `oscl_mem.h` maps `oscl_memset` and the like to standard C functions.
-
-
-## Build the checked-in example on 4.5
-
-The 4.5 branches build these examples directly; the listings below stay on the 4.2.2 baseline, and the selected branch is the reference for current fields.
-
-```sh
-west build -b yuzukineko -d build/zephyr-4.5.0/aac_api zephyr-components/examples/aac_api
-```
-
-4.5 component build passes; no target log yet. Boot it with the [RAM or XIP flow](../zephyr-build-run.md).
 
 ## Architecture and data flow
 

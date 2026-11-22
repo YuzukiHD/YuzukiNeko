@@ -2,11 +2,6 @@
 title: "G2D - 2D graphics acceleration"
 ---
 
-:::note[Version scope]
-Examples and board results on this page use the Zephyr 4.2.2 baseline; 4.5 differences are in the [version and migration guide](../zephyr-4-5.md).
-:::
-
-
 G2D is the F101's 2D graphics accelerator: without going through the CPU, it does rectangle fills, blits (which can convert pixel format, scale, rotate and flip at the same time) and alpha blending between memory buffers. In Zephyr it is made into a `g2d` device, the interface is `<zephyr/drivers/g2d.h>`, and the driver is in `drivers/g2d/`.
 
 Operations are queued first, then handed to the hardware one by one by the driver's thread, completing in the order they were submitted.
@@ -20,17 +15,6 @@ Operations are queued first, then handed to the hardware one by one by the drive
 | Queue depth | devicetree `queue-depth`, default 8 |
 | Cache | before an operation the driver cleans and invalidates the destination region, and cleans the source region and the blend's background region; after the operation it invalidates the destination region. With `G2D_FLAG_NO_CACHE_OPS` none of this is done |
 | Restrictions | the destination format cannot be YUV; rotation requires the source and destination to have the same format and the same size (after rotation), 4-byte-aligned addresses and an 8-byte-aligned destination pitch; the blend's background must be RGB and the same size as the destination region |
-
-
-## Build the checked-in example on 4.5
-
-The 4.5 branches build these examples directly; the listings below stay on the 4.2.2 baseline, and the selected branch is the reference for current fields.
-
-```sh
-west build -b yuzukineko -d build/zephyr-4.5.0/g2d_api zephyr-components/examples/g2d_api
-```
-
-4.5 component build passes; no target log yet. Boot it with the [RAM or XIP flow](../zephyr-build-run.md).
 
 ## Devicetree
 

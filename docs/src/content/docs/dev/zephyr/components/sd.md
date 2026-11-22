@@ -2,11 +2,6 @@
 title: "SD - SD card protocol stack"
 ---
 
-:::note[Version scope]
-Examples and board results on this page use the Zephyr 4.2.2 baseline; 4.5 differences are in the [version and migration guide](../zephyr-4-5.md).
-:::
-
-
 The SD component is the software above the SD host controller driver ([SDHC](../drivers/sdhc.md)): the SD protocol stack that initializes the card, the disk interface that reads and writes the card by sector, and the `fs_*` interface that puts a FAT filesystem on the card. All three layers can be used on their own.
 
 This code ships with Zephyr upstream, and the F101 fork does not change it. What the F101 side provides is the SDHC host controller driver (`drivers/sdhc/sdhc_sunxi.c`), and the disk child node named `SD` under `smhc0` in the board devicetree. This page describes how to use this stack on `yuzukineko`, and every interface comes with its output on the board.
@@ -19,17 +14,6 @@ Source locations (all under `~/f101-zephyr/`):
 * Host controller: `zephyr/drivers/sdhc/sdhc_sunxi.c`.
 
 A few prerequisites on `yuzukineko`: the `SD` disk has only `SDMMC_STACK` enabled, not the MMC (eMMC) stack; the SDIO stack is used by the WiFi/Bluetooth chip, see [AIC8800 WIFI](aic8800-wifi.md). The bus is 4 bit, and the 1.8 V UHS mode and SPI mode are not supported. The filesystem is FAT12/16/32, plus exFAT when `CONFIG_FS_FATFS_EXFAT` is enabled, with long file name support. The disk name `SD` corresponds to the FatFs mount point `/SD:`.
-
-
-## Build the checked-in example on 4.5
-
-The 4.5 branches build these examples directly; the listings below stay on the 4.2.2 baseline, and the selected branch is the reference for current fields.
-
-```sh
-west build -b yuzukineko -d build/zephyr-4.5.0/sd_api zephyr-components/examples/sd_api
-```
-
-4.5 component build passes; no target log yet. Boot it with the [RAM or XIP flow](../zephyr-build-run.md).
 
 ## Architecture
 

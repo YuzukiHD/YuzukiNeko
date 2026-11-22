@@ -2,11 +2,6 @@
 title: "AIC8800 WIFI - 无线网卡驱动"
 ---
 
-:::note[版本范围]
-本页示例与板上结果基于 Zephyr 4.2.2；4.5 的差异见[版本与迁移指南](../zephyr-4-5.md)。
-:::
-
-
 AIC8800 是爱科微（AICSemi）的 WiFi + 蓝牙二合一芯片，`yuzukineko` 板上用 SDIO 接到 SoC。这个组件是它的 WiFi 部分，源码在 `~/f101-zephyr/zephyr-components/aic8800`，是一个 Zephyr 模块（`zephyr/module.yml`），包括 FullMAC 主机驱动（命令队列、收发描述符、固件下载）、移植的 wpa_supplicant，以及和 Zephyr 内核、SDIO 协议栈、网络栈之间的适配层。
 
 驱动向 Zephyr 注册一个以太网二层的 WiFi 网卡 `wlan0`，应用用 `net_mgmt` 的 WiFi 请求扫描、连接、断开、读状态，连上以后用 DHCPv4 取地址，之后收发数据就是普通的 BSD 套接字。蓝牙部分在另一篇：[AIC8800 BT](aic8800-bt.md)。两部分共用同一颗芯片、同一条 SDIO 和同一个 REG_ON，固件在同一次启动里下载，所以后面“总线与固件加载”一节对蓝牙同样适用。
@@ -18,23 +13,13 @@ AIC8800 是爱科微（AICSemi）的 WiFi + 蓝牙二合一芯片，`yuzukineko`
 * 工作模式只接了 STA。源码里有 AP、P2P、射频测试的代码，没有接到 Zephyr 的 WiFi 管理接口，应用用不了。
 * 管理接口只接受开放网络和 WPA2-PSK。`AIC8800_WPA3` 只是编译 SAE 握手，连接请求里的 SAE 会被驱动拒绝。
 
-
-
 ## 4.5 网络与可选 WPA3 变化
 
 4.5 的 Ethernet capability 回调接收网络接口。可选 `CONFIG_AIC8800_WPA3` 使用 TF-PSA-Crypto SAE 后端，显式配置曲线，并为椭圆曲线乘法提供随机回调；secp192r1 被拒绝。已通过启用 WPA3 的扫描构建，尚未在 4.5 重新验证路由器互通。下文旧表格／日志描述各自的原始配置。
 
+4.5 的 WPA3 与网络变化见[版本与迁移指南](../zephyr-4-5.md)。
+
 驱动还为 [Miracast](../apps/miracast.md) 提供 Wi-Fi Direct GO 控制，运行时独占无线接口，不能与普通 STA/DLNA 连接并行；这不代表支持通用 STA+P2P 并发。
-
-## 在 4.5 构建仓库内的示例
-
-4.5 分支可直接构建这些示例；下文代码仍是 4.2.2 基线，字段以所选分支为准。
-
-```sh
-west build -b yuzukineko -d build/zephyr-4.5.0/aic8800_wifi_api zephyr-components/examples/aic8800_wifi_api
-```
-
-4.5 组件构建通过，未有板上日志；启动方式见 [RAM 或 XIP 流程](../zephyr-build-run.md)。
 
 ## 架构
 
@@ -1150,7 +1135,6 @@ aic8800: wifi_open fail, ret=-1
 * `REG_ON` 的上电顺序没有改（拉低 100 毫秒，拉高后等 300 毫秒）。
 
 再遇到启动失败时，看日志里有没有 `sdio card up`、`sdio write retry` 和 `Start app`，重新上电即可。
-
 
 ## 板子上的完整日志
 

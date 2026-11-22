@@ -2,11 +2,6 @@
 title: "Win95 - Bochs x86 模拟"
 ---
 
-:::note[版本范围]
-本页示例与板上结果基于 Zephyr 4.2.2；4.5 的差异见[版本与迁移指南](../zephyr-4-5.md)。
-:::
-
-
 在板子上用 [Bochs](https://github.com/bochs-emu/Bochs) 模拟一台 486 级的 x86 PC，从 TF 卡上的磁盘镜像启动 Windows 95。组件是 `~/f101-zephyr/zephyr-components/bochs`，示例是 `samples/pc`。Bochs 是用 C++ 写的解释型模拟器，在 RISC-V 板子上整个跑在软件里，没有任何硬件加速，所以很慢。
 
 ```mermaid
@@ -172,7 +167,6 @@ Win95 启动菜单有 30 秒倒计时。虚拟机时钟必须和主机速度对�
 ![板子屏幕上的 Windows 95 桌面和 Welcome 对话框](figures/win95-desktop.webp)
 
 对话框上的鼠标指针是 Windows 自己画的：Windows 95 启动后总会在屏幕上渲染指针，不管有没有鼠标。板子这边没有把鼠标接到触摸屏或 USB 上（见 [功能范围](#功能范围)），所以这个指针不会动。
-
 
 ## 实现原理
 
@@ -352,7 +346,6 @@ Bochs 原版的几项配置装不下，所以改小，见下面的 [补丁](#补
 | `CONFIG_BOCHS_HEARTBEAT` | n | 每秒打印一次虚拟机 `eip` 和每秒虚拟 tick 数，用来判断虚拟机有没有在跑 |
 
 `samples/pc/prj.conf` 里和本应用相关、默认就开的选项：`CONFIG_CPP`、`CONFIG_STD_CPP17`、`CONFIG_BOCHS`、`CONFIG_MAIN_STACK_SIZE=65536`、`CONFIG_COMMON_LIBC_MALLOC_ARENA_SIZE=-1`（堆用满剩余内存）、`CONFIG_SDHC`、`CONFIG_DISK_DRIVER_SDMMC`、`CONFIG_FAT_FILESYSTEM_ELM`、`CONFIG_FS_FATFS_EXFAT`、`CONFIG_FS_FATFS_LFN`、`CONFIG_DISPLAY`。`CONFIG_DISPLAY_SUNXI_FB_DIV=1` 是显示驱动的帧缓冲分频。
-
 
 ## 功能范围
 

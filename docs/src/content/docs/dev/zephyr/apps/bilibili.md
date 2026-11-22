@@ -2,11 +2,6 @@
 title: "Bilibili - video client"
 ---
 
-:::note[Version scope]
-Examples and board results on this page use the Zephyr 4.2.2 baseline; 4.5 differences are in the [version and migration guide](../zephyr-4-5.md).
-:::
-
-
 Bilibili is a client of the Bilibili video site for the YuzukiNeko: a touch user interface (LVGL, 1024×768) with cover cards, search with a pinyin input method, a player that starts while the file is still downloading, scrolling comments (danmaku), a QR code login and the Wi-Fi settings. It is an application, not a module, and it runs <strong>in place from the SPI NOR flash</strong> (XIP) like [NekoBox](nekobox.md), whose player files it is built from. The code is in `zephyr-components/bilibili-tv`.
 
 This page explains how it is built, module by module, with the code of each one: the threads and the command queue, the HTTP and TLS client, the signed web interface, how the video stream is found and downloaded, the player, the comments, and every part of the user interface.
@@ -24,10 +19,11 @@ This page explains how it is built, module by module, with the code of each one:
 
 Before you start, first complete [Setting up the development environment](../zephyr-setup-env.md) and [Getting the Zephyr source](../zephyr-get-source.md).
 
-
 ## 4.5 compatibility
 
 The 4.5 branch updates TLS/PSA configuration, LVGL 9.6 text measurement and image caching, and RVV alpha-boundary blending. Build it with the matching Zephyr branch and a fresh output directory. The application compiled successfully; the detailed UI/internal code and target observations below retain the 4.2.2 baseline. Network login, CDN playback, audio, touch and sustained memory behavior on 4.5 still need board tests.
+
+4.5 compatibility changes are in the [version and migration guide](../zephyr-4-5.md).
 
 ## Build and run
 
@@ -61,7 +57,6 @@ sha256sum build/bili/zephyr/zephyr.bin out/bili-readback.bin
 ```
 
 After checking the F101 ID, write output and matching same-length readback hashes, follow [Build and run](../zephyr-build-run.md) to download a current-source `xip-boot_fel.bin` to RAM `0x20000`, check the write, then execute separately. Preserve NOR `0x20000` parameters and the empty boot area; substitute the separate build directory for 4.5.
-
 
 What the card needs:
 

@@ -2,11 +2,6 @@
 title: "Android screen mirroring"
 ---
 
-:::note[Version scope]
-Examples and board results on this page use the Zephyr 4.2.2 baseline; 4.5 differences are in the [version and migration guide](../zephyr-4-5.md).
-:::
-
-
 Mirror an Android phone's screen onto the board's screen and send touch and navigation keys back to the phone. The board connects to the phone's adbd over WiFi (ADB over TCP), starts the [scrcpy](https://github.com/Genymobile/scrcpy) server on the phone, the server encodes the screen into an H.264 stream and sends it back, and the board decodes it with the on-chip video engine and sends it to the display video plane. The example is `zephyr-components/android-screen-mirror/samples/mirror_player`; the component itself (ADB client, pairing, scrcpy client) is in the `src/` of the same directory.
 
 ```mermaid
@@ -22,7 +17,6 @@ flowchart TB
 
 Before you start, complete [Setting up the development environment](../zephyr-setup-env.md) and [Getting the Zephyr source](../zephyr-get-source.md). The WiFi part uses the [AIC8800 WIFI](../components/aic8800-wifi.md) driver; for the details of scanning, connecting and DHCP see that page.
 
-
 ## 4.5 crypto changes and protocol choice
 
 On 4.5 the module selects native Mbed TLS/PSA options for RSA, X.509, SHA, HKDF and AES-GCM. RSA generation and HKDF use PSA APIs. Use `CONFIG_MBEDTLS_SSL_PROTO_TLS1_3=y`; the old `mirror_mbedtls.h` user header is removed. Keep the old header/configuration only with the 4.2.2 branch. The maintained sample built on 4.5, and its crypto host regression passed with ASan/UBSan plus independent RSA, certificate and HKDF/GCM checks:
@@ -32,6 +26,8 @@ sh zephyr-components/android-screen-mirror/tests/host/run.sh
 ```
 
 This host test needs CMake, a host C compiler, Python’s `cryptography` package and the Mbed TLS/TF-PSA-Crypto revisions selected by the 4.5 manifest.
+
+4.5 crypto and Kconfig changes are in the [version and migration guide](../zephyr-4-5.md).
 
 This receiver uses ADB/scrcpy and developer debugging. For the phone's Wireless display / Screen mirroring menu without ADB, use [Miracast](miracast.md). Phone interoperability on the new 4.5 firmware remains unverified.
 

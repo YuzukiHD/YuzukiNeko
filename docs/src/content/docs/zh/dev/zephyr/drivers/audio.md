@@ -2,11 +2,6 @@
 title: "AUDIO - 音频驱动"
 ---
 
-:::note[版本范围]
-本页示例与板上结果基于 Zephyr 4.2.2；4.5 的差异见[版本与迁移指南](../zephyr-4-5.md)。
-:::
-
-
 F101 有三个音频控制器，在 Zephyr 里都用标准的 I2S 接口 `<zephyr/drivers/i2s.h>` 传音频数据；片上 codec 的模拟部分另外用音频 codec 接口 `<zephyr/audio/codec.h>` 控制音量、静音和输入选择。
 
 ```mermaid
@@ -21,6 +16,8 @@ flowchart LR
     I2S0 --> PIN1["PE0…PE4<br/>外接 codec"]
     OWA --> PIN2["PD22 / PE6<br/>OWA-OUT"]
 ```
+
+4.5 的音频 API 变化见[版本与迁移指南](../zephyr-4-5.md)。
 
 | 设备 | 驱动 | 内容 |
 | --- | --- | --- |
@@ -39,17 +36,6 @@ flowchart LR
 | 声道 | 发送 1 或 2，接收 1 | 1…16 | 1 或 2 |
 | 格式 | 固定 | I2S、左对齐、右对齐、PCM 短帧、PCM 长帧；主、从；时钟反相；内部回环 | 内部回环 |
 | 模拟部分 | 耳机输出，麦克风、FM、线路输入，3 个输入选择 | 没有 | 没有 |
-
-
-## 在 4.5 构建仓库内的示例
-
-4.5 分支可直接构建这些示例；下文代码仍是 4.2.2 基线，字段以所选分支为准。
-
-```sh
-west build -b yuzukineko -d build/zephyr-4.5.0/audio_api zephyr-components/examples/audio_api
-```
-
-4.5 组件构建通过，未有板上日志；启动方式见 [RAM 或 XIP 流程](../zephyr-build-run.md)。
 
 ## 设备树
 

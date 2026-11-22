@@ -2,11 +2,6 @@
 title: "Set up the development environment"
 ---
 
-:::note[Version scope]
-Examples and board results on this page use the Zephyr 4.2.2 baseline; 4.5 differences are in the [version and migration guide](zephyr-4-5.md).
-:::
-
-
 This page prepares everything needed on a Linux host to build YuzukiNeko Zephyr programs: system dependencies, a Python virtual environment, west, the XuanTie toolchain, and xfel for downloading. Once it is done, the next page, [Get the Zephyr source](zephyr-get-source.md), has somewhere to put the code.
 
 :::caution

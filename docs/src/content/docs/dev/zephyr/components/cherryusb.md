@@ -2,11 +2,6 @@
 title: "CherryUSB - USB stack"
 ---
 
-:::note[Version scope]
-Examples and board results on this page use the Zephyr 4.2.2 baseline; 4.5 differences are in the [version and migration guide](../zephyr-4-5.md).
-:::
-
-
 [CherryUSB](https://github.com/cherry-embedded/CherryUSB) is a cross-RTOS USB device/host stack. The Zephyr port for the F101 does not use the upstream USB device stack; CherryUSB provides all USB functionality: the device stack turns the board into USB devices such as a CDC ACM serial port, a mass storage disk, or a HID device, and the host stack enumerates external disks, serial adapters, and keyboards and mice on the EHCI/OHCI controllers.
 
 The [USB](../drivers/usb.md) page covers the layer below: the devicetree of the OTG controller, the EHCI/OHCI host controllers and the PHY, acquiring and releasing the PHY, and a CDC ACM echo that demonstrates the basics of device mode. This page covers the stack itself: how the component is layered, which Kconfig options to select, what the board glue has to provide, and how each `usbd_*` and `usbh_*` interface is used.
@@ -18,17 +13,6 @@ The device classes that can be enabled in Kconfig are CDC ACM, HID, MSC, audio, 
 How it runs: the host stack has its own thread, and the root hub thread handles port changes and enumeration; the endpoint callbacks and class callbacks of the device stack run directly in interrupt context and must not block.
 
 Which interfaces have been verified on the board and which have not is written in the [Verification](#verification) section.
-
-
-## Build the checked-in example on 4.5
-
-The 4.5 branches build these examples directly; the listings below stay on the 4.2.2 baseline, and the selected branch is the reference for current fields.
-
-```sh
-west build -b yuzukineko -d build/zephyr-4.5.0/cherryusb_api zephyr-components/examples/cherryusb_api
-```
-
-4.5 component build passes; no target log yet. Boot it with the [RAM or XIP flow](../zephyr-build-run.md).
 
 ## Source layout
 

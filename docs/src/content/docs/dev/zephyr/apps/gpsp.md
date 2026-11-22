@@ -2,11 +2,6 @@
 title: "gpSP - GBA emulator (dynarec)"
 ---
 
-:::note[Version scope]
-Examples and board results on this page use the Zephyr 4.2.2 baseline; 4.5 differences are in the [version and migration guide](../zephyr-4-5.md).
-:::
-
-
 Runs Game Boy Advance games on the board with the [gpSP](https://github.com/libretro/gpsp) core and its <strong>RISC-V dynamic recompiler</strong>: the ARM code of the game is translated into RISC-V code at run time and executed natively, instead of being interpreted. The ROM is read from the TF card, the 240×160 game picture is handed to the display engine's video plane and scaled up to the whole screen, the sound goes out over I2S from the on-chip codec, and a layer of semi-transparent buttons drawn with LVGL is overlaid on the screen and operated with the touchscreen. The code is in `zephyr-components/gbsp` (GPL-2.0-or-later) and the sample is `samples/gbsp_player`.
 
 It is the second GBA core next to [mGBA](mgba.md). The interface is the same (the `gbsp_*` functions mean what the `gba_*` functions of mGBA mean), and so are the sample options and the main loop, so the two cores can be compared on the same game, and both can be linked into one image. On the same ROM gpSP needs about 2.4 to 2.7 times less time per frame (see [Speed against mGBA](#speed-against-mgba)). Only GBA ROMs are supported; for Game Boy / Game Boy Color use mGBA.

@@ -2,11 +2,6 @@
 title: "MicroPython - Python REPL 与脚本"
 ---
 
-:::note[版本范围]
-本页示例与板上结果基于 Zephyr 4.2.2；4.5 的差异见[版本与迁移指南](../zephyr-4-5.md)。
-:::
-
-
 在板子上运行 [MicroPython](https://micropython.org/)：控制台上有 Python REPL，用 `machine` 访问引脚和外设，TF 卡作为文件系统挂载，可以驱动 LCD，另有一个 `f101` 模块，提供 MicroPython 没有通用绑定的硬件（芯片 ID、2D 加速器和音频输出）。应用是<strong>未经修改的 MicroPython Zephyr 移植</strong>（git 子模块，MIT）；`zephyr-components/micropython` 补充了板级配置、Zephyr 模块胶水和 `f101` 模块。它为 `yuzukineko` 板编译，REPL 在控制台上，即 UART1（PB0/PB1），115200。
 
 ```mermaid
@@ -57,6 +52,7 @@ git -C zephyr-components/micropython/micropython submodule update --init --depth
 
 4.5 也使用此 wrapper，输出目录改为 `build/zephyr-4.5.0/upy`；已通过构建，板上功能仍需复测。
 
+4.5 的构建与验证状态见[版本与迁移指南](../zephyr-4-5.md)。
 
 ```sh
 . ./env.sh

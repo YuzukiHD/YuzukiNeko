@@ -2,11 +2,6 @@
 title: "NekoBox - 媒体与游戏盒"
 ---
 
-:::note[版本范围]
-本页示例与板上结果基于 Zephyr 4.2.2；4.5 的差异见[版本与迁移指南](../zephyr-4-5.md)。
-:::
-
-
 NekoBox 是 YuzukiNeko 的媒体与游戏应用：触摸界面（LVGL，1024×768），有带时钟的主屏、TF 卡文件浏览器、视频播放器（MP4 H.264 + AAC）、来自手机或 PC 的 DLNA 视频投屏、Android Miracast 无线屏幕镜像、支持双指缩放的照片查看器、NES / Game Boy / Game Boy Color / Game Boy Advance 游戏、计算器、USB 副屏、带网络校时的 Wi-Fi，以及设置界面。它是一个应用而不是模块，并且<strong>直接在 SPI NOR flash 中原地运行</strong>（XIP）。代码在 `zephyr-components/nekobox`。
 
 每个功能都是一个有独立开关的<strong>特性</strong>（`CONFIG_NEKOBOX_FEATURE_*`）。关掉的特性不会被编译，也不会留下磁贴、设置行或文件类型；`main()` 里没有对应的 `#ifdef`。特性把自己提供的东西（界面、主屏磁贴、设置行、文件类型、启动步骤）登记在由链接器收集的记录里，所以新增特性只是新增一个目录，其他地方都不用改。
@@ -124,7 +119,6 @@ NOR `0x20000` 的采样参数与 loader 的 RAM 地址属于不同地址空间�
 
 仅在需要可独立启动的整镜像时使用。本操作会覆盖 NOR 启动区和应用前的参数区，下一次上电不再自动进入 FEL；日常开发使用上面的 RAM loader 流程。
 
-
 `tools/mkimage.py` 把引导桩（`xip-boot_spi.bin`）放在 flash 开头、应用放在 `0x80000`，合成一个文件；应用之前的所有内容都会被覆盖。
 
 ```mermaid
@@ -200,6 +194,8 @@ nekobox: 1024 x 768
 `CONFIG_NEKOBOX_FEATURE_MIRACAST=n` 移除实现与首页入口；`CONFIG_NEKOBOX_MIRACAST_NAME` 设置 1–32 字节的可打印 ASCII 名称。P2P GO 接管无线接口，不能与 STA/DLNA 并行。默认协商 640×480p60 H.264 与 LPCM，实际吞吐量需要上板确认。接收器、播放器、协议限制和验证入口见 [Miracast](miracast.md)。
 
 4.5 默认 NekoBox XIP 构建及 Miracast 生命周期主机检查已通过；真实手机发现、画面、声音与长时间运行尚未验证。功能位于 `src/features/miracast/`，复用 `../miracast/`；网络线程排队提交状态，UI 线程控制播放器与页面生命周期。
+
+4.5 的构建与验证状态见[版本与迁移指南](../zephyr-4-5.md)。
 
 ## DLNA 视频投屏
 

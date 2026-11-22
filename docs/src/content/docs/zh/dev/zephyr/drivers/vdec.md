@@ -2,11 +2,6 @@
 title: "视频引擎 vdec"
 ---
 
-:::note[版本范围]
-本页示例与板上结果基于 Zephyr 4.2.2；4.5 的差异见[版本与迁移指南](../zephyr-4-5.md)。
-:::
-
-
 F101 片上的视频引擎（video engine）可以用硬件解码 <strong>JPEG</strong>、<strong>PNG</strong> 和 <strong>H.264</strong>。Zephyr 里把它做成一个设备，接口是 `<zephyr/drivers/vdec.h>`，驱动在 `drivers/vdec/sunxi/`。
 
 | 编码 | 用法 | 输出格式 |
@@ -24,23 +19,13 @@ F101 片上的视频引擎（video engine）可以用硬件解码 <strong>JPEG</
 | `VDEC_FORMAT_NV21` | 同上，但交错顺序是 Cr/Cb |
 | `VDEC_FORMAT_RGBA8888` | 32 位小端字，R 在最高字节、A 在最低字节（内存里的字节顺序是 A、B、G、R） |
 
-
-
 ## 4.5 测试数据与码流解析
 
 4.5 使用 `zephyr-components/examples/vdec_api`，其 CMake 包含 JPEG、PNG、H.264 样例的 `src/` 目录，测试头文件为 `jpeg_cases.h`、`png_cases.h`、`h264_cases.h`。JPEG 使用 `jpg_s320x240`，PNG 使用 `png_rgba8`，H.264 使用 `h264_base` 和 `crc_base`。MJPEG 循环使用三张 320×240 JPEG：`jpg_s320x240`、`jpg_q2_test`、`jpg_q31_test`。下文生成 `test_*.h` 的旧步骤和五帧日志属于 4.2.2 教程，不是当前测试数据。
 
+4.5 的示例与测试数据变化见[版本与迁移指南](../zephyr-4-5.md)。
+
 维护中的 Annex B 扫描器同时接受三字节、四字节起始码，并按实际前缀长度读取 NAL 类型。当前 JPEG/PNG/H.264 样例运行多组数据和 CRC 检查；4.5 不要再启用已移除的 `CONFIG_SAMPLE_VDEC_DUMP`。编译通过不等于实机解码输出已验证。
-
-## 在 4.5 构建仓库内的示例
-
-4.5 分支可直接构建这些示例；下文代码仍是 4.2.2 基线，字段以所选分支为准。
-
-```sh
-west build -b yuzukineko -d build/zephyr-4.5.0/vdec_api zephyr-components/examples/vdec_api
-```
-
-4.5 组件构建通过，未有板上日志；启动方式见 [RAM 或 XIP 流程](../zephyr-build-run.md)。
 
 ## 设备树
 
