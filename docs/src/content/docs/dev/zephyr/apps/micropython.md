@@ -88,7 +88,7 @@ The image goes to `0x40000000` like the other samples. Extra arguments after the
 
 ## Running
 
-Download it with either method in [Building and running](../zephyr-build-run.md); the REPL is on the console, UART1 (115200). For debugging use method one: `xfel ddr f101-s3`, `xfel write 0x40000000 build/upy/zephyr/zephyr.bin`, `xfel exec 0x40000000`.
+Download it with either method in [Building and running](../zephyr-build-run.md); the REPL is on the console, UART1 (115200). For debugging use method one: `xfel write 0x20000 init_psram_efex.bin` + `xfel exec 0x20000`, `xfel write 0x40000000 build/upy/zephyr/zephyr.bin`, `xfel exec 0x40000000`.
 
 ```text
 >>> import f101

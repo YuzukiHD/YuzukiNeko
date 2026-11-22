@@ -95,7 +95,7 @@ The artifact is `build/mp4/zephyr/zephyr.bin`, about 4.2 MB, linked at `0x400000
 
 Download it with any of the methods in [Build and run](../zephyr-build-run.md); the console is UART1 (PB00/PB01, 115200 8N1).
 
-- For debugging, use <strong>method one</strong>: `xfel ddr f101-s3`, `xfel write 0x40000000 build/mp4/zephyr/zephyr.bin`, `xfel exec 0x40000000`.
+- For debugging, use <strong>method one</strong>: `xfel write 0x20000 init_psram_efex.bin` + `xfel exec 0x20000`, `xfel write 0x40000000 build/mp4/zephyr/zephyr.bin`, `xfel exec 0x40000000`.
 - For standalone playback, use <strong>method three</strong>: `mkuf2.py app build/mp4/zephyr/zephyr.bin -o out/mp4.uf2`, and drag it onto the `F101BOOT` drive.
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/apps-mp4-player/run.cast" data-speed="4"></div>

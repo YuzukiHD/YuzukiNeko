@@ -62,7 +62,7 @@ west build -b yuzukineko -d build/nes zephyr-components/nes/samples/nes_player
 
 用 [编译与运行](../zephyr-build-run.md) 里的任一种方式下载，控制台是 UART1（PB00/PB01，115200 8N1）。
 
-- 调试用方式一：`xfel ddr f101-s3`、`xfel write 0x40000000 build/nes/zephyr/zephyr.bin`、`xfel exec 0x40000000`。
+- 调试用方式一：`xfel write 0x20000 init_psram_efex.bin` + `xfel exec 0x20000`、`xfel write 0x40000000 build/nes/zephyr/zephyr.bin`、`xfel exec 0x40000000`。
 - 脱机运行用方式三：`mkuf2.py app build/nes/zephyr/zephyr.bin -o out/nes.uf2`，拖进 `F101BOOT` 盘。
 
 :::caution

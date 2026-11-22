@@ -58,6 +58,16 @@ picocom -b 115200 /dev/ttyUSB0
 
 主机通过 USB 把 `zephyr.bin` 写进 PSRAM 再跳转过去运行，不动 Flash。
 
+RAM 流程使用 SyterKit 的 PSRAM helper，而不是只带 F101S3 参数的 `xfel ddr f101-s3`。先构建一次 helper，并把它复制到镜像旁边：
+
+```sh
+make -C SyterKit O=../out/syterkit-efex sun252iw2_rv32_efex_defconfig
+make -C SyterKit O=../out/syterkit-efex CROSS_COMPILE="$CROSS_COMPILE" -j8
+cp ../out/syterkit-efex/build/soc/sun252iw2/app_efex/init_psram/init_psram_efex.bin .
+```
+
+默认构建使用 32 MiB 的 S4 参数表。F101S3 需要 16 MiB APS128M 参数，按 [PSRAM 初始化与 RAM 启动](../../boot/psram-init.md) 构建或覆盖出对应镜像，再复制为 `init_psram_efex.bin`。构建使用玄铁工具链，不是 ESP-IDF 工具链。
+
 1. 让板子进入 FEL：按住 FEL 键，接上 USB 数据线，松开（详见 [FEL 下载模式与工具](../../boot/fel.md#进入-fel)）。
 2. 确认连接：
 
@@ -67,10 +77,11 @@ picocom -b 115200 /dev/ttyUSB0
 
    输出里应有 `AWUSBFEX ID=0x00193700(F101)`。
 
-3. 初始化内存、载入、运行：
+3. 先用 helper 初始化 PSRAM，再载入并运行：
 
    ```sh
-   xfel ddr f101-s3
+   xfel write 0x20000 init_psram_efex.bin
+   xfel exec 0x20000
    xfel write 0x40000000 build/hello/zephyr/zephyr.bin
    xfel exec 0x40000000
    ```
@@ -79,7 +90,7 @@ picocom -b 115200 /dev/ttyUSB0
 
 | 命令 | 作用 |
 | --- | --- |
-| `xfel ddr f101-s3` | 初始化 PSRAM。这个辅助程序同时配好 UART 时钟和引脚复用，缺了它控制台没有输出 |
+| `xfel write 0x20000 init_psram_efex.bin` + `xfel exec 0x20000` | 为 F101S3 或 F101S4 初始化 PSRAM 并返回 FEL。缺了它控制台没有输出 |
 | `xfel write 0x40000000 …` | 把镜像写到链接地址 |
 | `xfel exec 0x40000000` | 跳到入口开始运行 |
 
@@ -324,7 +335,7 @@ python3 zephyr-components/uf2-downloader/tools/mkuf2.py app build/hello/zephyr/z
 
 ## 常见问题
 
-<strong>方式一：`exec` 后控制台没有输出</strong>：先确认控制台接线和参数，确认 `xfel ddr f101-s3` 已经执行。仍然没有，用前面「控制台」一节说的裸机小程序区分问题在哪一环。
+<strong>方式一：`exec` 后控制台没有输出</strong>：先确认控制台接线和参数，确认 `xfel write 0x20000 init_psram_efex.bin` + `xfel exec 0x20000` 已经执行。仍然没有，用前面「控制台」一节说的裸机小程序区分问题在哪一环。
 
 <strong>`mkuf2.py` 报 `… bytes, the limit is 10420224`</strong>：应用超过了 `0x9F0000` 字节的应用区。减小程序，或去掉不需要的功能。
 

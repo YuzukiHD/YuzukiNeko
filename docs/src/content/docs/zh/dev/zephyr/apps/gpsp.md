@@ -62,7 +62,7 @@ west build -b yuzukineko -d build/gbsp zephyr-components/gbsp/samples/gbsp_playe
 
 用[编译与运行](../zephyr-build-run.md)里的任一方式下载；控制台是 UART1（PB00/PB01，115200 8N1）。
 
-- 调试用<strong>方式一</strong>：`xfel ddr f101-s3`、`xfel write 0x40000000 build/gbsp/zephyr/zephyr.bin`、`xfel exec 0x40000000`。
+- 调试用<strong>方式一</strong>：`xfel write 0x20000 init_psram_efex.bin` + `xfel exec 0x20000`、`xfel write 0x40000000 build/gbsp/zephyr/zephyr.bin`、`xfel exec 0x40000000`。
 - 独立运行用<strong>方式三</strong>：`mkuf2.py app build/gbsp/zephyr/zephyr.bin -o out/gbsp.uf2`，再拖到 `F101BOOT` 盘上。
 
 :::caution

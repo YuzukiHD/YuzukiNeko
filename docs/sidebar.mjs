@@ -122,6 +122,16 @@ export const sidebar = [
         "label": "SPI NOR layout and backup",
         "translations": { "zh-CN": "SPI NOR 布局与备份" },
         "slug": "boot/flash-layout"
+      },
+      {
+        "label": "PSRAM initialization and RAM boot",
+        "translations": { "zh-CN": "PSRAM 初始化与 RAM 启动" },
+        "slug": "boot/psram-init"
+      },
+      {
+        "label": "Bootloader configuration and systems",
+        "translations": { "zh-CN": "引导程序配置与多系统启动" },
+        "slug": "boot/bootloader"
       }
     ]
   },
@@ -547,6 +557,100 @@ export const sidebar = [
               "zh-CN": "USB 与 USB 副屏"
             },
             "slug": "dev/rt-thread/drivers/usb"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "label": "ESP-IDF development",
+    "translations": { "zh-CN": "ESP-IDF 开发" },
+    "collapsed": false,
+    "items": [
+      {
+        "label": "Introduction",
+        "translations": { "zh-CN": "简介" },
+        "slug": "dev/esp-idf"
+      },
+      {
+        "label": "Environment and source",
+        "translations": { "zh-CN": "环境与源码" },
+        "slug": "dev/esp-idf/setup"
+      },
+      {
+        "label": "Building, loading and running",
+        "translations": { "zh-CN": "构建、加载与运行" },
+        "slug": "dev/esp-idf/build-run"
+      },
+      {
+        "label": "Port architecture",
+        "translations": { "zh-CN": "移植架构" },
+        "slug": "dev/esp-idf/architecture"
+      },
+      {
+        "label": "Verification and known limits",
+        "translations": { "zh-CN": "验证与已知限制" },
+        "slug": "dev/esp-idf/testing"
+      },
+      {
+        "label": "ESP-IDF drivers",
+        "translations": { "zh-CN": "ESP-IDF 驱动" },
+        "collapsed": true,
+        "items": [
+          {
+            "label": "System, clocks and memory",
+            "translations": { "zh-CN": "系统、时钟与内存" },
+            "slug": "dev/esp-idf/drivers/system"
+          },
+          {
+            "label": "GPIO and pin multiplexing",
+            "translations": { "zh-CN": "GPIO 与引脚复用" },
+            "slug": "dev/esp-idf/drivers/gpio"
+          },
+          {
+            "label": "UART and console",
+            "translations": { "zh-CN": "UART 与控制台" },
+            "slug": "dev/esp-idf/drivers/uart"
+          },
+          {
+            "label": "I2C and GT967 touch",
+            "translations": { "zh-CN": "I2C 与 GT967 触摸" },
+            "slug": "dev/esp-idf/drivers/i2c-touch"
+          },
+          {
+            "label": "SPI, NOR, partitions and NVS",
+            "translations": { "zh-CN": "SPI、NOR、分区与 NVS" },
+            "slug": "dev/esp-idf/drivers/spi-storage"
+          },
+          {
+            "label": "GPTimer, LEDC and GPADC",
+            "translations": { "zh-CN": "GPTimer、LEDC 与 GPADC" },
+            "slug": "dev/esp-idf/drivers/timers-adc"
+          },
+          {
+            "label": "SD/MMC and SDIO",
+            "translations": { "zh-CN": "SD/MMC 与 SDIO" },
+            "slug": "dev/esp-idf/drivers/sdmmc"
+          },
+          {
+            "label": "Display and backlight",
+            "translations": { "zh-CN": "显示与背光" },
+            "slug": "dev/esp-idf/drivers/display"
+          },
+          {
+            "label": "I2S and the on-chip codec",
+            "translations": { "zh-CN": "I2S 与片内 codec" },
+            "slug": "dev/esp-idf/drivers/audio"
+          },
+          {
+            "label": "DMA, PPA and JPEG",
+            "translations": { "zh-CN": "DMA、PPA 与 JPEG" },
+            "slug": "dev/esp-idf/drivers/dma-accel"
+          },
+          {
+            "label": "AIC8800 Wi-Fi",
+            "translations": { "zh-CN": "AIC8800 Wi-Fi" },
+            "slug": "dev/esp-idf/drivers/wifi"
           }
         ]
       }

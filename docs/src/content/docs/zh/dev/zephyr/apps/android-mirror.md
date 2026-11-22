@@ -157,7 +157,8 @@ CONFIG_SAMPLE_MIRROR_PHONE_IP="192.168.1.23"
 下载方式见 [编译与运行](../zephyr-build-run.md)，控制台是 UART1（PB00/PB01，115200 8N1）。镜像有 7.2 MiB，调试时用方式一：
 
 ```sh
-xfel ddr f101-s3
+xfel write 0x20000 init_psram_efex.bin
+xfel exec 0x20000
 xfel write 0x40000000 build/android-mirror/zephyr/zephyr.bin
 xfel exec 0x40000000
 ```

@@ -137,7 +137,8 @@ west build -b yuzukineko -d build/ncnn zephyr-components/ncnn/samples/benchmark
 用 [编译与运行](../zephyr-build-run.md) 里的任一种方式下载，控制台是 UART1（PB00/PB01，115200 8N1）。调试用方式一：
 
 ```sh
-xfel ddr f101-s3
+xfel write 0x20000 init_psram_efex.bin
+xfel exec 0x20000
 xfel write 0x40000000 build/ncnn/zephyr/zephyr.bin
 xfel exec 0x40000000
 ```

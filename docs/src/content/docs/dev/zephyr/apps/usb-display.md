@@ -51,7 +51,7 @@ The artifact is `build/usbdisp/zephyr/zephyr.bin`, about 295 KB, linked at `0x40
 
 Download it with any of the methods in [Building and running](../zephyr-build-run.md); the console is UART1 (PB00/PB01, 115200 8N1).
 
-- For debugging use <strong>method one</strong>: `xfel ddr f101-s3`, `xfel write 0x40000000 build/usbdisp/zephyr/zephyr.bin`, `xfel exec 0x40000000`.
+- For debugging use <strong>method one</strong>: `xfel write 0x20000 init_psram_efex.bin` + `xfel exec 0x20000`, `xfel write 0x40000000 build/usbdisp/zephyr/zephyr.bin`, `xfel exec 0x40000000`.
 - For stand-alone use <strong>method three</strong>: `mkuf2.py app build/usbdisp/zephyr/zephyr.bin -o out/usbdisp.uf2`, then drag it onto the `F101BOOT` drive.
 
 :::caution

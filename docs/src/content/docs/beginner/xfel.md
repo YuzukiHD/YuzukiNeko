@@ -195,9 +195,9 @@ The first line also includes `scratchpad=0x00020000`. If the chip ID or capacity
 | `xfel spinor read <addr> <len> <file>` | Read Flash | Yes, backup and read-back |
 | `xfel spinor write <addr> <file>` | Write Flash, erasing the required sectors automatically | Yes, writing the image |
 | `xfel reset` | Reset the board | Yes, after writing |
-| `xfel ddr` | Initialize PSRAM and UART clocks | No; used by the download-to-RAM flow |
+| `xfel ddr` | Initialize PSRAM and UART clocks | No; `f101-s3` only supports S3, use the [SyterKit helper](../boot/psram-init.md) for RAM boot |
 
-Writing NOR Flash does not require `xfel ddr`. `ddr` is used by the download-to-RAM flow and is a different path from `spinor write`.
+Writing NOR Flash does not require `xfel ddr`. The download-to-RAM flow uses the SyterKit PSRAM helper and is a different path from `spinor write`; see [PSRAM initialization and RAM boot](../boot/psram-init.md).
 
 ## Command execution order
 
