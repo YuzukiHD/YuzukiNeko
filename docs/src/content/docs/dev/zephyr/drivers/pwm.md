@@ -77,7 +77,7 @@ pwm: pwm@2000c00 {
 
 The three numbers in `pwms = <&pwm 2 1000000 PWM_POLARITY_INVERTED>` are the channel, the period (1 000 000 ns) and the flags that `#pwm-cells = <3>` prescribes. Other peripherals reference the PWM with the same notation, and an application takes it out with `PWM_DT_SPEC_GET()`.
 
-### Binding
+**Binding**
 
 `allwinner,sunxi-pwm.yaml`:
 

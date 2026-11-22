@@ -77,7 +77,7 @@ pwm: pwm@2000c00 {
 
 `pwms = <&pwm 2 1000000 PWM_POLARITY_INVERTED>` 里的三个数就是 `#pwm-cells = <3>` 规定的通道、周期（1 000 000 ns）和标志。别的外设用同样的写法引用 PWM，应用里 `PWM_DT_SPEC_GET()` 取出来。
 
-### 绑定
+**绑定**
 
 `allwinner,sunxi-pwm.yaml`：
 

@@ -81,7 +81,7 @@ pwm_bl: pwm@200a000 {
 
 `PWM_POLARITY_INVERTED` 写在这里只是和别的背光节点保持一致，对 PWM_BL 没有影响。显示流水线用的 `pwm-backlight` 节点的属性见 [显示](display.md) 和 [PWM](pwm.md)。
 
-### 绑定：allwinner,sunxi-pwm-bl.yaml
+**绑定：allwinner,sunxi-pwm-bl.yaml**
 
 ```yaml
 # Copyright (c) 2026 Yuzuki Tsuru

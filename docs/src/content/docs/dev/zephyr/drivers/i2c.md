@@ -59,7 +59,7 @@ i2c1: i2c@2502400 {
 | `i2c@2502400` | `i2c1` | `0x02502400` | 10 | `CLK_BUS_TWI1` | `RST_BUS_TWI1` |
 | `i2c@2502800` | `i2c2` | `0x02502800` | 11 | `CLK_BUS_TWI2` | `RST_BUS_TWI2` |
 
-### Board devicetree: yuzukineko.dts
+**Board devicetree: yuzukineko.dts**
 
 The board file does three things: defines the pin groups, switches on the controllers and binds their pins, and attaches the slave devices under the controllers.
 

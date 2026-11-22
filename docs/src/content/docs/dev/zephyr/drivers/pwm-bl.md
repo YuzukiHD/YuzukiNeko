@@ -81,7 +81,7 @@ The board files of `yuzukineko` do not switch `pwm_bl` on, so the demonstration 
 
 `PWM_POLARITY_INVERTED` is written here only to stay consistent with the other backlight nodes; it has no effect on PWM_BL. For the properties of the `pwm-backlight` node used by the display pipeline, see [Display](display.md) and [PWM](pwm.md).
 
-### Binding: allwinner,sunxi-pwm-bl.yaml
+**Binding: allwinner,sunxi-pwm-bl.yaml**
 
 ```yaml
 # Copyright (c) 2026 Yuzuki Tsuru
