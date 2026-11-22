@@ -74,9 +74,13 @@ A pin can select only one alternate function at a time. See [Pinout](../hardware
 
 ## Base board devices and connectors
 
-:::note[Photo pending]
-A photo of the whole base board, with `FPC1`, `CN2`, `CN3`, `CN1`, `RF1`, `H1`, `SW1` and `U1` marked.
-:::
+| Base board photo | Base board schematic |
+| --- | --- |
+| <img src="assets/figures/base-board.webp" loading="eager" alt="The YuzukiCube-M base board with the core board installed"> | <img src="assets/figures/base-board-sch.webp" loading="eager" alt="YuzukiCube-M base board schematic"> |
+
+![The base board without the core board, showing the 49-pad U1 footprint in the centre](figures/base-board-bare.webp)
+
+The second photo shows the base board before the core board is soldered; the centre area is the 49-pad `U1` footprint. On an assembled board this area is soldered and cannot be removed.
 
 | Designator | Device or connector | Function | Note |
 | --- | --- | --- | --- |
@@ -87,9 +91,9 @@ A photo of the whole base board, with `FPC1`, `CN2`, `CN3`, `CN1`, `RF1`, `H1`, 
 | `U4` | RY3730 | Display backlight boost | Outputs `VLED-A` / `VLED-K` |
 | `U10` | MT3520B | 5 V to 3.3 V buck | Supplies the base board's 3.3 V devices |
 | `FPC1` | 40-pin, 0.5 mm FPC | MIPI DSI, backlight and capacitive touch | Thin cable; insert with the power off |
-| `CN1` | 2-pin, 1.25 mm | Analog audio `HPOUT` | Do not connect the speaker |
+| `CN1` | 2-pin, 1.25 mm | CANH / CANL | CAN bus; termination required |
 | `CN2` | 5-pin, 1.25 mm | UART1 and UART4 | The console uses UART1 |
-| `CN3` | 2-pin, 1.25 mm | Speaker `SPKR+` / `SPKR-` | Do not connect audio input |
+| `CN3` | 2-pin, 1.25 mm | Speaker `SPKR+` / `SPKR-` | Output of the `U2` amplifier |
 | `RF1` | IPEX / u.FL | Wi-Fi/Bluetooth antenna | Press straight down; do not pull the cable |
 | `H1` | 2.54 mm 2-pin female header | `VSYS-5V` and `GND` | Do not power the base board from here |
 | `SW1` | Tactile button | `PD5` / `DOWN` | Not a reset button |
@@ -102,7 +106,7 @@ A photo of the whole base board, with `FPC1`, `CN2`, `CN3`, `CN1`, `RF1`, `H1`, 
 | Console serial | `CN2` pins 1/2/5 | UART1 RX/TX/GND |
 | Second serial port | `CN2` pins 3/4 | UART4 RX/TX |
 | Speaker | `CN3` | `SPKR+` / `SPKR-` |
-| Analog audio | `CN1` | `HPOUT` |
+| CAN bus | `CN1` | CANH / CANL |
 | Wi-Fi/Bluetooth antenna | `RF1` | IPEX / u.FL |
 
 ## Connector electrical characteristics
@@ -111,7 +115,8 @@ A photo of the whole base board, with `FPC1`, `CN2`, `CN3`, `CN1`, `RF1`, `H1`, 
 | --- | --- | --- |
 | GPIO | 3.3 V digital | Must not receive 5 V signals |
 | `GPADC` | Analog input | Input range is in the SoC documentation |
-| `CN1` / `CN3` | Analog audio | Do not connect to power or ground |
+| `CN1` | Differential CAN bus | Termination required; do not connect to power |
+| `CN3` | Analog audio output | Speaker only; do not connect to power or ground |
 | `CN2` | 3.3 V UART | Cross `TX`/`RX` |
 | `FPC1` | MIPI DSI, backlight and touch | Insert and remove with the power off |
 

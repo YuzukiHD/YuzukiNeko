@@ -4,6 +4,21 @@ title: "Base board wiring"
 
 The base board (YuzukiCube-M) brings the core board signals out to the display, audio, antenna, button and serial connectors. It contains no SoC: the core board is surface-mount soldered to it as `U1`, and all peripherals operate through the core board. Disconnect USB before wiring and confirm connector orientation before inserting anything.
 
+| Base board photo | Base board schematic |
+| --- | --- |
+| <img src="assets/figures/base-board.webp" loading="eager" alt="The YuzukiCube-M base board with the core board installed"> | <img src="assets/figures/base-board-sch.webp" loading="eager" alt="YuzukiCube-M base board schematic"> |
+
+Connector positions in the photo:
+
+| Photo position | Connector |
+| --- | --- |
+| Top centre | `FPC1` display cable |
+| Top left | `CN1` CAN bus |
+| Top right | `CN3` speaker |
+| Right side | `CN2` serial |
+| Bottom right | `H1` 5 V header |
+| Bottom left | `SW1` button |
+
 ## Base board function and power
 
 The base board adds the following devices and connectors:
@@ -36,7 +51,7 @@ The core board is surface-mount soldered and cannot be removed. The bare parts i
 | Console serial | `CN2` pins 1/2/5 | UART1 RX/TX/GND |
 | Second serial port | `CN2` pins 3/4 | UART4 RX/TX |
 | Speaker | `CN3` | `SPKR+` / `SPKR-` |
-| Analog audio | `CN1` | `HPOUT` |
+| CAN bus | `CN1` | CANH / CANL |
 | Wi-Fi/Bluetooth antenna | `RF1` | IPEX / u.FL |
 
 ## Wiring rules
@@ -73,9 +88,9 @@ The core board is surface-mount soldered and cannot be removed. The bare parts i
 5. Do not fold the cable or touch the gold contacts.
 6. Power up and check the display and touch.
 
-:::note[Photo pending]
-A photo of the base board with the display cable, showing the latch opening and the gold-contact orientation.
-:::
+| FPC1 photo | FPC1 schematic |
+| --- | --- |
+| <img src="assets/figures/fpc1.webp" loading="eager" alt="FPC1 display cable connector with the cable inserted"> | <img src="assets/figures/fpc1-sch.webp" loading="eager" alt="FPC1 display, backlight and touch schematic"> |
 
 See [YuzukiCube-M base board](../baseboard.md) for display and touch details.
 
@@ -106,17 +121,36 @@ See [YuzukiCube-M base board](../baseboard.md) for display and touch details.
 - Use the silkscreen and schematic for pin numbering; if unsure, read [Hardware files](../hardware/files.md).
 - Serial parameters are 115200 baud, 8N1, no flow control.
 
-:::note[Photo pending]
-A photo of the `CN2` connector and a 1.25 mm 5-pin plug, with pins 1 to 5 marked.
-:::
+| CN2 photo | CN2 schematic |
+| --- | --- |
+| <img src="assets/figures/cn2.webp" loading="eager" alt="CN2 5-pin serial connector"> | <img src="assets/figures/cn2-sch.webp" loading="eager" alt="CN2 UART1 and UART4 schematic"> |
 
-## Audio: CN1 / CN3
+## CAN: CN1
 
-`CN1` is the analog audio input connector and `CN3` is the speaker output connector. Both are 2-pin, 1.25 mm, but their functions differ and they must not be swapped.
+`CN1` is the 1.25 mm CAN connector. It connects to the CANH / CANL pins of the `U5` TJA1051T/3 transceiver. The CAN controller signals go from core board `PB2` / `PB3` to `U5`, then out through `CN1`.
 
-| Connector | Connection | Description |
+| Pin | Signal | Description |
 | --- | --- | --- |
-| `CN1` | Analog audio `HPOUT` | Input to the `U2` audio amplifier |
+| 1 | `CANH` | CAN high |
+| 2 | `CANL` | CAN low |
+| 3/4 | `GND` | Shield/ground |
+
+- `U5` is powered from `VSYS-5V`, with `VIO` connected to `VSYS-3V3`; CANH/CANL are differential bus signals.
+- Terminate both ends of the bus with 120 Ω resistors.
+- Do not connect CANH or CANL to power or ground.
+- Disconnect USB before wiring.
+
+| CN1 photo | CN1 schematic |
+| --- | --- |
+| <img src="assets/figures/cn1.webp" loading="eager" alt="CN1 CAN connector"> | <img src="assets/figures/cn1-sch.webp" loading="eager" alt="CN1 and U5 CAN transceiver schematic"> |
+
+## Audio: CN3
+
+`HPOUT` goes from the core board through `C10` (100 nF) to the `U2` `+IN` input, and `U2` drives `SPKR+` / `SPKR-` to `CN3`. `HPOUT` is an on-board net; there is no external audio input connector.
+
+| Signal | Connection | Description |
+| --- | --- | --- |
+| `HPOUT` | Core board → `C10` → `U2` `+IN` | On-board net, no external connector |
 | `CN3` | Speaker `SPKR+` / `SPKR-` | `U2` amplifier output |
 
 - `U2` is enabled by `PD4` (`PA-SHDN`) and must be turned on by software.
@@ -124,17 +158,16 @@ A photo of the `CN2` connector and a 1.25 mm 5-pin plug, with pins 1 to 5 marked
 - Disconnect USB before wiring, and power up only after all connections are complete.
 - Connect the speaker wires only to `CN3`; do not connect them to power or ground.
 
-:::note[Photo pending]
-A photo of the `CN3` speaker connector and the `CN1` audio connector, with arrows showing the difference.
-:::
+| CN3 photo | CN3 schematic |
+| --- | --- |
+| <img src="assets/figures/cn3.webp" loading="eager" alt="CN3 speaker connector"> | <img src="assets/figures/cn3-sch.webp" loading="eager" alt="CN3 and U2 audio amplifier schematic"> |
 
 ## Audio connection steps
 
 1. Disconnect USB.
 2. Connect the speaker to `CN3`, observing the `SPKR+` / `SPKR-` marking.
-3. Connect the analog audio source to `CN1`.
-4. Check plug orientation and polarity; do not connect to power or ground.
-5. After power-up, enable the `PD4` amplifier in software.
+3. Check plug orientation and polarity; do not connect to power or ground.
+4. After power-up, enable the `PD4` amplifier in software.
 
 ## Antenna: RF1
 
@@ -169,12 +202,14 @@ A photo of the `CN3` speaker connector and the `CN1` audio connector, with arrow
 - Do not connect motors, relays or other high-current loads.
 - To measure 5 V, use a multimeter on DC voltage, with the black probe on `GND` and the red probe on `VSYS-5V`.
 
+![SW1 button and H1 5V header](figures/sw1-h1.webp)
+
 ## CAN / Wi-Fi / Bluetooth
 
 | Function | On-board device | External connection | Description |
 | --- | --- | --- | --- |
 | Wi-Fi/Bluetooth | `U3` AIC8800D80 | `RF1` antenna | SDIO and UART2 to the core board |
-| CAN | `U5` TJA1051T/3 | CANH / CANL | Requires termination and bus wiring |
+| CAN | `U5` TJA1051T/3 | `CN1` (CANH / CANL) | Requires termination and bus wiring |
 | Audio amplifier | `U2` LPA4890MSF | `CN3` speaker | Input from `HPOUT` |
 
 - Wi-Fi uses SDIO on `PE0`–`PE5`; Bluetooth uses UART2 on `PE6`–`PE9`; `PE10` enables the Wi-Fi supply.
@@ -189,6 +224,7 @@ A photo of the `CN3` speaker connector and the `CN1` audio connector, with arrow
 | Touch interrupt and reset | `PD2` / `PD3` | `CTP-INT` / `CTP-RST` |
 | Audio amplifier enable | `PD4` | `PA-SHDN` |
 | Button | `PD5` | `DOWN` |
+| CAN0 | `PB2` / `PB3` | `CAN-TX` / `CAN-RX` (to `U5`) |
 | UART4 | `PD6` / `PD7` | `UART4-TX` / `UART4-RX` |
 | Bluetooth reset | `PD8` | `BT-RST-N` |
 | Display reset | `PD9` | `DSI-RST` |
@@ -205,7 +241,7 @@ These connections are fixed on the base board and cannot be moved to other pins 
 1. Disconnect USB.
 2. Connect the display cable.
 3. Connect the antenna.
-4. Connect the speaker or audio.
+4. Connect the speaker.
 5. Connect the serial port (optional).
 6. Check against the list below.
 7. Connect USB last.
@@ -216,7 +252,7 @@ These connections are fixed on the base board and cannot be moved to other pins 
 - USB is disconnected; all wiring was done with the power off.
 - The display cable is fully inserted and the latch is closed.
 - The antenna is seated and its cable is not under tension.
-- `CN3` has the speaker and `CN1` has the audio; they are not swapped.
+- `CN3` has the speaker; `CN1` is connected only to the CAN bus, not to audio.
 - The serial adapter is 3.3 V and only `TX`, `RX` and `GND` are connected.
 - No loose wire ends touch other pins.
 - The board is on a table and not touching a metal surface.
@@ -249,7 +285,7 @@ These connections are fixed on the base board and cannot be moved to other pins 
 | No serial output | `TX`/`RX` not crossed, no ground, wrong baud rate | Check each item in the `CN2` table |
 | Speaker silent | `CN3` not connected, amplifier not enabled, volume low | Check `PD4`, the audio file and volume |
 | Wi-Fi has no signal | Antenna missing, driver not loaded, power abnormal | Check `RF1`, `PE10` and the firmware |
-| CAN does not communicate | CANH/CANL not connected, termination missing | Check the `U5` output and bus wiring |
+| CAN does not communicate | `CN1` not connected, termination missing, `U5` unpowered | Check `CN1`, CANH/CANL and the termination resistors |
 
 ---
 

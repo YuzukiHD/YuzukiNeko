@@ -12,18 +12,22 @@ title: "YuzukiCube-M 底板"
 本文的引脚对应是从底板原理图 `04_BaseBoard/V1.0/01_SCH/SCH_Schematic2_2026-10-10.pdf` 的网表读出的，接线前请以该原理图为准。网络名用的是<strong>模块的实际 GPIO 名</strong>；如果你插的是 V1.3 模块，丝印要按[勘误](hardware/errata.md#v13pd-丝印编号错误)换算。
 :::
 
+| 底板实物图 | 底板原理图 |
+| --- | --- |
+| <img src="assets/figures/base-board.webp" loading="eager" alt="已安装核心板的 YuzukiCube-M 底板整板照片"> | <img src="assets/figures/base-board-sch.webp" loading="eager" alt="YuzukiCube-M 底板原理图"> |
+
 ## 板载器件
 
 | 位号 | 器件 | 作用 |
 | --- | --- | --- |
 | `U1` | YuzukiNeko-SMT | 模块本体，49 个焊盘；底板其余电路都挂在它上面 |
 | `U3` | AIC8800D80 | Wi-Fi / 蓝牙模块（LGA-44），天线经 `RF1` |
-| `U5` | TJA1051T/3/1J | CAN 收发器，接 CAN0，引出 `CANH` / `CANL` |
+| `U5` | TJA1051T/3/1J | CAN 收发器，接 CAN0，`CANH` / `CANL` 引到 `CN1` |
 | `U2` | LPA4890MSF | 音频功放，输入取自 `HPOUT`，输出 `SPKR+` / `SPKR-` |
 | `U4` | RY3730 | 背光升压（`L1` 4.7 µH、`D1` B5819WS），输出 `VLED-A` / `VLED-K` |
 | `U10` | MT3520B | 降压，`VSYS-5V` → `VCC-3V3`（`L2` 2.2 µH） |
 | `FPC1` | FPC-05F-40PH20 | 40 脚 0.5 mm FPC：MIPI DSI + 背光 + 电容触摸 |
-| `CN1` | HC-1.25-2PLT | 2 脚 1.25 mm，`HPOUT` 模拟音频 |
+| `CN1` | HC-1.25-2PLT | 2 脚 1.25 mm，`CANH` / `CANL` |
 | `CN2` | 1.25-5P WT | 5 脚 1.25 mm，引出 `UART1-RX` / `UART1-TX` 与 `UART4-RX` / `UART4-TX` |
 | `CN3` | HC-1.25-2PLT | 2 脚 1.25 mm，`SPKR+` / `SPKR-` 扬声器 |
 | `RF1` | BWIPX-1-001E | IPEX / u.FL 天线座（Wi-Fi / 蓝牙） |
@@ -53,6 +57,58 @@ title: "YuzukiCube-M 底板"
 `PB0` / `PB1` 也是模块文档里 Zephyr `yuzukineko` 板级的控制台 UART1，所以在底板上接 `CN2` 就能看控制台输出。
 :::
 
+## 对外接口
+
+### 串口：CN2
+
+`CN2` 是 5 脚、1.25 mm 插座，引出 UART1 和 UART4。控制台使用 UART1 的 `PB0` / `PB1`。
+
+| 针 | 信号 | 说明 |
+| --- | --- | --- |
+| 1 | `UART1-RX` | 板子接收 |
+| 2 | `UART1-TX` | 板子发送 |
+| 3 | `UART4-RX` | 第二组串口 |
+| 4 | `UART4-TX` | 第二组串口 |
+| 5 | `GND` | 信号地 |
+
+| CN2 实物图 | CN2 原理图 |
+| --- | --- |
+| <img src="assets/figures/cn2.webp" loading="eager" alt="CN2 5 针串口插座"> | <img src="assets/figures/cn2-sch.webp" loading="eager" alt="CN2 UART1 和 UART4 原理图"> |
+
+### CAN：CN1
+
+`CN1` 是 CAN 收发器 `U5` 的差分总线接口。`U5` 由 `VSYS-5V` 供电，`VIO` 接 `VSYS-3V3`。
+
+| 针 | 信号 | 说明 |
+| --- | --- | --- |
+| 1 | `CANH` | CAN 高 |
+| 2 | `CANL` | CAN 低 |
+| 3/4 | `GND` | 屏蔽/地 |
+
+| CN1 实物图 | CN1 原理图 |
+| --- | --- |
+| <img src="assets/figures/cn1.webp" loading="eager" alt="CN1 CAN 插座"> | <img src="assets/figures/cn1-sch.webp" loading="eager" alt="CN1 与 U5 CAN 收发器原理图"> |
+
+### 喇叭：CN3
+
+`CN3` 连接 `U2` 功放输出。`HPOUT` 是板内网络，经 `C10` 接到 `U2` 的 `+IN`，不经过外部插座。
+
+| 针 | 信号 | 说明 |
+| --- | --- | --- |
+| 1 | `SPKR-` | 喇叭负端 |
+| 2 | `SPKR+` | 喇叭正端 |
+| 3/4 | `GND` | 屏蔽/地 |
+
+| CN3 实物图 | CN3 原理图 |
+| --- | --- |
+| <img src="assets/figures/cn3.webp" loading="eager" alt="CN3 喇叭插座"> | <img src="assets/figures/cn3-sch.webp" loading="eager" alt="CN3 与 U2 音频功放原理图"> |
+
+### 按键和 5V 排针：SW1 / H1
+
+`SW1` 接 `PD5` / `DOWN`，与模块的 UF2 下载器按键同一引脚。`H1` 引出 `VSYS-5V` 和 `GND`，只作输出，不要从这里给底板供电。
+
+<img src="assets/figures/sw1-h1.webp" loading="eager" alt="SW1 按键与 H1 5V 排针">
+
 ## 显示与触摸
 
 `FPC1` 一根 40 脚排线同时带三组信号：
@@ -60,6 +116,10 @@ title: "YuzukiCube-M 底板"
 - **MIPI DSI**：`DSI-D0P/N`、`DSI-D1P/N`、`DSI-CKP/N`、`DSI-D2P/N`、`DSI-D3P/N`，复位由 `PD9` 的 `DSI-RST` 控制。
 - **背光**：`VLED-A` 取自 `U4` 升压输出，回路为 `VLED-K`，亮度由 `PD22` 的 `DSI-PWM` 调光。
 - **电容触摸**：`CTP-SCK` / `CTP-SDA` 走 TWI1，中断与复位是 `CTP-INT` / `CTP-RST`。
+
+| FPC1 实物图 | FPC1 原理图 |
+| --- | --- |
+| <img src="assets/figures/fpc1.webp" loading="eager" alt="FPC1 屏幕排线座，已插入排线"> | <img src="assets/figures/fpc1-sch.webp" loading="eager" alt="FPC1 屏幕排线和背光、触摸原理图"> |
 
 ## 电源
 

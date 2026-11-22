@@ -74,9 +74,13 @@ YuzukiNeko 有核心板和底板两级硬件。核心板是完整的 SoC 模块�
 
 ## 底板器件与接口
 
-:::note[图片待补]
-这里放底板整板实拍图，并标出 `FPC1`、`CN2`、`CN3`、`CN1`、`RF1`、`H1`、`SW1` 和 `U1`。
-:::
+| 底板实物图 | 底板原理图 |
+| --- | --- |
+| <img src="assets/figures/base-board.webp" loading="eager" alt="已安装核心板的 YuzukiCube-M 底板整板照片"> | <img src="assets/figures/base-board-sch.webp" loading="eager" alt="YuzukiCube-M 底板原理图"> |
+
+![不含核心板的底板，中央为 U1 的 49 个焊盘](figures/base-board-bare.webp)
+
+第二张为未焊接核心板的底板，中央区域是 `U1` 的 49 个焊盘；成品上该位置已焊接核心板，不可拆卸。
 
 | 位号 | 器件或接口 | 作用 | 注意 |
 | --- | --- | --- | --- |
@@ -87,9 +91,9 @@ YuzukiNeko 有核心板和底板两级硬件。核心板是完整的 SoC 模块�
 | `U4` | RY3730 | 屏幕背光升压 | 输出 `VLED-A` / `VLED-K` |
 | `U10` | MT3520B | 5 V 转 3.3 V 降压 | 为底板 3.3 V 器件供电 |
 | `FPC1` | 40 针 0.5 mm FPC | MIPI DSI、背光和电容触摸 | 排线较薄，断电后插入 |
-| `CN1` | 2 针 1.25 mm | 模拟音频 `HPOUT` | 不要连接喇叭 |
+| `CN1` | 2 针 1.25 mm | CANH / CANL | CAN 总线，需要终端电阻 |
 | `CN2` | 5 针 1.25 mm | UART1 和 UART4 | 控制台使用 UART1 |
-| `CN3` | 2 针 1.25 mm | 喇叭 `SPKR+` / `SPKR-` | 不要连接音频输入 |
+| `CN3` | 2 针 1.25 mm | 喇叭 `SPKR+` / `SPKR-` | U2 功放输出 |
 | `RF1` | IPEX / u.FL | Wi-Fi/蓝牙天线 | 垂直按下，不要拉线缆 |
 | `H1` | 2.54 mm 2 针排母 | `VSYS-5V` 和 `GND` | 不要从这里给底板供电 |
 | `SW1` | 轻触按键 | `PD5` / `DOWN` | 不是复位键 |
@@ -102,7 +106,7 @@ YuzukiNeko 有核心板和底板两级硬件。核心板是完整的 SoC 模块�
 | 控制台串口 | `CN2` 1/2/5 针 | UART1 RX/TX/GND |
 | 第二串口 | `CN2` 3/4 针 | UART4 RX/TX |
 | 喇叭 | `CN3` | `SPKR+` / `SPKR-` |
-| 模拟音频 | `CN1` | `HPOUT` |
+| CAN 总线 | `CN1` | CANH / CANL |
 | Wi-Fi/蓝牙天线 | `RF1` | IPEX / u.FL |
 
 ## 接口电气特性
@@ -111,7 +115,8 @@ YuzukiNeko 有核心板和底板两级硬件。核心板是完整的 SoC 模块�
 | --- | --- | --- |
 | GPIO | 3.3 V 数字 | 不能接 5 V 信号 |
 | `GPADC` | 模拟输入 | 输入范围见 SoC 文档 |
-| `CN1` / `CN3` | 模拟音频 | 不要接电源或地 |
+| `CN1` | 差分 CAN 总线 | 需要终端电阻，不要接电源 |
+| `CN3` | 模拟音频输出 | 只接喇叭，不要接电源或地 |
 | `CN2` | 3.3 V UART | `TX`/`RX` 交叉连接 |
 | `FPC1` | MIPI DSI、背光和触摸 | 断电后插拔 |
 

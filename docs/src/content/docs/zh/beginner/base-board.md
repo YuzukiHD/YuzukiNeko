@@ -4,6 +4,21 @@ title: "底板接线"
 
 底板（YuzukiCube-M）将核心板的信号引出到屏幕、音频、天线、按键和串口。底板不含 SoC，核心板以 `U1` 的形式贴片焊接在底板上，所有外设都通过核心板工作。接线前断开 USB，确认接口方向后再插入。
 
+| 底板实物图 | 底板原理图 |
+| --- | --- |
+| <img src="assets/figures/base-board.webp" loading="eager" alt="已安装核心板的 YuzukiCube-M 底板整板照片"> | <img src="assets/figures/base-board-sch.webp" loading="eager" alt="YuzukiCube-M 底板原理图"> |
+
+照片中各接口的位置如下：
+
+| 照片位置 | 接口 |
+| --- | --- |
+| 上方中央 | `FPC1` 屏幕排线 |
+| 左上 | `CN1` CAN 总线 |
+| 右上 | `CN3` 喇叭 |
+| 右侧 | `CN2` 串口 |
+| 右下 | `H1` 5 V 排针 |
+| 左下 | `SW1` 按键 |
+
 ## 底板作用与供电
 
 底板增加以下器件和接口：
@@ -36,7 +51,7 @@ title: "底板接线"
 | 控制台串口 | `CN2` 1/2/5 针 | UART1 RX/TX/GND |
 | 第二串口 | `CN2` 3/4 针 | UART4 RX/TX |
 | 喇叭 | `CN3` | `SPKR+` / `SPKR-` |
-| 模拟音频 | `CN1` | `HPOUT` |
+| CAN 总线 | `CN1` | CANH / CANL |
 | Wi-Fi/蓝牙天线 | `RF1` | IPEX / u.FL |
 
 ## 接线原则
@@ -73,9 +88,9 @@ title: "底板接线"
 5. 不要折叠排线，不要触摸金手指。
 6. 接好后重新上电，检查屏幕和触摸是否正常。
 
-:::note[图片待补]
-这里放“底板 + 屏幕排线”的实拍图，标出锁扣打开方式和金手指方向。
-:::
+| FPC1 实物图 | FPC1 原理图 |
+| --- | --- |
+| <img src="assets/figures/fpc1.webp" loading="eager" alt="FPC1 屏幕排线座，已插入排线"> | <img src="assets/figures/fpc1-sch.webp" loading="eager" alt="FPC1 屏幕排线和背光、触摸原理图"> |
 
 屏幕和触摸的详细说明见 [YuzukiCube-M 底板](../baseboard.md)。
 
@@ -106,17 +121,36 @@ title: "底板接线"
 - 插座针号以底板丝印和原理图为准；不确定时先查[硬件文件说明](../hardware/files.md)。
 - 串口参数为 115200 波特、8N1、无流控。
 
-:::note[图片待补]
-这里放“CN2 插座 + 1.25 mm 5 针插头”的实拍图，标出 1 到 5 针。
-:::
+| CN2 实物图 | CN2 原理图 |
+| --- | --- |
+| <img src="assets/figures/cn2.webp" loading="eager" alt="CN2 5 针串口插座"> | <img src="assets/figures/cn2-sch.webp" loading="eager" alt="CN2 UART1 和 UART4 原理图"> |
 
-## 音频：CN1 / CN3
+## CAN：CN1
 
-`CN1` 是模拟音频输入插座，`CN3` 是喇叭输出插座，两者都是 2 针、1.25 mm，但功能不同，不能互换。
+`CN1` 是 1.25 mm 的 CAN 接口，连接 `U5` TJA1051T/3 的 CANH / CANL。CAN 控制器信号从核心板 `PB2` / `PB3` 送到 `U5`，再由 `CN1` 引出。
 
-| 插座 | 连接 | 说明 |
+| 针 | 信号 | 说明 |
 | --- | --- | --- |
-| `CN1` | 模拟音频 `HPOUT` | 输入到 `U2` 音频功放 |
+| 1 | `CANH` | CAN 高 |
+| 2 | `CANL` | CAN 低 |
+| 3/4 | `GND` | 屏蔽/地 |
+
+- `U5` 由 `VSYS-5V` 供电，`VIO` 接 `VSYS-3V3`；CANH/CANL 为差分总线信号。
+- 总线两端需要各接一个 120 Ω 终端电阻。
+- 不要把 CANH 或 CANL 接电源或地。
+- 接线前断开 USB。
+
+| CN1 实物图 | CN1 原理图 |
+| --- | --- |
+| <img src="assets/figures/cn1.webp" loading="eager" alt="CN1 CAN 插座"> | <img src="assets/figures/cn1-sch.webp" loading="eager" alt="CN1 与 U5 CAN 收发器原理图"> |
+
+## 音频：CN3
+
+`HPOUT` 从核心板经 `C10`（100 nF）接到 `U2` 的 `+IN`，`U2` 输出 `SPKR+` / `SPKR-` 到 `CN3`。`HPOUT` 是板内网络，没有外部音频输入插座。
+
+| 信号 | 连接 | 说明 |
+| --- | --- | --- |
+| `HPOUT` | 核心板 → `C10` → `U2` `+IN` | 板内网络，无外部插座 |
 | `CN3` | 喇叭 `SPKR+` / `SPKR-` | `U2` 功放输出 |
 
 - `U2` 的使能由 `PD4`（`PA-SHDN`）控制，需要软件打开。
@@ -124,17 +158,16 @@ title: "底板接线"
 - 接线前断开 USB，连接完成后再上电。
 - 喇叭线只连接 `CN3`，不要接电源或地。
 
-:::note[图片待补]
-这里放“CN3 喇叭插座、CN1 音频插座”的实拍图，并用箭头标出区别。
-:::
+| CN3 实物图 | CN3 原理图 |
+| --- | --- |
+| <img src="assets/figures/cn3.webp" loading="eager" alt="CN3 喇叭插座"> | <img src="assets/figures/cn3-sch.webp" loading="eager" alt="CN3 与 U2 音频功放原理图"> |
 
 ## 音频连接步骤
 
 1. 断开 USB。
 2. 将喇叭连接到 `CN3`，注意 `SPKR+` / `SPKR-` 标记。
-3. 将模拟音频连接到 `CN1`。
-4. 检查插头方向和极性，不要接到电源或地。
-5. 上电后由软件打开 `PD4` 功放使能。
+3. 检查插头方向和极性，不要接到电源或地。
+4. 上电后由软件打开 `PD4` 功放使能。
 
 ## 天线：RF1
 
@@ -169,12 +202,14 @@ title: "底板接线"
 - 不要连接电机、继电器等大电流负载。
 - 需要测量 5 V 时，用万用表直流电压档，黑表笔接 `GND`，红表笔接 `VSYS-5V`。
 
+![SW1 按键与 H1 5V 排针](figures/sw1-h1.webp)
+
 ## CAN / Wi-Fi / 蓝牙
 
 | 功能 | 板上器件 | 对外接口 | 说明 |
 | --- | --- | --- | --- |
 | Wi-Fi/蓝牙 | `U3` AIC8800D80 | `RF1` 天线 | SDIO 和 UART2 连接核心板 |
-| CAN | `U5` TJA1051T/3 | CANH / CANL | 需要终端电阻和总线接线 |
+| CAN | `U5` TJA1051T/3 | `CN1`（CANH / CANL） | 需要终端电阻和总线接线 |
 | 音频功放 | `U2` LPA4890MSF | `CN3` 喇叭 | 输入来自 `HPOUT` |
 
 - Wi-Fi 使用 `PE0`–`PE5` 的 SDIO，蓝牙使用 `PE6`–`PE9` 的 UART2，`PE10` 为 Wi-Fi 电源使能。
@@ -189,6 +224,7 @@ title: "底板接线"
 | 触摸中断和复位 | `PD2` / `PD3` | `CTP-INT` / `CTP-RST` |
 | 音频功放使能 | `PD4` | `PA-SHDN` |
 | 按键 | `PD5` | `DOWN` |
+| CAN0 | `PB2` / `PB3` | `CAN-TX` / `CAN-RX`（到 `U5`） |
 | UART4 | `PD6` / `PD7` | `UART4-TX` / `UART4-RX` |
 | 蓝牙复位 | `PD8` | `BT-RST-N` |
 | 显示复位 | `PD9` | `DSI-RST` |
@@ -205,7 +241,7 @@ title: "底板接线"
 1. 断开 USB。
 2. 连接屏幕排线。
 3. 连接天线。
-4. 连接喇叭或音频。
+4. 连接喇叭。
 5. 连接串口（可选）。
 6. 对照下面的检查清单检查。
 7. 最后连接 USB。
@@ -216,7 +252,7 @@ title: "底板接线"
 - USB 已断开，所有接线均在断电状态下完成。
 - 屏幕排线插到底，锁扣已压回。
 - 天线已扣紧，线缆没有受力。
-- `CN3` 连接喇叭，`CN1` 连接音频，没有互换。
+- `CN3` 连接喇叭；`CN1` 只接 CAN 总线，不要接音频。
 - 串口适配器为 3.3 V，只连接 `TX`、`RX`、`GND`。
 - 没有松脱的线头接触其他引脚。
 - 板子放在桌面，未接触金属表面。
@@ -249,7 +285,7 @@ title: "底板接线"
 | 串口无输出 | `TX`/`RX` 未交叉、未共地、波特率错误 | 按 `CN2` 表逐项检查 |
 | 喇叭无声 | 未接 `CN3`、功放未使能、音量过低 | 检查 `PD4` 使能、音频文件和音量 |
 | Wi-Fi 无信号 | 天线未接、驱动未加载、供电异常 | 检查 `RF1`、`PE10` 和固件 |
-| CAN 无通信 | 未接 CANH/CANL、缺少终端电阻 | 检查 `U5` 输出和总线接线 |
+| CAN 无通信 | `CN1` 未接、缺少终端电阻、`U5` 未供电 | 检查 `CN1`、CANH/CANL 和终端电阻 |
 
 ---
 
