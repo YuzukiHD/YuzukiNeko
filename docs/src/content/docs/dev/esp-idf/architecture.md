@@ -69,7 +69,7 @@ There are two time bases: the CLINT `mtime` is a free-running 24 MHz counter use
 
 The data cache line is 64 bytes. `esp_cache_msync()` uses the T-Head `th.dcache.cpa`, `th.dcache.ipa` and `th.dcache.cipa` instructions to clean, invalidate or both over an address range; unaligned addresses need `ESP_CACHE_MSYNC_FLAG_UNALIGNED`. The DMA controller does no cache maintenance itself; `esp_async_memcpy` and the I2S driver handle it around each transfer.
 
-The DMA controller has 12 channels and 24-byte descriptors, supporting memory-to-memory copies and the cyclic I2S chain. The heap starts at `_heap_start`; hello_world reports about 16,306 KiB free in the default configuration. Wi-Fi firmware and display frame buffers come from this heap, and large buffers reduce what remains.
+The DMA controller has 12 channels and 24-byte descriptors, supporting memory-to-memory copies and the cyclic I2S chain. The heap starts at `_heap_start`; hello_world reports about 16,306 KiB free in the default configuration. Wi-Fi firmware and display frame buffers come from this heap; one 1024×768 RGB565 frame buffer is about 1.5 MiB.
 
 ## Chip identity
 

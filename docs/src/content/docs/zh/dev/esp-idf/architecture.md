@@ -69,7 +69,7 @@ CPU 是单核玄铁 C907，默认 600 MHz。`clk_f101.c` 以 72 MHz 为步进提
 
 数据 cache 的行大小是 64 字节。`esp_cache_msync()` 使用 T-Head 的 `th.dcache.cpa`、`th.dcache.ipa`、`th.dcache.cipa` 指令，按地址范围做 clean、invalidate 或两者；未对齐的地址必须带 `ESP_CACHE_MSYNC_FLAG_UNALIGNED`。DMA 控制器本身不做 cache 维护，`esp_async_memcpy` 和 I2S 驱动会在提交前后自行处理。
 
-DMA 控制器有 12 个通道，描述符为 24 字节，支持内存到内存和 I2S 循环链。堆从 `_heap_start` 开始，hello_world 在默认配置下报告约 16,306 KiB 可用；Wi-Fi 固件和显示帧缓冲都从这块堆里分配，大缓冲会显著减少剩余空间。
+DMA 控制器有 12 个通道，描述符为 24 字节，支持内存到内存和 I2S 循环链。堆从 `_heap_start` 开始，hello_world 在默认配置下报告约 16,306 KiB 可用；Wi-Fi 固件和显示帧缓冲都从这块堆里分配，一块 1024×768 RGB565 帧缓冲约 1.5 MiB。
 
 ## 芯片标识
 
