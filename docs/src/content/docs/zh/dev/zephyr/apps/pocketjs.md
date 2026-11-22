@@ -6,7 +6,7 @@ PocketJS 播放器通过 QuickJS-ng 和 Rust UI 核心／渲染器在 F101 上�
 
 ## 版本与验证
 
-按[版本指南](../zephyr-4-5.md)选择配套的 4.2.2 或 4.5 内核／组件分支，使用独立环境和构建目录。播放器已在 4.5 构建。此前板上记录为 cards 约 59 ticks/s、motions 约 50，也运行过 hero/gallery；这些是历史 tick 速率，不是本次 4.5 的显示或帧率实测。当前样例已接入触摸与 UART 输入，其在 4.5 上的行为仍需实机验证。
+按[版本指南](../zephyr-4-5.md)选择配套的 4.2.2 或 4.5 内核／组件分支，使用独立环境和构建目录。播放器已在 4.5 构建。此前板上记录为 cards 约 59 ticks/s、motions 约 50，也运行过 hero/gallery。这些是历史 tick 速率，不是本次 4.5 的显示或帧率实测。当前样例已接入触摸与 UART 输入，其在 4.5 上的行为仍需实机验证。
 
 ## 准备工作区
 
@@ -52,7 +52,7 @@ west build -b yuzukineko -d build/pjs-bench zephyr-components/pocketjs/samples/p
 | `POCKETJS_APP=hero` | `pocketjs/apps/hero/` | 480×272 | `pocket.host.480x272.json`，`integer-fit` |
 | `POCKETJS_LOCAL_APP=bench` | `samples/player/bench/` | 512×384 | `bench/pocket.host.json`，`native` |
 
-只设置一个选择参数；同时存在时 `POCKETJS_APP` 优先。其他上游应用需要匹配的视口、能力及 profile；当前上游选择器始终传入 480×272 profile。
+只设置一个选择参数。同时存在时 `POCKETJS_APP` 优先。其他上游应用需要匹配的视口、能力及 profile。当前上游选择器始终传入 480×272 profile。
 
 ## 编写界面
 
@@ -105,13 +105,13 @@ export default function App() {
 
 这是现有 manifest 的片段，不能代替必需的 `pocket`、标识／版本和 engine 字段。默认 manifest 使用 `pocket: 2`，要求 `input.buttons` 和 `text.glyphs.baked`。
 
-配套的 `pocket.host.json` 描述 host 提供的能力：`tickHz: 60`、320×240 物理视口、接受的逻辑视口、`rasterDensity: 1`，以及 `input.buttons`、`input.touch`、`text.glyphs.baked`。修改应用视口时应同步修改 host profile。其中的 `platform: "esp-idf"`、`form: "takeover"` 和 schema 名称属于现有打包 contract，当前 Zephyr 接入应保留这些字段；它们不会在运行时选择另一个 RTOS。
+配套的 `pocket.host.json` 描述 host 提供的能力：`tickHz: 60`、320×240 物理视口、接受的逻辑视口、`rasterDensity: 1`，以及 `input.buttons`、`input.touch`、`text.glyphs.baked`。修改应用视口时应同步修改 host profile。其中的 `platform: "esp-idf"`、`form: "takeover"` 和 schema 名称属于现有打包 contract，当前 Zephyr 接入应保留这些字段。它们不会在运行时选择另一个 RTOS。
 
 CMake 先向 PocketJS CLI 传入 manifest／profile，再由 `embed_package.py` 生成固件使用的包数据与 host contract。`.pocket`、依赖计划和生成的 C／头文件／汇编文件位于构建树的 `pocketjs/player/` 目录下。样式、字体和图像资源在 guest 启动前打包准备，文字需要包含应用使用的烘焙字形。
 
 ## 触摸与 UART 输入
 
-样例接收 `zephyr,touch` 的多指槽位，并把屏幕坐标映射到居中的逻辑画布。画布放得下时优先整数倍缩放，否则保持宽高比缩小；画布外的触摸不传入。首指滑动还会产生方向键，轻点产生 Cross。
+样例接收 `zephyr,touch` 的多指槽位，并把屏幕坐标映射到居中的逻辑画布。画布放得下时优先整数倍缩放，否则保持宽高比缩小。画布外的触摸不传入。首指滑动还会产生方向键，轻点产生 Cross。
 
 没有触摸屏时可用 UART 控制台按键：
 
@@ -141,7 +141,7 @@ CMake 先向 PocketJS CLI 传入 manifest／profile，再由 `embed_package.py` 
 | `CONFIG_POCKETJS_TURN_STATS` | `y` | script／tick／draw 与脚本指令统计 |
 | `CONFIG_SAMPLE_POCKETJS_PROFILE` | 关闭 | 可选主线程程序计数器采样 |
 
-样例按 72 MHz 步进提高 CPU 频率，并执行小块校验负载，不能替代完整 PSRAM 稳定性测试。需按 loader 时钟测量时设置 `CONFIG_SAMPLE_POCKETJS_CPU_MHZ=0`；记录性能结果时应注明时钟、应用、视口和加速配置。G2D／RVV 选项见[组件配置](../components/pocketjs.md)。
+样例按 72 MHz 步进提高 CPU 频率，并执行小块校验负载，不能替代完整 PSRAM 稳定性测试。需按 loader 时钟测量时设置 `CONFIG_SAMPLE_POCKETJS_CPU_MHZ=0`。记录性能结果时应注明时钟、应用、视口和加速配置。G2D／RVV 选项见[组件配置](../components/pocketjs.md)。
 
 ## Benchmark 与统计
 
@@ -151,9 +151,9 @@ CMake 先向 PocketJS CLI 传入 manifest／profile，再由 `embed_package.py` 
 idle fill round alpha text rotate image mixed spin calls objs scroll stretch zoom move kf still
 ```
 
-每个场景持续 360 ticks，运动由 tick 数决定，自动序列最终停在 `still`。按 `D` 切到下一场景，`A` 切到上一场景，同时停止自动选择；按 `J` 切换自动选择。在 `bench/app.tsx` 中把 `LOOK` 设为场景名，可固定该负载。切换场景会输出 `BENCH` 标记。
+每个场景持续 360 ticks，运动由 tick 数决定，自动序列最终停在 `still`。按 `D` 切到下一场景，`A` 切到上一场景，同时停止自动选择。按 `J` 切换自动选择。在 `bench/app.tsx` 中把 `LOOK` 设为场景名，可固定该负载。切换场景会输出 `BENCH` 标记。
 
-播放器约每五秒报告 tick／picture 数、平均／最大 busy 耗时、turn／render／cache flush 耗时、G2D／软件操作数及脏区像素。启用 turn 统计后，还会报告 script／tick／draw 耗时和脚本 cycles／instructions／IPC。`ticks` 统计 UI turn，`pictures` 统计有脏区且已提交的更新；video 线程可能跳过被替代的图像，两者均不能直接视为实际显示 FPS。60 Hz contract 是调度目标，不是性能保证。
+播放器约每五秒报告 tick／picture 数、平均／最大 busy 耗时、turn／render／cache flush 耗时、G2D／软件操作数及脏区像素。启用 turn 统计后，还会报告 script／tick／draw 耗时和脚本 cycles／instructions／IPC。`ticks` 统计 UI turn，`pictures` 统计有脏区且已提交的更新。video 线程可能跳过被替代的图像，两者均不能直接视为实际显示 FPS。60 Hz contract 是调度目标，不是性能保证。
 
 ## 常见问题
 

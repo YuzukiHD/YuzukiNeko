@@ -17,7 +17,7 @@ flowchart TB
     RING -.->|"队列满则等待 = 实时节拍"| EMU
 ```
 
-运行速度由声音决定：模拟器每跑完一帧，把这一帧的声音推进环形缓冲；缓冲里排队的声音超过 `RATE / 15` 个采样帧就暂停模拟，等 codec 播掉一部分。排队的声音少于 `RATE / 30` 时，下一帧只模拟、不画，保证声音不断。
+运行速度由声音决定：模拟器每跑完一帧，把这一帧的声音推进环形缓冲。缓冲里排队的声音超过 `RATE / 15` 个采样帧就暂停模拟，等 codec 播掉一部分。排队的声音少于 `RATE / 30` 时，下一帧只模拟、不画，保证声音不断。
 
 开始前请先完成 [配置开发环境](../zephyr-setup-env.md) 和 [获取 Zephyr 代码](../zephyr-get-source.md)。
 
@@ -446,7 +446,7 @@ static void pad_main(void *a, void *b, void *c)
 | `CONFIG_NES` | 关（示例里打开） | 编译 nofrendo 核心，依赖 RISCV，会选上文件系统 |
 | `CONFIG_NES_MAX_ROM_SIZE_KB` | `2048` | 接受的最大 ROM 文件，范围 16–2048 |
 
-改法是在编译命令后面加 `-D`，字符串要带引号；也可以直接写进 `prj.conf`：
+改法是在编译命令后面加 `-D`，字符串要带引号。也可以直接写进 `prj.conf`：
 
 ```sh
 west build -b yuzukineko -d build/nes zephyr-components/nes/samples/nes_player -- -DCONFIG_SAMPLE_NES_ROM='"/SD:/roms/demo.nes"'

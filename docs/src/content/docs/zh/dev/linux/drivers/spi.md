@@ -2,7 +2,7 @@
 title: "SPI 与 DMA"
 ---
 
-F101 的通用 SPI 控制器是 Allwinner 的经典设计：收发各一个 64 字节 FIFO、可编程时钟分频、四线和双线模式，以及一对 DMA 请求线。芯片上有两个控制器。板子用第一个访问那颗 16 MiB 的 NOR Flash，整个系统都在里面；由于 Flash 被持续读取，这些传输由 `sun6i-dma` 引擎搬运，而不是 CPU。
+F101 的通用 SPI 控制器是 Allwinner 的经典设计：收发各一个 64 字节 FIFO、可编程时钟分频、四线和双线模式，以及一对 DMA 请求线。芯片上有两个控制器。板子用第一个访问那颗 16 MiB 的 NOR Flash，整个系统都在里面。由于 Flash 被持续读取，这些传输由 `sun6i-dma` 引擎搬运，而不是 CPU。
 
 本章讲寄存器组和传输路径、两个控制器与 DMA 引擎的设备树、探测和 DMA 代码路径，以及 Flash 在用户态如何通过 MTD 出现。能在同一组焊盘上驱动同一颗 Flash 的专用控制器（SPIF）在 [SPIF - SPI NOR Flash](spif-nor.md) 里。
 
@@ -21,7 +21,7 @@ F101 的通用 SPI 控制器是 Allwinner 的经典设计：收发各一个 64 �
 
 ## 控制器的工作原理
 
-控制器是一个面向字节的引擎，收发 FIFO 分开。一次传输的准备工作是：写传输控制寄存器、FIFO 触发深度和计数，把最初的字节推进发送 FIFO，然后置交换位。接着控制器按时钟相位和极性在 SCK 上移出位，并把回来的数据填进接收 FIFO。传输完成时产生完成中断；FIFO 中断负责让流水线保持进料和排空。
+控制器是一个面向字节的引擎，收发 FIFO 分开。一次传输的准备工作是：写传输控制寄存器、FIFO 触发深度和计数，把最初的字节推进发送 FIFO，然后置交换位。接着控制器按时钟相位和极性在 SCK 上移出位，并把回来的数据填进接收 FIFO。传输完成时产生完成中断。FIFO 中断负责让流水线保持进料和排空。
 
 寄存器来自 `spi-sun6i.c`：
 
@@ -40,7 +40,7 @@ F101 的通用 SPI 控制器是 Allwinner 的经典设计：收发各一个 64 �
 | `0x200` | TXDATA | 发送 FIFO |
 | `0x300` | RXDATA | 接收 FIFO |
 
-总线模式在传输控制寄存器里。`CPHA`（bit 0）和 `CPOL`（bit 1）来自 `spi_device` 的 mode。`SPOL`（bit 2）反转片选极性，`FBS`（bit 12）选择 LSB first，`CS_MANUAL`（bit 6）让驱动自己控制 `CS_LEVEL`（bit 7），`XCH`（bit 31）启动传输。`DHB`（bit 8）丢弃收到的字节，这样只发的传输不会用垃圾填满接收 FIFO；`tfr->rx_buf` 为 NULL 时驱动会置它。
+总线模式在传输控制寄存器里。`CPHA`（bit 0）和 `CPOL`（bit 1）来自 `spi_device` 的 mode。`SPOL`（bit 2）反转片选极性，`FBS`（bit 12）选择 LSB first，`CS_MANUAL`（bit 6）让驱动自己控制 `CS_LEVEL`（bit 7），`XCH`（bit 31）启动传输。`DHB`（bit 8）丢弃收到的字节，这样只发的传输不会用垃圾填满接收 FIFO。`tfr->rx_buf` 为 NULL 时驱动会置它。
 
 `SDM`（bit 13）和 `SDC`（bit 11）选择采样点。这是高频下最要紧的部分，因为控制器没有延迟线：它只能在正常时钟沿、晚半个周期或晚一个周期采样。`has_clk_ctl` 为假（F101 的配置），驱动根据实际拿到的时钟来设置：
 
@@ -50,9 +50,9 @@ F101 的通用 SPI 控制器是 Allwinner 的经典设计：收发各一个 64 �
 | 24 到 80 MHz | 0 | 0 | 延迟半周期采样模式 |
 | 80 MHz 及以上 | 0 | 1 | 延迟一周期采样模式 |
 
-这些名字是驱动自己的说法。板子请求 100 MHz，所以只要 CCU 能产生这个速率就会用一周期设置；Flash 的输出延时和板子的走线长度决定了这是对的选择，这也是 `spi-max-frequency` 属于板级属性的原因。
+这些名字是驱动自己的说法。板子请求 100 MHz，所以只要 CCU 能产生这个速率就会用一周期设置。Flash 的输出延时和板子的走线长度决定了这是对的选择，这也是 `spi-max-frequency` 属于板级属性的原因。
 
-片选由控制器驱动。`num_chipselect` 是 4，`use_gpio_descriptors` 让核心先找 `cs-gpios`；板子没有声明，所以用控制器原生的片选输出。`sun6i_spi_set_cs()` 只选择片选号并拉高或拉低 `CS_LEVEL`，不去拨 GPIO。`XCH` 每次传输只置一次，所以整条消息期间 CS 一直有效，包括地址阶段和空周期。
+片选由控制器驱动。`num_chipselect` 是 4，`use_gpio_descriptors` 让核心先找 `cs-gpios`。板子没有声明，所以用控制器原生的片选输出。`sun6i_spi_set_cs()` 只选择片选号并拉高或拉低 `CS_LEVEL`，不去拨 GPIO。`XCH` 每次传输只置一次，所以整条消息期间 CS 一直有效，包括地址阶段和空周期。
 
 ### FIFO 与中断行为
 
@@ -69,7 +69,7 @@ F101 变体的 FIFO 深度是 64 字节（`SUN8I_FIFO_DEPTH`，与 H3、R329 相
 
 驱动声明 `max_speed_hz = 100 MHz`、`min_speed_hz = 3 kHz`，只支持每字 8 位、四个片选，以及变体配置里的四线和双线模式位。
 
-节点里的 `clock-frequency = <100000000>` 属性 `spi-sun6i` 并不读；主机上限是驱动里的常量，每次传输的速率来自子设备的 `spi-max-frequency`。这个属性是留给文档和节点的其他使用者看的，不是驱动的输入。
+节点里的 `clock-frequency = <100000000>` 属性 `spi-sun6i` 并不读。主机上限是驱动里的常量，每次传输的速率来自子设备的 `spi-max-frequency`。这个属性是留给文档和节点的其他使用者看的，不是驱动的输入。
 
 因为速率按传输设置，同一控制器上两个 `spi-max-frequency` 不同的设备会在消息之间改变 CCU 时钟，采样模式每次都会重算。这也是采样模式从 `effective_speed_hz` 推导、而不是在探测时缓存的原因。
 
@@ -95,26 +95,26 @@ dma: dma-controller@3002000 {
 };
 ```
 
-只有 0 到 7 号通道会报中断；这个块有 12 个通道的寄存器，但上面四个无法报告完成，所以 `sun252i_f101_dma_cfg` 配 `dma-channels = <8>` 把驱动限制在能用的那些上。`sun6i-dma.c` 里探测处的注释写明了这一点。
+只有 0 到 7 号通道会报中断。这个块有 12 个通道的寄存器，但上面四个无法报告完成，所以 `sun252i_f101_dma_cfg` 配 `dma-channels = <8>` 把驱动限制在能用的那些上。`sun6i-dma.c` 里探测处的注释写明了这一点。
 
 F101 的配置与 H3 有两处不同，都在 `sun6i_enable_clock_autogate_f101()` 里：
 
 - 它往 `0x28` 的门控寄存器写 `0x7`。这是三个自动时钟门控位，置位表示关掉自动门控，和厂商的初始化一致。被门控的通道永远完不成传输。
 - 它把全部通道位写进 `0x20` 的安全寄存器，把所有通道标成非安全，同样与厂商初始化一致。
 
-驱动注册的能力有内存到内存拷贝、从机 SG 和循环传输；`copy_align` 是 4 字节，最大段是 32 MiB 减一，支持的地址宽度是 1、2、4、8 字节，突发长度是 1、4、8、16。
+驱动注册的能力有内存到内存拷贝、从机 SG 和循环传输。`copy_align` 是 4 字节，最大段是 32 MiB 减一，支持的地址宽度是 1、2、4、8 字节，突发长度是 1、4、8、16。
 
 ### SPI 如何使用它
 
 `spi-sun6i.c` 在探测时按名字申请 `"rx"` 和 `"tx"` 通道。两个设备树项对 SPI0 都指向请求 22，对 SPI1 都是 23：每个控制器一条请求线，两个方向共用。只有 `xfer->len > fifo_depth` 时 `sun6i_spi_can_dma()` 才把传输交给引擎，所以 64 字节以内一律走 PIO。
 
-`sun6i_spi_prepare_dma()` 构造从机分散聚集描述符。接收侧配成从 `RXDATA` 做 `DMA_DEV_TO_MEM`，当 `dma_rx_word` 置位且每个 scatterlist 项的地址和长度都按 4 字节对齐时用 4 字节宽度，否则退回 1 字节访问。发送侧始终是缓冲区到 `TXDATA` 的 4 字节宽度。两边最大突发都是 8。接收描述符挂一个完成 `sspi->dma_rx_done` 的回调，因为 SPI 的传输完成中断可能在最后一个接收突发还在路上时就到了；`sun6i_spi_transfer_one()` 在返回前会等这第二个完成。
+`sun6i_spi_prepare_dma()` 构造从机分散聚集描述符。接收侧配成从 `RXDATA` 做 `DMA_DEV_TO_MEM`，当 `dma_rx_word` 置位且每个 scatterlist 项的地址和长度都按 4 字节对齐时用 4 字节宽度，否则退回 1 字节访问。发送侧始终是缓冲区到 `TXDATA` 的 4 字节宽度。两边最大突发都是 8。接收描述符挂一个完成 `sspi->dma_rx_done` 的回调，因为 SPI 的传输完成中断可能在最后一个接收突发还在路上时就到了。`sun6i_spi_transfer_one()` 在返回前会等这第二个完成。
 
 任一描述符准备失败时，驱动终止已经提交的接收通道，返回错误，`transfer_one()` 打印 "prepare DMA failed"。等待超时则打印传输长度、速率和经过的毫秒数，终止两个通道并返回 `-ETIMEDOUT`。
 
 ### 缓存一致性
 
-SoC 总线声明为 `dma-noncoherent`，所以缓冲区的映射很重要。SPI 核心在调用驱动之前用 `dma_map_sg()` 映射传输缓冲区，之后解除映射；在这颗芯片上，缓存维护就是在这些映射调用里做的。DMA 引擎的描述符链表放在来自 DMA 池的内存里，SPI 控制器自己的寄存器访问是 posted write；往 FIFO 写数据和置 `XCH` 之间不需要额外的刷新。改 DMA 设置时，保持描述符提交在 `dma_async_issue_pending()` 之前，现有代码就是这么做的。
+SoC 总线声明为 `dma-noncoherent`，所以缓冲区的映射很重要。SPI 核心在调用驱动之前用 `dma_map_sg()` 映射传输缓冲区，之后解除映射。在这颗芯片上，缓存维护就是在这些映射调用里做的。DMA 引擎的描述符链表放在来自 DMA 池的内存里，SPI 控制器自己的寄存器访问是 posted write。往 FIFO 写数据和置 `XCH` 之间不需要额外的刷新。改 DMA 设置时，保持描述符提交在 `dma_async_issue_pending()` 之前，现有代码就是这么做的。
 
 ## 设备树
 
@@ -173,7 +173,7 @@ spi0_pc_pins: spi0-pc-pins {
 };
 ```
 
-`spi1` 在 `PD0`-`PD3` 上有自己的组（`spi1_pd_pins`，功能 `spi1`），但板子从不使能它。`PC` 焊盘在 SPI0、SPIF 控制器和 SMHC2 eMMC 控制器之间共享；三个组列的都是同样六个引脚，同一时间只能路由一个功能。设备树变体 `sun252i-f101-yuzukineko-spif.dts` 关掉 SPI0，在同一组焊盘上使能 SPIF。
+`spi1` 在 `PD0`-`PD3` 上有自己的组（`spi1_pd_pins`，功能 `spi1`），但板子从不使能它。`PC` 焊盘在 SPI0、SPIF 控制器和 SMHC2 eMMC 控制器之间共享。三个组列的都是同样六个引脚，同一时间只能路由一个功能。设备树变体 `sun252i-f101-yuzukineko-spif.dts` 关掉 SPI0，在同一组焊盘上使能 SPIF。
 
 Flash 节点是 `jedec,spi-nor`，六个分区从 `sun252i-f101-nor-partitions.dtsi` 引入：
 
@@ -215,7 +215,7 @@ CONFIG_DMA_SUN6I=y
 6. 两个通道都在时，记下 FIFO 地址（`mem->start + 0x200` 和 `+ 0x300`）并装上 `can_dma`。
 7. 用 `sun6i_spi_runtime_resume()` 让设备上电，设两秒自动挂起延时，注册控制器。
 
-`use_gpio_descriptors` 标志意味着核心会找 `cs-gpios`；板子没声明，所以用控制器原生的片选输出，由 `sun6i_spi_set_cs()` 驱动传输控制寄存器里的 `CS_LEVEL`。
+`use_gpio_descriptors` 标志意味着核心会找 `cs-gpios`。板子没声明，所以用控制器原生的片选输出，由 `sun6i_spi_set_cs()` 驱动传输控制寄存器里的 `CS_LEVEL`。
 
 ### 传输路径
 
@@ -225,9 +225,9 @@ CONFIG_DMA_SUN6I=y
 
 ### 错误路径
 
-超过 16 MiB 减一的传输在编程任何寄存器之前就以 `-EINVAL` 拒绝。DMA 准备失败会打警告并返回错误；调用者看到的是一条失败的 SPI 消息。超时会打印长度、速率和时长，终止所有 DMA 通道并返回 `-ETIMEDOUT`；随后 SPI 核心让这条消息失败。`sun6i_spi_runtime_suspend()` 断言复位并关掉两个时钟，resume 反过来，所以恢复失败的设备在下一次传输时失败，而不是去碰一个没时钟的模块。
+超过 16 MiB 减一的传输在编程任何寄存器之前就以 `-EINVAL` 拒绝。DMA 准备失败会打警告并返回错误。调用者看到的是一条失败的 SPI 消息。超时会打印长度、速率和时长，终止所有 DMA 通道并返回 `-ETIMEDOUT`。随后 SPI 核心让这条消息失败。`sun6i_spi_runtime_suspend()` 断言复位并关掉两个时钟，resume 反过来，所以恢复失败的设备在下一次传输时失败，而不是去碰一个没时钟的模块。
 
-驱动不会因为一次传输失败而复位控制器。下一次 `transfer_one()` 一上来就写两个 FIFO 复位，所以重试的消息从干净的 FIFO 开始；如果失败是总线问题而不是 FIFO 问题，重试会以同样的方式失败。
+驱动不会因为一次传输失败而复位控制器。下一次 `transfer_one()` 一上来就写两个 FIFO 复位，所以重试的消息从干净的 FIFO 开始。如果失败是总线问题而不是 FIFO 问题，重试会以同样的方式失败。
 
 ### 运行时电源管理
 
@@ -303,7 +303,7 @@ region[0].regionindex = 0
 Copied 4096 bytes from address 0x00000000 in flash to /tmp/head.bin
 ```
 
-`mtd_debug` 打印大小有它自己的怪癖：`printsize()` 一直除到值小于 1024，然后用二进制后缀打印最后的商，所以 1 MiB 显示成 `1048576 (1K)`，4096 显示成 `4096 (4K)`。flags 行是 `MTD_CAP_NORFLASH`，因为 `mtd5` 是唯一没有 `read-only` 属性的分区。读 `mtd0` 同理；内容就是 SyterKit 镜像开头的那些字节，命令本身的输出是那行 "Copied"。
+`mtd_debug` 打印大小有它自己的怪癖：`printsize()` 一直除到值小于 1024，然后用二进制后缀打印最后的商，所以 1 MiB 显示成 `1048576 (1K)`，4096 显示成 `4096 (4K)`。flags 行是 `MTD_CAP_NORFLASH`，因为 `mtd5` 是唯一没有 `read-only` 属性的分区。读 `mtd0` 同理。内容就是 SyterKit 镜像开头的那些字节，命令本身的输出是那行 "Copied"。
 
 ### 示例 3：控制器和设备在 sysfs 里的位置
 

@@ -15,11 +15,11 @@ AIC8800 是爱科微（AICSemi）的 WiFi + 蓝牙二合一芯片，`yuzukineko`
 
 ## 4.5 网络与可选 WPA3 变化
 
-4.5 的 Ethernet capability 回调接收网络接口。可选 `CONFIG_AIC8800_WPA3` 使用 TF-PSA-Crypto SAE 后端，显式配置曲线，并为椭圆曲线乘法提供随机回调；secp192r1 被拒绝。已通过启用 WPA3 的扫描构建，尚未在 4.5 重新验证路由器互通。下文旧表格／日志描述各自的原始配置。
+4.5 的 Ethernet capability 回调接收网络接口。可选 `CONFIG_AIC8800_WPA3` 使用 TF-PSA-Crypto SAE 后端，显式配置曲线，并为椭圆曲线乘法提供随机回调。secp192r1 被拒绝。已通过启用 WPA3 的扫描构建，尚未在 4.5 重新验证路由器互通。下文旧表格／日志描述各自的原始配置。
 
 4.5 的 WPA3 与网络变化见[版本与迁移指南](../zephyr-4-5.md)。
 
-驱动还为 [Miracast](../apps/miracast.md) 提供 Wi-Fi Direct GO 控制，运行时独占无线接口，不能与普通 STA/DLNA 连接并行；这不代表支持通用 STA+P2P 并发。
+驱动还为 [Miracast](../apps/miracast.md) 提供 Wi-Fi Direct GO 控制，运行时独占无线接口，不能与普通 STA/DLNA 连接并行。这不代表支持通用 STA+P2P 并发。
 
 ## 架构
 
@@ -94,7 +94,7 @@ flowchart LR
 
 芯片挂在 SD 主机控制器 `smhc2` 下，是它的子节点（设备树里叫 `aic8800`）。Zephyr 的 `sd` 子系统（`SD_STACK`、`SDIO_STACK`）枚举出这张“卡”，驱动再通过 SDIO 功能访问芯片。日志里的 `sdio card up: 2 functions` 表示枚举出两个功能，驱动的寄存器读写和数据端口（固件下载、命令消息、网络包收发）用的是 function 1。
 
-块大小 512 字节；DMA 要求缓冲区按 64 字节缓存行对齐，驱动内部的收发缓冲区已经按这个对齐。SDIO 的卡中断走 DAT1 线（SDHC 的 `SDHC_INT_SDIO`），所以设备树里 `wakeup-gpios` 可以不接，它只是被配置成输入。主机控制器本身的说明见 [SDHC 主机控制器](../drivers/sdhc.md)。
+块大小 512 字节。DMA 要求缓冲区按 64 字节缓存行对齐，驱动内部的收发缓冲区已经按这个对齐。SDIO 的卡中断走 DAT1 线（SDHC 的 `SDHC_INT_SDIO`），所以设备树里 `wakeup-gpios` 可以不接，它只是被配置成输入。主机控制器本身的说明见 [SDHC 主机控制器](../drivers/sdhc.md)。
 
 ### 启动顺序
 
@@ -132,7 +132,7 @@ aic8800: rd_version_val=06090101
 aic8800: Start app: 00120000
 ```
 
-`sdio card up: 2 functions` 说明 SDIO 枚举成功；`chip_id=c3, chip_sub_id=2` 是芯片自己的标识；固件按 `@ = 120000` 的地址、`336848` 字节的主固件下载到芯片 RAM；`rd_version_val` 是固件起来后读回的版本；`Start app` 之后芯片开始工作。
+`sdio card up: 2 functions` 说明 SDIO 枚举成功。`chip_id=c3, chip_sub_id=2` 是芯片自己的标识。固件按 `@ = 120000` 的地址、`336848` 字节的主固件下载到芯片 RAM。`rd_version_val` 是固件起来后读回的版本。`Start app` 之后芯片开始工作。
 
 ## 设备树
 
@@ -242,7 +242,7 @@ properties:
 | `wakeup-gpios` | 否 | 芯片唤醒主机的线（WAKEUP_AP），只配置成输入，卡中断走 DAT1 |
 | `bt-reset-gpios` | 否 | 蓝牙部分的复位（BT_RSTN）。下载固件期间保持复位，`CONFIG_AIC8800_BT` 时在 HCI 传输打开时释放 |
 
-绑定还包含 `base.yaml`。节点必须启用，并且是 SD 主机控制器的子节点；`CONFIG_AIC8800` 打开而设备树里没有这个节点时，编译会报 `CONFIG_AIC8800 needs an enabled node compatible with "aicsemi,aic8800"`。
+绑定还包含 `base.yaml`。节点必须启用，并且是 SD 主机控制器的子节点。`CONFIG_AIC8800` 打开而设备树里没有这个节点时，编译会报 `CONFIG_AIC8800 needs an enabled node compatible with "aicsemi,aic8800"`。
 
 ## Kconfig
 
@@ -281,7 +281,7 @@ properties:
 
 ## 接口与验证项
 
-组件没有自己的应用接口。`wifi.h` 里的 `aic_wifi_init`、`aic_wifi_event_register`、`aic_wifi_get_mode` 等是驱动内部使用的原厂接口，头文件在模块私有的包含路径里，应用的编译选项里没有它；其中 `aic_wifi_get_version` 只有声明、没有实现。应用用的是 Zephyr 的 `net_if` 和 `net_mgmt` 接口。驱动在 `wifi_mgmt_ops` 里实现了 `scan`、`connect`、`disconnect`、`iface_status` 四个回调，别的回调（AP、省电、监管域、统计等）没有实现。
+组件没有自己的应用接口。`wifi.h` 里的 `aic_wifi_init`、`aic_wifi_event_register`、`aic_wifi_get_mode` 等是驱动内部使用的原厂接口，头文件在模块私有的包含路径里，应用的编译选项里没有它。其中 `aic_wifi_get_version` 只有声明、没有实现。应用用的是 Zephyr 的 `net_if` 和 `net_mgmt` 接口。驱动在 `wifi_mgmt_ops` 里实现了 `scan`、`connect`、`disconnect`、`iface_status` 四个回调，别的回调（AP、省电、监管域、统计等）没有实现。
 
 下面按验证项逐项写：每一项说明验证了什么、怎么验证的、板上看到了什么输出。验证程序是 `examples/aic8800_wifi_api`，没有 AP 的凭据，所以没有连接真实网络，没有验证的项在最后一节单列。示例函数都在同一个 `main.c` 里，开头的头文件、事件回调和全局变量如下：
 
@@ -415,7 +415,7 @@ void net_mgmt_init_event_callback(struct net_mgmt_event_callback *cb,
 | `NET_EVENT_WIFI_DISCONNECT_RESULT` | 断开 | `struct wifi_status` |
 | `NET_EVENT_IPV4_ADDR_ADD` | DHCP 拿到地址 | 无 |
 
-验证方法：初始化回调后发起扫描，回调里逐条打印 `NET_EVENT_WIFI_SCAN_RESULT`，收到 `NET_EVENT_WIFI_SCAN_DONE` 释放信号量。扫描和连接超时两种事件在后面的输出里出现；`NET_EVENT_WIFI_DISCONNECT_RESULT` 和 `NET_EVENT_IPV4_ADDR_ADD` 需要真实连接，没有验证。
+验证方法：初始化回调后发起扫描，回调里逐条打印 `NET_EVENT_WIFI_SCAN_RESULT`，收到 `NET_EVENT_WIFI_SCAN_DONE` 释放信号量。扫描和连接超时两种事件在后面的输出里出现。`NET_EVENT_WIFI_DISCONNECT_RESULT` 和 `NET_EVENT_IPV4_ADDR_ADD` 需要真实连接，没有验证。
 
 ```c
 static void demo_register_events(void)
@@ -447,7 +447,7 @@ int net_mgmt(NET_REQUEST_WIFI_IFACE_STATUS, struct net_if *iface,
 	     struct wifi_iface_status *status, size_t len);
 ```
 
-驱动填的字段：`state`（断开、关联中、已连接）、`iface_mode`（始终是 `WIFI_MODE_INFRA`）、已连接时的 `ssid`、`bssid`、`band`、`channel`、`rssi`；`link_mode` 和 `security` 是未知，其他字段不填。
+驱动填的字段：`state`（断开、关联中、已连接）、`iface_mode`（始终是 `WIFI_MODE_INFRA`）、已连接时的 `ssid`、`bssid`、`band`、`channel`、`rssi`。`link_mode` 和 `security` 是未知，其他字段不填。
 
 验证内容：未连接时的状态，以及连接请求进行中的状态。验证方法：扫描前、扫描后、连接请求刚被接受时、断开后各读一次。已连接状态（`COMPLETED` 和 SSID、信道、RSSI）需要真实连接，没有验证。
 
@@ -484,7 +484,7 @@ int net_mgmt(NET_REQUEST_WIFI_SCAN, struct net_if *iface,
 	     struct wifi_scan_params *params, size_t len);
 ```
 
-驱动不使用 `params`，传 `NULL`、0：总是扫描全部信道，没有按 SSID、信道过滤的能力。请求返回 0 之后，每个 AP 发一个 `NET_EVENT_WIFI_SCAN_RESULT`，最后发 `NET_EVENT_WIFI_SCAN_DONE`；扫描已在进行时返回 `-EBUSY`（这一点来自源码，没有单独验证）。
+驱动不使用 `params`，传 `NULL`、0：总是扫描全部信道，没有按 SSID、信道过滤的能力。请求返回 0 之后，每个 AP 发一个 `NET_EVENT_WIFI_SCAN_RESULT`，最后发 `NET_EVENT_WIFI_SCAN_DONE`。扫描已在进行时返回 `-EBUSY`（这一点来自源码，没有单独验证）。
 
 验证内容：第一次扫描会启动芯片（上电、枚举、下载固件），之后扫描的结果里要同时有 2.4 GHz 和 5 GHz 的 AP。验证方法：连续扫描两次，打印每个 AP 的信道、RSSI、加密类型、BSSID 和 SSID。同一个路由器的几个 BSSID 各是一条，隐藏网络的 SSID 为空串，加密类型 `UNKNOWN` 的是驱动没有识别的加密方式。
 
@@ -571,7 +571,7 @@ int net_mgmt(NET_REQUEST_WIFI_CONNECT, struct net_if *iface,
 	     struct wifi_connect_req_params *params, size_t len);
 ```
 
-请求是异步的：参数检查通过就返回 0，连接在驱动自己的工作队列里做，结果用 `NET_EVENT_WIFI_CONNECT_RESULT` 通知；连上后打开载波，DHCPv4 开始取地址。驱动对参数的处理（来自 `aicz_connect`）：
+请求是异步的：参数检查通过就返回 0，连接在驱动自己的工作队列里做，结果用 `NET_EVENT_WIFI_CONNECT_RESULT` 通知。连上后打开载波，DHCPv4 开始取地址。驱动对参数的处理（来自 `aicz_connect`）：
 
 | 参数 | 驱动的行为 |
 | --- | --- |
@@ -581,7 +581,7 @@ int net_mgmt(NET_REQUEST_WIFI_CONNECT, struct net_if *iface,
 | `channel` | `WIFI_CHANNEL_ANY` 为不指定，否则只在这个信道上找；`band` 不使用 |
 | 已有连接请求在进行 | 返回 `-EBUSY` |
 
-连接结果的 `status`：0 成功；`WIFI_STATUS_CONN_TIMEOUT` 是关联在 40 秒内没有完成；`WIFI_STATUS_CONN_FAIL` 是启动连接就失败。
+连接结果的 `status`：0 成功。`WIFI_STATUS_CONN_TIMEOUT` 是关联在 40 秒内没有完成。`WIFI_STATUS_CONN_FAIL` 是启动连接就失败。
 
 没有 AP 的凭据，验证分三项。连接真实网络的 `demo_connect()` 在 `CONNECT_SSID` 不为空时才会走，那条路径没有在板上运行。
 
@@ -679,7 +679,7 @@ static int demo_connect(struct net_if *iface, const char *ssid, const char *psk,
 }
 ```
 
-输出里，请求被接受后接口状态是 `ASSOCIATING`，第二次请求返回 `-EBUSY`。驱动启动 wpa_supplicant 去找这个网络，找不到就一直重试扫描，约 30 秒后 wpa_supplicant 退出；之后驱动再等 40 秒（`JOIN_TIMEOUT_MS`），所以连接结果事件在请求发出约 70 秒后才来，`connect result 3` 即 `WIFI_STATUS_CONN_TIMEOUT`。中间重复的扫描日志（每 2.5 秒一行）在完整日志里略去了。驱动会把 SSID 和口令明文打在日志里：`Connect Wi-Fi: …` 那一行和发给 wpa_supplicant 的 `SET_NETWORK 0 psk "…"` 命令里都能看到。日志里的 `password123` 是示例用的假口令。真实使用时，串口日志贴给别人之前先把这几行抹掉。
+输出里，请求被接受后接口状态是 `ASSOCIATING`，第二次请求返回 `-EBUSY`。驱动启动 wpa_supplicant 去找这个网络，找不到就一直重试扫描，约 30 秒后 wpa_supplicant 退出。之后驱动再等 40 秒（`JOIN_TIMEOUT_MS`），所以连接结果事件在请求发出约 70 秒后才来，`connect result 3` 即 `WIFI_STATUS_CONN_TIMEOUT`。中间重复的扫描日志（每 2.5 秒一行）在完整日志里略去了。驱动会把 SSID 和口令明文打在日志里：`Connect Wi-Fi: …` 那一行和发给 wpa_supplicant 的 `SET_NETWORK 0 psk "…"` 命令里都能看到。日志里的 `password123` 是示例用的假口令。真实使用时，串口日志贴给别人之前先把这几行抹掉。
 
 ```text
 [connect] CONNECT_SSID is empty, no real network to join

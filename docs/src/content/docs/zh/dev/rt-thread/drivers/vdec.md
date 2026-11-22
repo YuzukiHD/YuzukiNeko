@@ -32,7 +32,7 @@ NV12 为 Y 加交错 UV，NV21 为 Y 加 VU。这里 RGBA8888 表示小端字 `0
 | `vdec_stream_close(stream)` | 关闭 session，未释放帧延后销毁和解码器占用释放 |
 | `vdec_set_clock_hz(hz)` / `vdec_clock_hz()` | 设置实际时钟（失败为负 errno）/ 查询频率 |
 
-`vdec_stream_config.buffer_size=0` 使用默认值。`no_cache_ops=true` 仅适用于 CPU 不读取像素的路径，校验和或 CPU 转换应保持 false。当前 `holding_frames` 为保留字段，额外帧预算来自 `BSP_VDEC_H264_EXTRA_PICTURES`。单图持帧期间占用全局解码器，流则占用到 close 且所有帧释放；首帧未释放就开始第二次解码可能阻塞。
+`vdec_stream_config.buffer_size=0` 使用默认值。`no_cache_ops=true` 仅适用于 CPU 不读取像素的路径，校验和或 CPU 转换应保持 false。当前 `holding_frames` 为保留字段，额外帧预算来自 `BSP_VDEC_H264_EXTRA_PICTURES`。单图持帧期间占用全局解码器，流则占用到 close 且所有帧释放。首帧未释放就开始第二次解码可能阻塞。
 
 ## 完整 JPEG 文件示例
 
@@ -149,7 +149,7 @@ flowchart TD
 
 显示时用返回的平面指针、stride 和尺寸构造 `lcd_yuv`。JPEG 通常为全范围，应按实际码流元数据设置范围与矩阵。阻塞调用 `lcd_show_yuv`，确认替换锁存后释放上一帧，最后一帧在关闭视频层后释放。`lcd_show_yuv` 返回不代表新帧已经不再被扫描。允许持帧关闭流，但释放前解码器不能被其他会话复用。
 
-必须初始化整个描述符，包括裁剪、UV 顺序和范围。未初始化的 `nv21` 会使正确的 NV12 解码结果交换 Cb/Cr。针对 baseline JFIF JPEG，下面的完整函数选择 BT.601 全范围并等待显示；调用者仍需保留 `frame`，直到替换锁存或关闭视频层：
+必须初始化整个描述符，包括裁剪、UV 顺序和范围。未初始化的 `nv21` 会使正确的 NV12 解码结果交换 Cb/Cr。针对 baseline JFIF JPEG，下面的完整函数选择 BT.601 全范围并等待显示。调用者仍需保留 `frame`，直到替换锁存或关闭视频层：
 
 ```c
 #include <rtthread.h>
@@ -175,8 +175,8 @@ int demo_present_jpeg(const struct vdec_frame *frame)
 
 ## 验证与不支持的输入
 
-`test_vdec` 使用 `applications/tests/data/` 的内置 `test_jpeg.h`、`test_png.h`、`test_h264.h`。JPEG 分别对 NV12、NV21 校验每个 16×16 块的 Y 均值与对应 8×8 块的 Cb/Cr 均值，允许与主机解码结果相差 3。色度参考采用 FFmpeg `yuvj420p`；只校验亮度无法发现 UV 交换。PNG 校验 CRC `03c854ec`，H.264 比较 30 帧完整 Y+UV 的 CRC，生命周期测试执行 320 次 JPEG，覆盖环形回绕和持帧关闭后释放。
+`test_vdec` 使用 `applications/tests/data/` 的内置 `test_jpeg.h`、`test_png.h`、`test_h264.h`。JPEG 分别对 NV12、NV21 校验每个 16×16 块的 Y 均值与对应 8×8 块的 Cb/Cr 均值，允许与主机解码结果相差 3。色度参考使用 FFmpeg `yuvj420p`。只校验亮度无法发现 UV 交换。PNG 校验 CRC `03c854ec`，H.264 比较 30 帧完整 Y+UV 的 CRC，生命周期测试执行 320 次 JPEG，覆盖环形回绕和持帧关闭后释放。
 
-测试镜像中先执行 `usb_display_selftest`，再执行 `test_display_jpeg`。自测先校验流式显示的回写像素，再保留独立的 320×240 预览；第二条命令校验该预览。两者均比较顶部八条色带与主机 RGB，每通道容差 4。自左向右应为**白、黄、青、绿、品红、红、蓝、黑**。`usb_display_stop` 关闭并释放预览。内部回写验证 DE 输出，实体屏幕仍需要目视确认。
+测试镜像中先执行 `usb_display_selftest`，再执行 `test_display_jpeg`。自测先校验流式显示的回写像素，再保留独立的 320×240 预览。第二条命令校验该预览。两者均比较顶部八条色带与主机 RGB，每通道容差 4。自左向右应为**白、黄、青、绿、品红、红、蓝、黑**。`usb_display_stop` 关闭并释放预览。内部回写验证 DE 输出，实体屏幕仍需要目视确认。
 
 渐进 JPEG、不支持的 H.264 特性、损坏数据或帧池预算不足会失败，应报告 errno 并保留输入用于排查。MP4 是容器，应使用现有 `mp4_play <file>` 或解封装器，不能将 MP4 字节直接送入 Annex B 输入。

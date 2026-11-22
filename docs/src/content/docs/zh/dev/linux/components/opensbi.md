@@ -5,7 +5,7 @@ title: "OpenSBI - SBI 固件"
 OpenSBI 是运行在 RISC-V 机器模式、位于 bootloader 与 Linux 之间的固件。在 YuzukiNeko 上它以 `fw_jump` 形式构建，加载到 PSRAM 的 `0x40f80000`，由 SyterKit 把设备树地址放在 `a1` 中进入。随后它切到监督者模式，跳转到 `0x40000000` 的内核。
 
 :::note[版本范围]
-本页描述 `YuzukiHD/opensbi` 的 `sun252i-f101` 分支，它报告 OpenSBI 1.9、SBI 规范 3.0。本仓库内的检出位于提交 `3ad76d4a`。这里的构建产物由仓库内的 `build.sh` 生成；Buildroot external tree 通过 Buildroot 的 OpenSBI 包构建同一分支，命令行略有不同，见[镜像放在哪里](#镜像放在哪里)。
+本页描述 `YuzukiHD/opensbi` 的 `sun252i-f101` 分支，它报告 OpenSBI 1.9、SBI 规范 3.0。本仓库内的检出位于提交 `3ad76d4a`。这里的构建产物由仓库内的 `build.sh` 生成。Buildroot external tree 通过 Buildroot 的 OpenSBI 包构建同一分支，命令行略有不同，见[镜像放在哪里](#镜像放在哪里)。
 :::
 
 ## SBI 是什么
@@ -133,7 +133,7 @@ static int sun252i_f101_hart_start(u32 hartid, ulong saddr)
 }
 ```
 
-`hart_stop()` 先用 `th.dcache.call` 刷掉脏的 D-cache，再根据 `MXSTATUS` bit 22 发 `fence iorw, iorw` 或 `th.sync.s`，清掉 `MSMPR` bit 0 停止 cache snooping，请求手动掉电并执行 `wfi()`。`hart_suspend()` 只接受非保持型；保持型交给通用 HSM 代码。`hart_resume()` 在核心的热启动序列之后重新选择手动模式并给它上电。
+`hart_stop()` 先用 `th.dcache.call` 刷掉脏的 D-cache，再根据 `MXSTATUS` bit 22 发 `fence iorw, iorw` 或 `th.sync.s`，清掉 `MSMPR` bit 0 停止 cache snooping，请求手动掉电并执行 `wfi()`。`hart_suspend()` 只接受非保持型。保持型交给通用 HSM 代码。`hart_resume()` 在核心的热启动序列之后重新选择手动模式并给它上电。
 
 两条 cache 指令以裸 `.word 0x0010000b` 和 `.word 0x0190000b` 发出，而不是 `th.dcache.call` 和 `th.sync.s`。玄铁工具链认识这些助记符，上游 binutils 不认识，而本平台也会被 Buildroot 用原版工具链构建。
 
@@ -156,7 +156,7 @@ static const struct sbi_cpu_idle_state sun252i_f101_cpu_idle_states[] = {
 };
 ```
 
-这个节点描述的是核心丢失 cache 和寄存器状态、本地定时器停止、唤醒延迟 67 微秒的状态。内核只有开启 `CONFIG_CPU_IDLE` 才会用这个节点；F101 的 RV32 和 RV64I 内核配置都没有开 `CONFIG_CPU_IDLE`，所以在当前镜像里它只是描述性信息。仍然添加它，是因为它描述硬件，而且不用时没有代价。
+这个节点描述的是核心丢失 cache 和寄存器状态、本地定时器停止、唤醒延迟 67 微秒的状态。内核只有开启 `CONFIG_CPU_IDLE` 才会用这个节点。F101 的 RV32 和 RV64I 内核配置都没有开 `CONFIG_CPU_IDLE`，所以在当前镜像里它只是描述性信息。仍然添加它，是因为它描述硬件，而且不用时没有代价。
 
 ### 通过看门狗复位系统
 
@@ -227,7 +227,7 @@ static int sun252i_f101_extensions_init(bool cold_boot)
 }
 ```
 
-寄存器名都是 C907 的：`MSMPR` 控制 cache snooping，`MCCR2` 和 `MXSTATUS` 控制 cache 与总线行为，`MHINT` 保存总线提示设置，`MHCR` 打开 cache。这些位的具体含义本仓库没有文档；这些值是 F101 电源管理序列要求的值，平台把它们当作不透明数据。RV64 下同一个函数还设置 `menvcfg` bit 62，为 64 位内核打开 Svpbmt；RV32 下这一位单独处理，见下节。
+寄存器名都是 C907 的：`MSMPR` 控制 cache snooping，`MCCR2` 和 `MXSTATUS` 控制 cache 与总线行为，`MHINT` 保存总线提示设置，`MHCR` 打开 cache。这些位的具体含义本仓库没有文档。这些值是 F101 电源管理序列要求的值，平台把它们当作不透明数据。RV64 下同一个函数还设置 `menvcfg` bit 62，为 64 位内核打开 Svpbmt。RV32 下这一位单独处理，见下节。
 
 ### 在 RV32 上开启 PBMTE
 
@@ -246,11 +246,11 @@ OpenSBI 通用代码只在 RV64 下置位 `PBMTE`。平台因此在 `final_init(
 #endif
 ```
 
-RV32 下 `CSR_MENVCFG` 是按 `menvcfgh`/`menvcfg` 访问的 64 位 `menvcfg`；高半部分的 bit 30 就是 PBMTE。没有它，内核通过 Svpbmt 把某页标成非 cache 或 I/O 映射时，会在第一次这样的映射处挂死，通常发生在控制台起来之前。这是本分支上最重要的平台修复：内核的 DMA 和 MMIO 路径依赖 Svpbmt 提供的内存类型。
+RV32 下 `CSR_MENVCFG` 是按 `menvcfgh`/`menvcfg` 访问的 64 位 `menvcfg`。高半部分的 bit 30 就是 PBMTE。没有它，内核通过 Svpbmt 把某页标成非 cache 或 I/O 映射时，会在第一次这样的映射处挂死，通常发生在控制台起来之前。这是本分支上最重要的平台修复：内核的 DMA 和 MMIO 路径依赖 Svpbmt 提供的内存类型。
 
 ## 平台 defconfig
 
-`platform/generic/configs/sun252i-f101.defconfig` 选择平台覆盖和本板使用的通用 FDT 驱动。每一项都是构建期选择；驱动实例本身在运行时由设备树提供。
+`platform/generic/configs/sun252i-f101.defconfig` 选择平台覆盖和本板使用的通用 FDT 驱动。每一项都是构建期选择。驱动实例本身在运行时由设备树提供。
 
 ```text
 CONFIG_PLATFORM_ALLWINNER_SUN252I_F101=y
@@ -309,7 +309,7 @@ make O=build/sun252i-f101 \
 同时定义时 `FW_JUMP_FDT_ADDR` 优先于 `FW_JUMP_FDT_OFFSET`，两者又都优先于上一级传入的 `a1`。在本板上固定它没有副作用，因为每条启动路径都把设备树放在 `0x40f40000`，但这样就去掉了对 SyterKit 传对寄存器的依赖。
 
 :::caution
-不要省略 `PLATFORM_RISCV_XLEN=32`。工具链是 64 位的 riscv64 工具链；不显式给 XLEN 会产出 64 位的 `fw_jump.elf`，文件名却仍然正确，板子随后会以看起来像内存问题的方式失败。烧录前对 `fw_jump.elf` 跑 `file`，确认是 32 位。
+不要省略 `PLATFORM_RISCV_XLEN=32`。工具链是 64 位的 riscv64 工具链。不显式给 XLEN 会产出 64 位的 `fw_jump.elf`，文件名却仍然正确，板子随后会以看起来像内存问题的方式失败。烧录前对 `fw_jump.elf` 跑 `file`，确认是 32 位。
 :::
 
 产物是 `build/sun252i-f101/platform/generic/firmware/fw_jump.bin`，本仓库内构建为 266,344 字节。`build/sun252i-f101-rv64` 目录是 `--arch rv64` 产出的 RV64I 变体，RV32 Linux 镜像不用它。
@@ -325,12 +325,12 @@ make O=build/sun252i-f101 \
 这个固定布局由三个独立部分共享：SyterKit 读取端、Buildroot 的 `post-image-nor.sh` 脚本，以及 Linux 设备树里的 MTD 分区表。改地址意味着三处都要改。见 [SPI NOR 布局与备份](../../../boot/flash-layout.md)。
 
 :::note[Buildroot 把 fw_jump 链接在零地址]
-Buildroot 的 OpenSBI 包不传 `FW_TEXT_START`；它安装的 `fw_jump.elf` 入口点是 `0x0`，由 OpenSBI 自己的启动代码做重定位。加载到 `0x40f80000` 后它照样正确运行。仓库内的 `build.sh` 则链接在 `0x40f80000`，ELF 入口点已经是加载地址。两个二进制都有效；不要用 ELF 入口点来判断镜像该放在哪里。
+Buildroot 的 OpenSBI 包不传 `FW_TEXT_START`。它安装的 `fw_jump.elf` 入口点是 `0x0`，由 OpenSBI 自己的启动代码做重定位。加载到 `0x40f80000` 后它照样正确运行。仓库内的 `build.sh` 则链接在 `0x40f80000`，ELF 入口点已经是加载地址。两个二进制都有效。不要用 ELF 入口点来判断镜像该放在哪里。
 :::
 
 ## SBI 版本与内核用到的扩展
 
-固件报告 SBI 规范 3.0、实现版本 OpenSBI 1.9。平台 defconfig 编入下面这组扩展；内核用到哪些在表中注明。
+固件报告 SBI 规范 3.0、实现版本 OpenSBI 1.9。平台 defconfig 编入下面这组扩展。内核用到哪些在表中注明。
 
 | 扩展 | ID | 已编入 | F101 内核是否使用 |
 | --- | --- | --- | --- |
@@ -356,7 +356,7 @@ ls /proc/device-tree/cpus/idle-states/
 cat /proc/device-tree/cpus/idle-states/cpu-nonretentive/riscv,sbi-suspend-param | hexdump -C
 ```
 
-`idle-states` 目录存在是因为 OpenSBI 添加了它；板级设备树源码里没有。设备树里还有 OpenSBI 改写的 `riscv,isa-extensions` 属性，其中包括 `svpbmt`。如果这个列表里没有 `svpbmt`，内核就不会使用 Svpbmt，上面的 PBMTE 设置也就没有效果。
+`idle-states` 目录存在是因为 OpenSBI 添加了它。板级设备树源码里没有。设备树里还有 OpenSBI 改写的 `riscv,isa-extensions` 属性，其中包括 `svpbmt`。如果这个列表里没有 `svpbmt`，内核就不会使用 Svpbmt，上面的 PBMTE 设置也就没有效果。
 
 用户空间也可以直接发 `ecall`，用一个小的静态程序即可。SBI v0.2+ 的约定是错误码放在 `a0`、返回值放在 `a1`：
 

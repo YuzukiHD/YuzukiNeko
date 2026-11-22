@@ -41,7 +41,7 @@ cd bsp/allwinner-hal/sun252iw2
 export SUN252I_BOARD=yuzukineko
 ```
 
-源码应包含本章所述的配置种子和源码解码器。每次测试记录 `git rev-parse HEAD`。分支会继续演进；较早的远端检出可能尚未包含最新的本地提交。
+源码应包含本章所述的配置种子和源码解码器。每次测试记录 `git rev-parse HEAD`。分支会继续演进。较早的远端检出可能尚未包含最新的本地提交。
 
 ## 新终端的环境
 
@@ -57,6 +57,6 @@ dtc --version
 
 ## 准备下载主机
 
-按 [FEL 工具](../../boot/fel.md)安装 xfel，并准备 115200 8N1 串口终端。Linux 编译、Windows 接板时，先将本次镜像与 helper 复制到 Windows，再执行 xfel。COM 号由主机分配，不是板卡固定属性：近期测试使用 COM4，仍应通过拔插目标确认当前端口。
+按 [FEL 工具](../../boot/fel.md)安装 xfel，并准备 115200 8N1 串口终端。Linux 编译、Windows 接板时，先将本次镜像与 helper 复制到 Windows，再执行 xfel。COM 号由主机分配，不是板卡固定属性：本次测试使用 COM4，仍应通过拔插目标确认当前端口。
 
 下一步：[选择配置、构建并从 RAM 启动](build-run.md)。

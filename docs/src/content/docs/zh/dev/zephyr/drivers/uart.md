@@ -192,7 +192,7 @@ UART1 也是 `printk` 的输出口，所以演示里改波特率要小心：改�
 
 **`uart_config_get`** `int uart_config_get(const struct device *dev, struct uart_config *cfg);`
 
-读当前的波特率、校验、停止位、数据位和流控。枚举取值：校验 0 无、1 奇、2 偶；停止位 0 半位、1 一位、2 一位半、3 两位；数据位 0…3 对应 5…8 位；流控 0 无、1 RTS/CTS、2 DTR/DSR。
+读当前的波特率、校验、停止位、数据位和流控。枚举取值：校验 0 无、1 奇、2 偶。停止位 0 半位、1 一位、2 一位半、3 两位。数据位 0…3 对应 5…8 位。流控 0 无、1 RTS/CTS、2 DTR/DSR。
 
 ```text
 [config] uart_config_get = 0: 115200 baud, parity 0, stop bits 1, data bits 3, flow control 0
@@ -267,7 +267,7 @@ static volatile int rx_irqs, tx_irqs;
 
 **`uart_fifo_fill`** `int uart_fifo_fill(const struct device *dev, const uint8_t *tx_data, int size);`
 
-往发送 FIFO 里填最多 `size` 个字节，返回实际填进去的个数；填不下的等下一次发送中断。发完以后调用 `uart_irq_tx_disable()`，否则发送中断会一直来。
+往发送 FIFO 里填最多 `size` 个字节，返回实际填进去的个数。填不下的等下一次发送中断。发完以后调用 `uart_irq_tx_disable()`，否则发送中断会一直来。
 
 **`uart_irq_tx_enable`** `void uart_irq_tx_enable(const struct device *dev);`
 
@@ -291,7 +291,7 @@ ping[irq] receive: 1 interrupt(s), got 4 characters: "ping"
 
 **`uart_err_check`** `int uart_err_check(const struct device *dev);`
 
-返回自上次调用以来遇到的错误位（溢出、校验、帧、break）；没有错误是 0。
+返回自上次调用以来遇到的错误位（溢出、校验、帧、break）。没有错误是 0。
 
 ```text
 [error] uart_err_check = 0x0 (0 = no overrun, parity, framing or break error)

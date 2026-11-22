@@ -41,7 +41,7 @@ flowchart TD
     EXEC --> LOG["UART1: YuzukiNeko, then msh"]
 ```
 
-RAM 镜像链接在 `0x40000000`。helper 在 SRAM 地址 `0x20000` 执行；NOR 偏移 `0x20000` 属于另一地址空间，用于保存开发采样参数。该 RAM 流程不写 NOR 启动区或应用分区。
+RAM 镜像链接在 `0x40000000`。helper 在 SRAM 地址 `0x20000` 执行。NOR 偏移 `0x20000` 属于另一地址空间，用于保存开发采样参数。该 RAM 流程不写 NOR 启动区或应用分区。
 
 ## 编译可返回的 PSRAM helper
 

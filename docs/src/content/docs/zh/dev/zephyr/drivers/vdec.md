@@ -25,7 +25,7 @@ F101 片上的视频引擎（video engine）可以用硬件解码 <strong>JPEG</
 
 4.5 的示例与测试数据变化见[版本与迁移指南](../zephyr-4-5.md)。
 
-维护中的 Annex B 扫描器同时接受三字节、四字节起始码，并按实际前缀长度读取 NAL 类型。当前 JPEG/PNG/H.264 样例运行多组数据和 CRC 检查；4.5 不要再启用已移除的 `CONFIG_SAMPLE_VDEC_DUMP`。编译通过不等于实机解码输出已验证。
+维护中的 Annex B 扫描器同时接受三字节、四字节起始码，并按实际前缀长度读取 NAL 类型。当前 JPEG/PNG/H.264 样例运行多组数据和 CRC 检查。4.5 不要再启用已移除的 `CONFIG_SAMPLE_VDEC_DUMP`。编译通过不等于实机解码输出已验证。
 
 ## 设备树
 
@@ -195,7 +195,7 @@ const struct device *dev = DEVICE_DT_GET(DT_NODELABEL(ve));
 
 示例里的 `err()`、`show_frame()`、`luma_crc()` 是演示程序里的小工具，源码在文末。
 
-演示程序的测试数据：JPEG、PNG 和 H.264 用的是 `samples/drivers/vdec/` 里三个示例内嵌的图片（都是 320×240）；MJPEG 用 ffmpeg 生成了 5 张 320×240 的 JPEG。
+演示程序的测试数据：JPEG、PNG 和 H.264 用的是 `samples/drivers/vdec/` 里三个示例内嵌的图片（都是 320×240）。MJPEG 用 ffmpeg 生成了 5 张 320×240 的 JPEG。
 
 :::caution
 解码失败时驱动会打印 `<err>` 日志。日志是延迟输出的，会和演示程序的 `printk` 输出交错，所以下面贴的日志只保留演示程序自己打印的行，驱动日志见 [驱动日志](#驱动日志)。
@@ -326,7 +326,7 @@ void vdec_frame_release(const struct device *dev, struct vdec_frame *frame);
 
 **示例：流里的帧**
 
-`holding_frames` 设成 2，只取帧、不释放，直到被挡住（`-EBUSY`）；再把拿着的帧全部释放，解码器就恢复可用：
+`holding_frames` 设成 2，只取帧、不释放，直到被挡住（`-EBUSY`）。再把拿着的帧全部释放，解码器就恢复可用：
 
 日志：
 
@@ -337,7 +337,7 @@ void vdec_frame_release(const struct device *dev, struct vdec_frame *frame);
 [hold] vdec_stream_close done
 ```
 
-`3 frames held, get_frame = -EBUSY` 是释放之前的状态；释放之后变成 `-EAGAIN`（要更多数据，因为这个函数没有再喂数据），不再是 `-EBUSY`。
+`3 frames held, get_frame = -EBUSY` 是释放之前的状态。释放之后变成 `-EAGAIN`（要更多数据，因为这个函数没有再喂数据），不再是 `-EBUSY`。
 
 ### 流式解码
 
@@ -434,7 +434,7 @@ int vdec_stream_feed(const struct device *dev, struct vdec_stream *stream,
 
 **`vdec_stream_get_frame`**
 
-取下一帧；解码在这里完成。
+取下一帧。解码在这里完成。
 
 ```c
 int vdec_stream_get_frame(const struct device *dev, struct vdec_stream *stream,
@@ -516,7 +516,7 @@ int vdec_stream_get_frame(const struct device *dev, struct vdec_stream *stream,
 [h264] vdec_stream_close done
 ```
 
-前几行能看出节奏：打开之后 `get_frame` 先是 `-EAGAIN`；喂了 SPS（类型 7）、PPS（类型 8）、第一个切片（类型 1）之后，第一帧出来；之后大体是“喂一个块，出一帧”。第 2 块长 5650 字节，是按四字节起始码切出来的，里面还夹着用三字节起始码分隔的其他 NAL，这对解码没有影响。最后喂完 33 个块，flush，剩下的帧被取空。30 帧都通过了 CRC 校验（有错会打印 `bad crc`，日志里没有）。
+前几行能看出节奏：打开之后 `get_frame` 先是 `-EAGAIN`。喂了 SPS（类型 7）、PPS（类型 8）、第一个切片（类型 1）之后，第一帧出来。之后大体是“喂一个块，出一帧”。第 2 块长 5650 字节，是按四字节起始码切出来的，里面还夹着用三字节起始码分隔的其他 NAL，这对解码没有影响。最后喂完 33 个块，flush，剩下的帧被取空。30 帧都通过了 CRC 校验（有错会打印 `bad crc`，日志里没有）。
 
 **示例：-EBUSY**
 
@@ -585,7 +585,7 @@ void vdec_stream_close(const struct device *dev, struct vdec_stream *stream);
 
 **示例**
 
-打开 MJPEG 流，取一帧，释放，关闭；再打开一个 H.264 流，证明解码器已经让出：
+打开 MJPEG 流，取一帧，释放，关闭。再打开一个 H.264 流，证明解码器已经让出：
 
 日志：
 

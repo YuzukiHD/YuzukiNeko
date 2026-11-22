@@ -4,7 +4,7 @@ title: "SPIF - SPI NOR Flash"
 
 除了两个通用 SPI 控制器，F101 还有一个只为 SPI Flash 而生的控制器。它没有中断线，没有给软件用的 FIFO 接口，也没有时钟分频：每条 Flash 命令都变成一小段描述符，由控制器自己的 DMA 取回，命令的地址、空周期和数据阶段都写在这段描述符里。CPU 写八个字、启动引擎，然后轮询结束。
 
-控制器在 `0x0c000000`，与 SPI0 和 eMMC 控制器共用六个 `PC` 焊盘。出厂板的镜像把 Flash 留在 SPI0 上；`sun252i-f101-yuzukineko-spif.dts` 是把它搬过来的变体。本章讲两边：控制器和它的采样点调优，以及两个控制器都得打交道的 Puya P25Q128H。
+控制器在 `0x0c000000`，与 SPI0 和 eMMC 控制器共用六个 `PC` 焊盘。出厂板的镜像把 Flash 留在 SPI0 上。`sun252i-f101-yuzukineko-spif.dts` 是把它搬过来的变体。本章讲两边：控制器和它的采样点调优，以及两个控制器都得打交道的 Puya P25Q128H。
 
 | 项目 | 内容 |
 | --- | --- |
@@ -33,7 +33,7 @@ title: "SPIF - SPI NOR Flash"
 | 6 | TCS | 操作码、地址位宽、数据位宽 |
 | 7 | TNM | 数据长度、空周期数、地址长度减一、正常模式 |
 
-描述符放在一致性内存里；`sunxi_spif_xfer()` 写好它，用 `dma_wmb()` 保证写序，把 `desc_dma >> 2` 写进 `0x44` 的描述符寄存器，再把描述符长度和启动位写进 `0x40` 的 DMA 控制寄存器。控制器自己取回描述符，驱动 CS、SCK 和数据线，结束时置 `0x18` 状态寄存器里的 DMA 完成位。因为没有中断，驱动用 `readl_poll_timeout_atomic()` 轮询这个寄存器，最长等一秒。
+描述符放在一致性内存里。`sunxi_spif_xfer()` 写好它，用 `dma_wmb()` 保证写序，把 `desc_dma >> 2` 写进 `0x44` 的描述符寄存器，再把描述符长度和启动位写进 `0x40` 的 DMA 控制寄存器。控制器自己取回描述符，驱动 CS、SCK 和数据线，结束时置 `0x18` 状态寄存器里的 DMA 完成位。因为没有中断，驱动用 `readl_poll_timeout_atomic()` 轮询这个寄存器，最长等一秒。
 
 寄存器组：
 
@@ -53,7 +53,7 @@ title: "SPIF - SPI NOR Flash"
 | `0x40` | DMA_CTL | 描述符长度和启动 |
 | `0x44` | DMA_DESC | 描述符地址，按字计 |
 
-有数据时走描述符路径，`PHC`/`TCF`/`TCS`/`TNM` 被忽略。没有数据时——擦除、读状态、写使能——同样的值直接写进这些寄存器并置 `GCR_NORMAL_EN`；完成就是硬件把这个位清掉，驱动同样轮询。
+有数据时走描述符路径，`PHC`/`TCF`/`TCS`/`TNM` 被忽略。没有数据时——擦除、读状态、写使能——同样的值直接写进这些寄存器并置 `GCR_NORMAL_EN`。完成就是硬件把这个位清掉，驱动同样轮询。
 
 ### 线路上的一条命令
 
@@ -69,11 +69,11 @@ Flash 核心发下来的每个操作都是几种固定形状之一，描述符�
 | 四线页编程 | `0x32` | 3 字节，1 线 | 无 | 4 线出 | Command + ADDR + TX |
 | 4 KiB 擦除 | `0x20` | 3 字节，1 线 | 无 | 无 | 无数据路径 |
 
-操作码是 `include/linux/mtd/spi-nor.h` 里的标准值；实际用哪一种读变体取决于 Flash 节点里的位宽，见 [Flash 芯片](#flash-芯片)。擦除和写使能没有数据阶段，所以走寄存器路径（`GCR_NORMAL_EN`）而不是 DMA 描述符。
+操作码是 `include/linux/mtd/spi-nor.h` 里的标准值。实际用哪一种读变体取决于 Flash 节点里的位宽，见 [Flash 芯片](#flash-芯片)。擦除和写使能没有数据阶段，所以走寄存器路径（`GCR_NORMAL_EN`）而不是 DMA 描述符。
 
 ### 阶段与位宽
 
-阶段字一个阶段一位：`CMD`（bit 28）、`ADDR`（bit 24）、`DUMMY`（bit 16）、`TX`（bit 12）、`RX`（bit 8）。地址阶段和数据阶段各自用 0、1、2 表示一、二、四线；命令阶段永远是一线。DTR 位把地址、空周期和数据阶段都扩到两个时钟沿，而驱动只在三者全是 DTR 时才接受 DTR 操作。这正是 Flash 四线 DTR 读的形状：操作码单线、地址四线、一个空周期、数据四线，全部双沿。
+阶段字一个阶段一位：`CMD`（bit 28）、`ADDR`（bit 24）、`DUMMY`（bit 16）、`TX`（bit 12）、`RX`（bit 8）。地址阶段和数据阶段各自用 0、1、2 表示一、二、四线。命令阶段永远是一线。DTR 位把地址、空周期和数据阶段都扩到两个时钟沿，而驱动只在三者全是 DTR 时才接受 DTR 操作。这正是 Flash 四线 DTR 读的形状：操作码单线、地址四线、一个空周期、数据四线，全部双沿。
 
 空周期按时钟数计，不按字节：`sunxi_spif_dummy_cycles()` 算的是 `字节 × 8 / 位宽`，DTR 再减半，结果必须放进八位。地址长度存的是字节数减一，最多四字节。
 
@@ -81,7 +81,7 @@ Flash 核心发下来的每个操作都是几种固定形状之一，描述符�
 
 ### 时钟与 DTR
 
-模块时钟是 CCU 在 `0x0980` 的 `spif` 时钟：在 `dcxo24M`、`pll-peri-1x`、`pll-peri-2x`、`pll-peri-800m` 之间选择，后面是 5 位的 `M` 分频和 3 位的 `P` 分频。驱动用 `clk_set_rate()` 编程它。DTR 模式下它请求两倍于 SCK 的速率，因为每个时钟过两位；读回来的时钟高于请求时以 `-ERANGE` 拒绝。SDR 与 DTR 之间切换还需要一次软复位，因为控制器在复位时锁存时钟模式：`sunxi_spif_set_mode()` 设置 `SCKOUT_SEL`，跑一次 `sunxi_spif_reset()`，再把 TCR 连同采样点一起恢复。
+模块时钟是 CCU 在 `0x0980` 的 `spif` 时钟：在 `dcxo24M`、`pll-peri-1x`、`pll-peri-2x`、`pll-peri-800m` 之间选择，后面是 5 位的 `M` 分频和 3 位的 `P` 分频。驱动用 `clk_set_rate()` 编程它。DTR 模式下它请求两倍于 SCK 的速率，因为每个时钟过两位。读回来的时钟高于请求时以 `-ERANGE` 拒绝。SDR 与 DTR 之间切换还需要一次软复位，因为控制器在复位时锁存时钟模式：`sunxi_spif_set_mode()` 设置 `SCKOUT_SEL`，跑一次 `sunxi_spif_reset()`，再把 TCR 连同采样点一起恢复。
 
 驱动声明 100 MHz。那只是上限，不是承诺：50 MHz 以上数据眼图取决于板子，只有能调优时驱动才去那里。
 
@@ -193,7 +193,7 @@ CONFIG_MTD_SPI_NOR=y
 CONFIG_MTD_OF_PARTS=y
 ```
 
-`CONFIG_SPI_SUNXI_SPIF` 依赖 `ARCH_SUNXI` 和 `RESET_CONTROLLER`，并选中 `SPI_MEM`，正是它让驱动能把 `spi_mem_op` 结构交给 Flash 核心。MTD 侧需要四个 `CONFIG_MTD*` 选项；`CONFIG_MTD_OF_PARTS` 才是把 `fixed-partitions` 子节点变成 `mtd0` 到 `mtd5` 的那一环。板级 defconfig 全都设了，Buildroot 片段 `linux-nor.fragment` 又重复了一遍 MTD 那组，好让别的基础配置也能得到可启动的 Flash 栈。
+`CONFIG_SPI_SUNXI_SPIF` 依赖 `ARCH_SUNXI` 和 `RESET_CONTROLLER`，并选中 `SPI_MEM`，正是它让驱动能把 `spi_mem_op` 结构交给 Flash 核心。MTD 侧需要四个 `CONFIG_MTD*` 选项。`CONFIG_MTD_OF_PARTS` 才是把 `fixed-partitions` 子节点变成 `mtd0` 到 `mtd5` 的那一环。板级 defconfig 全都设了，Buildroot 片段 `linux-nor.fragment` 又重复了一遍 MTD 那组，好让别的基础配置也能得到可启动的 Flash 栈。
 
 注意两个 Flash 控制器是二选一而不是互补：`CONFIG_SPI_SUN6I` 和 `CONFIG_SPI_SUNXI_SPIF` 可以同时编进去，由设备树决定谁占用焊盘。
 
@@ -217,11 +217,11 @@ CONFIG_MTD_OF_PARTS=y
 
 ### 传输路径
 
-`sunxi_spif_exec_op()` 为每个操作决定速率：设备的 `max_speed_hz`，再被 Flash 核心可能设置的 `op->max_freq` 限制，且不超过 100 MHz。速率高于 50 MHz 时它检查这个操作能不能调优；不能就降到 50 MHz。能的话它查调优键，要么复用缓存点，要么重新调优，要么（对已经失败的键和速率）直接降到 50 MHz。然后设置采样点并调用 `sunxi_spif_xfer()`。
+`sunxi_spif_exec_op()` 为每个操作决定速率：设备的 `max_speed_hz`，再被 Flash 核心可能设置的 `op->max_freq` 限制，且不超过 100 MHz。速率高于 50 MHz 时它检查这个操作能不能调优。不能就降到 50 MHz。能的话它查调优键，要么复用缓存点，要么重新调优，要么（对已经失败的键和速率）直接降到 50 MHz。然后设置采样点并调用 `sunxi_spif_xfer()`。
 
 `sunxi_spif_xfer()` 构造描述符，用 `dma_map_single()` 映射缓冲区，长度向上取整到 64 字节——DMA 搬运整块 64 字节——启动引擎或无数据命令，轮询，解除映射，读操作再从内部缓冲区复制到 `op->data.buf.in`。发送操作在映射之前先复制进内部缓冲区。
 
-只有一个缓冲区这一点，才是 64 KiB 操作上限的来源，而不是硬件限制：控制器的 DMA 能寻址更多，但只有一个缓冲区、没有分散聚集，所以更大的操作由 Flash 核心切开。发送操作先复制进来，是因为 Flash 核心的缓冲区是普通内核分配，而控制器必须从它那里读整数个 64 字节块；把复制和取整放在一处，映射逻辑才简单。
+只有一个缓冲区这一点，才是 64 KiB 操作上限的来源，而不是硬件限制：控制器的 DMA 能寻址更多，但只有一个缓冲区、没有分散聚集，所以更大的操作由 Flash 核心切开。发送操作先复制进来，是因为 Flash 核心的缓冲区是普通内核分配，而控制器必须从它那里读整数个 64 字节块。把复制和取整放在一处，映射逻辑才简单。
 
 ### 错误路径
 
@@ -233,7 +233,7 @@ CONFIG_MTD_OF_PARTS=y
 
 ## 用户态接口
 
-控制器自己没有任何字符设备；Flash 通过 MTD 出现，和 SPI0 上完全一样：
+控制器自己没有任何字符设备。Flash 通过 MTD 出现，和 SPI0 上完全一样：
 
 | 路径 | 含义 |
 | --- | --- |
@@ -265,7 +265,7 @@ Creating 6 MTD partitions on "spi2.0":
 0x000000f00000-0x000001000000 : "overlay"
 ```
 
-主设备名 `spi2.0` 就是 SPIF 在用的标志：SPI0 变体上同一段会写 `spi0.0`。调优那行只在 100 MHz 下第一次批量读之后出现，正常启动时就是第一次访问根文件系统的时刻；它的形状是 `100 MHz: sample mode M, delay D (window A..B)`。具体的模式和延时是板子的属性，这里不引用；被调优的操作是 DTR 读时会附加 `DTR`。
+主设备名 `spi2.0` 就是 SPIF 在用的标志：SPI0 变体上同一段会写 `spi0.0`。调优那行只在 100 MHz 下第一次批量读之后出现，正常启动时就是第一次访问根文件系统的时刻。它的形状是 `100 MHz: sample mode M, delay D (window A..B)`。具体的模式和延时是板子的属性，这里不引用。被调优的操作是 DTR 读时会附加 `DTR`。
 
 ### 示例 2：查看一个分区
 
@@ -302,7 +302,7 @@ spi2.0
 };
 ```
 
-选一个落在被写过、非空白区域里的偏移——内核分区也可以，例如 `0x0d1000`。重新构建设备树、启动，然后找调优那行；如果驱动警告 `no usable data at the tune offset`，说明那段区域是空白或内容单一，偏移得换。删掉这个属性是安全的退路：控制器会停在 50 MHz，不做任何调优。
+选一个落在被写过、非空白区域里的偏移——内核分区也可以，例如 `0x0d1000`。重新构建设备树、启动，然后找调优那行。如果驱动警告 `no usable data at the tune offset`，说明那段区域是空白或内容单一，偏移得换。删掉这个属性是安全的退路：控制器会停在 50 MHz，不做任何调优。
 
 ### 两个控制器之间怎么选
 

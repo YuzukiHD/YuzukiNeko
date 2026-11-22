@@ -6,7 +6,7 @@ title: "Zephyr 开发"
 本章示例、代码清单、日志与板上结果默认属于 Zephyr 4.2.2 基线，页面内 4.5 小节另有说明的除外。4.5 的分支、环境、API 变化、构建命令与验证状态见[版本与迁移指南](zephyr-4-5.md)。
 :::
 
-[Zephyr](https://www.zephyrproject.org) 是一个面向资源受限设备的开源实时操作系统（RTOS）。F101 的 Zephyr 支持是上游 Zephyr 的一个 fork：[`YuzukiHD/zephyr`](https://github.com/YuzukiHD/zephyr)，保留 `zephyr-v4.2.2-f101`（4.2.2），并提供独立的 `zephyr-v4.5.0-f101`（4.5.0）移植分支；两版配套关系见[版本与迁移指南](zephyr-4-5.md)。
+[Zephyr](https://www.zephyrproject.org) 是一个面向资源受限设备的开源实时操作系统（RTOS）。F101 的 Zephyr 支持是上游 Zephyr 的一个 fork：[`YuzukiHD/zephyr`](https://github.com/YuzukiHD/zephyr)，保留 `zephyr-v4.2.2-f101`（4.2.2），并提供独立的 `zephyr-v4.5.0-f101`（4.5.0）移植分支。两版配套关系见[版本与迁移指南](zephyr-4-5.md)。
 
 - <strong>SoC</strong>：`sun252i_f101`，一个玄铁 C907 核（`rv32imafdcv`，带向量扩展，可选 Sv32 MMU），片内 SRAM 加 16 MB PSRAM，没有外部 DDR。
 - <strong>板级</strong>：`yuzukineko`（本板，控制台为 UART1 的 PB00/PB01）和 `f101_evb`（F101 评估板，控制台为 UART3 的 PE08/PE09）。

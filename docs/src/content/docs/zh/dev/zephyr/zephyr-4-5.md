@@ -2,9 +2,9 @@
 title: "Zephyr 4.2.2 与 4.5.0"
 ---
 
-F101 的两版 Zephyr 在一个月过渡期内共存。**4.2.2 在过渡期继续保留**；4.5.0 使用独立的内核移植与组件分支。构建前先选择配套版本。本章已有的录像和板上结果，除非另有明确说明，属于 4.2.2 基线。
+F101 的两版 Zephyr 在一个月过渡期内共存。**4.2.2 在过渡期继续保留**。4.5.0 使用独立的内核移植与组件分支。构建前先选择配套版本。本章已有的录像和板上结果，除非另有明确说明，属于 4.2.2 基线。
 
-按 2026-11-02 的安排，计划约一个月后（约 2026-12-02）完成合并并停止维护 4.2.2，之后以 4.5 为维护版本。下文共存流程适用于这段过渡期；维护结束后，旧示例与结果仍保留其历史版本归属。
+按 2026-11-02 的安排，计划约一个月后（约 2026-12-02）完成合并并停止维护 4.2.2，之后以 4.5 为维护版本。下文共存流程适用于这段过渡期。维护结束后，旧示例与结果仍保留其历史版本归属。
 
 ## 选择版本
 
@@ -20,7 +20,7 @@ F101 的两版 Zephyr 在一个月过渡期内共存。**4.2.2 在过渡期继�
 | 加密库 | Mbed TLS 3 | Mbed TLS 4.1.1 与 TF-PSA-Crypto |
 | 构建产物 | 原有 4.2.2 目录 | 独立的 `build/zephyr-4.5.0/` 目录 |
 
-4.5 移植基于上游 `v4.5.0`，提交 `41d10b59730406bbab4ca9f1fbbe9e96aafb4966`。表中的提交组合用于定位本次审阅基线，不限制分支后续更新。4.5 分支已在本地提交；本次文档更新未确认其远程发布状态。初始化新工作区前，先确认两个分支都可获取。远程分支不可用时，不能用另一个仓库的 `main` 代替。
+4.5 移植基于上游 `v4.5.0`，提交 `41d10b59730406bbab4ca9f1fbbe9e96aafb4966`。表中的提交组合用于定位本次审阅基线，不限制分支后续更新。4.5 分支已在本地提交。本次文档更新未确认其远程发布状态。初始化新工作区前，先确认两个分支都可获取。远程分支不可用时，不能用另一个仓库的 `main` 代替。
 
 ## 保留两套环境
 
@@ -36,7 +36,7 @@ python -m pip install west
 west packages pip --install
 ```
 
-第一条命令需使用 Python 3.12 或更新版本。激活后检查 `python --version` 和 `cmake --version`。切换虚拟环境可能恢复之前的 `PATH`，因此需要在激活后重新加入本地安装的 `dtc`、`gperf` 和工具链目录。本次 4.5 检查使用 XuanTie GCC 14.1.1；构建主机使用 Python 3.14.4 和 CMake 4.2.3。
+第一条命令需使用 Python 3.12 或更新版本。激活后检查 `python --version` 和 `cmake --version`。切换虚拟环境可能恢复之前的 `PATH`，因此需要在激活后重新加入本地安装的 `dtc`、`gperf` 和工具链目录。本次 4.5 检查使用 XuanTie GCC 14.1.1。构建主机使用 Python 3.14.4 和 CMake 4.2.3。
 
 在同一工作区顺序切换时，先保存本地改动，再同时选择两个分支并更新 4.5 的 manifest 依赖：
 
@@ -72,7 +72,7 @@ west build -b yuzukineko -d build/zephyr-4.5.0/nekobox zephyr-components/nekobox
 
 ## 4.5 仓库内示例的构建
 
-18 个组件构建通过，暂无板上日志；按 [RAM 或 XIP 流程](zephyr-build-run.md) 启动。
+18 个组件构建通过，暂无板上日志。按 [RAM 或 XIP 流程](zephyr-build-run.md) 启动。
 
 | 页面 | 构建命令 |
 | --- | --- |
@@ -97,7 +97,7 @@ west build -b yuzukineko -d build/zephyr-4.5.0/nekobox zephyr-components/nekobox
 
 ## 4.5 的验证记录
 
-移植检查在 `yuzukineko` 与 `f101_evb` 上完成 53 个驱动、媒体、LVGL 和分页配置的编译；EVB 没有触摸设备，因此排除了触摸绘图样例。后续组件检查在 `yuzukineko` 上构建了 40 个应用配置，包含 NekoBox、Bilibili、MicroPython、PocketJS、模拟器、手机投屏接收器与 API 示例。另有 Miracast RAM/XIP、WPA3、RVV 与分页组合检查。
+移植检查在 `yuzukineko` 与 `f101_evb` 上完成 53 个驱动、媒体、LVGL 和分页配置的编译。EVB 没有触摸设备，因此排除了触摸绘图样例。后续组件检查在 `yuzukineko` 上构建了 40 个应用配置，包含 NekoBox、Bilibili、MicroPython、PocketJS、模拟器、手机投屏接收器与 API 示例。另有 Miracast RAM/XIP、WPA3、RVV 与分页组合检查。
 
 六套主机测试通过，包含各套件提供的 sanitizer 检查。Android 加密测试独立校验 RSA、ADB 密钥常量、证书和 HKDF/AES-GCM：
 

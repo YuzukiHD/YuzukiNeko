@@ -219,9 +219,9 @@ static void show_regs(void)
 
 **`pwm_set`** `int pwm_set(const struct device *dev, uint32_t channel, uint32_t period, uint32_t pulse, pwm_flags_t flags);`
 
-周期和脉宽用纳秒，用 `PWM_USEC()`、`PWM_MSEC()`、`PWM_SEC()` 这些宏写。API 先按 24 MHz 换算成周期数（向下取整），再交给 `pwm_set_cycles`，所以短周期会被取整：200 ns 是 4.8 个周期，取整成 4 个周期（166.7 ns）；比一个周期（41.7 ns）还短的周期换算成 0，返回 `-EINVAL`。
+周期和脉宽用纳秒，用 `PWM_USEC()`、`PWM_MSEC()`、`PWM_SEC()` 这些宏写。API 先按 24 MHz 换算成周期数（向下取整），再交给 `pwm_set_cycles`，所以短周期会被取整：200 ns 是 4.8 个周期，取整成 4 个周期（166.7 ns）。比一个周期（41.7 ns）还短的周期换算成 0，返回 `-EINVAL`。
 
-驱动按周期自动选时钟：周期不超过 334 ns 用 100 MHz 的时钟源，计数更细；否则用 24 MHz，从 M 分频 1 开始，一直到预分频，找到第一个使 16 位计数放得下的组合。50 Hz 的舵机信号用预分频 8，0.5 Hz 用 M 分频 4 加预分频 184。
+驱动按周期自动选时钟：周期不超过 334 ns 用 100 MHz 的时钟源，计数更细。否则用 24 MHz，从 M 分频 1 开始，一直到预分频，找到第一个使 16 位计数放得下的组合。50 Hz 的舵机信号用预分频 8，0.5 Hz 用 M 分频 4 加预分频 184。
 
 ```text
 [set] 10 kHz, 25%                                = 0
@@ -240,7 +240,7 @@ static void show_regs(void)
 
 **`pwm_set_dt`** `int pwm_set_dt(const struct pwm_dt_spec *spec, uint32_t period, uint32_t pulse);`
 
-通道、设备和极性来自设备树节点的 `pwms` 属性，应用里不用写死通道号；周期和脉宽用纳秒。`spec` 用 `PWM_DT_SPEC_GET(node)` 取：
+通道、设备和极性来自设备树节点的 `pwms` 属性，应用里不用写死通道号。周期和脉宽用纳秒。`spec` 用 `PWM_DT_SPEC_GET(node)` 取：
 
 ```c
 static const struct pwm_dt_spec bl = PWM_DT_SPEC_GET(DT_NODELABEL(backlight_dsi));

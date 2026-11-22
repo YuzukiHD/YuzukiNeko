@@ -48,7 +48,7 @@ size_t load_param(const unsigned char* mem);
 size_t load_model(const unsigned char* mem);
 ```
 
-`load_param_mem()` 接收以 `\0` 结尾的文本 `.param`；`load_param()` / `load_model()` 接收二进制的 `.param.bin` 和 `.bin`。真实权重必须是 fp32：模块用 `NCNN_INT8=OFF` 编译，没有 int8 内核。
+`load_param_mem()` 接收以 `\0` 结尾的文本 `.param`。`load_param()` / `load_model()` 接收二进制的 `.param.bin` 和 `.bin`。真实权重必须是 fp32：模块用 `NCNN_INT8=OFF` 编译，没有 int8 内核。
 
 ### 选哪些模型
 

@@ -104,7 +104,7 @@ i2c1: i2c@2502400 {
 };
 ```
 
-`i2c2` 在板级文件里没有打开；用它时在应用的 overlay 里写 `&i2c2 { status = "okay"; pinctrl-0 = <&twi2_pins>; pinctrl-names = "default"; };`，`twi2_pins` 已经在板级文件里定义好。
+`i2c2` 在板级文件里没有打开。用它时在应用的 overlay 里写 `&i2c2 { status = "okay"; pinctrl-0 = <&twi2_pins>; pinctrl-names = "default"; };`，`twi2_pins` 已经在板级文件里定义好。
 
 **绑定：allwinner,sunxi-twi.yaml**
 
@@ -154,7 +154,7 @@ properties:
 
 下面按任务分组列出驱动实现的接口。每项的示例函数在页末[完整演示程序](#完整演示程序)里。
 
-GT967 的寄存器地址是 16 位、大端的，产品 ID 寄存器 `0x8140` 里是 4 字节 ASCII，`"967"` 加一个 0。它在复位释放的瞬间看 INT 引脚的电平选地址：INT 为低是 `0x5d`，为高是 `0x14`。演示程序先用 `touch_reset()` 做这件事，真正的触摸驱动 `drivers/input/input_gt967.c` 也这么做；这个函数只用到 [GPIO](gpio.md) 的接口：
+GT967 的寄存器地址是 16 位、大端的，产品 ID 寄存器 `0x8140` 里是 4 字节 ASCII，`"967"` 加一个 0。它在复位释放的瞬间看 INT 引脚的电平选地址：INT 为低是 `0x5d`，为高是 `0x14`。演示程序先用 `touch_reset()` 做这件事，真正的触摸驱动 `drivers/input/input_gt967.c` 也这么做。这个函数只用到 [GPIO](gpio.md) 的接口：
 
 ```c
 /* The controller takes its address from the level of INT at the moment RST is released:
@@ -218,7 +218,7 @@ static void touch_reset(void)
 [scan] 1 device(s) found
 ```
 
-读寄存器时，先用 `i2c_write` 设好寄存器地址，再 `i2c_read`，两次之间有停止条件；GT967 接受这种写法，有的芯片不接受，要用 `i2c_write_read`。下面读 `0x8047`（配置版本）的 1 个字节，前提是上一步 `i2c_write` 已经设了这个地址：
+读寄存器时，先用 `i2c_write` 设好寄存器地址，再 `i2c_read`，两次之间有停止条件。GT967 接受这种写法，有的芯片不接受，要用 `i2c_write_read`。下面读 `0x8047`（配置版本）的 1 个字节，前提是上一步 `i2c_write` 已经设了这个地址：
 
 ```text
 [write+read] i2c_read(1 byte)            = 0: 0x69
@@ -244,7 +244,7 @@ static void touch_reset(void)
 
 **`i2c_burst_read`** `int i2c_burst_read(const struct device *dev, uint16_t dev_addr, uint8_t start_addr, uint8_t *buf, uint32_t num_bytes);`
 
-写 1 个字节的起始地址，再连续读 `num_bytes` 个字节。GT967 的寄存器地址是 16 位，所以这个演示只说明调用能通；16 位地址的芯片用 `i2c_write_read`。
+写 1 个字节的起始地址，再连续读 `num_bytes` 个字节。GT967 的寄存器地址是 16 位，所以这个演示只说明调用能通。16 位地址的芯片用 `i2c_write_read`。
 
 ```text
 [burst] i2c_burst_read(0x81, 4)       = 0

@@ -20,7 +20,7 @@ uart1_pins: uart1-pins {
 };
 ```
 
-引脚组应放入 `&pio`，`&uart1` 覆盖位于文件顶层。`bias-pull-up`、`bias-pull-down`、`bias-disable` 和 `drive-strength` 配置焊盘属性；驱动强度表示控制器档位，不是毫安数。
+引脚组应放入 `&pio`，`&uart1` 覆盖位于文件顶层。`bias-pull-up`、`bias-pull-down`、`bias-disable` 和 `drive-strength` 配置焊盘属性。驱动强度表示控制器档位，不是毫安数。
 
 ## 接口
 
@@ -75,4 +75,4 @@ flowchart LR
     SEM --> TASK["Thread consumes event"]
 ```
 
-用 `test_gpio` 检查电平、上下拉和两个边沿方向。电平中断重复触发通常表示外部源仍在有效电平。错误复用会断开外设，即使 GPIO 读回正常也不代表外设可用；测试后恢复原有设备的引脚所有权。
+用 `test_gpio` 检查电平、上下拉和两个边沿方向。电平中断重复触发通常表示外部源仍在有效电平。错误复用会断开外设，即使 GPIO 读回正常也不代表外设可用。测试后恢复原有设备的引脚所有权。

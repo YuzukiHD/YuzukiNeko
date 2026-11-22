@@ -2,7 +2,7 @@
 title: "编译与运行"
 ---
 
-本页适用于配套的 4.2.2 和 4.5.0 环境；4.5 使用独立构建目录，见[版本指南](zephyr-4-5.md)。先完成[环境配置](zephyr-setup-env.md)、[源码获取](zephyr-get-source.md)和 [FEL 工具安装](../../boot/fel.md)。
+本页适用于配套的 4.2.2 和 4.5.0 环境。4.5 使用独立构建目录，见[版本指南](zephyr-4-5.md)。先完成[环境配置](zephyr-setup-env.md)、[源码获取](zephyr-get-source.md)和 [FEL 工具安装](../../boot/fel.md)。
 
 | 镜像与用途 | 流程 | 断电后 |
 | --- | --- | --- |
@@ -10,7 +10,7 @@ title: "编译与运行"
 | XIP 开发应用 | NOR `0x80000` 写应用并校验，从 RAM 执行当前 XIP loader | 应用保留；启动区为空时回到 FEL |
 | 可独立启动的 RAM 应用 | 可选的旧 NOR/UF2 布局，安装 `flash-boot` 与头页 | 自动从 NOR 加载到 RAM |
 
-**先检查镜像类型。** RAM 和 XIP 不能共用下载地址，也不能把 XIP `zephyr.bin` 交给旧 UF2 的 `app` 流程。开发默认保留 NOR 启动区为空，断电后可自动进入 FEL；下文的 NOR/UF2 安装是单独选择的独立启动方案。
+**先检查镜像类型。** RAM 和 XIP 不能共用下载地址，也不能把 XIP `zephyr.bin` 交给旧 UF2 的 `app` 流程。开发默认保留 NOR 启动区为空，断电后可自动进入 FEL。下文的 NOR/UF2 安装是单独选择的独立启动方案。
 
 ## 编译
 
@@ -35,9 +35,9 @@ west build -b yuzukineko -d build/hello zephyr/samples/hello_world
 | `zephyr.bin` | 裸二进制，下载到板子的就是它 |
 | `zephyr.elf` | 带符号的 ELF，调试和看内存布局用 |
 
-这里默认 hello-world 的 RAM 镜像使用 `0x40000000`；其他应用应核对 `zephyr/.config`、`zephyr/zephyr.dts` 及 ELF 的载入地址和入口。工具链是玄铁 900 的 newlib GCC，通过 `ZEPHYR_TOOLCHAIN_VARIANT=cross-compile` 接入，由 `env.sh` 设置。
+这里默认 hello-world 的 RAM 镜像使用 `0x40000000`。其他应用应核对 `zephyr/.config`、`zephyr/zephyr.dts` 及 ELF 的载入地址和入口。工具链是玄铁 900 的 newlib GCC，通过 `ZEPHYR_TOOLCHAIN_VARIANT=cross-compile` 接入，由 `env.sh` 设置。
 
-重新编译同一个目录用 `west build -d build/hello`；换了板级或想从头来，加 `-p always`。
+重新编译同一个目录用 `west build -d build/hello`。换了板级或想从头来，加 `-p always`。
 
 ## 控制台
 
@@ -98,7 +98,7 @@ cp ../out/syterkit-efex/build/soc/sun252iw2/app_efex/init_psram/init_psram_efex.
 
 ## XIP 开发：应用留在 NOR，loader 在 RAM 运行
 
-NekoBox、Bilibili 和 Miracast 的 XIP 配置使用此流程。两版 Zephyr 均需使用与当前 SPIF 布局匹配的 loader；不要盲用应用 `tools/` 中残留的旧 `.bin`。
+NekoBox、Bilibili 和 Miracast 的 XIP 配置使用此流程。两版 Zephyr 均需使用与当前 SPIF 布局匹配的 loader。不要盲用应用 `tools/` 中残留的旧 `.bin`。
 
 先获取当前 SyterKit 源码（尚未克隆时执行 `git clone https://github.com/YuzukiHD/SyterKit.git`），在已设置 `CROSS_COMPILE` 的工作区构建：
 
@@ -107,7 +107,7 @@ make -C SyterKit O=../out/syterkit CROSS_COMPILE="$CROSS_COMPILE" yuzukineko_rv3
 make -C SyterKit O=../out/syterkit CROSS_COMPILE="$CROSS_COMPILE" -j8 xip-boot
 ```
 
-检查构建退出码、loader 来源、时间和 SHA-256。下例使用本次 NekoBox 的产物；其他应用替换为对应 XIP 构建目录：
+检查构建退出码、loader 来源、时间和 SHA-256。下例使用本次 NekoBox 的产物。其他应用替换为对应 XIP 构建目录：
 
 ```sh
 mkdir -p out
@@ -117,7 +117,7 @@ xfel spinor read 0x80000 "$(wc -c < build/nekobox/zephyr/zephyr.bin)" out/nekobo
 sha256sum build/nekobox/zephyr/zephyr.bin out/nekobox-readback.bin
 ```
 
-只有芯片为 F101 `0x00193700`、scratchpad 为 `0x00020000` 且两个散列一致，才继续。多板连接时确认目标断电会使该 USB 设备消失。主机需要操作实际上传并核对的产物；PowerShell 用 `(Get-Item <file>).Length` 取长度，以 `Get-FileHash` 比较。
+只有芯片为 F101 `0x00193700`、scratchpad 为 `0x00020000` 且两个散列一致，才继续。多板连接时确认目标断电会使该 USB 设备消失。主机需要操作实际上传并核对的产物。PowerShell 用 `(Get-Item <file>).Length` 取长度，以 `Get-FileHash` 比较。
 
 ```sh
 xfel write 0x20000 out/syterkit/build/yuzukineko/app_sram/xip-boot/xip-boot_fel.bin
@@ -129,11 +129,11 @@ xfel write 0x20000 out/syterkit/build/yuzukineko/app_sram/xip-boot/xip-boot_fel.
 xfel exec 0x20000
 ```
 
-NOR 的 `0x20000` 保存采样参数，RAM 的 `0x20000` 装载 loader，属于不同地址空间。**不把 `xip-boot_spi.bin` 写到 NOR 起始位置**，保留自动 FEL。每轮下载重新进入 FEL；跳转后用串口判断启动，不再调用 `xfel read32`。完整地址布局见 [SPI NOR 布局与备份](../../boot/flash-layout.md)。
+NOR 的 `0x20000` 保存采样参数，RAM 的 `0x20000` 装载 loader，属于不同地址空间。**不把 `xip-boot_spi.bin` 写到 NOR 起始位置**，保留自动 FEL。每轮下载重新进入 FEL。跳转后用串口判断启动，不再调用 `xfel read32`。完整地址布局见 [SPI NOR 布局与备份](../../boot/flash-layout.md)。
 
 ## NOR 启动的共同基础
 
-以下保留 4.2.2 文档的独立启动／UF2 安装流程及固定的 SyterKit 版本。只适用于普通 RAM 镜像；安装后会改变自动 FEL 行为，与上面的 XIP 开发布局互斥。
+以下保留 4.2.2 文档的独立启动／UF2 安装流程及固定的 SyterKit 版本。只适用于普通 RAM 镜像。安装后会改变自动 FEL 行为，与上面的 XIP 开发布局互斥。
 
 方式二和方式三都把程序写进板载的 16 MiB SPI NOR，由 Flash 里的加载器在上电时取出来运行。这一节说明它是怎么工作的，以及怎样装加载器。
 
@@ -163,7 +163,7 @@ NOR 的 `0x20000` 保存采样参数，RAM 的 `0x20000` 装载 loader，属于�
 
 ### 准备工具
 
-`mkuf2.py` 在 `zephyr-components` 仓库里，是只依赖标准库的 Python 脚本，不用装额外的包。仓库的作用见 [获取 zephyr-components](zephyr-get-source.md#应用与模块)；已经克隆过的，跳过下面的 `git clone`：
+`mkuf2.py` 在 `zephyr-components` 仓库里，是只依赖标准库的 Python 脚本，不用装额外的包。仓库的作用见 [获取 zephyr-components](zephyr-get-source.md#应用与模块)。已经克隆过的，跳过下面的 `git clone`：
 
 ```sh
 cd ~/f101-zephyr
@@ -213,7 +213,7 @@ xfel spinor write 0x020000 $L
 
 ### 生成带头页的镜像
 
-`mkuf2.py` 把 `zephyr.bin` 加上头页。`--raw` 输出 Flash 原始镜像，供 `xfel spinor write` 用；不加 `--raw` 输出 `.uf2` 文件。
+`mkuf2.py` 把 `zephyr.bin` 加上头页。`--raw` 输出 Flash 原始镜像，供 `xfel spinor write` 用。不加 `--raw` 输出 `.uf2` 文件。
 
 ```sh
 python3 zephyr-components/uf2-downloader/tools/mkuf2.py app build/hello/zephyr/zephyr.bin --raw -o out/app.img
@@ -221,7 +221,7 @@ python3 zephyr-components/uf2-downloader/tools/mkuf2.py app build/hello/zephyr/z
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/zephyr-build-run/mkuf2.cast"></div>
 
-输出类似 `out/app.img: 2096208 bytes at 0x200000`。镜像大于应用区（`0x9F0000` 字节）时脚本会报错退出。默认载入地址是 `0x40000000`，和 Zephyr 的链接地址一致；镜像链接在别处时用 `--load` 指定。
+输出类似 `out/app.img: 2096208 bytes at 0x200000`。镜像大于应用区（`0x9F0000` 字节）时脚本会报错退出。默认载入地址是 `0x40000000`，和 Zephyr 的链接地址一致。镜像链接在别处时用 `--load` 指定。
 
 ## 方式二：xfel 直接写 NOR
 
@@ -264,7 +264,7 @@ starting at 0x40000000 (id 0)
 
 ## 方式三：UF2 拖放下载
 
-这是<strong>通用的日常下载方式</strong>。xfel 只在最开始用一次，把 UF2 下载器装进 NOR；以后把应用做成 `.uf2` 文件，拖进板子显示的 USB 盘即可，不再需要 FEL 和 xfel。
+这是<strong>通用的日常下载方式</strong>。xfel 只在最开始用一次，把 UF2 下载器装进 NOR。以后把应用做成 `.uf2` 文件，拖进板子显示的 USB 盘即可，不再需要 FEL 和 xfel。
 
 ### 第一步：安装 UF2 下载器（只做一次）
 

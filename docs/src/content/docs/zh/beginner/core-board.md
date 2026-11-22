@@ -63,7 +63,7 @@ Flash 启动区为空时，BROM 每次上电都进入 FEL，`xfel` 能识别。F
 
 UART 的 `TX` 和 `RX` 必须交叉：板子的 `TX` 接适配器的 `RX`，板子的 `RX` 接适配器的 `TX`。只接信号线和地线，不要用适配器给板子供电。
 
-使用 Yuzuki AvaotaUART 时，可以直接插核心板的 USB-C 口，串口走 USB-C 的 SBU 脚；普通 USB-C 线没有这个功能。详细接法见 [RustSBI + Asterinas](../dev/asterinas/rustsbi-asterinas.md)。
+使用 Yuzuki AvaotaUART 时，可以直接插核心板的 USB-C 口，串口走 USB-C 的 SBU 脚。普通 USB-C 线没有这个功能。详细接法见 [RustSBI + Asterinas](../dev/asterinas/rustsbi-asterinas.md)。
 
 ![核心板连接 USB-C 串口适配器](figures/core-board.webp)
 
@@ -87,7 +87,7 @@ picocom -b 115200 /dev/ttyUSB0
 
 ## 排针和电源
 
-排针只接 3.3 V 信号。`5V` 是电源脚，不是信号脚；不要从排针给板子供电，也不要接反电源。使用母头杜邦线，接线前断开 USB。完整引脚定义和复用关系见[引脚排布](../hardware/pinout.md)。
+排针只接 3.3 V 信号。`5V` 是电源脚，不是信号脚。不要从排针给板子供电，也不要接反电源。使用母头杜邦线，接线前断开 USB。完整引脚定义和复用关系见[引脚排布](../hardware/pinout.md)。
 
 - `3V3` 是输出，不要向它灌入电源。
 - `GND` 必须和外部设备共地。
@@ -101,7 +101,7 @@ picocom -b 115200 /dev/ttyUSB0
 - 板子没有电源开关，断开 USB 就关机；烧录过程中不要断开。
 - 板子发热、有异味或电流异常时，立即断开 USB 检查。
 
-上电前确认：USB-C 线是数据线；主机 USB 口直连；板子没有接触金属；没有线头碰到其他引脚；串口适配器是 3.3 V 且 `3V3`/`5V` 悬空；`TX`/`RX` 已交叉、`GND` 已连接；接线时 USB 已断开；排针上没有 5 V 信号或外部电源。
+上电前确认：USB-C 线是数据线。主机 USB 口直连。板子没有接触金属。没有线头碰到其他引脚。串口适配器是 3.3 V 且 `3V3`/`5V` 悬空。`TX`/`RX` 已交叉、`GND` 已连接。接线时 USB 已断开。排针上没有 5 V 信号或外部电源。
 
 | 现象 | 可能原因 | 处理 |
 | --- | --- | --- |

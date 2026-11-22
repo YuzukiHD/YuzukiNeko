@@ -4,7 +4,7 @@ title: "NekoBox - 媒体与游戏盒"
 
 NekoBox 是 YuzukiNeko 的媒体与游戏应用：触摸界面（LVGL，1024×768），有带时钟的主屏、TF 卡文件浏览器、视频播放器（MP4 H.264 + AAC）、来自手机或 PC 的 DLNA 视频投屏、Android Miracast 无线屏幕镜像、支持双指缩放的照片查看器、NES / Game Boy / Game Boy Color / Game Boy Advance 游戏、计算器、USB 副屏、带网络校时的 Wi-Fi，以及设置界面。它是一个应用而不是模块，并且<strong>直接在 SPI NOR flash 中原地运行</strong>（XIP）。代码在 `zephyr-components/nekobox`。
 
-每个功能都是一个有独立开关的<strong>特性</strong>（`CONFIG_NEKOBOX_FEATURE_*`）。关掉的特性不会被编译，也不会留下磁贴、设置行或文件类型；`main()` 里没有对应的 `#ifdef`。特性把自己提供的东西（界面、主屏磁贴、设置行、文件类型、启动步骤）登记在由链接器收集的记录里，所以新增特性只是新增一个目录，其他地方都不用改。
+每个功能都是一个有独立开关的<strong>特性</strong>（`CONFIG_NEKOBOX_FEATURE_*`）。关掉的特性不会被编译，也不会留下磁贴、设置行或文件类型。`main()` 里没有对应的 `#ifdef`。特性把自己提供的东西（界面、主屏磁贴、设置行、文件类型、启动步骤）登记在由链接器收集的记录里，所以新增特性只是新增一个目录，其他地方都不用改。
 
 | 特性 | 开关 | 说明 |
 | --- | --- | --- |
@@ -75,11 +75,11 @@ cd ~/f101-zephyr
 west build -b yuzukineko -d build/nekobox zephyr-components/nekobox
 ```
 
-顶层 `CMakeLists.txt` 通过 `ZEPHYR_EXTRA_MODULES` 加入放在应用旁边的模拟器、Wi-Fi、DLNA 和 Miracast 模块（`../mgba`、`../gbsp`、`../nes`、`../aic8800`、`../dlna`、`../miracast`），命令行不需要再传参数。输出是 `build/nekobox/zephyr/zephyr.bin`；镜像链接在 XIP 窗口，而不是像其他示例那样链接在 `0x40000000`。
+顶层 `CMakeLists.txt` 通过 `ZEPHYR_EXTRA_MODULES` 加入放在应用旁边的模拟器、Wi-Fi、DLNA 和 Miracast 模块（`../mgba`、`../gbsp`、`../nes`、`../aic8800`、`../dlna`、`../miracast`），命令行不需要再传参数。输出是 `build/nekobox/zephyr/zephyr.bin`。镜像链接在 XIP 窗口，而不是像其他示例那样链接在 `0x40000000`。
 
 ## 运行：从 flash 原地执行
 
-镜像在 SPI NOR flash 中原地运行：它被链接进 SPIF 控制器的窗口（`CONFIG_XIP`、`boards/yuzukineko.overlay`，`0x0e000000` 起 6 MiB）。代码和只读数据从 flash 取，RAM 里只有 `.data`、`.bss` 和堆。窗口必须在第一条指令之前映射好，这由 SyterKit 的应用 `xip-boot` 完成：它初始化 PSRAM（312 MHz；252 MHz 时，与显示共用总线的视频解码器在繁重场景下会丢 540p/30 fps 影片的画面）和 flash，把 flash 从偏移 `0x80000` 映射到 `0x0e000000`，然后跳过去。控制台是 UART1（PB0/PB1），115200 8N1。
+镜像在 SPI NOR flash 中原地运行：它被链接进 SPIF 控制器的窗口（`CONFIG_XIP`、`boards/yuzukineko.overlay`，`0x0e000000` 起 6 MiB）。代码和只读数据从 flash 取，RAM 里只有 `.data`、`.bss` 和堆。窗口必须在第一条指令之前映射好，这由 SyterKit 的应用 `xip-boot` 完成：它初始化 PSRAM（312 MHz。252 MHz 时，与显示共用总线的视频解码器在繁重场景下会丢 540p/30 fps 影片的画面）和 flash，把 flash 从偏移 `0x80000` 映射到 `0x0e000000`，然后跳过去。控制台是 UART1（PB0/PB1），115200 8N1。
 
 ### 开发时
 
@@ -113,13 +113,13 @@ xfel write 0x20000 out/syterkit/build/yuzukineko/app_sram/xip-boot/xip-boot_fel.
 xfel exec 0x20000
 ```
 
-NOR `0x20000` 的采样参数与 loader 的 RAM 地址属于不同地址空间；此流程保留参数和空启动区。文中 312 MHz 与 540p 的性能现象属于旧构建记录，当前 loader 的时钟与 4.5 性能需按实际构建和实机结果确认。
+NOR `0x20000` 的采样参数与 loader 的 RAM 地址属于不同地址空间。此流程保留参数和空启动区。文中 312 MHz 与 540p 的性能现象属于旧构建记录，当前 loader 的时钟与 4.5 性能需按实际构建和实机结果确认。
 
 ### 完整 flash 镜像
 
-仅在需要可独立启动的整镜像时使用。本操作会覆盖 NOR 启动区和应用前的参数区，下一次上电不再自动进入 FEL；日常开发使用上面的 RAM loader 流程。
+仅在需要可独立启动的整镜像时使用。本操作会覆盖 NOR 启动区和应用前的参数区，下一次上电不再自动进入 FEL。日常开发使用上面的 RAM loader 流程。
 
-`tools/mkimage.py` 把引导桩（`xip-boot_spi.bin`）放在 flash 开头、应用放在 `0x80000`，合成一个文件；应用之前的所有内容都会被覆盖。
+`tools/mkimage.py` 把引导桩（`xip-boot_spi.bin`）放在 flash 开头、应用放在 `0x80000`，合成一个文件。应用之前的所有内容都会被覆盖。
 
 ```mermaid
 flowchart TD
@@ -191,9 +191,9 @@ nekobox: 1024 x 768
 
 首页的 **Miracast** 打开后自动启动接收器，在支持 Miracast 的 Android 手机上的无线显示／屏幕镜像菜单中选择 **NekoBox Miracast**。页面提供停止和重试，离开时结束播放并恢复普通 Wi-Fi 与先前启用的 DLNA。此功能不需要 TF 卡或 ADB，不支持仅有 Google Cast 的发送端。
 
-`CONFIG_NEKOBOX_FEATURE_MIRACAST=n` 移除实现与首页入口；`CONFIG_NEKOBOX_MIRACAST_NAME` 设置 1–32 字节的可打印 ASCII 名称。P2P GO 接管无线接口，不能与 STA/DLNA 并行。默认协商 640×480p60 H.264 与 LPCM，实际吞吐量需要上板确认。接收器、播放器、协议限制和验证入口见 [Miracast](miracast.md)。
+`CONFIG_NEKOBOX_FEATURE_MIRACAST=n` 移除实现与首页入口。`CONFIG_NEKOBOX_MIRACAST_NAME` 设置 1–32 字节的可打印 ASCII 名称。P2P GO 接管无线接口，不能与 STA/DLNA 并行。默认协商 640×480p60 H.264 与 LPCM，实际吞吐量需要上板确认。接收器、播放器、协议限制和验证入口见 [Miracast](miracast.md)。
 
-4.5 默认 NekoBox XIP 构建及 Miracast 生命周期主机检查已通过；真实手机发现、画面、声音与长时间运行尚未验证。功能位于 `src/features/miracast/`，复用 `../miracast/`；网络线程排队提交状态，UI 线程控制播放器与页面生命周期。
+4.5 默认 NekoBox XIP 构建及 Miracast 生命周期主机检查已通过。真实手机发现、画面、声音与长时间运行尚未验证。功能位于 `src/features/miracast/`，复用 `../miracast/`。网络线程排队提交状态，UI 线程控制播放器与页面生命周期。
 
 4.5 的构建与验证状态见[版本与迁移指南](../zephyr-4-5.md)。
 
@@ -209,7 +209,7 @@ nekobox: 1024 x 768
 4. 让手机或 PC 接入同一局域网。在支持 DLNA 的视频应用里选择 **360p 或更低清晰度**，打开投屏菜单，选择 NekoBox 页面显示的设备名。
 5. 等待初始缓冲后，可以从发送端控制播放、暂停、拖动、停止和音量，也可以使用板上的播放控件。退出播放器会回到 DLNA 页面，点击 **Stop receiving** 可关闭接收。
 
-离开 DLNA 页面后接收器仍然可用。启用期间 Wi-Fi 会保持连接，开机网络检查后也不会关掉；运行游戏时仍会暂停后台网络。投屏文件是临时文件，不会进入最近视频列表或续播记录。
+离开 DLNA 页面后接收器仍然可用。启用期间 Wi-Fi 会保持连接，开机网络检查后也不会关掉。运行游戏时仍会暂停后台网络。投屏文件是临时文件，不会进入最近视频列表或续播记录。
 
 ```mermaid
 sequenceDiagram
@@ -234,7 +234,7 @@ DLNA 把媒体地址交给接收器，由接收器下载并播放视频，不会
 
 默认投屏上限是 **640×360**，竖屏允许 **360×640**。需要在发送应用里选择较低清晰度：DLNA 无法强制应用提供 360p 片源。NekoBox 会在打开解码器前检查所选资源的元数据和 MP4 实际头部，缺失或错误的元数据无法绕过限制。超限投屏会停止，并提示选择更低清晰度。本地文件仍使用各自的解码限制。
 
-完整的 MP4 影片头（`moov`）和 **512 KiB** 初始缓冲到达后开始播放；较小文件下载完成后即可播放。影片头位于文件末尾时，需要等整个文件下载完成。加载时间由网速和头部位置决定，暂停后继续或拖到尚未下载的位置时，可能还要等待更多数据。
+完整的 MP4 影片头（`moov`）和 **512 KiB** 初始缓冲到达后开始播放。较小文件下载完成后即可播放。影片头位于文件末尾时，需要等整个文件下载完成。加载时间由网速和头部位置决定，暂停后继续或拖到尚未下载的位置时，可能还要等待更多数据。
 
 ### 配置与排查
 
@@ -248,7 +248,7 @@ DLNA 把媒体地址交给接收器，由接收器下载并播放视频，不会
 | `NEKOBOX_DLNA_MAX_WIDTH`、`NEKOBOX_DLNA_MAX_HEIGHT` | 640、360 | 视频尺寸上限，也接受旋转后的尺寸 |
 | `NEKOBOX_DLNA_DIR` | `/SD:/dlna` | TF 卡上的临时下载目录，接收器启动时会清理 |
 
-如果发送端找不到设备，先检查接收是否启用、Wi-Fi 是否连接，以及两台设备在局域网中是否互通。访客网络、客户端隔离或屏蔽多播会影响发现。投屏失败时，DLNA 页面会显示加载、网络、存储卡、格式或尺寸错误；检查卡的剩余空间，并尝试 360p 的 HTTP H.264/AAC MP4。手机能访问的公网地址，板子不一定也能访问。
+如果发送端找不到设备，先检查接收是否启用、Wi-Fi 是否连接，以及两台设备在局域网中是否互通。访客网络、客户端隔离或屏蔽多播会影响发现。投屏失败时，DLNA 页面会显示加载、网络、存储卡、格式或尺寸错误。检查卡的剩余空间，并尝试 360p 的 HTTP H.264/AAC MP4。手机能访问的公网地址，板子不一定也能访问。
 
 可复用协议模块在 `zephyr-components/dlna`，接收界面和下载 worker 在 `nekobox/src/features/dlna/`。播放器通过 `player_file.c` 刷新增长中的 FAT 文件，在播放线程等待已发布字节，并在播放请求改变时取消等待。下载内容同步到卡后才公布为可读，缓冲等待期间会暂停显示时钟。协议和流式播放的主机检查入口是组件仓库中的 `dlna/tests/host/run.sh` 与 `nekobox/tests/streaming/run.sh`。
 
@@ -440,7 +440,7 @@ NEKOBOX_INIT(NEKOBOX_STAGE_UI, 0, "display up, LVGL", display_wait_and_lvgl);
 
 ### 后台挂起
 
-游戏需要全部 CPU，所以在后台运行的服务必须在游戏期间让开。服务登记一个函数，挂起开始和结束时会被通知；启动得晚的服务可以一直等到挂起结束：
+游戏需要全部 CPU，所以在后台运行的服务必须在游戏期间让开。服务登记一个函数，挂起开始和结束时会被通知。启动得晚的服务可以一直等到挂起结束：
 
 ```mermaid
 sequenceDiagram
@@ -485,7 +485,7 @@ void nekobox_background_wait(void)
 }
 ```
 
-游戏界面在开始时调用 `nekobox_background_hold(true)`，离开时调用 `false`。网络登记了一个关掉 Wi-Fi 芯片的函数；存储卡扫描查看 `nekobox_background_held()` 并跳过这一轮。
+游戏界面在开始时调用 `nekobox_background_hold(true)`，离开时调用 `false`。网络登记了一个关掉 Wi-Fi 芯片的函数。存储卡扫描查看 `nekobox_background_held()` 并跳过这一轮。
 
 ## 注册表
 
@@ -529,7 +529,7 @@ struct nekobox_file_handler {
 };
 ```
 
-Zephyr 的 iterable section 以数组形式给出记录，但顺序没有意义。主屏磁贴和设置行有 `order`；它们按这个顺序遍历，不需要排序缓冲，每次取比上一个大的最小 `order`：
+Zephyr 的 iterable section 以数组形式给出记录，但顺序没有意义。主屏磁贴和设置行有 `order`。它们按这个顺序遍历，不需要排序缓冲，每次取比上一个大的最小 `order`：
 
 ```mermaid
 flowchart TD
@@ -614,7 +614,7 @@ ITERABLE_SECTION_ROM(nekobox_file_handler, Z_LINK_ITERABLE_SUBALIGN)
 
 ## 界面管理
 
-界面按名字找（`ui_goto("player")`）。界面对象在第一次显示时创建，之后一直保留；每次显示时运行 `enter`，离开时运行 `leave`：
+界面按名字找（`ui_goto("player")`）。界面对象在第一次显示时创建，之后一直保留。每次显示时运行 `enter`，离开时运行 `leave`：
 
 ```mermaid
 flowchart TD
@@ -655,7 +655,7 @@ void ui_goto_arg(const char *name, void *arg)
 }
 ```
 
-界面画在视频层之上的 ARGB 层。满屏的 ARGB 层在每次刷新时都要占用内存带宽，而视频解码器和显示共用这条带宽。所以当界面没有自己的内容要显示时，这一层就关掉，只在界面要绘制时才打开：
+界面画在视频层之上的 ARGB 层。满屏的 ARGB 层在每次刷新时都要占用内存带宽，而视频解码器和显示共用这条带宽。所以界面没有自己的内容要显示，这一层就关掉，只在界面要绘制时才打开：
 
 ```mermaid
 sequenceDiagram
@@ -686,7 +686,7 @@ static void screen_drawn(lv_event_t *e)
 }
 ```
 
-播放器在控件隐藏时关掉这一层（`controls_show()` 调用 `ui_overlay_set()`），照片查看器在显示不带控件的图片时也一样；这一层这时不占带宽，解码器就能用上。
+播放器在控件隐藏时关掉这一层（`controls_show()` 调用 `ui_overlay_set()`），照片查看器在显示不带控件的图片时也一样。这一层这时不占带宽，解码器就能用上。
 
 换主题必须重建每一个界面，因为颜色是在创建对象时读取的。发出请求的界面本身也在要被删除之列，所以重建在它的事件结束之后再运行：
 
@@ -935,7 +935,7 @@ static void check(void)
 
 ### CPU 频率
 
-引导程序让 CPU 保持在 600 MHz。`NEKOBOX_CPU_MHZ`（默认 960）是以 72 MHz 为步长到达的。每一步之后运行一次内存测试；电压不变，所以让内存返回错误数据的那一步会立即撤销：
+引导程序让 CPU 保持在 600 MHz。`NEKOBOX_CPU_MHZ`（默认 960）是以 72 MHz 为步长到达的。每一步之后运行一次内存测试。电压不变，所以让内存返回错误数据的那一步会立即撤销：
 
 ```mermaid
 flowchart TD
@@ -976,11 +976,11 @@ void cpu_clock_setup(void)
 }
 ```
 
-测试从 malloc 区取 64 KiB，用哈希序列填满，折叠 50 次；每次折叠必须得到相同的和。
+测试从 malloc 区取 64 KiB，用哈希序列填满，折叠 50 次。每次折叠必须得到相同的和。
 
 ## 主题与控件
 
-颜色是一个全局调色板 `ui_pal`，宏 `C_BG`、`C_TEXT`、`C_ACCENT` ……都从它读取。深色或浅色加上六种强调色之一生成调色板；两者都保存在设置文件里：
+颜色是一个全局调色板 `ui_pal`，宏 `C_BG`、`C_TEXT`、`C_ACCENT` ……都从它读取。深色或浅色加上六种强调色之一生成调色板。两者都保存在设置文件里：
 
 ```mermaid
 flowchart LR
@@ -1296,7 +1296,7 @@ static void clock_timer(lv_timer_t *t)
 
 ## 文件浏览器
 
-一张卡的一个目录里可能有几百个文件。浏览器把一个目录读进一个排好序的数组（最多 512 项），只保留 13 个行对象（`POOL`），在列表滚动时重复使用。一个很高的不可见占位对象让滚动条有整个列表的长度：
+一张卡的一个目录里可能有几百个文件。浏览器把一个目录读进一个排好序的数组（最多 512 项），只保留 13 个行对象（`POOL`），在列表滚动时重复使用。放一个很高的不可见占位对象，让滚动条有整个列表的长度：
 
 ```mermaid
 flowchart TD
@@ -1406,7 +1406,7 @@ static void row_clicked(lv_event_t *e)
 
 ## 设置
 
-设置界面是一个列表，每一行都来自注册表。模块用 `NEKOBOX_SETTINGS_ROW(sym, order, create, refresh)` 添加一行；`refresh` 在界面显示期间每秒调用一次：
+设置界面是一个列表，每一行都来自注册表。模块用 `NEKOBOX_SETTINGS_ROW(sym, order, create, refresh)` 添加一行。`refresh` 在界面显示期间每秒调用一次：
 
 ```mermaid
 flowchart LR
@@ -1546,7 +1546,7 @@ static void tick_cb(lv_timer_t *t)
 }
 ```
 
-滑块在松手时才跳转；拖动时只有时间标签跟随，所以拖动不会让播放器在每个像素上都从新的关键帧开始解码：
+滑块在松手时才跳转。拖动时只有时间标签跟随，所以拖动不会让播放器在每个像素上都从新的关键帧开始解码：
 
 ```mermaid
 stateDiagram-v2
@@ -1616,7 +1616,7 @@ void history_update(const char *path, uint32_t pos_ms, uint32_t dur_ms)
 }
 ```
 
-播放结束的视频，位置存为 0（`history_save()`），所以会从头开始。“最近”界面为每一项画一行，带位置与时长之比的进度条；点击就用这个路径打开播放器。把“视频”放到主屏上的那个登记，同时也把“最近”按钮放进了视频浏览器的标题栏：
+播放结束的视频，位置存为 0（`history_save()`），所以会从头开始。“最近”界面为每一项画一行，带位置与时长之比的进度条。点击就用这个路径打开播放器。把“视频”放到主屏上的那个登记，同时也把“最近”按钮放进了视频浏览器的标题栏：
 
 ```mermaid
 flowchart LR
@@ -1637,7 +1637,7 @@ NEKOBOX_HOME_TILE(videos, .order = 10, .symbol = LV_SYMBOL_VIDEO, .title = "Vide
 
 ### 播放引擎
 
-`player.c`、`player_video.c`、`player_audio.c` 和 `player_raw.c` 里的引擎在 [Bilibili 页面](bilibili.md)里讲了（带序号的请求、音频时钟、`pl_wait_for`、会话循环、显示线程），因为那个应用用的是同样的文件。只有 NekoBox 才需要讲的是会话里的音频部分。AAC 解码器在 CPU 上运行；每个解码好的块通过 I2S 驱动送到 codec。跳转之后的第一帧被丢弃（解码器需要它前面的一帧），时钟基准由它的时间戳设置，声音在视频到达这个位置之前不会开始：
+`player.c`、`player_video.c`、`player_audio.c` 和 `player_raw.c` 里的引擎在 [Bilibili 页面](bilibili.md)里讲了（带序号的请求、音频时钟、`pl_wait_for`、会话循环、显示线程），因为那个应用用的是同样的文件。只有 NekoBox 才需要讲的是会话里的音频部分。AAC 解码器在 CPU 上运行。每个解码好的块通过 I2S 驱动送到 codec。跳转之后的第一帧被丢弃（解码器需要它前面的一帧），时钟基准由它的时间戳设置，声音在视频到达这个位置之前不会开始：
 
 ```mermaid
 flowchart TD
@@ -1693,7 +1693,7 @@ while (!pl_req_changed(r->seq) && mp4_next(t, &it, &s) == 0) {
 
 ## 照片
 
-照片由视频引擎解码：JPEG（基线 4:2:0）解出 NV12，原样送到视频层；PNG 解出 RGBA，转换成 XRGB8888，再经缩放的 RGB 路径显示。文件先整个读进内存（最多 6 MiB）：
+照片由视频引擎解码：JPEG（基线 4:2:0）解出 NV12，原样送到视频层。PNG 解出 RGBA，转换成 XRGB8888，再经缩放的 RGB 路径显示。文件先整个读进内存（最多 6 MiB）：
 
 ```mermaid
 flowchart TD
@@ -1733,7 +1733,7 @@ if (ret == 0) {
 
 ### 双指缩放、平移和双击
 
-LVGL 提供点击和滑动，但不提供双指。所以照片界面直接读取触摸驱动：一个输入回调保存每个手指的位置（多点触摸协议的五个槽），一个 33 ms 的定时器把手指变成缩放和平移：
+LVGL 提供点击和滑动，但不提供双指。所以照片界面直接读取触摸驱动：输入回调保存每个手指的位置（协议有五个槽），一个 33 ms 的定时器把手指变成缩放和平移：
 
 ```mermaid
 flowchart LR
@@ -1802,7 +1802,7 @@ static void view_zoom_at(float factor, float mx, float my)
 }
 ```
 
-在定时器里，两个手指按距离之比改变缩放，按中点的移动平移；一个手指在已放大的图片上平移；两次距离很近的短按则放大或还原：
+在定时器里，两个手指按距离之比改变缩放，按中点的移动平移。一个手指在已放大的图片上平移。两次距离很近的短按则放大或还原：
 
 ```mermaid
 flowchart TD
@@ -1954,7 +1954,7 @@ static void game_leave(void)
 
 ### 帧循环
 
-模拟器线程一次运行一帧。**声音优先于画面**：音频环就是节拍。环里不足 1500 帧时，模拟器开始跳过绘制（四帧里三帧），直到环里又有 2800 帧才恢复（回滞，这样不会每帧都切换）；环超过高水位时，模拟器就等待。模拟和声音始终全速运行，丢掉的只有绘制：
+模拟器线程一次运行一帧。**声音优先于画面**：音频环就是节拍。环里不足 1500 帧时，模拟器开始跳过绘制（四帧里三帧），直到环里又有 2800 帧才恢复（回滞，这样不会每帧都切换）。环超过高水位时，模拟器就等待。模拟和声音始终全速运行，丢掉的只有绘制：
 
 ```mermaid
 flowchart TD
@@ -2047,7 +2047,7 @@ static void video_present(unsigned int w, unsigned int h)
 }
 ```
 
-声音是模拟器和音频线程之间的一个环。音频线程每次从环里取一块写给 codec；码流断流时它重新准备，并在排满三块后再启动：
+声音是模拟器和音频线程之间的一个环。音频线程每次从环里取一块写给 codec。码流断流时它重新准备，并在排满三块后再启动：
 
 ```mermaid
 flowchart TD
@@ -2138,7 +2138,7 @@ static uint32_t pad_mask(void)
 
 ### 一个线程，一个队列，一个多数时候关着的芯片
 
-Wi-Fi 芯片和里面的蓝牙耗电也占内存，而射频很少需要。所以 `net.c` 让芯片保持**关闭**，在有事要做时（扫描、连接、校时）启动它，在 30 秒没有请求之后以及游戏期间再关掉它。DLNA 这样的监听服务通过 `app_net_keep_awake(true)` 保持连接，关闭服务后才恢复空闲超时。这一切由一个从队列取请求的线程完成；界面只投递请求和读取状态：
+Wi-Fi 芯片和里面的蓝牙耗电也占内存，而射频很少需要。所以 `net.c` 让芯片保持**关闭**，在有事要做时（扫描、连接、校时）启动它，在 30 秒没有请求之后以及游戏期间再关掉它。DLNA 这样的监听服务通过 `app_net_keep_awake(true)` 保持连接，关闭服务后才恢复空闲超时。这一切由一个从队列取请求的线程完成。界面只投递请求和读取状态：
 
 ```mermaid
 stateDiagram-v2
@@ -2233,7 +2233,7 @@ for (;;) {
 }
 ```
 
-启动时线程把芯片启动一次，检查蓝牙（`bt_probe()`），连接保存的网络看它是否可用。接收器需要网络时保留连接，否则再把芯片关掉；设置界面显示的就是这个结果。游戏通过登记的钩子把芯片挂起（`net_hold()` 投递 `CMD_PAUSE`），退出游戏后若接收器仍启用，会再次唤醒网络。
+启动时线程把芯片启动一次，检查蓝牙（`bt_probe()`），连接保存的网络看它是否可用。接收器需要网络时保留连接，否则再把芯片关掉。设置界面显示的就是这个结果。游戏通过登记的钩子把芯片挂起（`net_hold()` 投递 `CMD_PAUSE`），退出游戏后若接收器仍启用，会再次唤醒网络。
 
 ### 扫描、连接和事件
 
@@ -2350,7 +2350,7 @@ static void psk_key(const char *ssid, char *key, size_t size)
 
 ### 从网络取得时间
 
-每次成功连接之后，时钟都从 SNTP 服务器设置。三个服务器各试三次。回答是 UTC 秒数；本地时间用 `NEKOBOX_UTC_OFFSET_MIN` 和公历日期算法算出，再设置到 RTC：
+每次成功连接之后，时钟都从 SNTP 服务器设置。三个服务器各试三次。回答是 UTC 秒数。本地时间用 `NEKOBOX_UTC_OFFSET_MIN` 和公历日期算法算出，再设置到 RTC：
 
 ```mermaid
 flowchart TD
@@ -2393,7 +2393,7 @@ static void clock_from_unix(int64_t unix_s)
 
 ### 蓝牙
 
-蓝牙控制器在同一块芯片里。NekoBox 只检查它是否有响应：启用协议栈，广播 300 ms，再关掉；设置界面显示“Works, off when not used”或“Not available”：
+蓝牙控制器在同一块芯片里。NekoBox 只检查它是否有响应：启用协议栈，广播 300 ms，再关掉。设置界面显示“Works, off when not used”或“Not available”：
 
 ```mermaid
 sequenceDiagram
@@ -2601,7 +2601,7 @@ static void touch_beat(struct k_work *work)
 }
 ```
 
-它在自己的工作队列里运行，因为输入事件是在系统工作队列里送达的，后者不能去等 USB 端点。HID 报告描述符（`usb_touch.c`）声明了五个手指集合，每个有触摸开关、接触 id 和带物理尺寸的 X、Y，后面是接触计数；Windows 会为这样的描述符绑定自带的驱动，不需要安装。
+它在自己的工作队列里运行，因为输入事件是在系统工作队列里送达的，后者不能去等 USB 端点。HID 报告描述符（`usb_touch.c`）声明了五个手指集合，每个有触摸开关、接触 id 和带物理尺寸的 X、Y，后面是接触计数。Windows 会为这样的描述符绑定自带的驱动，不需要安装。
 
 ## 计算器
 
@@ -2703,7 +2703,7 @@ src/
 | `NEKOBOX_PROFILE`、`_PROFILE_DELAY_S` | n、20 | 采样游戏线程的时间花在哪里，并打印最忙的代码块 |
 | `NEKOBOX_THREAD_STATS` | n | 播放器各线程的 CPU 时间（默认关闭：打开用量统计后，曾在一次打开失败后看到调度器里出现 load access fault） |
 
-`prj.conf` 的主要设置：`XIP`；`SDHC` / FAT / exFAT / 长文件名，并开启 `FS_FATFS_REENTRANT`（音频线程、视频线程和浏览器读同一张卡，不开的话读取会返回 `-EIO`）；`MAIN_STACK_SIZE=16384`；`COMMON_LIBC_MALLOC_ARENA_SIZE=-1`（malloc arena 是镜像之上的全部 RAM：解码器缓冲、显示和游戏的内存都从这里来）；32 位色的 LVGL 加 `DISPLAY_SUNXI_ARGB8888`；输入线程优先级 2、队列 64 条消息，这样长时间重绘不会让触摸队列溢出；`SPEED_OPTIMIZATIONS`；以及 `boards/yuzukineko.conf`（给 GT967 触摸屏用的 I2C 和 INPUT，2 个触摸点）。overlay 里禁用了 `spi0`，因为它占用 flash 的引脚 PC0..PC5。
+`prj.conf` 的主要设置：`XIP`。`SDHC` / FAT / exFAT / 长文件名，并开启 `FS_FATFS_REENTRANT`（音频线程、视频线程和浏览器读同一张卡，不开的话读取会返回 `-EIO`）。`MAIN_STACK_SIZE=16384`。`COMMON_LIBC_MALLOC_ARENA_SIZE=-1`（malloc arena 是镜像之上的全部 RAM：解码器缓冲、显示和游戏的内存都从这里来）。32 位色的 LVGL 加 `DISPLAY_SUNXI_ARGB8888`。输入线程优先级 2、队列 64 条消息，这样长时间重绘不会让触摸队列溢出。`SPEED_OPTIMIZATIONS`。以及 `boards/yuzukineko.conf`（给 GT967 触摸屏用的 I2C 和 INPUT，2 个触摸点）。overlay 里禁用了 `spi0`，因为它占用 flash 的引脚 PC0..PC5。
 
 ## 范围
 

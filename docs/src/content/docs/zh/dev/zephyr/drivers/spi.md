@@ -253,7 +253,7 @@ SPI NOR 一类“发命令、读数据”的器件用第二种，一次调用完
 
 **示例：长读和 DMA**
 
-读缓冲至少 `CONFIG_SPI_SUNXI_DMA_MIN_LEN`（256）字节、地址按 64 字节（缓存行）对齐时，数据由 DMA 搬运；否则由 CPU 从接收 FIFO 里读。两种方式读到的数据一样。下面读 4 KiB，并换几个时钟频率看耗时。
+读缓冲至少 `CONFIG_SPI_SUNXI_DMA_MIN_LEN`（256）字节、地址按 64 字节（缓存行）对齐时，数据由 DMA 搬运。否则由 CPU 从接收 FIFO 里读。两种方式读到的数据一样。下面读 4 KiB，并换几个时钟频率看耗时。
 
 ```text
 [read] 4096 bytes at address 0 at 1 MHz        = 0
@@ -265,7 +265,7 @@ SPI NOR 一类“发命令、读数据”的器件用第二种，一次调用完
 [read] 512 bytes into an unaligned buffer      = 0, same data
 ```
 
-闪存起始地址是空的（全 `ff`），启动加载器在后面的地址。频率超过 24 MHz 时驱动不再用控制器自己的分频，改用 PLL 分频；超过 60 MHz 时回来的数据要延迟采样，见 `sunxi_spi_set_sample`。
+闪存起始地址是空的（全 `ff`），启动加载器在后面的地址。频率超过 24 MHz 时驱动不再用控制器自己的分频，改用 PLL 分频。超过 60 MHz 时回来的数据要延迟采样，见 `sunxi_spi_set_sample`。
 
 **示例：SPI 模式**
 
@@ -310,7 +310,7 @@ SPI NOR 只规定模式 0 和模式 3，模式 2 读不到数据是器件的原�
 
 **`spi_release`** `int spi_release(const struct device *dev, const struct spi_config *config);`
 
-`operation` 里带 `SPI_LOCK_ON` 的传输结束后总线仍然被这个配置占着，别的线程的传输要等；`spi_release` 释放它。
+`operation` 里带 `SPI_LOCK_ON` 的传输结束后总线仍然被这个配置占着，别的线程的传输要等。`spi_release` 释放它。
 
 ```text
 [release] transfer with SPI_LOCK_ON            = 0: 85 20 18

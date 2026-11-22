@@ -97,4 +97,4 @@ test_i2s
 test_owa
 ```
 
-保存为 `applications/demo_audio.c`。回归检查了 codec 在 48/44.1 kHz 的 DMA 推进和 I2S 内部搬运，但未确认听感，麦克风样本为零。OWA RX 未收到 DMA 请求，即使 TX 时序通过仍明确 SKIP。扬声器无声时，在 DAC 计数检查后检查模拟路由和功放供电；RX 无数据时分别检查 DMA 请求路由与 FIFO 状态。
+保存为 `applications/demo_audio.c`。回归检查了 codec 在 48/44.1 kHz 的 DMA 推进和 I2S 内部搬运，但未确认听感，麦克风样本为零。OWA RX 未收到 DMA 请求，即使 TX 时序通过仍明确 SKIP。扬声器无声时，在 DAC 计数检查后检查模拟路由和功放供电。RX 无数据时分别检查 DMA 请求路由与 FIFO 状态。

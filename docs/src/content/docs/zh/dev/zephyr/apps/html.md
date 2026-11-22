@@ -153,7 +153,7 @@ python3 mk-lh-assets.py img photo.png SD/img/photo.lhi
 python3 mk-lh-assets.py font /usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc SD/font.lhf SD/page.html
 ```
 
-（字体路径换成你机器上有的；`.ttc` 集合文件 Pillow 默认取第一个字体。）
+（字体路径换成你机器上有的。`.ttc` 集合文件 Pillow 默认取第一个字体。）
 
 没有 `font.lhf`，或者页面里的字不在里面，非 ASCII 字符画成 `?`。<strong>字体是固定的</strong>：`font-family` 不起作用，不能加载 TTF/OTF/WOFF，也不支持 `@font-face`。
 
@@ -393,7 +393,7 @@ void lh_draw(struct lh_page *page, uint16_t *fb, int stride, int w, int h, int s
 }
 ```
 
-文字怎么画：`create_font()` 把 CSS 字号当作字高，字宽按 10:16 的比例缩放（`cell_w = size * 10 / 16`，至少 1），粗体（权重 ≥ 600）宽度加 1 并往右多涂一列；`draw_glyph()` 用最近邻把 10×16 点阵缩放到目标尺寸，斜体按行错位。下划线、删除线、上划线直接画线。
+文字怎么画：`create_font()` 把 CSS 字号当作字高，字宽按 10:16 的比例缩放（`cell_w = size * 10 / 16`，至少 1），粗体（权重 ≥ 600）宽度加 1 并往右多涂一列。`draw_glyph()` 用最近邻把 10×16 点阵缩放到目标尺寸，斜体按行错位。下划线、删除线、上划线直接画线。
 
 ```cpp
 f->size = std::max(size, 6);
@@ -495,7 +495,7 @@ if (weight >= 600) {
 
 ### 加手动滚动
 
-示例里的 `scroll` 只由 `SCROLL_PX` 驱动。要接输入设备，思路是改 `main.c` 末尾的循环：去掉自动增减，改成由按键或触摸事件改 `scroll`，范围限制在 `0` 到 `max_scroll`。这只适用于整页模式（`CHUNK_KB=0`）；分片模式的滚动在 `chunked.c` 的 `y += CONFIG_SAMPLE_HTML_SCROLL_PX` 那一行。示例没有实现。
+示例里的 `scroll` 只由 `SCROLL_PX` 驱动。要接输入设备，思路是改 `main.c` 末尾的循环：去掉自动增减，改成由按键或触摸事件改 `scroll`，范围限制在 `0` 到 `max_scroll`。这只适用于整页模式（`CHUNK_KB=0`）。分片模式的滚动在 `chunked.c` 的 `y += CONFIG_SAMPLE_HTML_SCROLL_PX` 那一行。示例没有实现。
 
 ### 在自己的程序里用
 

@@ -22,12 +22,12 @@ flowchart TB
 开始前请先完成 [配置开发环境](../zephyr-setup-env.md) 和 [获取 Zephyr 代码](../zephyr-get-source.md)。
 
 :::caution[许可证：GPL-3.0]
-RPiPlay 的许可证是 GPL-3.0，所以整个 `ios-screen-mirror` 组件按 GPL-3.0 对待（`Kconfig` 的帮助文字、`CMakeLists.txt`、示例的源码头都写着 `GPL-3.0-or-later`；`src/ios_dnssd.c` 等少数文件头是 Apache-2.0，但它们和 RPiPlay 链接在同一个镜像里）。编进镜像并分发的固件，需要按 GPL-3.0 提供对应的源码。只想用其他协议的投屏，不要打开 `CONFIG_IOS_MIRROR`，不会链入这部分代码。
+RPiPlay 的许可证是 GPL-3.0，所以整个 `ios-screen-mirror` 组件按 GPL-3.0 对待（`Kconfig` 的帮助文字、`CMakeLists.txt`、示例的源码头都写着 `GPL-3.0-or-later`。`src/ios_dnssd.c` 等少数文件头是 Apache-2.0，但它们和 RPiPlay 链接在同一个镜像里）。编进镜像并分发的固件，需要按 GPL-3.0 提供对应的源码。只想用其他协议的投屏，不要打开 `CONFIG_IOS_MIRROR`，不会链入这部分代码。
 :::
 
 ## 4.5 兼容变化
 
-配套的 4.5 分支已为 Mbed TLS 4/TF-PSA-Crypto 更新 SHA-512、AES-CTR、AES-CBC 配置和加密头文件。请使用该分支的 Kconfig，不要复制旧私有头文件或加密配置。接收器已在 `yuzukineko` 上通过 4.5 编译；下文录像和 AirPlay 现象仍属于原有 4.2.2 验证范围，需要重新进行实体 iOS 设备的发现、播放和重连检查。
+配套的 4.5 分支已为 Mbed TLS 4/TF-PSA-Crypto 更新 SHA-512、AES-CTR、AES-CBC 配置和加密头文件。请使用该分支的 Kconfig，不要复制旧私有头文件或加密配置。接收器已在 `yuzukineko` 上通过 4.5 编译。下文录像和 AirPlay 现象仍属于原有 4.2.2 验证范围，需要重新进行实体 iOS 设备的发现、播放和重连检查。
 
 4.5 的加密变化见[版本与迁移指南](../zephyr-4-5.md)。
 
@@ -107,7 +107,7 @@ xfel exec 0x40000000
 
 #### 1. 启动和加入 WiFi
 
-下载并执行后，屏幕中央出现状态卡片 `Joining the WiFi`。串口依次输出：显示和触摸屏初始化；`ios: Joining the WiFi`；AIC8800 识别为 D80（`chip_id=c3`）并下载固件；读到 TF 卡上的 `wifi.cfg` 后加入网络，出现 `WPA enter FHOST_WPA_STATE_CONNECTED`；DHCP 拿到地址，打印 `ios: address …`。
+下载并执行后，屏幕中央出现状态卡片 `Joining the WiFi`。串口依次输出：显示和触摸屏初始化。`ios: Joining the WiFi`。AIC8800 识别为 D80（`chip_id=c3`）并下载固件。读到 TF 卡上的 `wifi.cfg` 后加入网络，出现 `WPA enter FHOST_WPA_STATE_CONNECTED`。DHCP 拿到地址，打印 `ios: address …`。
 
 #### 2. AirPlay 服务启动
 
@@ -153,7 +153,7 @@ ios: Screen Mirroring: choose "F101 Mirror"
 
 手机选中 F101 Mirror 后，串口依次输出 `ios: phone connected`、`ios: stream profile …`、`ios: first picture <W>x<H>`，之后每 5 秒一行统计，各行含义见 [控制台输出](#控制台输出)。
 
-手机竖屏时，镜像流大约是 448×972，板子屏幕是 1024×768，画面按长宽比缩放后居中，两侧留黑边。第一帧画出来，状态卡片就自动隐藏；手机停止镜像或断开，卡片重新出现 `Waiting for the phone`。
+手机竖屏时，镜像流大约是 448×972，板子屏幕是 1024×768，画面按长宽比缩放后居中，两侧留黑边。第一帧画出来，状态卡片就自动隐藏。手机停止镜像或断开，卡片重新出现 `Waiting for the phone`。
 
 ![iPhone 屏幕和板子屏幕上的镜像画面并排](figures/ios-mirror-screen.webp)
 

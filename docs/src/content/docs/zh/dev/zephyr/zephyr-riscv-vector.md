@@ -6,7 +6,7 @@ title: "RISC-V 向量扩展 (RVV)"
 
 ## 4.5 移植变化
 
-4.2.2 的 RVV 实现继续保留。4.5 在 C 启动前启用向量状态，由 SoC 异常帧保存全部向量寄存器，生成的 offset 头文件改用 `zephyr/` 命名空间；开关仍是 `CONFIG_SUN252I_F101_RVV`。RVV/MMU/XIP 和 LVGL 配置已编译，尚需实机验证上下文切换、标量／向量渲染一致性和性能。下文已有测量值属于其原始构建。
+4.2.2 的 RVV 实现继续保留。4.5 在 C 启动前启用向量状态，由 SoC 异常帧保存全部向量寄存器，生成的 offset 头文件改用 `zephyr/` 命名空间。开关仍是 `CONFIG_SUN252I_F101_RVV`。RVV/MMU/XIP 和 LVGL 配置已编译，尚需实机验证上下文切换、标量／向量渲染一致性和性能。下文已有测量值属于其原始构建。
 
 4.5 的 RVV 变化见[版本与迁移指南](zephyr-4-5.md)。
 
@@ -341,7 +341,7 @@ uint32_t rvv_hold_v8(uint32_t seed, uint32_t iters)
 west build -b yuzukineko -d build/rvv zephyr/samples/drivers/rvv
 ```
 
-全部检查通过时，最后一行输出是 `RVV: all checks passed`，示例的 `sample.yaml` 就是用这一行判断测试是否通过。示例的 `sample.yaml` 里 `platform_allow` 写的是评估板 `f101_evb`；`yuzukineko` 同样是 F101，示例已在 `yuzukineko` 上编译通过，没有上板运行。
+全部检查通过时，最后一行输出是 `RVV: all checks passed`，示例的 `sample.yaml` 就是用这一行判断测试是否通过。示例的 `sample.yaml` 里 `platform_allow` 写的是评估板 `f101_evb`。`yuzukineko` 同样是 F101，示例已在 `yuzukineko` 上编译通过，没有上板运行。
 
 ## 常见问题
 

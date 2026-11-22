@@ -37,7 +37,7 @@ DesignWare APB UART 是一套 16550A 兼容的寄存器，外加几个扩展寄�
 | `0x3d0` | DW CPR | 组件参数寄存器：FIFO 大小、扩展特性 |
 | `0x3e0` | DW UCV | 组件版本，三个字节的 ASCII |
 
-`0x08` 处的 FIFO 控制寄存器负责使能 FIFO 并选择接收触发深度，中断识别寄存器告诉处理函数这次中断的原因。FIFO 深度不是 16550 标准固定的：探测时 `drivers/tty/serial/8250/8250_dwlib.c` 里的 `dw8250_setup_port()` 读 CPR，若 FIFO 模式字段非零，就用 `DW_UART_CPR_FIFO_SIZE()` 算出深度并把端口标记为 `PORT_16550A`。CPR 读回零时驱动退回平台给的值，平台值也是零时端口保持通用 8250 的默认值。F101 这个端口实际的 FIFO 大小没有测量过；内核会在启动时打印检测到的类型。
+`0x08` 处的 FIFO 控制寄存器负责使能 FIFO 并选择接收触发深度，中断识别寄存器告诉处理函数这次中断的原因。FIFO 深度不是 16550 标准固定的：探测时 `drivers/tty/serial/8250/8250_dwlib.c` 里的 `dw8250_setup_port()` 读 CPR，若 FIFO 模式字段非零，就用 `DW_UART_CPR_FIFO_SIZE()` 算出深度并把端口标记为 `PORT_16550A`。CPR 读回零时驱动退回平台给的值，平台值也是零时端口保持通用 8250 的默认值。F101 这个端口实际的 FIFO 大小没有测量过。内核会在启动时打印检测到的类型。
 
 波特率用标准 16 倍分频：输入时钟除以 16 与目标波特率之积。输入是 `baudclk`，在这颗 SoC 上是 CCU 里 `apb-uart` 时钟（寄存器 `0x0528`，一个分频加一个 mux，复位时父时钟为 `dcxo24M`）的按端口门控。用复位后的分频，端口拿到 24 MHz，于是 115200 波特要求 24 MHz / (16 × 115200) = 13.02，整数分频 13 得到 115384.6 波特，比标称高 0.16 %，远在 UART 链路能容忍的范围内。DesignWare 核还可以用 DLF 补上小数分频。探测时 `dw8250_setup_port()` 先往 DLF 写全 1 再读回，若寄存器存在就改用 `dw8250_get_divisor()` / `dw8250_set_divisor()`，把余数分到 DLF 和 DLL/DLM 里。F101 的核有没有 DLF，树里没有任何记录，所以小数分频这条路只能算可能存在，未经验证。
 
@@ -70,7 +70,7 @@ DesignWare APB UART 是一套 16550A 兼容的寄存器，外加几个扩展寄�
 
 DesignWare 核的 IIR 还会报厂商自定义的 "busy" 码（7），这不是错误：它表示某次寄存器写还没完成。处理函数读一下 USR 就返回。
 
-还有一个数字值得记住。115200 8N1 下一个字符是 10 个位时间，即 86.8 µs，N 字节的 FIFO 能顶上 N × 86.8 µs 的线路时间。接收中断在 FIFO 达到 FCR 里的触发深度时触发；核心从 16550A 的默认值 `UART_FCR_R_TRIG_10`（四档里的第二档）开始，DesignWare 核再按自己的 FIFO 大小换算这一档。触发深度和 FIFO 大小都不能从设备树配置，所以做低延迟协议时要保持报文短，接受这种成批处理。
+还有一个数字值得记住。115200 8N1 下一个字符是 10 个位时间，即 86.8 µs，N 字节的 FIFO 能顶上 N × 86.8 µs 的线路时间。接收中断在 FIFO 达到 FCR 里的触发深度时触发。核心从 16550A 的默认值 `UART_FCR_R_TRIG_10`（四档里的第二档）开始，DesignWare 核再按自己的 FIFO 大小换算这一档。触发深度和 FIFO 大小都不能从设备树配置，所以做低延迟协议时要保持报文短，接受这种成批处理。
 
 ### 六个端口
 
@@ -149,13 +149,13 @@ bootargs = "console=tty0 console=ttyS1,115200n8 earlycon=uart8250,mmio32,0x02500
 stdout-path = "serial1:115200n8";
 ```
 
-这里指定了两个控制台。`tty0` 是 DSI 屏上的 framebuffer 控制台，`ttyS1` 是串口；两者都收到内核日志，也都显示 getty 提示，写 `/dev/console` 会同时到两边。
+这里指定了两个控制台。`tty0` 是 DSI 屏上的 framebuffer 控制台，`ttyS1` 是串口。两者都收到内核日志，也都显示 getty 提示，写 `/dev/console` 会同时到两边。
 
 `earlycon=uart8250,mmio32,0x02500400` 是有意写死而不是交给设备树的。early console 在 8250 驱动探测之前就要用，而选项里没带波特率，所以 `drivers/tty/serial/8250/8250_early.c` 的 `early_serial8250_setup()` 根本不去写分频：它假定 bootloader 已经把端口配好，只屏蔽 UART 中断。随后内核会打印一行确认映射，形如 `uart8250 at MMIO32 0x02500400`，之后常规驱动接手，不改动线路参数。
 
 `SERIAL_8250_CONSOLE` 会选中 `SERIAL_EARLYCON`，所以只要使能了控制台选项，early console 的代码就在。这里不带参数的 `earlycon` 也能用：DW UART 的 compatible 已用 `OF_EARLYCON_DECLARE` 注册，`stdout-path` 又给出了端口和速率。
 
-命令行上另外两个词改变的是控制台显示什么，而不是它怎么被驱动。`loglevel=8` 把控制台日志级别调高，连 debug 级消息也打印；默认是 7，已经包含到 `KERN_DEBUG` 为止的所有级别。`printk.time=1` 给每行加上以秒为单位的单调时间戳，这样从抓下来的日志里才能回答「启动时这件事发生在什么时候」。
+命令行上另外两个词改变的是控制台显示什么，而不是它怎么被驱动。`loglevel=8` 把控制台日志级别调高，连 debug 级消息也打印。默认是 7，已经包含到 `KERN_DEBUG` 为止的所有级别。`printk.time=1` 给每行加上以秒为单位的单调时间戳，这样从抓下来的日志里才能回答「启动时这件事发生在什么时候」。
 
 用户态启动后，BusyBox `init` 读 `/etc/inittab`，里面只有一个会重生的 getty：
 
@@ -163,7 +163,7 @@ stdout-path = "serial1:115200n8";
 ttyS1::respawn:/sbin/getty -L  ttyS1 115200 vt100 # GENERIC_SERIAL
 ```
 
-root 账户没有密码，所以提示符直接接受 `root`。改控制台速率要同时改三处：设备树里的 `console=`、`stdout-path`，以及 `/etc/inittab` 里的 getty 行；只改内核命令行，getty 仍会用旧速率打开端口。
+root 账户没有密码，所以提示符直接接受 `root`。改控制台速率要同时改三处：设备树里的 `console=`、`stdout-path`，以及 `/etc/inittab` 里的 getty 行。只改内核命令行，getty 仍会用旧速率打开端口。
 
 ### 从复位到登录提示
 
@@ -187,11 +187,11 @@ CONFIG_SERIAL_8250_DW=y
 
 `CONFIG_SERIAL_8250` 是核心，`SERIAL_8250_CONSOLE` 加上控制台（并选中 `SERIAL_CORE_CONSOLE` 和 `SERIAL_EARLYCON`），`SERIAL_8250_DW` 选中 `SERIAL_8250_DWLIB` 并处理 DesignWare 的扩展：32 位访问器、忙位、RX 超时兜底、CPR 解析和 DLF。
 
-板级 defconfig `arch/riscv/configs/sun252i_f101_yuzukineko_defconfig` 正好设置这三项。它没有调高 `CONFIG_SERIAL_8250_NR_UARTS`，默认是 4。核心最多保留 `nr_uarts` 个端口槽，`serial8250_find_match_or_unused()` 只在 `port->line < nr_uarts` 时才接受请求的行号；alias 号是 4 或 5 的端口会退到第一个空槽。出厂板不受影响——只使能了 UART1，行号 1 放得下——但若同时使能 UART4 和 UART5，要让它们显示成 `ttyS4` 和 `ttyS5`，就得设 `CONFIG_SERIAL_8250_NR_UARTS=6`。
+板级 defconfig `arch/riscv/configs/sun252i_f101_yuzukineko_defconfig` 正好设置这三项。它没有调高 `CONFIG_SERIAL_8250_NR_UARTS`，默认是 4。核心最多保留 `nr_uarts` 个端口槽，`serial8250_find_match_or_unused()` 只在 `port->line < nr_uarts` 时才接受请求的行号。alias 号是 4 或 5 的端口会退到第一个空槽。出厂板不受影响——只使能了 UART1，行号 1 放得下——但若同时使能 UART4 和 UART5，要让它们显示成 `ttyS4` 和 `ttyS5`，就得设 `CONFIG_SERIAL_8250_NR_UARTS=6`。
 
 ## 驱动内部
 
-虽然 `8250_of.c` 和 `8250_dw.c` 都放在 8250 目录里，只有 `8250_dw` 匹配这个节点：它的匹配表里有 `snps,dw-apb-uart`，而 `8250_of` 只列了旧的 `ns8250`/`ns16xxx` compatible。没有第二个驱动来抢这个设备。8250 核心（`8250_core.c`、`8250_port.c`）仍然拥有端口结构、tty 和控制台；`8250_dw` 是创建端口并提供寄存器访问器和 DesignWare 专有行为的平台驱动。
+虽然 `8250_of.c` 和 `8250_dw.c` 都放在 8250 目录里，只有 `8250_dw` 匹配这个节点：它的匹配表里有 `snps,dw-apb-uart`，而 `8250_of` 只列了旧的 `ns8250`/`ns16xxx` compatible。没有第二个驱动来抢这个设备。8250 核心（`8250_core.c`、`8250_port.c`）仍然拥有端口结构、tty 和控制台。`8250_dw` 是创建端口并提供寄存器访问器和 DesignWare 专有行为的平台驱动。
 
 ### 探测路径
 
@@ -204,7 +204,7 @@ CONFIG_SERIAL_8250_DW=y
 5. 用 `reset_control_array_get_optional_exclusive()` 取复位数组并解除复位。
 6. 使能运行时 PM，调用 `dw8250_setup_port()` 探测 DLF 和 CPR，最后 `serial8250_register_8250_port()`。
 
-端口带 `UPF_FIXED_PORT` 标志，8250 核心不会去探测杂项寄存器自动判断类型。控制台出问题时有两个细节值得记住。第一，`data->clk` 先按 `"baudclk"` 查，查不到就取第一个无名时钟；两者都没有时 `dw8250_probe()` 以 "clock rate not defined" 失败。第二，复位查找是可选的，所以没有 `resets` 属性的设备树照样能探测，写了多个复位项也不需要改驱动。
+端口带 `UPF_FIXED_PORT` 标志，8250 核心不会去探测杂项寄存器自动判断类型。控制台出问题时有两个细节值得记住。第一，`data->clk` 先按 `"baudclk"` 查，查不到就取第一个无名时钟。两者都没有时 `dw8250_probe()` 以 "clock rate not defined" 失败。第二，复位查找是可选的，所以没有 `resets` 属性的设备树照样能探测，写了多个复位项也不需要改驱动。
 
 ### 中断
 
@@ -221,7 +221,7 @@ CONFIG_SERIAL_8250_DW=y
 
 ### 错误路径
 
-缺 `reg` 属性会在映射之前就被拒绝（"no registers defined"）。缺时钟会让探测以 "clock rate not defined" 失败，不会出现 `/dev/ttyS1`。缺复位不致命，因为复位查找是可选的。无效的 `reg-io-width` 会被 `uart_read_and_validate_port_properties()` 以 "Unsupported reg-io-width" 拒绝；只接受 1、2 和 4。中断缺失时 `dw8250_probe()` 把 `-ENXIO` 当成"改用轮询"，端口照样注册；`univ8250_setup_irq()` 为无中断端口启用定时器轮询。
+缺 `reg` 属性会在映射之前就被拒绝（"no registers defined"）。缺时钟会让探测以 "clock rate not defined" 失败，不会出现 `/dev/ttyS1`。缺复位不致命，因为复位查找是可选的。无效的 `reg-io-width` 会被 `uart_read_and_validate_port_properties()` 以 "Unsupported reg-io-width" 拒绝。只接受 1、2 和 4。中断缺失时 `dw8250_probe()` 把 `-ENXIO` 当成"改用轮询"，端口照样注册。`univ8250_setup_irq()` 为无中断端口启用定时器轮询。
 
 ### 串口核心的行为
 
@@ -242,7 +242,7 @@ CONFIG_SERIAL_8250_DW=y
 | `/dev/console` | 系统控制台；写了两个 `console=` 时同时分发到 `tty0` 和 `ttyS1` |
 | `/proc/cmdline` | 实际使用的命令行，包含两个 console 词 |
 
-只有注册成功的端口才有设备节点。出厂设备树上只有 `ttyS1`；在使能 `uart0` 并配好引脚之前，`/dev/ttyS0` 不存在。
+只有注册成功的端口才有设备节点。出厂设备树上只有 `ttyS1`。在使能 `uart0` 并配好引脚之前，`/dev/ttyS0` 不存在。
 
 这个端口就是普通 tty，任何能作用于 tty 的 shell 工具都能用。`stty` 读写 termios，`microcom` 是个小终端，`getty` 已经在控制台上跑着，BusyBox 构建里也有 `setserial`，不过驱动并不使用它的配置接口。sysfs 报告的端口类型信息就是上面那些，没有更多 `setserial` 可见的细节。
 
@@ -257,7 +257,7 @@ CONFIG_SERIAL_8250_DW=y
 | `TIOCGWINSZ` | 窗口大小；与终端设置的一致 |
 | `TIOCSTI` | 把字符推回输入队列（通常被内核的 `dev.tty.legacy_tiocsti` 关闭） |
 
-没有直接操作分频的接口。`TIOCGSERIAL` 用 `struct serial_struct` 报告端口，`TIOCSSERIAL` 也接受，但对 `UPF_FIXED_PORT` 端口只应用关闭延时、自定义分频、`UPF_USR_MASK` 标志和 FIFO 大小；中断、映射地址和输入时钟都不能从用户态改。
+没有直接操作分频的接口。`TIOCGSERIAL` 用 `struct serial_struct` 报告端口，`TIOCSSERIAL` 也接受，但对 `UPF_FIXED_PORT` 端口只应用关闭延时、自定义分频、`UPF_USR_MASK` 标志和 FIFO 大小。中断、映射地址和输入时钟都不能从用户态改。
 
 ## 工作示例
 
@@ -277,7 +277,7 @@ speed 115200 baud; line = 0;
 /dev/ttyS1
 ```
 
-`/proc/cmdline` 原样显示设备树 `bootargs`，包括两个 console 词和 early console。不带参数的 `stty` 只打印速率和线路规程；`line = 0` 就是 `N_TTY`。`ls` 的结果说明只有 UART1 注册了。
+`/proc/cmdline` 原样显示设备树 `bootargs`，包括两个 console 词和 early console。不带参数的 `stty` 只打印速率和线路规程。`line = 0` 就是 `N_TTY`。`ls` 的结果说明只有 UART1 注册了。
 
 ### 示例 2：使用一个未使用的端口
 
@@ -298,7 +298,7 @@ stty -F /dev/ttyS0 115200 cs8 -cstopb -parenb raw
 microcom -s 115200 /dev/ttyS0
 ```
 
-`stty` 设成 115200 8N1、无流控、raw 输入；随后 `microcom` 在 shell 的 stdin/stdout 和端口之间复制字节。没给 `-X` 时，`Ctrl-X` 退出 `microcom`。UART2 到 UART5 要先补引脚组；SoC 设备树没有声明它们，而承载这些端口的封装球号在树里也没有文档。
+`stty` 设成 115200 8N1、无流控、raw 输入。随后 `microcom` 在 shell 的 stdin/stdout 和端口之间复制字节。没给 `-X` 时，`Ctrl-X` 退出 `microcom`。UART2 到 UART5 要先补引脚组。SoC 设备树没有声明它们，而承载这些端口的封装球号在树里也没有文档。
 
 ### 示例 3：从 sysfs 读端口参数
 
@@ -316,7 +316,7 @@ cat /sys/class/tty/ttyS1/irq
 3
 ```
 
-这三个文件是 tty 设备本身的属性，由 `serial_core.c` 的 `tty_dev_attrs` 创建。`uartclk` 是驱动算分频用的 24 MHz `apb-uart` 速率，`line` 是 alias 号，`irq` 是设备树里的 PLIC 源。如果 `uartclk` 读出来是 0，说明时钟查找失败了；那种情况下端口根本不会注册，所以非零值也顺带证明时钟就在设备树说的位置上。
+这三个文件是 tty 设备本身的属性，由 `serial_core.c` 的 `tty_dev_attrs` 创建。`uartclk` 是驱动算分频用的 24 MHz `apb-uart` 速率，`line` 是 alias 号，`irq` 是设备树里的 PLIC 源。如果 `uartclk` 读出来是 0，说明时钟查找失败了。那种情况下端口根本不会注册，所以非零值也顺带证明时钟就在设备树说的位置上。
 
 ## 限制
 

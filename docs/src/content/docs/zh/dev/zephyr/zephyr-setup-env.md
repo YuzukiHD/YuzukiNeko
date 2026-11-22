@@ -5,7 +5,7 @@ title: "配置开发环境"
 这一页在 Linux 主机上准备好编译 YuzukiNeko 的 Zephyr 程序所需的一切：系统依赖、Python 虚拟环境、west、玄铁（XuanTie）工具链，以及下载用的 xfel。做完之后，下一篇 [获取 Zephyr 代码](zephyr-get-source.md) 才有地方放代码。
 
 :::caution
-本文以 <strong>Ubuntu 24.04（x86_64）</strong> 为准。其他发行版请把 `apt` 包换成对应名字；Windows 建议用 WSL2，macOS 未验证。
+本文以 <strong>Ubuntu 24.04（x86_64）</strong> 为准。其他发行版请把 `apt` 包换成对应名字。Windows 建议用 WSL2，macOS 未验证。
 :::
 
 ## 工作区目录
@@ -35,7 +35,7 @@ sudo apt install --no-install-recommends git cmake ninja-build gperf \
   xz-utils file make gcc gcc-multilib g++-multilib libsdl2-dev libmagic1
 ```
 
-两版的最低版本要求如下，装完请按所选版本核对。下文 `.venv` 和 `env.sh` 保留 4.2.2 用法；4.5 使用独立虚拟环境，见[版本与迁移指南](zephyr-4-5.md)。
+两版的最低版本要求如下，装完请按所选版本核对。下文 `.venv` 和 `env.sh` 保留 4.2.2 用法。4.5 使用独立虚拟环境，见[版本与迁移指南](zephyr-4-5.md)。
 
 | 工具 | 4.2.2 最低版本 | 4.5.0 最低版本 | 检查命令 |
 | --- | --- | --- | --- |

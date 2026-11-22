@@ -2,7 +2,7 @@
 title: "显示 - DE、TCON、DSI 与面板"
 ---
 
-F101 的显示通路是一条固定的链：显示引擎（DE，Linux 驱动里称为 mixer）负责合成画面，时序控制器（TCON）把画面变成面板需要的时序，MIPI DSI 主机和 D-PHY 再把它送到载板上的 1024x768 JD9168S 面板。Linux 用 DRM/KMS 管线描述这条链，所以内核在 `/dev/fb0` 上暴露帧缓冲控制台，在 `/dev/dri/card0` 上暴露模式设置设备；没有单独的 fbdev 驱动。
+F101 的显示通路是一条固定的链：显示引擎（DE，Linux 驱动里称为 mixer）负责合成画面，时序控制器（TCON）把画面变成面板需要的时序，MIPI DSI 主机和 D-PHY 再把它送到载板上的 1024x768 JD9168S 面板。Linux 用 DRM/KMS 管线描述这条链，所以内核在 `/dev/fb0` 上暴露帧缓冲控制台，在 `/dev/dri/card0` 上暴露模式设置设备。没有单独的 fbdev 驱动。
 
 | 项目 | 内容 |
 | --- | --- |
@@ -34,7 +34,7 @@ F101 设备树里只有 DSI 这一路输出。和更大的全志 SoC 不同，�
 
 ### 显示引擎
 
-F101 的 mixer 属于 DE33 代引擎，和 H616 的 mixer 同族，但顶部寄存器布局不同。它有一个视频（VI）通道和两个 UI 通道，映射到物理层槽位 0、3、4。第一个 UI 通道是主平面，所以帧缓冲控制台从 UI 平面扫描输出；VI 平面是叠加层，可以接收 YUV 和需要缩放的内容。
+F101 的 mixer 属于 DE33 代引擎，和 H616 的 mixer 同族，但顶部寄存器布局不同。它有一个视频（VI）通道和两个 UI 通道，映射到物理层槽位 0、3、4。第一个 UI 通道是主平面，所以帧缓冲控制台从 UI 平面扫描输出。VI 平面是叠加层，可以接收 YUV 和需要缩放的内容。
 
 驱动映射三个寄存器窗口：
 
@@ -46,7 +46,7 @@ F101 的 mixer 属于 DE33 代引擎，和 H616 的 mixer 同族，但顶部寄�
 
 F101 的 top 块不是通用 DE33 布局。驱动先在 `0x10` 的复位寄存器里置 `SUN252I_MIXER_TOP_MIXER`（bit 0），再置 `0x14` 的 AHB 门控、`0x18` 的 MBUS 门控和 `0x1c` 的时钟门控，然后写 `SUN252I_MIXER_GLB + SUN8I_MIXER_GLOBAL_CTL`（`0x100`）的全局控制寄存器来使能 mixer。全局输出尺寸位于 `0x100 + SUN50I_MIXER_GLOBAL_SIZE`。
 
-每个平面都能通过 DE33 的缩放器块缩放。UI 平面接受控制台使用的打包 RGB 格式；VI 平面还接受 NV12、NV21、NV61、NV16、YUYV、YUV420 以及相关的打包格式。驱动没有给任何平面暴露旋转属性，所以平面旋转不可用，尽管同族硬件在别的 SoC 上有旋转块。
+每个平面都能通过 DE33 的缩放器块缩放。UI 平面接受控制台使用的打包 RGB 格式。VI 平面还接受 NV12、NV21、NV61、NV16、YUYV、YUV420 以及相关的打包格式。驱动没有给任何平面暴露旋转属性，所以平面旋转不可用，尽管同族硬件在别的 SoC 上有旋转块。
 
 ### TCON TOP 与 TCON LCD0
 
@@ -56,7 +56,7 @@ TCON LCD0 产生面板时序。在这个 SoC 上它由 D-PHY 提供时钟：像�
 
 ### DSI 主机与 D-PHY
 
-DSI 主机是 DesignWare 风格的全志控制器，带指令引擎。驱动让它工作在带同步脉冲的视频模式，四条 lane，RGB888 像素。F101 变体把 `video_start_delay` 设为 1：TCON 自己启动帧，所以 DSI 主机必须立刻开始发送视频数据。按模式计算出来的通用延迟会让整个画面向下移一行或多行，顶部留下空行；这就是提交 `9b4496973` 修掉的问题。
+DSI 主机是 DesignWare 风格的全志控制器，带指令引擎。驱动让它工作在带同步脉冲的视频模式，四条 lane，RGB888 像素。F101 变体把 `video_start_delay` 设为 1：TCON 自己启动帧，所以 DSI 主机必须立刻开始发送视频数据。按模式计算出来的通用延迟会让整个画面向下移一行或多行，顶部留下空行。这就是提交 `9b4496973` 修掉的问题。
 
 D-PHY 在同族硬件里由 DSI 和 LVDS 共用。在 F101 上，它的 PLL 还有一路低速输出，用作 LCD 像素时钟。驱动选择能让 VCO 至少达到 1.1 GHz 的最小后分频 `m = M1 + 1`，令 `N = symbol_rate * m / 24 MHz`，再由 `coef = bpp / lanes` 得到两个低速分频。对这块面板，数值是：
 
@@ -73,7 +73,7 @@ D-PHY 在同族硬件里由 DSI 和 LVDS 共用。在 F101 上，它的 PLL 还�
 | 低速分频 `div1` | 4 x 6 / 3 = 8 |
 | 低速输出 | 1296 / (3 x 8) = 54 MHz |
 
-D-PHY 的模块时钟不是设备树固定的；驱动在上电期间独占它并设成 150 MHz。
+D-PHY 的模块时钟不是设备树固定的。驱动在上电期间独占它并设成 150 MHz。
 
 ### 面板与背光
 
@@ -94,7 +94,7 @@ D-PHY 的模块时钟不是设备树固定的；驱动在上电期间独占它�
 | 帧率 | 54 MHz / (1114 x 809)，约 59.9 Hz |
 | 物理尺寸 | 65 mm x 48 mm |
 
-复位序列是高、低、高，每步之间等 100 ms，然后写厂商初始化表、退出睡眠模式并等 120 ms。打开显示发送 DCS 命令后等 20 ms；关闭显示只发送 DCS 命令。面板使用 `MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_SYNC_PULSE | MIPI_DSI_MODE_LPM`。
+复位序列是高、低、高，每步之间等 100 ms，然后写厂商初始化表、退出睡眠模式并等 120 ms。打开显示发送 DCS 命令后等 20 ms。关闭显示只发送 DCS 命令。面板使用 `MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_SYNC_PULSE | MIPI_DSI_MODE_LPM`。
 
 背光是 PWM0 通道 2 上的 `pwm-backlight`，接到 `PD22`。PWM 周期是 1,000,000 ns，也就是 1 kHz，输出反相：低电平点亮 LED 串。亮度表有十二级，从 0 到 255，默认索引 6 选中 96，约 38%。
 
@@ -407,15 +407,15 @@ CONFIG_SUNXI_SRAM=y
 CONFIG_SUN252I_F101_MBUS=y
 ```
 
-`CONFIG_DRM_SUN8I_MIXER` 和 `CONFIG_DRM_SUN8I_TCON_TOP` 在 `CONFIG_DRM_SUN4I` 打开时默认为 yes，所以不出现在 defconfig 里。面板选项依赖 `DRM_MIPI_DSI` 和 `BACKLIGHT_CLASS_DEVICE`；DSI 选项会选中 `PHY_SUN6I_MIPI_DPHY` 和 `CRC_CCITT`。
+`CONFIG_DRM_SUN8I_MIXER` 和 `CONFIG_DRM_SUN8I_TCON_TOP` 在 `CONFIG_DRM_SUN4I` 打开时默认为 yes，所以不出现在 defconfig 里。面板选项依赖 `DRM_MIPI_DSI` 和 `BACKLIGHT_CLASS_DEVICE`。DSI 选项会选中 `PHY_SUN6I_MIPI_DPHY` 和 `CRC_CCITT`。
 
 ## 驱动内部
 
 ### 探测与组件绑定
 
-DRM 驱动是组件 master。`sun4i_drv_bind()` 分配 `drm_device`，初始化模式配置，然后调用 `component_bind_all()`，按平台设备探测的顺序绑定 mixer、TCON TOP、TCON 和 DSI。mixer 把自己注册成 `sunxi_engine` 和 CRTC；TCON 注册 CRTC 编码器；DSI 主机注册编码器和桥；面板通过 MIPI DSI 总线注册 `drm_panel`。
+DRM 驱动是组件 master。`sun4i_drv_bind()` 分配 `drm_device`，初始化模式配置，然后调用 `component_bind_all()`，按平台设备探测的顺序绑定 mixer、TCON TOP、TCON 和 DSI。mixer 把自己注册成 `sunxi_engine` 和 CRTC。TCON 注册 CRTC 编码器。DSI 主机注册编码器和桥。面板通过 MIPI DSI 总线注册 `drm_panel`。
 
-面板探测时用 `mipi_dsi_attach()` 挂到 DSI 主机。DSI 主机在 DRM 设备注册之前拒绝 attach，所以面板或 D-PHY 缺失会表现为 `-EPROBE_DEFER`，整条管线稍后再起来。mixer 在映射寄存器之前先申请 SRAM 段；如果该段已被占用，探测会以 `Couldn't claim the SRAM` 失败。
+面板探测时用 `mipi_dsi_attach()` 挂到 DSI 主机。DSI 主机在 DRM 设备注册之前拒绝 attach，所以面板或 D-PHY 缺失会表现为 `-EPROBE_DEFER`，整条管线稍后再起来。mixer 在映射寄存器之前先申请 SRAM 段。如果该段已被占用，探测会以 `Couldn't claim the SRAM` 失败。
 
 ### 模式设置
 
@@ -429,17 +429,17 @@ DRM 驱动是组件 master。`sun4i_drv_bind()` 分配 `drm_device`，初始化�
 
 ### 帧缓冲与控制台
 
-因为设置了 `CONFIG_DRM_FBDEV_EMULATION`，DRM client 代码会创建一个 DMA 帧缓冲和一个 fbdev 设备。控制台绑定到它，所以内核消息和 BusyBox 提示符不需要任何用户空间程序就能显示在面板上。控制台缓冲区是普通的 DRM GEM 缓冲区，格式 XRGB8888，宽 1024 像素，因此 pitch 是 4096 字节。fbdev 模拟只保留一个缓冲区；通过 `/dev/fb0` 没有页翻转双缓冲。
+因为设置了 `CONFIG_DRM_FBDEV_EMULATION`，DRM client 代码会创建一个 DMA 帧缓冲和一个 fbdev 设备。控制台绑定到它，所以内核消息和 BusyBox 提示符不需要任何用户空间程序就能显示在面板上。控制台缓冲区是普通的 DRM GEM 缓冲区，格式 XRGB8888，宽 1024 像素，因此 pitch 是 4096 字节。fbdev 模拟只保留一个缓冲区。通过 `/dev/fb0` 没有页翻转双缓冲。
 
 ### 时钟、SRAM 与 MBUS
 
-mixer 的模块时钟由 `CLK_DE` 设置。TCON 通道时钟的父时钟是 `PLL_VIDEO0_4X`；DSI 模块时钟设为 150 MHz；D-PHY 驱动在上电期间独占它的模块时钟。显示引擎还需要自己的 SRAM 段：mixer 往 `0x03000004` 的 bit 27:25 写 5，把内部 SRAM 交给 DE。USB OTG 控制器之后会把同几位抢回 0；显示仍能工作，因为这段 SRAM 只在引擎初始化时需要。
+mixer 的模块时钟由 `CLK_DE` 设置。TCON 通道时钟的父时钟是 `PLL_VIDEO0_4X`。DSI 模块时钟设为 150 MHz。D-PHY 驱动在上电期间独占它的模块时钟。显示引擎还需要自己的 SRAM 段：mixer 往 `0x03000004` 的 bit 27:25 写 5，把内部 SRAM 交给 DE。USB OTG 控制器之后会把同几位抢回 0。显示仍能工作，因为这段 SRAM 只在引擎初始化时需要。
 
 板级文件把 MBUS 主设备 16 提到优先级 3，并把 CPU 限制在 500 Mbps。没有这个优先级时，总线饱和会让显示引擎抢不到带宽，表现为画面滚动或撕裂。
 
 ### Cache 与 DMA
 
-C906/C907 核运行 Sv32，没有 PBMT，所以 DMA 映射无法只靠属性变成非缓存。显示引擎通过 MBUS 读取扫描输出缓冲区。DRM GEM 缓冲区通过 DMA API 分配；如果缓冲区映射成缓存，用户空间程序用 CPU 往里面画之后，必须在下次扫描输出前清 cache，因为 DRM 的页翻转路径不会做这件事。随板的测试程序绕开了这个问题：让 G2D 写缓冲区，唯一的写者是硬件。DE 本身没有需要维护的 cache。
+C906/C907 核运行 Sv32，没有 PBMT，所以 DMA 映射无法只靠属性变成非缓存。显示引擎通过 MBUS 读取扫描输出缓冲区。DRM GEM 缓冲区通过 DMA API 分配。如果缓冲区映射成缓存，用户空间程序用 CPU 往里面画之后，必须在下次扫描输出前清 cache，因为 DRM 的页翻转路径不会做这件事。随板的测试程序绕开了这个问题：让 G2D 写缓冲区，唯一的写者是硬件。DE 本身没有需要维护的 cache。
 
 ## 用户空间
 

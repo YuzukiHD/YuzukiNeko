@@ -18,7 +18,7 @@ F101 有两个 SD/MMC 主机控制器（SMHC）：`smhc0` 接板上的 TF 卡槽
 
 ## 4.5 主机属性变化
 
-四位总线支持从 `props.host_caps.bus_4_bit_support` 移到 `props.bus_4_bit_support`。`sdhc_get_host_props()` 成功后，4.5 应读取新字段；下文旧版完整代码保留原字段位置。八位支持等其他能力仍在 `host_caps` 中；4.5 驱动 API 声明也改用 `DEVICE_API`。
+四位总线支持从 `props.host_caps.bus_4_bit_support` 移到 `props.bus_4_bit_support`。`sdhc_get_host_props()` 成功后，4.5 应读取新字段。下文旧版完整代码保留原字段位置。八位支持等其他能力仍在 `host_caps` 中。4.5 驱动 API 声明也改用 `DEVICE_API`。
 
 4.5 的完整驱动变化见[版本与迁移指南](../zephyr-4-5.md)。
 
@@ -247,7 +247,7 @@ static int send(uint32_t opcode, uint32_t arg, uint32_t response_type, struct sd
 
 **`sdhc_request`** `int sdhc_request(const struct device *dev, struct sdhc_command *cmd, struct sdhc_data *data);`
 
-发一条命令，需要数据的话带上 `data`。`struct sdhc_command` 填命令号、参数、期望的响应类型（`SD_RSP_TYPE_R1` 等，在 `<zephyr/sd/sd_spec.h>`）、重试次数和超时；响应在 `cmd->response[]` 里返回，R2 响应是 4 个字。`struct sdhc_data` 填起始块、块大小、块数、缓冲区和超时，传完后 `bytes_xfered` 是实际传输的字节数。
+发一条命令，需要数据的话带上 `data`。`struct sdhc_command` 填命令号、参数、期望的响应类型（`SD_RSP_TYPE_R1` 等，在 `<zephyr/sd/sd_spec.h>`）、重试次数和超时。响应在 `cmd->response[]` 里返回，R2 响应是 4 个字。`struct sdhc_data` 填起始块、块大小、块数、缓冲区和超时，传完后 `bytes_xfered` 是实际传输的字节数。
 
 | 情况 | 返回 |
 | --- | --- |
@@ -345,7 +345,7 @@ CMD13 的响应是卡的状态寄存器，第 9…12 位是卡的状态，4 表�
 | `SDHC_INT_REMOVED` | 卡拔出 |
 | `SDHC_INT_SDIO` | SDIO 卡的中断（DAT1 线） |
 
-回调的 `reason` 是上面某个值。演示把卡留在槽里 100 毫秒，没有事件；拔出或插入卡时回调会被调用。
+回调的 `reason` 是上面某个值。演示把卡留在槽里 100 毫秒，没有事件。拔出或插入卡时回调会被调用。
 
 ```text
 [irq] sdhc_enable_interrupt(inserted | removed) = 0
@@ -354,7 +354,7 @@ CMD13 的响应是卡的状态寄存器，第 9…12 位是卡的状态，4 表�
 
 **`sdhc_disable_interrupt`** `int sdhc_disable_interrupt(const struct device *dev, int sources);`
 
-关掉指定的事件；关掉最后一个卡检测事件时，同时关掉卡检测引脚的 GPIO 中断。
+关掉指定的事件。关掉最后一个卡检测事件时，同时关掉卡检测引脚的 GPIO 中断。
 
 ```text
 [irq] sdhc_disable_interrupt                   = 0

@@ -4,13 +4,13 @@ title: "AIC8800 蓝牙 - 蓝牙驱动"
 
 AIC8800 是爱科微（AICSemi）的 WiFi + 蓝牙二合一芯片。这一篇讲它的蓝牙部分：芯片里的蓝牙控制器通过 UART 说 HCI（H:4，带硬件流控），Zephyr 自带的蓝牙主机（Host）跑在 SoC 上，应用用 `<zephyr/bluetooth/bluetooth.h>` 里的标准接口，不需要关心芯片。F101 这边要做的只有两件事：把控制器的固件送进芯片，以及在 HCI 传输打开时放开控制器的复位。这两件事由组件的 `src/aic_bt.c` 完成。
 
-WiFi 部分在另一篇：[AIC8800 WIFI](aic8800-wifi.md)。芯片的 SDIO 总线、REG_ON 上电、固件放在哪里、固件怎么下载、芯片识别，WiFi 篇的[总线与固件加载](aic8800-wifi.md#总线与固件加载)一节已经写了，本文不重复；蓝牙的固件、补丁和配置在同一次 SDIO 下载里一起送进芯片。
+WiFi 部分在另一篇：[AIC8800 WIFI](aic8800-wifi.md)。芯片的 SDIO 总线、REG_ON 上电、固件放在哪里、固件怎么下载、芯片识别，WiFi 篇的[总线与固件加载](aic8800-wifi.md#总线与固件加载)一节已经写了，本文不重复。蓝牙的固件、补丁和配置在同一次 SDIO 下载里一起送进芯片。
 
-蓝牙控制器的 HCI 走 UART2，H:4，115200，带硬件流控：TX 接 PE6、RX 接 PE7、RTS 接 PE8、CTS 接 PE9；蓝牙复位 BT_RSTN 接 PD8，低电平有效。HCI 传输用 Zephyr 的 `drivers/bluetooth/hci/h4.c`，加上组件 `src/aic_bt.c` 里的 `bt_hci_transport_setup()`。蓝牙专用的源码是 `~/f101-zephyr/zephyr-components/aic8800/src/aic_bt.c`，以及 `host/drv/aic_bsp/` 里 `CONFIG_BT_SUPPORT` 下的蓝牙补丁和配置下载。
+蓝牙控制器的 HCI 走 UART2，H:4，115200，带硬件流控：TX 接 PE6、RX 接 PE7、RTS 接 PE8、CTS 接 PE9。蓝牙复位 BT_RSTN 接 PD8，低电平有效。HCI 传输用 Zephyr 的 `drivers/bluetooth/hci/h4.c`，加上组件 `src/aic_bt.c` 里的 `bt_hci_transport_setup()`。蓝牙专用的源码是 `~/f101-zephyr/zephyr-components/aic8800/src/aic_bt.c`，以及 `host/drv/aic_bsp/` 里 `CONFIG_BT_SUPPORT` 下的蓝牙补丁和配置下载。
 
 `bt_enable()` 打开 HCI 传输时，如果芯片还没启动，会先调用 `aicz_wifi_start()` 启动它，已经启动就立刻返回，所以应用不必先用 WiFi。反过来，蓝牙固件和 WiFi 固件在同一次 SDIO 下载里，不能只拉起蓝牙而不启动 WiFi 固件。
 
-控制器自报 HCI 和 LMP 版本 5.4，厂商号 0x0b3b，本地地址是控制器提供的公共地址，WiFi 的 MAC 是另一个地址。Zephyr 主机里没有打开 `BT_CLASSIC`，所以只有低功耗（LE）；LE 的广播者、观察者、外设、中心角色由主机的 Kconfig 选择。
+控制器自报 HCI 和 LMP 版本 5.4，厂商号 0x0b3b，本地地址是控制器提供的公共地址，WiFi 的 MAC 是另一个地址。Zephyr 主机里没有打开 `BT_CLASSIC`，所以只有低功耗（LE）。LE 的广播者、观察者、外设、中心角色由主机的 Kconfig 选择。
 
 ## 架构
 
@@ -218,7 +218,7 @@ UART2 和它下面的 HCI 节点：
 int bt_enable(bt_ready_cb_t cb);
 ```
 
-初始化蓝牙主机并打开 HCI 传输。`cb` 为 `NULL` 时同步执行，返回时蓝牙已经可用；不为 `NULL` 时立刻返回，初始化完成后调用 `cb`。成功返回 0，失败返回负的错误码。在这块板子上它会：打开 `zephyr,bt-hci` 指定的 H:4 设备，进入 `bt_hci_transport_setup()` 启动芯片（SDIO 下载固件、释放 BT_RSTN），再发 HCI 命令读控制器的信息。首次调用约 3.2 秒，大部分时间花在芯片启动和固件下载上。
+初始化蓝牙主机并打开 HCI 传输。`cb` 为 `NULL` 时同步执行，返回时蓝牙已经可用。不为 `NULL` 时立刻返回，初始化完成后调用 `cb`。成功返回 0，失败返回负的错误码。在这块板子上它会：打开 `zephyr,bt-hci` 指定的 H:4 设备，进入 `bt_hci_transport_setup()` 启动芯片（SDIO 下载固件、释放 BT_RSTN），再发 HCI 命令读控制器的信息。首次调用约 3.2 秒，大部分时间花在芯片启动和固件下载上。
 
 ```c
 static int enable_bluetooth(void)
@@ -285,7 +285,7 @@ identity 0: C0:E3:50:B5:3B:23 (public)
 static inline int bt_addr_le_to_str(const bt_addr_le_t *addr, char *str, size_t len);
 ```
 
-把 LE 地址格式化成 `"XX:XX:XX:XX:XX:XX (public)"` 或 `"(random)"` 的字符串；`str` 至少要 `BT_ADDR_LE_STR_LEN` 字节。`show_identity()` 里用它打印本地地址，下面扫描的列表里用它打印对端地址。上面 `bt_id_get` 的输出就是它的输出。
+把 LE 地址格式化成 `"XX:XX:XX:XX:XX:XX (public)"` 或 `"(random)"` 的字符串。`str` 至少要 `BT_ADDR_LE_STR_LEN` 字节。`show_identity()` 里用它打印本地地址，下面扫描的列表里用它打印对端地址。上面 `bt_id_get` 的输出就是它的输出。
 
 ### bt_get_name
 
@@ -307,7 +307,7 @@ int bt_le_adv_start(const struct bt_le_adv_param *param,
 		    const struct bt_data *sd, size_t sd_len);
 ```
 
-开始 LE 广播。`param` 描述广播的类型和间隔，`ad` 是广播数据，`sd` 是扫描响应数据，各带元素个数。演示用 `BT_LE_ADV_CONN_FAST_1`（可连接，快速广播间隔，需要 `CONFIG_BT_PERIPHERAL`）。广播数据放标志位和完整设备名，扫描响应放 GAP 服务的 16 位 UUID；数据用 `BT_DATA` 和 `BT_DATA_BYTES` 宏写成 `struct bt_data` 数组。成功返回 0；已经在广播返回 `-EALREADY`；参数或数据太长返回 `-EINVAL`。
+开始 LE 广播。`param` 描述广播的类型和间隔，`ad` 是广播数据，`sd` 是扫描响应数据，各带元素个数。演示用 `BT_LE_ADV_CONN_FAST_1`（可连接，快速广播间隔，需要 `CONFIG_BT_PERIPHERAL`）。广播数据放标志位和完整设备名，扫描响应放 GAP 服务的 16 位 UUID。数据用 `BT_DATA` 和 `BT_DATA_BYTES` 宏写成 `struct bt_data` 数组。成功返回 0。已经在广播返回 `-EALREADY`。参数或数据太长返回 `-EINVAL`。
 
 ```c
 static const struct bt_data adv_data[] = {
@@ -377,7 +377,7 @@ advertising stopped
 int bt_le_scan_start(const struct bt_le_scan_param *param, bt_le_scan_cb_t cb);
 ```
 
-开始 LE 扫描（需要 `CONFIG_BT_OBSERVER`）。`param` 里：`type` 为 `BT_LE_SCAN_TYPE_ACTIVE` 时会发扫描请求，拿到扫描响应；`BT_LE_SCAN_TYPE_PASSIVE` 只听广播；`interval` 和 `window` 以 0.625 ms 为单位，演示用 `BT_GAP_SCAN_FAST_INTERVAL`、`BT_GAP_SCAN_FAST_WINDOW`；`options` 为 `BT_LE_SCAN_OPT_NONE` 时同一个设备的重复报告也会上报。每收到一个广播报告就调用一次 `cb`。成功返回 0；已经在扫描返回 `-EALREADY`。
+开始 LE 扫描（需要 `CONFIG_BT_OBSERVER`）。`param` 里：`type` 为 `BT_LE_SCAN_TYPE_ACTIVE` 时会发扫描请求，拿到扫描响应。`BT_LE_SCAN_TYPE_PASSIVE` 只听广播。`interval` 和 `window` 以 0.625 ms 为单位，演示用 `BT_GAP_SCAN_FAST_INTERVAL`、`BT_GAP_SCAN_FAST_WINDOW`。`options` 为 `BT_LE_SCAN_OPT_NONE` 时同一个设备的重复报告也会上报。每收到一个广播报告就调用一次 `cb`。成功返回 0。已经在扫描返回 `-EALREADY`。
 
 ```c
 static int start_scan(void)
@@ -413,7 +413,7 @@ typedef void bt_le_scan_cb_t(const bt_addr_le_t *addr, int8_t rssi,
 			     uint8_t adv_type, struct net_buf_simple *buf);
 ```
 
-扫描回调：`addr` 是对端地址，`rssi` 是信号强度（dBm），`adv_type` 是广播报告类型（`BT_GAP_ADV_TYPE_ADV_IND` 是可连接的广播），`buf` 是广播数据。回调在蓝牙 RX 线程里执行，不要阻塞，也不要在里面调用会等待的蓝牙接口。演示的回调把设备按地址去重，记录最强的 RSSI、报告次数、是否可连接和名字；`buf` 交给 `bt_data_parse()` 解析。
+扫描回调：`addr` 是对端地址，`rssi` 是信号强度（dBm），`adv_type` 是广播报告类型（`BT_GAP_ADV_TYPE_ADV_IND` 是可连接的广播），`buf` 是广播数据。回调在蓝牙 RX 线程里执行，不要阻塞，也不要在里面调用会等待的蓝牙接口。演示的回调把设备按地址去重，记录最强的 RSSI、报告次数、是否可连接和名字。`buf` 交给 `bt_data_parse()` 解析。
 
 ```c
 /* 每收到一个广播报告调用一次，在蓝牙 RX 线程里 */
@@ -461,7 +461,7 @@ void bt_data_parse(struct net_buf_simple *ad,
 		   void *user_data);
 ```
 
-把广播数据按 AD 结构（长度、类型、内容）逐项拆开，对每一项调用 `func`；`func` 返回 `false` 就停止。注意 `ad` 会被消耗：函数逐项从缓冲区头部取走数据，返回后 `ad->len` 为 0，之后不能再对同一个缓冲区解析第二遍；需要多次解析就先拷一份。扫描回调里的 `buf` 是主机在回调后丢弃的，演示只解析一遍。
+把广播数据按 AD 结构（长度、类型、内容）逐项拆开，对每一项调用 `func`。`func` 返回 `false` 就停止。注意 `ad` 会被消耗：函数逐项从缓冲区头部取走数据，返回后 `ad->len` 为 0，之后不能再对同一个缓冲区解析第二遍。需要多次解析就先拷一份。扫描回调里的 `buf` 是主机在回调后丢弃的，演示只解析一遍。
 
 ```c
 /* bt_data_parse 对广播数据里的每个字段调用一次 */
@@ -534,7 +534,7 @@ static int stop_scan(void)
 }
 ```
 
-板上输出，扫描 10 秒（`SCAN_SECONDS`）的结果：一共收到 165 个广播报告、8 个不同的地址。设备地址的后三个字节用 `XX` 打了码；`(public)` 是公共地址，`(random)` 是随机地址，`connectable` 是收到过可连接广播的设备：
+板上输出，扫描 10 秒（`SCAN_SECONDS`）的结果：一共收到 165 个广播报告、8 个不同的地址。设备地址的后三个字节用 `XX` 打了码。`(public)` 是公共地址，`(random)` 是随机地址，`connectable` 是收到过可连接广播的设备：
 
 ```text
 165 reports, 8 devices
@@ -556,7 +556,7 @@ static int stop_scan(void)
 CONNECT_ADDR is empty, no connection tried
 ```
 
-扫描里出现的可连接设备都是周围别人的设备，演示没有去连接它们。要自己验证，把 `CONNECT_ADDR` 设成扫描列表里一个自己的设备的地址（大写，例如 `"2C:19:5C:E0:6E:60"`），重新编译；`connect_to()` 会在扫描列表里找到它、连接、发现它的 GATT 主服务、断开。这部分代码和 Zephyr 的蓝牙主机一起编译通过，下面是它用到的接口。
+扫描里出现的可连接设备都是周围别人的设备，演示没有去连接它们。要自己验证，把 `CONNECT_ADDR` 设成扫描列表里一个自己的设备的地址（大写，例如 `"2C:19:5C:E0:6E:60"`），重新编译。`connect_to()` 会在扫描列表里找到它、连接、发现它的 GATT 主服务、断开。这部分代码和 Zephyr 的蓝牙主机一起编译通过，下面是它用到的接口。
 
 ### BT_CONN_CB_DEFINE
 

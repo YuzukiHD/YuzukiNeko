@@ -34,14 +34,14 @@ flowchart LR
 
 ## 面板适配与命令序列
 
-时钟、复位、pinctrl 和 endpoint graph 放在 DTS。面板节点提供尺寸、通道数、像素格式、模式标志、时序以及上电/初始化/退出序列。板级 DTS 已包含完整 JD9168S 初始化；下面只解释编码，不能替换完整序列。
+时钟、复位、pinctrl 和 endpoint graph 放在 DTS。面板节点提供尺寸、通道数、像素格式、模式标志、时序以及上电/初始化/退出序列。板级 DTS 已包含完整 JD9168S 初始化。下面只解释编码，不能替换完整序列。
 
 ```c
 init-sequence = <SUNXI_CMD_DCS(120, 1, 0x11)
                  SUNXI_CMD_DCS(20, 1, 0x29)>;
 ```
 
-`SUNXI_CMD_DCS(delay_ms, byte_count, bytes...)` 的显式字节数包含命令字节。包含 `dt-bindings/display/sunxi-display.h`，通用 DSI 写使用 `SUNXI_CMD_GENERIC`。转换屏厂命令时完整保留字节数、延时、页面切换和复位序列，并双向连接 endpoint。改用 RGB/LVDS 屏时同时修改编码器、引脚、总线格式和时序；开启旧 EVB RGB 节点会与本板触摸/DSI 布线冲突。
+`SUNXI_CMD_DCS(delay_ms, byte_count, bytes...)` 的显式字节数包含命令字节。包含 `dt-bindings/display/sunxi-display.h`，通用 DSI 写使用 `SUNXI_CMD_GENERIC`。转换屏厂命令时完整保留字节数、延时、页面切换和复位序列，并双向连接 endpoint。改用 RGB/LVDS 屏时同时修改编码器、引脚、总线格式和时序。开启旧 EVB RGB 节点会与本板触摸/DSI 布线冲突。
 
 ## 帧缓冲与视频接口
 

@@ -178,7 +178,7 @@ struct g2d_rect {
 
 **`g2d_format_bytes_per_pixel`** `static inline unsigned int g2d_format_bytes_per_pixel(enum g2d_format format);`
 
-返回格式的第一个平面每个像素占几个字节；平面格式（NV12 等）返回 0。上面的 `surface()` 用它算缓冲区大小。
+返回格式的第一个平面每个像素占几个字节。平面格式（NV12 等）返回 0。上面的 `surface()` 用它算缓冲区大小。
 
 ### 绘制
 
@@ -193,7 +193,7 @@ struct g2d_rect {
 
 **`g2d_blit`** `int g2d_blit(const struct device *dev, const struct g2d_surface *src, const struct g2d_rect *src_rect, const struct g2d_surface *dst, const struct g2d_rect *dst_rect, enum g2d_rotation rotation, uint32_t flags);`
 
-把源矩形搬到目的矩形，等完成才返回。源和目的矩形大小不同就缩放；格式不同就转换；`rotation` 和 `flags` 里的 `G2D_FLIP_H`、`G2D_FLIP_V` 做旋转和翻转（先旋转后翻转）。
+把源矩形搬到目的矩形，等完成才返回。源和目的矩形大小不同就缩放。格式不同就转换。`rotation` 和 `flags` 里的 `G2D_FLIP_H`、`G2D_FLIP_V` 做旋转和翻转（先旋转后翻转）。
 
 **示例：复制、缩放、转换格式**
 
@@ -217,7 +217,7 @@ struct g2d_rect {
 
 **示例：YUV 源转 RGB**
 
-NV12 的两个平面各给一个基址和行距。默认是 BT.601、限幅（16…235）；`G2D_FLAG_YUV_FULL_RANGE` 用全幅，`G2D_FLAG_YUV_BT709` 用 BT.709。Y 81、U 90、V 240 在默认设置下是红色。
+NV12 的两个平面各给一个基址和行距。默认是 BT.601、限幅（16…235）。`G2D_FLAG_YUV_FULL_RANGE` 用全幅，`G2D_FLAG_YUV_BT709` 用 BT.709。Y 81、U 90、V 240 在默认设置下是红色。
 
 ```text
 [yuv] NV12 (81, 90, 240) to ARGB8888   = 0: fffe0000, ok
@@ -226,7 +226,7 @@ NV12 的两个平面各给一个基址和行距。默认是 BT.601、限幅（16
 
 **`g2d_blend`** `int g2d_blend(const struct device *dev, const struct g2d_surface *fg, const struct g2d_rect *fg_rect, const struct g2d_surface *bg, const struct g2d_rect *bg_rect, const struct g2d_surface *dst, const struct g2d_rect *dst_rect, const struct g2d_blend *blend, uint32_t flags);`
 
-把前景叠在背景上，结果写到目的；目的可以就是背景。`struct g2d_blend` 选混合模式（Porter-Duff：`G2D_BLEND_SRC_OVER`、`SRC`、`DST_OVER`、`SRC_IN` 等 12 种）和前后景的 Alpha 来源：
+把前景叠在背景上，结果写到目的。目的可以就是背景。`struct g2d_blend` 选混合模式（Porter-Duff：`G2D_BLEND_SRC_OVER`、`SRC`、`DST_OVER`、`SRC_IN` 等 12 种）和前后景的 Alpha 来源：
 
 | `g2d_alpha_mode` | Alpha 的取法 |
 | --- | --- |
@@ -234,7 +234,7 @@ NV12 的两个平面各给一个基址和行距。默认是 BT.601、限幅（16
 | `G2D_ALPHA_GLOBAL` | 整层统一的 `fg_alpha` / `bg_alpha`（0…255） |
 | `G2D_ALPHA_MIXED` | 像素的 Alpha 乘以整层的 Alpha |
 
-前景和目的区域大小不同时前景被缩放；背景必须是 RGB，并且和目的区域一样大。
+前景和目的区域大小不同时前景被缩放。背景必须是 RGB，并且和目的区域一样大。
 
 ```text
 [blend] src-over, layer alpha 128      = 0: ff80007f, ok
@@ -242,7 +242,7 @@ NV12 的两个平面各给一个基址和行距。默认是 BT.601、限幅（16
 [blend] G2D_BLEND_SRC                  = 0: ffff0000
 ```
 
-红色前景以整层 Alpha 128 盖在不透明蓝色上，得到一半红一半蓝；像素 Alpha 64 的红色约占四分之一。
+红色前景以整层 Alpha 128 盖在不透明蓝色上，得到一半红一半蓝。像素 Alpha 64 的红色约占四分之一。
 
 ### 提交
 
@@ -256,7 +256,7 @@ NV12 的两个平面各给一个基址和行距。默认是 BT.601、限幅（16
 | `-EINVAL` | 设备不支持这些参数（格式、矩形、对齐等） |
 | `-ENOMEM` | 队列满了 |
 
-完成后驱动在自己的线程里调用 `op->callback`，`status` 是 0 或负的错误码；回调里不能阻塞。操作按提交的顺序完成。
+完成后驱动在自己的线程里调用 `op->callback`，`status` 是 0 或负的错误码。回调里不能阻塞。操作按提交的顺序完成。
 
 演示一次提交 12 个填充，队列装得下 7 个，其余 5 个被拒绝。
 
@@ -401,7 +401,7 @@ CONFIG_DEVMEM_SHELL=n
 CONFIG_LOG_PRINTK=n
 ```
 
-`CONFIG_COMMON_LIBC_MALLOC_ARENA_SIZE=-1` 让 libc 的堆占用镜像之后的全部 RAM，演示里 1024×768 的缓冲区都从这里分配；把一个大堆放进系统堆（`CONFIG_HEAP_MEM_POOL_SIZE`）会让它成为 `zephyr.bin` 的一部分。
+`CONFIG_COMMON_LIBC_MALLOC_ARENA_SIZE=-1` 让 libc 的堆占用镜像之后的全部 RAM，演示里 1024×768 的缓冲区都从这里分配。把一个大堆放进系统堆（`CONFIG_HEAP_MEM_POOL_SIZE`）会让它成为 `zephyr.bin` 的一部分。
 
 **src/main.c**
 

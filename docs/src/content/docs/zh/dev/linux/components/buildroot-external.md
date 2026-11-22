@@ -7,7 +7,7 @@ title: "Buildroot 外部树"
 本页介绍 BR2_EXTERNAL 机制、目录结构、六个 YuzukiNeko defconfig、NOR 镜像组装脚本、让只读 SquashFS 根可写的 overlay，以及这棵树如何构建 SyterKit 和 OpenSBI。端到端构建与烧录完整镜像见 [Linux + Buildroot](../linux-buildroot.md)。
 
 :::note[版本范围]
-external tree 位于提交 `1e250e5`（2026-09-22）。本仓库的 Buildroot 检出报告 `2026.08-1413-g302f5b6a2f`、`BR2_VERSION` 为 `2026.11-git`；文档引用的预编译镜像由 `2026.08-323-g45f1c387e0` 构建。Buildroot 的包基础设施在这些版本之间稳定，但具体选项集合和生成的镜像大小会不同。
+external tree 位于提交 `1e250e5`（2026-09-22）。本仓库的 Buildroot 检出报告 `2026.08-1413-g302f5b6a2f`、`BR2_VERSION` 为 `2026.11-git`。文档引用的预编译镜像由 `2026.08-323-g45f1c387e0` 构建。Buildroot 的包基础设施在这些版本之间稳定，但具体选项集合和生成的镜像大小会不同。
 :::
 
 ## BR2_EXTERNAL 是什么
@@ -35,7 +35,7 @@ include $(sort \
 	$(wildcard $(BR2_EXTERNAL_YUZUKIHD_PATH)/package/*/*.mk))
 ```
 
-因为通配只深入 `boot/` 和 `package/` 下一层，新组件必须放在 `boot/<name>/<name>.mk` 或 `package/<name>/<name>.mk`；更深的目录不会被拾取。根 `Config.in` 目前只 source 了 `boot/syterkit/Config.in`；工具链包是作为依赖拉进来的 host 包，没有菜单项。
+因为通配只深入 `boot/` 和 `package/` 下一层，新组件必须放在 `boot/<name>/<name>.mk` 或 `package/<name>/<name>.mk`。更深的目录不会被拾取。根 `Config.in` 目前只 source 了 `boot/syterkit/Config.in`。工具链包是作为依赖拉进来的 host 包，没有菜单项。
 
 ## 目录结构
 
@@ -59,7 +59,7 @@ buildroot-external-yuzukihd/
 └── package/xuantie-riscv-toolchain/  预编译 ELF 工具链包
 ```
 
-`board/yuzukihd/yuzukineko/bin/` 在当前树里是空的。更早的版本在这里保存预编译的 `spinor-boot_spi.bin`；提交 `1e250e5` 把它们删掉，改为让 Buildroot 从源码构建 SyterKit。
+`board/yuzukihd/yuzukineko/bin/` 在当前树里是空的。更早的版本在这里保存预编译的 `spinor-boot_spi.bin`。提交 `1e250e5` 把它们删掉，改为让 Buildroot 从源码构建 SyterKit。
 
 ## 六个 defconfig
 
@@ -88,7 +88,7 @@ RV64I NOR defconfig 还改了 OpenSBI 变量：增加 `PLATFORM_RISCV_XLEN=64`�
 
 ## 关键 defconfig 选项
 
-NOR defconfig 很短，但每一行都有作用。下表列出决定构建内容和各部件来源的选项；除特别说明外，值取自 RV32 内置 musl 的情况。
+NOR defconfig 很短，但每一行都有作用。下表列出决定构建内容和各部件来源的选项。除特别说明外，值取自 RV32 内置 musl 的情况。
 
 | 选项 | 值 | 作用 |
 | --- | --- | --- |
@@ -148,7 +148,7 @@ build/br-rv32/images/spinor-boot_spi.bin
 
 ### readme.txt
 
-`board/yuzukihd/yuzukineko/readme.txt` 是板子的树内参考。它记录 ramdisk 和 NOR defconfig、defconfig/架构/bootloader/DTB 矩阵、内置 musl 配置使用玄铁 ELF 工具链而玄铁 musl32 配置复用根文件系统工具链这一事实、精确的 NOR 布局，以及控制台设置（UART1 / `ttyS1`，115200）。它早于 RV64I ramdisk 变体，只列了两个 ramdisk defconfig；树里有三个。它还记录了 `BR2_TARGET_SYTERKIT_DEFCONFIG` 和 `BR2_TARGET_SYTERKIT_IMAGE` 的约定：镜像路径的父目录名就是 SyterKit make 目标，basename 安装到 `images/` 下。
+`board/yuzukihd/yuzukineko/readme.txt` 是板子的树内参考。它记录 ramdisk 和 NOR defconfig、defconfig/架构/bootloader/DTB 矩阵、内置 musl 配置使用玄铁 ELF 工具链而玄铁 musl32 配置复用根文件系统工具链这一事实、精确的 NOR 布局，以及控制台设置（UART1 / `ttyS1`，115200）。它早于 RV64I ramdisk 变体，只列了两个 ramdisk defconfig。树里有三个。它还记录了 `BR2_TARGET_SYTERKIT_DEFCONFIG` 和 `BR2_TARGET_SYTERKIT_IMAGE` 的约定：镜像路径的父目录名就是 SyterKit make 目标，basename 安装到 `images/` 下。
 
 ### post-image-nor.sh
 
@@ -190,7 +190,7 @@ fi
 
 其他区域写入时没有边界检查：过大的组件会在下一个区域写入时被静默截断。写入后的报告会打印每个区域向上取整的 KiB 大小和上限，人能看出来，但镜像仍然会生成。预留大小本身没有被强制。
 
-脚本不擦除物理 flash。它构建一个空隙和 overlay 区域都是 `0xFF` 的文件；把这个文件写到整片 NOR 就得到同样状态。如果只写部分 flash，overlay 分区仍应保持擦除状态（`0xFF`）；如果 JFFS2 挂载失败，第一次 `/sbin/init` 会擦除并格式化它。
+脚本不擦除物理 flash。它构建一个空隙和 overlay 区域都是 `0xFF` 的文件。把这个文件写到整片 NOR 就得到同样状态。如果只写部分 flash，overlay 分区仍应保持擦除状态（`0xFF`）。如果 JFFS2 挂载失败，第一次 `/sbin/init` 会擦除并格式化它。
 
 最后一步打印 `REGION`、`OFFSET`、`SIZE`、`LIMIT`、`CONTENT` 表，随后是 `done` 和磁盘上的大小。这段输出在 [Linux + Buildroot](../linux-buildroot.md) 中有引用。
 
@@ -282,7 +282,7 @@ CONFIG_PIVOT_ROOT=y
 
 分区 0 到 4 在设备树里标记为 `read-only`。分区 5 是 NOR 启动板子上唯一的可写持久存储。写整片镜像会替换它，所以刷完整的 `yuzukineko-nor.img` 会丢弃设备上已经持久化的修改。
 
-overlay 不是根文件系统的副本。SquashFS 始终是 lower 层，永不被修改；启动后创建或修改的每个文件都落在 JFFS2 的 `upper` 目录里，overlayfs 的 `work` 目录保存 copy-up 状态。删除 lower 层里记录的文件会在 upper 里生成 whiteout，而不是删除 SquashFS 里的内容。
+overlay 不是根文件系统的副本。SquashFS 始终是 lower 层，永不被修改。启动后创建或修改的每个文件都落在 JFFS2 的 `upper` 目录里，overlayfs 的 `work` 目录保存 copy-up 状态。删除 lower 层里记录的文件会在 upper 里生成 whiteout，而不是删除 SquashFS 里的内容。
 
 ## 固定组件版本
 
@@ -326,7 +326,7 @@ SYTERKIT_DEPENDENCIES = \
 	host-pkgconf
 ```
 
-如果选中玄铁选项，包会加上 `host-xuantie-riscv-toolchain`，并把 `SYTERKIT_CROSS_COMPILE` 设为该工具链的 `bin/riscv64-unknown-elf-`；否则使用 `TARGET_CROSS`。
+如果选中玄铁选项，包会加上 `host-xuantie-riscv-toolchain`，并把 `SYTERKIT_CROSS_COMPILE` 设为该工具链的 `bin/riscv64-unknown-elf-`。否则使用 `TARGET_CROSS`。
 
 configure 步骤先跑 SyterKit defconfig，然后在生成的 `.config` 里关掉 `CONFIG_RUST_FFI`，再跑 `olddefconfig`。bootloader 不需要 Rust applet 和 FFI 层，关掉它们让 Buildroot 构建不必引入 Rust 工具链。
 
@@ -334,7 +334,7 @@ build 步骤把 `BR2_TARGET_SYTERKIT_IMAGE` 的父目录作为 make 目标。这
 
 ## 玄铁工具链包
 
-`package/xuantie-riscv-toolchain/` 下载预编译的玄铁-900 GCC 14 ELF/Newlib 工具链并安装到 host 目录。它是 `host-generic-package`，所以不出现在菜单里；`boot/syterkit` 把它作为依赖拉进来。
+`package/xuantie-riscv-toolchain/` 下载预编译的玄铁-900 GCC 14 ELF/Newlib 工具链并安装到 host 目录。它是 `host-generic-package`，所以不出现在菜单里。`boot/syterkit` 把它作为依赖拉进来。
 
 | 变量 | 值 |
 | --- | --- |
@@ -345,7 +345,7 @@ build 步骤把 `BR2_TARGET_SYTERKIT_IMAGE` 的父目录作为 make 目标。这
 
 install 步骤从解压目录复制 `bin`、`include`、`lib`、`lib64`、`libexec`、`riscv64-unknown-elf` 和 `share`。hash 文件把压缩包的 SHA-256 固定为 SyterKit CI 配置使用的值，所以下载内容变化会让构建失败，而不是悄悄换掉编译器。
 
-同一条工具链在仓库根目录也单独提供为 `Xuantie-900-gcc-elf-newlib-x86_64-V3.2.0`，手动构建 SyterKit 用的就是它。Buildroot 包和手动工具链必须是同一版本；混用会为 C907 选项生成不同的代码。
+同一条工具链在仓库根目录也单独提供为 `Xuantie-900-gcc-elf-newlib-x86_64-V3.2.0`，手动构建 SyterKit 用的就是它。Buildroot 包和手动工具链必须是同一版本。混用会为 C907 选项生成不同的代码。
 
 ## 添加板子
 
@@ -372,7 +372,7 @@ HELLO_LICENSE_FILES = LICENSE
 $(eval $(generic-package))
 ```
 
-然后从树的根 `Config.in` source 该 `Config.in`，并在 defconfig 里选中选项。`external.mk` 的通配会自动包含 `package/*/*.mk`，所以 `.mk` 文件本身不需要注册。仅 host 的包用 `$(eval $(host-generic-package))`，通过依赖拉进来，就像玄铁工具链那样；它不需要 `Config.in` 条目。
+然后从树的根 `Config.in` source 该 `Config.in`，并在 defconfig 里选中选项。`external.mk` 的通配会自动包含 `package/*/*.mk`，所以 `.mk` 文件本身不需要注册。仅 host 的包用 `$(eval $(host-generic-package))`，通过依赖拉进来，就像玄铁工具链那样。它不需要 `Config.in` 条目。
 
 ## 排错
 

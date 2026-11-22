@@ -175,7 +175,7 @@ doom: 351 passes, 351 pictures, sound underruns 0
 
 ![板子屏幕上的 Doom 游戏画面和叠加的虚拟按键](figures/doom-game.webp)
 
-照片里是进入关卡后的画面：Doom 的画面放大后显示在面板中间，底部是弹药、生命值、护甲的状态栏，左上角的红字是拾取提示 `PICKED UP 4 SHOTGUN SHELLS.`。半透明的虚拟按键叠在画面上：左上角 ESC、右上角 ENTER，它们下面是向左、向右平移的 STR<、STR>；左下角是方向键；右侧是开火的 FIRE 和 USE（开门、操作）两个圆键；底部中间是 Y、N。
+照片里是进入关卡后的画面：Doom 的画面放大后显示在面板中间，底部是弹药、生命值、护甲的状态栏，左上角的红字是拾取提示 `PICKED UP 4 SHOTGUN SHELLS.`。半透明的虚拟按键叠在画面上：左上角 ESC、右上角 ENTER，它们下面是向左、向右平移的 STR<、STR>。左下角是方向键。右侧是开火的 FIRE 和 USE（开门、操作）两个圆键。底部中间是 Y、N。
 
 ## 画面输出
 
@@ -231,7 +231,7 @@ void DG_DrawFrame(void)
 		ret = display_sunxi_show_rgb(disp, &img);
 ```
 
-这个调用可能要等下一次刷新，所以放在单独的线程里，不拖慢引擎；线程只显示最新的那一张。
+这个调用可能要等下一次刷新，所以放在单独的线程里，不拖慢引擎。线程只显示最新的那一张。
 
 LVGL 的按键画在另一层：`CONFIG_DISPLAY_SUNXI_ARGB8888=y` 打开 ARGB8888 帧缓冲层，叠在视频层之上，所以按键是半透明地盖在游戏画面上。`prj.conf` 里没有设置 `CONFIG_DISPLAY_SUNXI_FB_WINDOW_WIDTH/HEIGHT`，两者都是 0。
 
@@ -250,7 +250,7 @@ LVGL 的按键画在另一层：`CONFIG_DISPLAY_SUNXI_ARGB8888=y` 打开 ARGB888
 				 (audio_property_value_t){.vol = 150});
 ```
 
-范围 0–255，要调大调小就改 `.vol`。`I2S_TRIGGER_START` 之后如果 `i2s_write()` 返回 `-EIO`，说明数据断了，计一次 underrun 并重新预填；这个计数就是 5 秒统计行里的 `sound underruns`。
+范围 0–255，要调大调小就改 `.vol`。`I2S_TRIGGER_START` 之后如果 `i2s_write()` 返回 `-EIO`，说明数据断了，计一次 underrun 并重新预填。这个计数就是 5 秒统计行里的 `sound underruns`。
 
 不要声音：在 `prj.conf` 里写 `CONFIG_DOOM_SOUND=n`，组件会改用 `doom_port.c` 里返回静音的 `doom_audio_read()`。
 
@@ -365,7 +365,7 @@ static void pad_main(void *a, void *b, void *c)
 }
 ```
 
-坐标是按 1024×600 画的；`dy` 是实际屏幕高度减 600，这块板子是 1024×768，所以 `dy` 是 168，下半部分的按键整体下移，贴着屏幕底边。顶部的 ESC、ENTER、STR< 、STR> 不加 `dy`，固定在上方。
+坐标是按 1024×600 画的。`dy` 是实际屏幕高度减 600，这块板子是 1024×768，所以 `dy` 是 168，下半部分的按键整体下移，贴着屏幕底边。顶部的 ESC、ENTER、STR< 、STR> 不加 `dy`，固定在上方。
 
 线程由 `pad_start()` 创建（栈 4096 字节，优先级 7），在 `main.c` 里调用，时机在 `doom_open()` 之前：
 
@@ -552,7 +552,7 @@ static void key_event(lv_event_t *e)
 #endif
 ```
 
-这一支只能同时按一个键，而且需要板子自己配置 LVGL 的指针输入设备（比如鼠标或触控板）；示例没有配置。
+这一支只能同时按一个键，而且需要板子自己配置 LVGL 的指针输入设备（比如鼠标或触控板）。示例没有配置。
 
 ### 怎么改按键布局
 

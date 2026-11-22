@@ -2,7 +2,7 @@
 title: "SMHC - microSD 卡"
 ---
 
-F101 有两个 SD/MMC 主机控制器，简称 SMHC。第一个接在 `PF0`-`PF5` 上的 microSD 卡座，卡检测走 `PF6`，供电固定 3.3 V；第二个是 eMMC 控制器，板子没用，它的焊盘还和 SPI Flash 共用。Linux 用 `sunxi-mmc` 驱动两者，卡会作为一个普通块设备出现。
+F101 有两个 SD/MMC 主机控制器，简称 SMHC。第一个接在 `PF0`-`PF5` 上的 microSD 卡座，卡检测走 `PF6`，供电固定 3.3 V。第二个是 eMMC 控制器，板子没用，它的焊盘还和 SPI Flash 共用。Linux 用 `sunxi-mmc` 驱动两者，卡会作为一个普通块设备出现。
 
 microSD 卡座和 NOR Flash 是互相独立的：根文件系统在 Flash 上，卡是额外的存储，需要手动挂载。本章讲控制器的寄存器和 IDMA 引擎、两个控制器的设备树、探测路径和 F101 特有的时序配置，以及 BusyBox 里能用什么。
 
@@ -20,7 +20,7 @@ microSD 卡座和 NOR Flash 是互相独立的：根文件系统在 Flash 上，
 
 ## 主机控制器的工作原理
 
-SMHC 是一个命令/响应引擎，带 16 字节数据 FIFO 和自己的基于描述符的 DMA，驱动里叫 IDMAC。一次请求就是写一次命令寄存器；控制器驱动 CMD，必要时用 IDMAC 搬数据，收集响应，然后产生一个中断。驱动的活是构造 IDMA 描述符链、配置时钟和总线位宽，并在中断到来时结束或中止请求。
+SMHC 是一个命令/响应引擎，带 16 字节数据 FIFO 和自己的基于描述符的 DMA，驱动里叫 IDMAC。一次请求就是写一次命令寄存器。控制器驱动 CMD，必要时用 IDMAC 搬数据，收集响应，然后产生一个中断。驱动的活是构造 IDMA 描述符链、配置时钟和总线位宽，并在中断到来时结束或中止请求。
 
 寄存器来自 `sunxi-mmc.c` 顶部的定义：
 
@@ -71,7 +71,7 @@ SMHC 是一个命令/响应引擎，带 16 字节数据 FIFO 和自己的基于�
 | 2 | Buffer address 1 | 段地址，右移两位 |
 | 3 | Buffer address 2 | 下一段描述符的地址，最后一段为零 |
 
-F101 的配置是 `idma_des_size_bits = 13`，所以一段描述符最多搬 8 KiB；`idma_des_shift = 2`，所以两个地址都按字地址存。`sunxi_mmc_init_idma_des()` 给每段置 `CH | OWN`，除最后一段外都置 `DIC`，第一段置 `FD`，最后一段置 `LD | ER`，并把下一段指针写成前一段加 16 字节再移位。
+F101 的配置是 `idma_des_size_bits = 13`，所以一段描述符最多搬 8 KiB。`idma_des_shift = 2`，所以两个地址都按字地址存。`sunxi_mmc_init_idma_des()` 给每段置 `CH | OWN`，除最后一段外都置 `DIC`，第一段置 `FD`，最后一段置 `LD | ER`，并把下一段指针写成前一段加 16 字节再移位。
 
 链表放在一页一致性内存里（`dma_alloc_coherent(PAGE_SIZE)`），一页是 256 个 16 字节的描述符。主机上限就来自这里：`max_segs = PAGE_SIZE / 16 = 256`、`max_seg_size = 8 KiB`、`max_req_size = 2 MiB`，加上 `max_blk_count = 8192` 和 `max_blk_size = 4096`。更大的请求由 MMC 核心拆成多次。
 
@@ -79,7 +79,7 @@ F101 的配置是 `idma_des_size_bits = 13`，所以一段描述符最多搬 8 K
 
 ### 时钟与固定相位
 
-卡时钟来自 CCU 的 `0x0830` 处的 `CLK_SMHC0`。这个时钟是在 `dcxo24M`、`pll-peri-1x`、`pll-peri-2x` 和一个音频分频之间的 mux，后面是 `M` 分频、`P` 分频，以及一个**固定的二分频后分频器**；描述用的是 `SUNXI_CCU_MP_WITH_MUX_GATE_POSTDIV(..., 2, 0)`。时钟框架会为这个后分频器做补偿，把分频链按请求速率的两倍编程，所以 `clk_set_rate()` 收到的是驱动想要的卡速率，`clk_get_rate()` 报告的则是控制器真正看到的速率。从时钟描述里去掉这个后分频器会改变这层关系，所以驱动和时钟描述必须一致。
+卡时钟来自 CCU 的 `0x0830` 处的 `CLK_SMHC0`。这个时钟是在 `dcxo24M`、`pll-peri-1x`、`pll-peri-2x` 和一个音频分频之间的 mux，后面是 `M` 分频、`P` 分频，以及一个**固定的二分频后分频器**。描述用的是 `SUNXI_CCU_MP_WITH_MUX_GATE_POSTDIV(..., 2, 0)`。时钟框架会为这个后分频器做补偿，把分频链按请求速率的两倍编程，所以 `clk_set_rate()` 收到的是驱动想要的卡速率，`clk_get_rate()` 报告的则是控制器真正看到的速率。从时钟描述里去掉这个后分频器会改变这层关系，所以驱动和时钟描述必须一致。
 
 控制器自己在 `CLKCR` 的 bit 7:0 里有一个内部分频，只在 DDR52 下使用，那时模块时钟加倍再分回来。SDR 下分频是一。新时序模式由 `NTSR` 的 bit 31 表示，F101 的配置带 `needs_new_timings`，所以驱动无条件打开这个模式，而不是请 CCU 切换。
 
@@ -97,7 +97,7 @@ F101 还置了 `fixed_phase`，用一张根据卡时钟推导的固定表取代�
 
 ### 卡检测与供电
 
-`cd-gpios = <&pio 5 6 GPIO_ACTIVE_LOW>` 指定 `PF6`；低电平表示卡在位。`mmc_of_parse()` 按默认 200 ms 去抖申请它，`mmc_gpiod_request_cd_irq()` 通过 pio 控制器的端口中断把它变成线程化中断。如果这个引脚拿不到中断，核心会置 `MMC_CAP_NEEDS_POLL` 改用轮询。
+`cd-gpios = <&pio 5 6 GPIO_ACTIVE_LOW>` 指定 `PF6`。低电平表示卡在位。`mmc_of_parse()` 按默认 200 ms 去抖申请它，`mmc_gpiod_request_cd_irq()` 通过 pio 控制器的端口中断把它变成线程化中断。如果这个引脚拿不到中断，核心会置 `MMC_CAP_NEEDS_POLL` 改用轮询。
 
 供电没有开关：`vmmc-supply` 和 `vqmmc-supply` 都指向 3.3 V 的常开固定稳压器，所以核心看到的是一路关不掉的电源，就不去动它。节点里的 `no-1-8-v` 清掉 UHS 和 1.8 V 能力，这和接线一致：没有电平转换，也没有 1.8 V 电源。
 
@@ -177,13 +177,13 @@ sdc0_pf_pins: sdc0-pf-pins {
 };
 ```
 
-这六个引脚承载时钟、命令和四条数据线；组里设置了 40 Ω 驱动强度和全部上拉，这正是卡不驱动总线时 SD 总线需要的。
+这六个引脚承载时钟、命令和四条数据线。组里设置了 40 Ω 驱动强度和全部上拉，这正是卡不驱动总线时 SD 总线需要的。
 
 绑定文件是 `Documentation/devicetree/bindings/mmc/allwinner,sun4i-a10-mmc.yaml`。F101 的 compatible 既作为独立项列出，也出现在一组兜底对里，绑定说明了 `bus-width`、`max-frequency`、`cd-gpios`、`vmmc-supply`、`vqmmc-supply`、`no-1-8-v`、`cap-sd-highspeed`、`cap-mmc-highspeed`、`no-sd`、`no-mmc`、`no-sdio`、`non-removable` 以及时序属性。
 
 ### alias 与设备名
 
-SoC 设备树里有 `mmc0 = &sdc0;` 和 `mmc1 = &sdc2;`。MMC 核心按 `mmcN` alias 给主机编号，所以 microSD 卡座是 `mmc0`，块设备是 `mmcblk0`；被禁用的 eMMC 本来会是 `mmcblk1`。和 I²C、SPI 的情况不同，这里没有意外，因为 alias 是存在的。
+SoC 设备树里有 `mmc0 = &sdc0;` 和 `mmc1 = &sdc2;`。MMC 核心按 `mmcN` alias 给主机编号，所以 microSD 卡座是 `mmc0`，块设备是 `mmcblk0`。被禁用的 eMMC 本来会是 `mmcblk1`。和 I²C、SPI 的情况不同，这里没有意外，因为 alias 是存在的。
 
 ## Kconfig
 
@@ -233,7 +233,7 @@ CONFIG_MMC_SUNXI=y
 
 `sunxi_mmc_set_ios()` 处理电源、总线位宽、时序和时钟。时钟路径是 `sunxi_mmc_clk_set_rate()`：先关掉卡时钟，DDR52 时把请求加倍，取整并设置模块时钟，编程内部分频，为新时序设置 `NTSR`，应用上面那张表的固定相位，再把卡时钟打开。`CLKCR` 里的 `MASK_DATA0` 让时钟变化期间 DATA0 不乱跳，这也是 F101 配置置 `mask_data0` 的原因。
 
-最后一次 `set_ios` 的结果存在 `host->ferror`；如果失败了，`sunxi_mmc_request()` 会用那个错误让每个请求直接失败，而不是去编程控制器。
+最后一次 `set_ios` 的结果存在 `host->ferror`。如果失败了，`sunxi_mmc_request()` 会用那个错误让每个请求直接失败，而不是去编程控制器。
 
 ### 中断与错误
 
@@ -241,11 +241,11 @@ CONFIG_MMC_SUNXI=y
 
 ### 缓存一致性
 
-SoC 总线是 `dma-noncoherent`。数据缓冲区在构造 IDMA 描述符之前用 `dma_map_sg()` 映射，在 `sunxi_mmc_finalize_request()` 里解除映射；方向由 `mmc_get_dma_dir()` 给出。描述符页来自 `dma_alloc_coherent()`。启动 IDMAC 之前，`sunxi_mmc_init_idma_des()` 最后有一个 `wmb()`，保证描述符的写入在控制器取指之前可见。
+SoC 总线是 `dma-noncoherent`。数据缓冲区在构造 IDMA 描述符之前用 `dma_map_sg()` 映射，在 `sunxi_mmc_finalize_request()` 里解除映射。方向由 `mmc_get_dma_dir()` 给出。描述符页来自 `dma_alloc_coherent()`。启动 IDMAC 之前，`sunxi_mmc_init_idma_des()` 最后有一个 `wmb()`，保证描述符的写入在控制器取指之前可见。
 
 ### 运行时电源管理
 
-主机空闲 50 ms 后自动挂起。resume 重新打开时钟和复位并重新初始化控制器；suspend 反过来。卡不会被断电，因为稳压器是常开的，所以主机挂起再恢复后卡还保持原状态。
+主机空闲 50 ms 后自动挂起。resume 重新打开时钟和复位并重新初始化控制器。suspend 反过来。卡不会被断电，因为稳压器是常开的，所以主机挂起再恢复后卡还保持原状态。
 
 ## 用户态接口
 
@@ -264,14 +264,14 @@ SoC 总线是 `dma-noncoherent`。数据缓冲区在构造 IDMA 描述符之前�
 
 ### 挂载卡
 
-文件系统必须是内核认识的。`CONFIG_VFAT_FS` 覆盖 FAT16 和 FAT32；exFAT 和 ext4 没有编。根文件系统是只读 SquashFS，所以挂载点必须在可写文件系统上——overlay 让 `/mnt` 可写，因此 `/mnt/sd` 可用。
+文件系统必须是内核认识的。`CONFIG_VFAT_FS` 覆盖 FAT16 和 FAT32。exFAT 和 ext4 没有编。根文件系统是只读 SquashFS，所以挂载点必须在可写文件系统上——overlay 让 `/mnt` 可写，因此 `/mnt/sd` 可用。
 
 ```sh
 mkdir -p /mnt/sd
 mount -t vfat /dev/mmcblk0p1 /mnt/sd
 ```
 
-不带 `-t` 的 `mount` 会先用 `blkid` 探测文件系统；写明类型可以避免探测，卡不是 FAT 时错误也更清楚。带 MBR 或 GPT 分区表的卡会出现 `mmcblk0p1`、`p2` 等等；没有分区表、直接格式化的卡就用 `/dev/mmcblk0` 挂载。
+不带 `-t` 的 `mount` 会先用 `blkid` 探测文件系统。写明类型可以避免探测，卡不是 FAT 时错误也更清楚。带 MBR 或 GPT 分区表的卡会出现 `mmcblk0p1`、`p2` 等等。没有分区表、直接格式化的卡就用 `/dev/mmcblk0` 挂载。
 
 ## 工作示例
 
@@ -298,7 +298,7 @@ signal voltage:	1 (3.30 V)
 driver type:	0 (invalid)
 ```
 
-`clock` 是核心按 `max-frequency` 请求的速率；`actual clock` 被故意过滤掉了，因为它是 CCU 能把请求取整成的速率，取决于 bootloader 留下的 PLL 设置。`timing spec: 2` 是 `include/linux/mmc/mmc.h` 里的 `MMC_TIMING_SD_HS`，`bus width: 2` 是四位。只支持标准速度的卡会显示 timing spec 1 和 25 MHz。
+`clock` 是核心按 `max-frequency` 请求的速率。`actual clock` 被故意过滤掉了，因为它是 CCU 能把请求取整成的速率，取决于 bootloader 留下的 PLL 设置。`timing spec: 2` 是 `include/linux/mmc/mmc.h` 里的 `MMC_TIMING_SD_HS`，`bus width: 2` 是四位。只支持标准速度的卡会显示 timing spec 1 和 25 MHz。
 
 ### 示例 2：插卡与拔卡
 
@@ -316,7 +316,7 @@ mmcblk0: mmc0:<rca> <name> <capacity>
 mmc0: card <rca> removed
 ```
 
-前两行来自 `mmc_add_card()` 和 `mmc_blk_probe()`，第三行来自移除路径。`<rca>` 是识别阶段分配的、四位十六进制的相对卡地址，`<name>` 是 CID 里的产品名，`<capacity>` 由 `string_get_size()` 打印。没卸载就拔卡会让挂载点返回 I/O 错误；先卸载。
+前两行来自 `mmc_add_card()` 和 `mmc_blk_probe()`，第三行来自移除路径。`<rca>` 是识别阶段分配的、四位十六进制的相对卡地址，`<name>` 是 CID 里的产品名，`<capacity>` 由 `string_get_size()` 打印。没卸载就拔卡会让挂载点返回 I/O 错误。先卸载。
 
 ## 限制
 

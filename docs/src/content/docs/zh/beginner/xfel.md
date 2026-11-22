@@ -17,7 +17,7 @@ xfel 是主机端的 FEL 下载工具，通过 USB 和 F101 BROM 的 FEL 模式�
 .\xfel.exe version
 ```
 
-PowerShell 不会自动在当前目录查找程序，所以没配 PATH 时要写 `.\xfel.exe`。把目录加入 PATH 后可以直接用 `xfel version`；配置方法见 [FEL 下载模式与工具](../boot/fel.md)。
+PowerShell 不会自动在当前目录查找程序，所以没配 PATH 时要写 `.\xfel.exe`。把目录加入 PATH 后可以直接用 `xfel version`。配置方法见 [FEL 下载模式与工具](../boot/fel.md)。
 
 如果 xfel 报告找不到或打不开设备，用 [Zadig](https://zadig.akeo.ie/) 安装 WinUSB 驱动：选 VID `1f3a`、PID `efe8` 的 FEL 设备，目标驱动选 WinUSB，安装后重新插拔。不要改串口适配器、键盘、鼠标等其他 USB 设备的驱动。
 
@@ -99,7 +99,7 @@ Found spi nor flash 'SFDP' with 16777216 bytes
 | `xfel version` | `AWUSBFEX ID=0x00193700(F101)`，识别到 F101 |
 | `xfel spinor` | `16777216 bytes`，表示 16 MiB NOR Flash |
 
-芯片 ID 或容量不对时先停下来检查接线。写 NOR 不需要执行 `xfel ddr`；下载到 RAM 运行要用 SyterKit 的 PSRAM helper，这是另一条路径，见 [PSRAM 初始化与 RAM 启动](../boot/psram-init.md)。
+芯片 ID 或容量不对时先停下来检查接线。写 NOR 不需要执行 `xfel ddr`。下载到 RAM 运行要用 SyterKit 的 PSRAM helper，这是另一条路径，见 [PSRAM 初始化与 RAM 启动](../boot/psram-init.md)。
 
 ![xfel version 和 xfel spinor 的正常输出](figures/xfel-version.webp)
 

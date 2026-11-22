@@ -6,9 +6,9 @@ title: "PocketJS - UI 运行时组件"
 
 ## 版本与范围
 
-Zephyr 4.2.2 或 4.5 均需使用配套的内核与组件分支，见[版本与 4.5 变更](../zephyr-4-5.md)。播放器配置已在 4.5 构建通过；4.5 的显示、输入、加速和持续内存使用仍需板上验证。
+Zephyr 4.2.2 或 4.5 均需使用配套的内核与组件分支，见[版本与 4.5 变更](../zephyr-4-5.md)。播放器配置已在 4.5 构建通过。4.5 的显示、输入、加速和持续内存使用仍需板上验证。
 
-运行时支持打包的 PocketJS 应用，不提供浏览器 DOM、浏览器网络接口、Node.js API 或 ESP-IDF 任务环境。`hosts/esp-idf/` 下的头文件及打包工具定义了现有 PocketJS host ABI；Zephyr 模块在自己的循环中调用它们，并提供必要的 libc／头文件适配。HTML 渲染见 [LiteHTML](../apps/html.md)。
+运行时支持打包的 PocketJS 应用，不提供浏览器 DOM、浏览器网络接口、Node.js API 或 ESP-IDF 任务环境。`hosts/esp-idf/` 下的头文件及打包工具定义了现有 PocketJS host ABI。Zephyr 模块在自己的循环中调用它们，并提供必要的 libc／头文件适配。HTML 渲染见 [LiteHTML](../apps/html.md)。
 
 ## 架构与源码布局
 
@@ -49,9 +49,9 @@ rustup toolchain install nightly-2026-07-02 --component rust-src
 export PATH="$HOME/.cargo/bin:$HOME/.bun/bin:$PATH"
 ```
 
-使用组件分支记录的版本。当前模块使用 PocketJS `11f48b264e3368490cf6a8623642a57131d01afe` 和 QuickJS-ng `3c051980ab7e783dfbfb1c70c014ce5e05ecf24c`；复现构建时不要单独更新其版本。
+使用组件分支记录的版本。当前模块使用 PocketJS `11f48b264e3368490cf6a8623642a57131d01afe` 和 QuickJS-ng `3c051980ab7e783dfbfb1c70c014ce5e05ecf24c`。复现构建时不要单独更新其版本。
 
-关闭 `CONFIG_FPU` 时，Rust 使用 `riscv32imac-unknown-none-elf`。启用后，CMake 选择 `tools/riscv32imafdc-zephyr.json`；若同时启用 `CONFIG_POCKETJS_RUST_RVV`，则选择 `riscv32imafdcv-zephyr.json`，通过固定 nightly 和 `rust-src` 构建 `core`／`alloc`。自定义 target 使用与镜像一致的 `ilp32d` ABI，C 与 Rust 的浮点 ABI 必须匹配。
+关闭 `CONFIG_FPU` 时，Rust 使用 `riscv32imac-unknown-none-elf`。启用后，CMake 选择 `tools/riscv32imafdc-zephyr.json`。若同时启用 `CONFIG_POCKETJS_RUST_RVV`，则选择 `riscv32imafdcv-zephyr.json`，通过固定 nightly 和 `rust-src` 构建 `core`／`alloc`。自定义 target 使用与镜像一致的 `ilp32d` ABI，C 与 Rust 的浮点 ABI 必须匹配。
 
 ## 接入模块
 
@@ -66,7 +66,7 @@ project(my_pocket_app)
 target_sources(app PRIVATE src/main.c)
 ```
 
-在 `prj.conf` 中启用 `CONFIG_POCKETJS=y`，即可使用包、guest、UI 和渲染器接口；资源打包、缓冲申请及主循环仍由应用负责。CLI 和 `embed_package.py` 构建规则可从 `samples/player/CMakeLists.txt` 起步，F101 显示应用配置可参考其 `prj.conf`。
+在 `prj.conf` 中启用 `CONFIG_POCKETJS=y`，即可使用包、guest、UI 和渲染器接口。资源打包、缓冲申请及主循环仍由应用负责。CLI 和 `embed_package.py` 构建规则可从 `samples/player/CMakeLists.txt` 起步，F101 显示应用配置可参考其 `prj.conf`。
 
 | 选项 | 默认值／要求 | 含义 |
 | --- | --- | --- |
@@ -109,7 +109,7 @@ host contract 与包中的尺寸、显示方式及能力必须一致。替换应
 
 将 UI turn 与渲染放在同一所属线程。把输入采样到 `pocketjs_ui_input_t`，再调用 `pocketjs_ui_turn()` 执行脚本、推进 UI 状态并取得帧视图。该调用产生绘制数据，不负责显示像素。
 
-选择显示端已不再使用的缓冲，对其 target 调用 `pocketjs_rgb565_prepare()`。逐个脏区调用 `pocketjs_rgb565_render_strip()`，目标内存按完整视口宽度的条带组织。成功绘制后调用 `pocketjs_rgb565_commit()`，刷新修改范围的 cache，再将缓冲交给显示端。放弃本次绘制时使用 `pocketjs_rgb565_abort()`；丢弃 target 的历史像素后使用 `pocketjs_rgb565_target_invalidate()`。
+选择显示端已不再使用的缓冲，对其 target 调用 `pocketjs_rgb565_prepare()`。逐个脏区调用 `pocketjs_rgb565_render_strip()`，目标内存按完整视口宽度的条带组织。成功绘制后调用 `pocketjs_rgb565_commit()`，刷新修改范围的 cache，再将缓冲交给显示端。放弃本次绘制时使用 `pocketjs_rgb565_abort()`。丢弃 target 的历史像素后使用 `pocketjs_rgb565_target_invalidate()`。
 
 每张缓冲需要独立 target，因为脏区是相对于该缓冲的历史状态计算的。播放器使用四张动态申请、64 字节对齐的 RGB565 缓冲及独立显示线程。帧视图借用 core 内存，必须在下一次 turn 或修改使其失效前完成渲染。其他线程应排队提交输入，不要在回调里直接调用 UI API。
 
@@ -126,7 +126,7 @@ const pocketjs_rgb565_accelerator_t *accel = pocketjs_g2d_accelerator(g2d);
 
 `pocketjs_g2d_create()` 可能返回 `NULL`，`pocketjs_g2d_accelerator(NULL)` 同样返回 `NULL`，此时可走软件渲染。按照播放器实现，把适配器的 fill／blend 阈值复制到 renderer 配置，并在条带绘制时传入 `accel`。
 
-适配器实现 `fill_rgb565` 和 `blend_a8_rgb565`。小操作由 CPU 处理；大面积不透明填充使用 G2D，覆盖率混合在启用时使用 RVV，否则通过 ARGB 暂存缓冲交给 G2D。阈值单位为像素数。这些钩子不代表所有变换和绘制命令都由硬件执行，统计结构仍保留部分上游 `ppa_*` 字段名。
+适配器实现 `fill_rgb565` 和 `blend_a8_rgb565`。小操作由 CPU 处理。大面积不透明填充使用 G2D，覆盖率混合在启用时使用 RVV，否则通过 ARGB 暂存缓冲交给 G2D。阈值单位为像素数。这些钩子不代表所有变换和绘制命令都由硬件执行，统计结构仍保留部分上游 `ppa_*` 字段名。
 
 当前适配器没有公开 destroy API，播放器让它保持到固件结束。需要反复打开、关闭运行时的应用，应先明确适配器资源的释放与复用方案。
 

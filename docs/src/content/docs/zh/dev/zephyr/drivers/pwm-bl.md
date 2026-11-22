@@ -143,14 +143,14 @@ pwm-cells:
 
 ## 驱动怎么工作
 
-初始化时驱动做这些事：打开总线时钟、释放复位，把模块时钟设成 PLL_PERI_2X 分频后接近 400 MHz；应用 `pinctrl`；PB0 和 PB2 的驱动能力设为 3（`yuzukineko` 上 PB0 是控制台 TX，它的驱动能力也被改成 3，不影响通信）；按固定的参数配置两个端口：
+初始化时驱动做这些事：打开总线时钟、释放复位，把模块时钟设成 PLL_PERI_2X 分频后接近 400 MHz。应用 `pinctrl`。PB0 和 PB2 的驱动能力设为 3（`yuzukineko` 上 PB0 是控制台 TX，它的驱动能力也被改成 3，不影响通信）。按固定的参数配置两个端口：
 
 | 端口 | 配置 |
 | --- | --- |
 | 端口 1（BOOST1） | 纯模拟，750 kHz，最大亮度代码 2 |
 | 端口 0（BOOST0） | 数字加模拟比较：周期 0x215，初始有效 0x1a，最大有效 0x140，最大亮度代码 3 |
 
-设置亮度时（`pwm_set_cycles`）：`级别 = 脉宽 × 256 ÷ 周期`，不超过 200；级别非 0 就使能两个端口，端口 0 的灌电流设为这个级别；级别是 0 就关闭两个端口。下面的演示读回的寄存器：
+设置亮度时（`pwm_set_cycles`）：`级别 = 脉宽 × 256 ÷ 周期`，不超过 200。级别非 0 就使能两个端口，端口 0 的灌电流设为这个级别。级别是 0 就关闭两个端口。下面的演示读回的寄存器：
 
 | 寄存器 | 偏移（端口 0，端口 1 加 0x200） | 内容 |
 | --- | --- | --- |
@@ -193,7 +193,7 @@ static void show_regs(void)
 
 **`pwm_set_cycles`** `int pwm_set_cycles(const struct device *dev, uint32_t channel, uint32_t period, uint32_t pulse, pwm_flags_t flags);`
 
-亮度由 `pulse / period` 决定。100% 得到 256，被限制到 200；50% 是 128；5% 是 12；0.5% 是 1。标志被忽略。
+亮度由 `pulse / period` 决定。100% 得到 256，被限制到 200。50% 是 128。5% 是 12。0.5% 是 1。标志被忽略。
 
 | 参数 | 返回 |
 | --- | --- |
@@ -217,7 +217,7 @@ static void show_regs(void)
 
 **`pwm_set`** `int pwm_set(const struct device *dev, uint32_t channel, uint32_t period, uint32_t pulse, pwm_flags_t flags);`
 
-周期和脉宽用纳秒（`PWM_USEC()`、`PWM_MSEC()` 等宏）。时钟是 1 GHz，所以不需要换算；周期是 20 µs 还是 1 ms 不影响结果，比值一样级别就一样。
+周期和脉宽用纳秒（`PWM_USEC()`、`PWM_MSEC()` 等宏）。时钟是 1 GHz，所以不需要换算。周期是 20 µs 还是 1 ms 不影响结果，比值一样级别就一样。
 
 ```text
 [set] 20 us period, 10 us pulse                 = 0

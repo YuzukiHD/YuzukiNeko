@@ -24,7 +24,7 @@ git submodule update --init --depth 1 components/heap/tlsf components/lwip/lwip 
 git rev-parse HEAD
 ```
 
-`heap/tlsf` 是堆分配器，`lwip` 和 `mbedtls` 供 Wi-Fi 与 TLS 使用。F101 不使用 ESP32 的蓝牙库、引导程序库和 Wi-Fi 预编译库，所以不必执行全量递归子模块更新；只有运行 ESP-IDF 自带测试时才需要 `git submodule update --init --recursive`。记录 `git rev-parse HEAD`，报告问题时附上这个提交。
+`heap/tlsf` 是堆分配器，`lwip` 和 `mbedtls` 供 Wi-Fi 与 TLS 使用。F101 不使用 ESP32 的蓝牙库、引导程序库和 Wi-Fi 预编译库，所以不必执行全量递归子模块更新。只有运行 ESP-IDF 自带测试时才需要 `git submodule update --init --recursive`。记录 `git rev-parse HEAD`，报告问题时附上这个提交。
 
 ## 工具链
 
@@ -51,7 +51,7 @@ curl -L https://dl.espressif.com/dl/esp-idf/espidf.constraints.v6.1.txt -o ~/.es
 python -m pip install -c ~/.espressif/espidf.constraints.v6.1.txt -r tools/requirements/requirements.core.txt
 ```
 
-约束文件必须和 ESP-IDF 版本匹配；`v6.1` 对应本移植的上游版本。如果 `install.sh` 在这台主机上能正常创建虚拟环境，可以跳过本节，直接使用它生成的 `.venv`。
+约束文件必须和 ESP-IDF 版本匹配。`v6.1` 对应本移植的上游版本。如果 `install.sh` 在这台主机上能正常创建虚拟环境，可以跳过本节，直接使用它生成的 `.venv`。
 
 ## 新终端的环境
 
@@ -72,6 +72,6 @@ idf.py --version
 
 ## 下载与串口工具
 
-FEL 烧录使用 xfel，安装和 udev 权限见 [FEL 工具](../../boot/fel.md)。串口终端使用 115200 8N1，无流控；板载控制台是 UART1 的 PB0/PB1。Windows 主机只用于运行 xfel 和串口工具也可以，但本文的构建命令以 Linux 为准。
+FEL 烧录使用 xfel，安装和 udev 权限见 [FEL 工具](../../boot/fel.md)。串口终端使用 115200 8N1，无流控。板载控制台是 UART1 的 PB0/PB1。Windows 主机只用于运行 xfel 和串口工具也可以，但本文的构建命令以 Linux 为准。
 
 RAM 加载不使用 `xfel ddr`。PSRAM 由 SyterKit 的 returning eFEX helper 初始化，源码在工作区的 `SyterKit/`，构建和加载步骤见[构建、加载与运行](build-run.md)。

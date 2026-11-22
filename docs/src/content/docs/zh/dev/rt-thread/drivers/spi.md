@@ -65,7 +65,7 @@ static int demo_spi(int argc, char **argv)
 MSH_CMD_EXPORT(demo_spi, Read NOR SFDP through native SPI);
 ```
 
-保存为 `applications/demo_spi.c`，调用 `demo_spi`。挂载参数 `RT_NULL` 使用板级驱动默认硬件 CS0。`rt_spi_send_then_recv` 在命令和数据之间保持片选，成功返回 `RT_EOK`；分开的 `rt_spi_send`、`rt_spi_recv` 通常会在中间释放片选。示例不修改 Flash 数据。
+保存为 `applications/demo_spi.c`，调用 `demo_spi`。挂载参数 `RT_NULL` 使用板级驱动默认硬件 CS0。`rt_spi_send_then_recv` 在命令和数据之间保持片选，成功返回 `RT_EOK`。分开的 `rt_spi_send`、`rt_spi_recv` 通常会在中间释放片选。示例不修改 Flash 数据。
 
 ## 高速与四线接收
 

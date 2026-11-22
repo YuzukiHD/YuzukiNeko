@@ -49,7 +49,7 @@ devicetree 里有两个固定振荡器。`dcxo24M` 是 24 MHz 晶振，也是除
 
 CPU PLL provider 有自己的 probe，独立于主 CCU 注册三个时钟。它的 probe 会置位 PLL 控制寄存器的 bit 27、29、30、31，并把 RISC-V 复用器强制为值 5，即 `pll-cpu`。devicetree 也把 `CLK_RISCV` 写成 C907 核心的时钟，因此 Linux 报告的核心频率就是该复用器和分频器的输出，没有 cpufreq 驱动去改它。
 
-DDR PLL provider 注册 `pll-ddr`、带 `CCU_FEATURE_DUAL_DIV` 的 `dram-mux-clk`（父时钟为 `pll-peri-2x`、`pll-ddr`、`pll-peri-800m`、`pll-audio1-div2`）以及 DRAM 频率一半的 `dfi-clk`。PSRAM 频率本身由 SyterKit 在 Linux 启动前写好；Linux 只回读，不重新调频。
+DDR PLL provider 注册 `pll-ddr`、带 `CCU_FEATURE_DUAL_DIV` 的 `dram-mux-clk`（父时钟为 `pll-peri-2x`、`pll-ddr`、`pll-peri-800m`、`pll-audio1-div2`）以及 DRAM 频率一半的 `dfi-clk`。PSRAM 频率本身由 SyterKit 在 Linux 启动前写好。Linux 只回读，不重新调频。
 
 ```mermaid
 flowchart TB
@@ -94,7 +94,7 @@ flowchart TB
 | `spi0`、`spi1` | `dcxo24M`、`pll-peri-1x`、`pll-peri-2x`、`pll-audio1-div2`、`pll-audio1-div5` | 带复用器的 MP | SPI 控制器 |
 | `spif` | `dcxo24M`、`pll-peri-1x`、`pll-peri-2x`、`pll-peri-800m` | 不带索引的 MP 加复用 | SPI flash 控制器 |
 
-多数总线门控直接把 `dcxo24M` 当作父时钟，而不是接分频后的总线时钟。UART 门控是例外，接 `apb-uart`；I2C 门控接 `apb1`。SMHC 模块时钟是唯一需要固定后分频 2 的时钟；没有它，卡会以框架算出频率的两倍运行。
+多数总线门控直接把 `dcxo24M` 当作父时钟，而不是接分频后的总线时钟。UART 门控是例外，接 `apb-uart`。I2C 门控接 `apb1`。SMHC 模块时钟是唯一需要固定后分频 2 的时钟。没有它，卡会以框架算出频率的两倍运行。
 
 `dsi` 时钟由 `assigned-clock-rates` 固定为 150 MHz，TCON 像素时钟由 `assigned-clock-parents` 固定到 `pll-video0-4x`。这些属性是 devicetree 在启动时对这两个时钟施加的唯一频率约束。
 
@@ -216,7 +216,7 @@ CONFIG_DEBUG_FS=y
 
 ### 主 CCU 的 probe
 
-`sun252i_f101_ccu_probe()` 用 `devm_platform_ioremap_resource()` 映射 0x1000 窗口，然后调用 `devm_sunxi_ccu_probe()`。公共代码遍历 `sun252i_f101_ccu_clks[]`，应用每个 `ccu_common` 项里的频率范围，注册每个 `clk_hw`，再发布单 cell 的 provider 和复位控制器。数组内部的顺序对来自其他 provider 的父时钟没有影响；时钟核心会在所有 provider 注册后按名字匹配父时钟。
+`sun252i_f101_ccu_probe()` 用 `devm_platform_ioremap_resource()` 映射 0x1000 窗口，然后调用 `devm_sunxi_ccu_probe()`。公共代码遍历 `sun252i_f101_ccu_clks[]`，应用每个 `ccu_common` 项里的频率范围，注册每个 `clk_hw`，再发布单 cell 的 provider 和复位控制器。数组内部的顺序对来自其他 provider 的父时钟没有影响。时钟核心会在所有 provider 注册后按名字匹配父时钟。
 
 主 provider 注册 101 个输出，覆盖四个外设 PLL 输出、PSI/APB 总线时钟、DE、DI、G2D、CE、VE、DMA 和显示流水线的模块时钟、每个总线门控、UART/TWI/SPI/SPIF 门控、USB 和 combo PHY 门控，以及固定的 24/25/16/12/32 kHz fanout 门控。
 
@@ -234,7 +234,7 @@ RTC CCU 驱动 `0x03090000` 的常开域。它的 probe 用 `devm_ioremap()` 而
 
 框架会执行每个 PLL 的 `min_rate` 和 `max_rate`。`pll-cpu` 上限 2016 MHz，三个外设 PLL 上限 2520 MHz、下限 1272 MHz，模块时钟自身没有声明上限。VE 和 G2D 驱动在驱动代码里把模块时钟设到 300 MHz，不是由时钟表限制的。
 
-`CLK_IS_CRITICAL` 设在 `pll-peri` 及其派生输出、`mbus`、`pll-cpu`、`riscv` 和两个音频分频上。这些时钟不会被 unused-clock 清理关闭；该清理在 `do_initcalls()` 末尾运行，并打印 `clk: Disabling unused clocks`。因此，devicetree 里 `okay` 但没有驱动的外设，其时钟在 `clk_summary` 里显示频率 0、使能计数 0，除非它被标成 critical。
+`CLK_IS_CRITICAL` 设在 `pll-peri` 及其派生输出、`mbus`、`pll-cpu`、`riscv` 和两个音频分频上。这些时钟不会被 unused-clock 清理关闭。该清理在 `do_initcalls()` 末尾运行，并打印 `clk: Disabling unused clocks`。因此，devicetree 里 `okay` 但没有驱动的外设，其时钟在 `clk_summary` 里显示频率 0、使能计数 0，除非它被标成 critical。
 
 ### 复位控制器
 
@@ -276,7 +276,7 @@ cat /sys/kernel/debug/clk/pll-cpu/clk_max_rate
 cat /sys/kernel/debug/clk/mbus/clk_flags
 ```
 
-summary 每个时钟一行，按层级缩进。下面是一段有代表性的裁剪输出；具体 PLL 频率取决于内核启动前 SyterKit 写下的值：
+summary 每个时钟一行，按层级缩进。下面是一段有代表性的裁剪输出。具体 PLL 频率取决于内核启动前 SyterKit 写下的值：
 
 ```text
                                  enable  prepare  protect                                duty  hardware                            connection
@@ -299,7 +299,7 @@ summary 每个时钟一行，按层级缩进。下面是一段有代表性的裁
 
 ### 复位状态
 
-本内核树里没有 `/sys/kernel/debug/reset`。`drivers/reset/core.c` 的上游复位核心没有 debugfs 接口，sunxi-ng CCU 也没有添加。复位寄存器仍然在 CCU 窗口里可见，例如 `devmem 0x0200180c` 可以读包含 `RST_BUS_DRAM` 的寄存器（bit 16）；deassert 时该位读 1。把这些寄存器直接写入只应作为调试手段，不是受支持的接口。
+本内核树里没有 `/sys/kernel/debug/reset`。`drivers/reset/core.c` 的上游复位核心没有 debugfs 接口，sunxi-ng CCU 也没有添加。复位寄存器仍然在 CCU 窗口里可见，例如 `devmem 0x0200180c` 可以读包含 `RST_BUS_DRAM` 的寄存器（bit 16）。deassert 时该位读 1。把这些寄存器直接写入只应作为调试手段，不是受支持的接口。
 
 ## 示例
 
@@ -324,7 +324,7 @@ MBUS 驱动在 probe 里释放 `RST_BUS_DRAM`。读这个寄存器可以快速�
 devmem 0x0200180c
 ```
 
-bit 16 是 DRAM 复位。如果 MBUS 驱动已加载而它读到 0，说明复位从未被释放，MBUS 窗口会返回 `0x4`；参见[MBUS 与 SRAM](mbus-sram.md)。
+bit 16 是 DRAM 复位。如果 MBUS 驱动已加载而它读到 0，说明复位从未被释放，MBUS 窗口会返回 `0x4`。参见[MBUS 与 SRAM](mbus-sram.md)。
 
 ### 对比 DSI 和 TCON 时钟
 

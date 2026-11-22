@@ -19,7 +19,7 @@ flowchart TB
 
 ## 4.5 加密变化与协议选择
 
-4.5 模块通过原生 Mbed TLS/PSA 配置启用 RSA、X.509、SHA、HKDF 和 AES-GCM，RSA 生成与 HKDF 改用 PSA API。使用 `CONFIG_MBEDTLS_SSL_PROTO_TLS1_3=y`，旧的 `mirror_mbedtls.h` 用户头文件已移除；仅在 4.2.2 分支保留旧头文件与配置。维护中的样例已在 4.5 构建，加密主机回归通过 ASan/UBSan 及独立的 RSA、证书和 HKDF/GCM 检查：
+4.5 模块通过原生 Mbed TLS/PSA 配置启用 RSA、X.509、SHA、HKDF 和 AES-GCM，RSA 生成与 HKDF 改用 PSA API。使用 `CONFIG_MBEDTLS_SSL_PROTO_TLS1_3=y`，旧的 `mirror_mbedtls.h` 用户头文件已移除。仅在 4.2.2 分支保留旧头文件与配置。维护中的样例已在 4.5 构建，加密主机回归通过 ASan/UBSan 及独立的 RSA、证书和 HKDF/GCM 检查：
 
 ```sh
 sh zephyr-components/android-screen-mirror/tests/host/run.sh
@@ -61,7 +61,7 @@ adb shell ip route
 
 第二条命令的输出里 `src` 后面是手机的 WiFi 地址。之后可以拔掉 USB。手机重启后这个设置会失效，需要重新执行。
 
-把手机地址写进板子的配置 `CONFIG_SAMPLE_MIRROR_PHONE_IP`（见 [编译前设置手机地址](#编译前设置手机地址)），板子启动后直接连这个地址的 5555 端口。第一次连接时手机弹出“允许 USB 调试吗？”，勾选“一律允许”后点允许；板子最多等 60 秒（`adb_connect()` 的 `accept_timeout_ms`，由 `scrcpy_start()` 传入）。
+把手机地址写进板子的配置 `CONFIG_SAMPLE_MIRROR_PHONE_IP`（见 [编译前设置手机地址](#编译前设置手机地址)），板子启动后直接连这个地址的 5555 端口。第一次连接时手机弹出“允许 USB 调试吗？”，勾选“一律允许”后点允许。板子最多等 60 秒（`adb_connect()` 的 `accept_timeout_ms`，由 `scrcpy_start()` 传入）。
 
 #### 方式二：无线调试（不用地址，不用 USB）
 
@@ -72,7 +72,7 @@ adb shell ip route
 3. 手机上：开发者选项 → 无线调试 → “使用二维码配对设备”，扫板子屏幕上的二维码。
 4. 配对成功后板子保存的密钥被手机接受，之后重新找服务并连接。
 
-`CONFIG_SAMPLE_MIRROR_PHONE_IP` 留空就是这种方式（默认）。配对只在密钥第一次被手机接受之前需要；密钥换了或手机里删掉了配对记录，连接会返回 `-EACCES`，板子重新显示二维码。
+`CONFIG_SAMPLE_MIRROR_PHONE_IP` 留空就是这种方式（默认）。配对只在密钥第一次被手机接受之前需要。密钥换了或手机里删掉了配对记录，连接会返回 `-EACCES`，板子重新显示二维码。
 
 ### scrcpy 服务端
 
@@ -88,7 +88,7 @@ sha256sum scrcpy-server.jar
 
 文件大小 90788 字节，SHA-256 为 `a0f70b20aa4998fbf658c94118cd6c8dab6abbb0647a3bdab344d70bc1ebcbb8`，以 [scrcpy 发布页](https://github.com/Genymobile/scrcpy/releases/tag/v3.3.1) 上公布的校验值为准。
 
-不需要手动 `adb push`：每次连接，`adb_push_file()` 先用 sync 服务的 `STAT` 查手机上这个文件的大小，和卡上的文件大小一样就跳过，不一样才推送（只比大小，不比内容；换了同样大小的另一个版本不会重推，要先在手机上删掉旧文件）。卡上没有这个文件，`fs_stat()` 失败，屏幕显示 `cannot copy the server`。
+不需要手动 `adb push`：每次连接，`adb_push_file()` 先用 sync 服务的 `STAT` 查手机上这个文件的大小，和卡上的文件大小一样就跳过，不一样才推送（只比大小，不比内容。换了同样大小的另一个版本不会重推，要先在手机上删掉旧文件）。卡上没有这个文件，`fs_stat()` 失败，屏幕显示 `cannot copy the server`。
 
 想换版本：同时改卡上的 jar 和 `CONFIG_SAMPLE_MIRROR_SERVER_VERSION`。服务端的控制消息格式随版本变，`scrcpy.c` 里的消息布局对应 3.x，换到别的大版本需要对照 scrcpy 的 `doc/develop.md` 检查。
 
@@ -108,7 +108,7 @@ WiFi 驱动、固件加载、`net_mgmt` 接口见 [AIC8800 WIFI](../components/a
 
 连接成功才写 `wifi.cfg`，下次启动直接用。连着投屏时点右上角的齿轮，菜单里“Change WiFi network”可以换网络。
 
-`wifi_join()` 等连接结果最多 30 秒，再等 DHCP 地址最多 30 秒；`main()` 里 `wifi_setup(false)` 失败（驱动里没有 WiFi 接口）才显示 `no WiFi` 并退出，连不上网络则一直回到表单。
+`wifi_join()` 等连接结果最多 30 秒，再等 DHCP 地址最多 30 秒。`main()` 里 `wifi_setup(false)` 失败（驱动里没有 WiFi 接口）才显示 `no WiFi` 并退出，连不上网络则一直回到表单。
 
 :::note
 AIC8800 驱动在加入网络时会把 SSID 和密码用 `aic8800` 的日志明文打在串口上（`Connect Wi-Fi: …`、`SET_NETWORK 0 psk "…"`）。串口日志贴给别人之前先把这几行抹掉。本文贴的日志已经用 `<SSID>`、`<PSK>` 占位符替换。
@@ -171,7 +171,7 @@ TF 卡根目录放好 `scrcpy-server.jar`，插进板子，上电或下载。
 
 ### 连上 WiFi
 
-屏幕左上角的状态框显示 `joining the WiFi`。TF 卡里已有保存的 `wifi.cfg` 时，板子读它直接连网，不经过设置表单；第一次用或连不上，屏幕出现 WiFi 设置表单，选网络、输入密码、连接。
+屏幕左上角的状态框显示 `joining the WiFi`。TF 卡里已有保存的 `wifi.cfg` 时，板子读它直接连网，不经过设置表单。第一次用或连不上，屏幕出现 WiFi 设置表单，选网络、输入密码、连接。
 
 ![WiFi 设置表单：网络下拉框、Scan 按钮、密码输入框和屏幕键盘](figures/android-mirror-wifi-form.webp)
 
@@ -250,7 +250,7 @@ wifi: address 192.168.1.55
 
 方式一：手机已执行 `adb tcpip 5555`，屏幕状态栏依次显示 `connecting to the phone`、`copying the server`、`starting the server`、`waiting for the first picture`。第一次连接要在手机上点允许。
 
-方式二：手机打开无线调试后，屏幕显示 `looking for the phone (turn on Wireless debugging)`，找到就连；没有配对过就显示二维码，按上面的步骤扫码。
+方式二：手机打开无线调试后，屏幕显示 `looking for the phone (turn on Wireless debugging)`，找到就连。没有配对过就显示二维码，按上面的步骤扫码。
 
 ![配对二维码界面，右侧是三个导航键，右上角是设置键](figures/android-mirror-pair-qr.webp)
 
@@ -677,7 +677,7 @@ flowchart TB
 
 ## 触摸映射
 
-触摸屏是 GT967，板子分辨率 1024×768。输入事件在 `touch_event()` 里按槽位记到 `fingers[]`（最多 5 个槽），唤醒 `touch_relay` 线程；线程在有手指按着时每 8 ms 轮询一次，没有手指就睡到下一次事件。
+触摸屏是 GT967，板子分辨率 1024×768。输入事件在 `touch_event()` 里按槽位记到 `fingers[]`（最多 5 个槽），唤醒 `touch_relay` 线程。线程在有手指按着时每 8 ms 轮询一次，没有手指就睡到下一次事件。
 
 显示驱动把手机的画面按比例缩放到面板里居中，`picture_rect()` 用同样的算法算出画面在面板上的位置，使触摸坐标能反算回手机画面坐标：
 
@@ -825,9 +825,9 @@ int scrcpy_send_touch(struct scrcpy *s, const struct scrcpy_touch *t, unsigned i
 
 ### 证书不校验
 
-`tls_io.c` 把 mbed TLS 设成 `MBEDTLS_SSL_VERIFY_NONE`，不检查手机出示的证书。这是 ADB 协议决定的：adbd 和配对服务用的是手机自己生成的自签名证书，没有 CA 签发，也没有板子能事先拿到的指纹；ADB 认证的方向是手机认客户端：手机用配对时记下的客户端密钥校验板子出示的客户端证书。板子没有办法认手机。配对时的保护靠二维码里的一次性密码（SPAKE2），没有这个密码的人完成不了配对。
+`tls_io.c` 把 mbed TLS 设成 `MBEDTLS_SSL_VERIFY_NONE`，不检查手机出示的证书。这是 ADB 协议决定的：adbd 和配对服务用的是手机自己生成的自签名证书，没有 CA 签发，也没有板子能事先拿到的指纹。ADB 认证的方向是手机认客户端：手机用配对时记下的客户端密钥校验板子出示的客户端证书。板子没有办法认手机。配对时的保护靠二维码里的一次性密码（SPAKE2），没有这个密码的人完成不了配对。
 
-需要校验时，在 `tls_io.c` 里记住第一次连接的手机证书指纹，之后比对（类似 SSH 的首次信任）；示例不做这个检查。
+需要校验时，在 `tls_io.c` 里记住第一次连接的手机证书指纹，之后比对（类似 SSH 的首次信任）。示例不做这个检查。
 
 ### 随机数
 

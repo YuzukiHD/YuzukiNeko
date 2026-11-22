@@ -21,11 +21,11 @@ flowchart TB
 
 ## LVGL 版本与维护中的示例
 
-4.2.2 manifest 固定 LVGL 9.3，4.5 固定 LVGL 9.6；下文已有的 9.3 benchmark 日志和截图保持原样。4.5 已适配 9.6 的显示流水线类、文字／图像缓存接口及自定义 RVV blend hook。请使用配套分支的头文件与渲染器，不要直接复制 9.3 的内部 hook。
+4.2.2 manifest 固定 LVGL 9.3，4.5 固定 LVGL 9.6。下文已有的 9.3 benchmark 日志和截图保持原样。4.5 已适配 9.6 的显示流水线类、文字／图像缓存接口及自定义 RVV blend hook。请使用配套分支的头文件与渲染器，不要直接复制 9.3 的内部 hook。
 
 4.5 的 LVGL 变化见[版本与迁移指南](../zephyr-4-5.md)。
 
-维护中的 hello 示例位于 `zephyr-components/examples/lvgl_hello`，它和上游 LVGL demo 配置均已通过 4.5 构建检查；显示／触摸、标量／向量对比和性能仍需新的实机结果。
+维护中的 hello 示例位于 `zephyr-components/examples/lvgl_hello`，它和上游 LVGL demo 配置均已通过 4.5 构建检查。显示／触摸、标量／向量对比和性能仍需新的实机结果。
 
 ## 准备
 

@@ -15,7 +15,7 @@ title: "AIC8800 Wi-Fi"
 | 唤醒输入 | 未接 |
 | 蓝牙复位 | PD8，ESP-IDF 未使用 |
 
-驱动在 `esp_wifi_start()` 时拉高 PE10，枚举 SDIO 的 function 1，下载约 333 KiB 的固件，然后启动 Wi-Fi 任务。芯片型号由 `CONFIG_AIC8800_CHIP` 选择，默认 AIC8800D80；实际芯片会在启动日志里报告自己的 chip id。
+驱动在 `esp_wifi_start()` 时拉高 PE10，枚举 SDIO 的 function 1，下载约 333 KiB 的固件，然后启动 Wi-Fi 任务。芯片型号由 `CONFIG_AIC8800_CHIP` 选择，默认 AIC8800D80。实际芯片会在启动日志里报告自己的 chip id。
 
 ## 配置
 
@@ -43,7 +43,7 @@ static const aic8800_config_t s_aic = {
 };
 ```
 
-`aic8800_wifi_register()` 必须在 `esp_wifi_init()` 之前调用；它只注册后端，不碰硬件。`CONFIG_AIC8800_MEM_POOL_KB` 默认 384 KiB，Wi-Fi 固件和协议栈从这个池里分配，堆紧张时先调整它。
+`aic8800_wifi_register()` 必须在 `esp_wifi_init()` 之前调用。它只注册后端，不碰硬件。`CONFIG_AIC8800_MEM_POOL_KB` 默认 384 KiB，Wi-Fi 固件和协议栈从这个池里分配，堆紧张时先调整它。
 
 ## 扫描
 
@@ -81,7 +81,7 @@ esp_wifi_set_config(WIFI_IF_STA, &sta);
 esp_wifi_connect();
 ```
 
-连接成功后 `esp_netif` 默认的 DHCP 客户端会取得地址，`IP_EVENT_STA_GOT_IP` 事件携带 `ip_event_got_ip_t`。断开后不会自动重连，需要应用在 `WIFI_EVENT_STA_DISCONNECTED` 里决定是否重试。当前驱动支持开放网络和 WPA2-PSK；WPA3 的 SAE 代码可以编译，但没有在路由器上验证。
+连接成功后 `esp_netif` 默认的 DHCP 客户端会取得地址，`IP_EVENT_STA_GOT_IP` 事件携带 `ip_event_got_ip_t`。断开后不会自动重连，需要应用在 `WIFI_EVENT_STA_DISCONNECTED` 里决定是否重试。当前驱动支持开放网络和 WPA2-PSK。WPA3 的 SAE 代码可以编译，但没有在路由器上验证。
 
 ## 事件与地址
 
@@ -97,7 +97,7 @@ static void on_wifi_event(void *arg, esp_event_base_t base, int32_t id, void *da
 esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, on_wifi_event, NULL);
 ```
 
-`WIFI_EVENT_STA_START` 表示协议栈已启动，可以发起扫描或连接；`WIFI_EVENT_STA_CONNECTED` 只表示链路建立，地址要到 `IP_EVENT_STA_GOT_IP` 才可用。事件回调运行在事件循环任务里，不要做阻塞操作。
+`WIFI_EVENT_STA_START` 表示协议栈已启动，可以发起扫描或连接。`WIFI_EVENT_STA_CONNECTED` 只表示链路建立，地址要到 `IP_EVENT_STA_GOT_IP` 才可用。事件回调运行在事件循环任务里，不要做阻塞操作。
 
 实测日志中的关键行：
 

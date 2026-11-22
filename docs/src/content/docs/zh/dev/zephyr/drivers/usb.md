@@ -194,7 +194,7 @@ usbhci: usb@4101000 {
 
 **`usbd_initialize`** `int usbd_initialize(uint8_t busid, uintptr_t reg_base, usbd_event_handler_t event_handler);`
 
-启动控制器；从这里开始主机可以枚举设备。`reg_base` 是 OTG 寄存器基址，由板子的胶水函数 `usb_sunxi_otg_base()` 给出。它调用 `usb_dc_low_level_init()`：打开时钟、释放复位、取得 PHY、设置 PIO 模式、连接并打开中断。`event_handler` 接收总线事件。
+启动控制器。从这里开始主机可以枚举设备。`reg_base` 是 OTG 寄存器基址，由板子的胶水函数 `usb_sunxi_otg_base()` 给出。它调用 `usb_dc_low_level_init()`：打开时钟、释放复位、取得 PHY、设置 PIO 模式、连接并打开中断。`event_handler` 接收总线事件。
 
 `main.c` 里调用它的地方：
 
@@ -289,7 +289,7 @@ static void usbd_cdc_acm_bulk_in(uint8_t busid, uint8_t ep, uint32_t nbytes)
 
 **`usbd_cdc_acm_set_dtr`** `void usbd_cdc_acm_set_dtr(uint8_t busid, uint8_t intf, bool state);`
 
-主机设置 DTR 控制线（串口工具打开端口时置位）时，类驱动调用它；应用定义这个函数即可。
+主机设置 DTR 控制线（串口工具打开端口时置位）时，类驱动调用它。应用定义这个函数即可。
 
 ```c
 /* the class driver calls these when the host sets the control lines and the line coding */
@@ -765,6 +765,6 @@ west build -b yuzukineko -d build/usb-api usb_api
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/drivers-usb/build.cast" data-speed="6"></div>
 
-下载运行的方法见[编译与运行](../zephyr-build-run.md)。注意：用 xfel 下载到 RAM 时，板子是通过同一个 USB 口进入 FEL 的；程序一运行，这个口就变成了 CDC ACM 设备，FEL 设备消失。
+下载运行的方法见[编译与运行](../zephyr-build-run.md)。注意：用 xfel 下载到 RAM 时，板子是通过同一个 USB 口进入 FEL 的。程序一运行，这个口就变成了 CDC ACM 设备，FEL 设备消失。
 
-另外还有三个示例：`samples/drivers/usb/cherryusb_cdc_acm`（CherryUSB 自带的 CDC ACM 演示）、`cherryusb_display`（vendor display 类，把屏幕投给主机上的程序）、`cherryusb_host`（主机模式，读 U 盘等；需要有 VBUS 开关的板子，如 `f101_evb`）。
+另外还有三个示例：`samples/drivers/usb/cherryusb_cdc_acm`（CherryUSB 自带的 CDC ACM 演示）、`cherryusb_display`（vendor display 类，把屏幕投给主机上的程序）、`cherryusb_host`（主机模式，读 U 盘等。需要有 VBUS 开关的板子，如 `f101_evb`）。

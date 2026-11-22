@@ -12,7 +12,7 @@ F101 有两个 TWI 控制器，支持 7 位地址和主机模式。驱动使用 
 | I2C1 | PE0 | PE1 |
 | I2C1 备用 | PD0 | PD1 |
 
-`SOC_I2C_NUM` 为 2，所以只有 port 0 和 port 1；`i2c2` 的焊盘表存在于 SoC 描述中，但 ESP-IDF 不提供第三个主机端口。I2C0 和 UART3 共用 PE8/PE9，I2C1 的备用焊盘 PD0/PD1 正是底板上 GT967 的接线。
+`SOC_I2C_NUM` 为 2，所以只有 port 0 和 port 1。`i2c2` 的焊盘表存在于 SoC 描述中，但 ESP-IDF 不提供第三个主机端口。I2C0 和 UART3 共用 PE8/PE9，I2C1 的备用焊盘 PD0/PD1 正是底板上 GT967 的接线。
 
 ## 主机与设备
 
@@ -39,7 +39,7 @@ i2c_master_dev_handle_t dev;
 i2c_master_bus_add_device(bus, &dev_cfg, &dev);
 ```
 
-底板在 SCL/SDA 上有外部上拉，`enable_internal_pullup` 只作为调试兜底；内部上拉较弱，长线或高速率时不要依赖它。`glitch_ignore_cnt` 的单位是总线时钟周期，400 kHz 下 7 个周期约为 17.5 µs。
+底板在 SCL/SDA 上有外部上拉，`enable_internal_pullup` 只作为调试兜底。内部上拉较弱，长线或高速率时不要依赖它。`glitch_ignore_cnt` 的单位是总线时钟周期，400 kHz 下 7 个周期约为 17.5 µs。
 
 ## 传输
 
@@ -53,7 +53,7 @@ i2c_master_receive(dev, buf, sizeof(buf), 100);
 i2c_master_transmit(dev, buf, sizeof(buf), 100);
 ```
 
-最后一个参数是超时毫秒。返回 `ESP_ERR_TIMEOUT` 表示从机没有应答或总线被拉低；先检查上拉、地址和供电，再检查是否有其他任务同时占用总线。驱动在总线对象上加了互斥锁，多个任务可以共享同一个 bus handle，但同一个 device handle 的并发调用会串行化。
+最后一个参数是超时毫秒。返回 `ESP_ERR_TIMEOUT` 表示从机没有应答或总线被拉低。先检查上拉、地址和供电，再检查是否有其他任务同时占用总线。驱动在总线对象上加了互斥锁，多个任务可以共享同一个 bus handle，但同一个 device handle 的并发调用会串行化。
 
 ## GT967 触摸
 

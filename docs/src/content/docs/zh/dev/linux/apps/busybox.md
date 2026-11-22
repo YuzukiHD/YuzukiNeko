@@ -43,7 +43,7 @@ ls -l /
 busybox ls -l /
 ```
 
-显式写法在符号链接缺失、或者想确认究竟跑了哪个实现时很有用。例如 `/sbin/init` 是板级脚本，所以 init applet 只能通过 `busybox init` 调用；`ubirename` 也没有符号链接，同样只能用 `busybox ubirename`。
+显式写法在符号链接缺失、或者想确认究竟跑了哪个实现时很有用。例如 `/sbin/init` 是板级脚本，所以 init applet 只能通过 `busybox init` 调用。`ubirename` 也没有符号链接，同样只能用 `busybox ubirename`。
 
 三个列清单的选项描述了安装的集合：
 
@@ -53,7 +53,7 @@ busybox --list-full
 busybox --help
 ```
 
-`--list` 每行打印一个 applet 名字；`--list-full` 打印 BusyBox 会把它安装到哪个路径。两者各自的前十行是：
+`--list` 每行打印一个 applet 名字。`--list-full` 打印 BusyBox 会把它安装到哪个路径。两者各自的前十行是：
 
 ```text
 $ busybox --list | head
@@ -91,7 +91,7 @@ busybox --install -s /tmp/bb
 ls /tmp/bb | head
 ```
 
-不带 `-s` 的 `--install` 创建硬链接。在只读文件系统上，或者链接已存在而文件系统拒绝替换时，`--install` 会为每个 applet 报一次错；如果链接本来就在，这些错误无害。
+不带 `-s` 的 `--install` 创建硬链接。在只读文件系统上，或者链接已存在而文件系统拒绝替换时，`--install` 会为每个 applet 报一次错。如果链接本来就在，这些错误无害。
 
 ### 安装路径
 
@@ -105,7 +105,7 @@ ls /tmp/bb | head
 | `/usr/sbin` | 27 | `crond`、`fbset`、`i2cdetect`、`start-stop-daemon` |
 | `/linuxrc` | 1 | 根目录下指向 `bin/busybox` 的一个链接 |
 
-284 个 applet 减去这四个目录里的 281 个链接，剩下三个名字。其中两个另有入口：`init` 用 `busybox init` 运行，因为 `/sbin/init` 这个路径是板级脚本；`linuxrc` 在 `/linuxrc` 有自己的链接。只有 `ubirename` 哪里都没有链接，因为 MTD 工具安装了自己的 `ubi*` 工具；用 `busybox ubirename` 运行它。
+284 个 applet 减去这四个目录里的 281 个链接，剩下三个名字。其中两个另有入口：`init` 用 `busybox init` 运行，因为 `/sbin/init` 这个路径是板级脚本。`linuxrc` 在 `/linuxrc` 有自己的链接。只有 `ubirename` 哪里都没有链接，因为 MTD 工具安装了自己的 `ubi*` 工具。用 `busybox ubirename` 运行它。
 
 ## applet 列表
 
@@ -182,7 +182,7 @@ echo $(( 16#ff + 1 ))
 echo $(( (3 + 4) * 5 ))
 ```
 
-第一行打印 `1024`，第二行 `256`，第三行 `35`。`let` 是内建命令，接受同样的表达式。没有浮点；需要时用 `awk` 或 `bc`。
+第一行打印 `1024`，第二行 `256`，第三行 `35`。`let` 是内建命令，接受同样的表达式。没有浮点。需要时用 `awk` 或 `bc`。
 
 ## init 和启动脚本
 
@@ -211,11 +211,11 @@ ttyS1::respawn:/sbin/getty -L  ttyS1 115200 vt100 # GENERIC_SERIAL
 | `once` | 运行一次，不等 |
 | `shutdown` | init 停机或重启时运行 |
 
-空的 `id` 表示 `/dev/console`；`ttyS1` 表示进程以该 tty 作为 stdin、stdout 和 stderr。登录提示是 `ttyS1` 上的 `getty -L`，115200；`-L` 设置 CLOCAL，让 getty 不等载波检测。root 账户密码为空。
+空的 `id` 表示 `/dev/console`。`ttyS1` 表示进程以该 tty 作为 stdin、stdout 和 stderr。登录提示是 `ttyS1` 上的 `getty -L`，115200。`-L` 设置 CLOCAL，让 getty 不等载波检测。root 账户密码为空。
 
 ### rcS 和 rcK
 
-`/etc/init.d/rcS` 按字典序运行每个 `S??*` 脚本。如果名字以 `.sh` 结尾，就在子 shell 里 source，`$1` 设为 `start`；否则执行 `"$i" start`。`/etc/init.d/rcK` 以相反顺序跑同一个列表，参数是 `stop`。
+`/etc/init.d/rcS` 按字典序运行每个 `S??*` 脚本。如果名字以 `.sh` 结尾，就在子 shell 里 source，`$1` 设为 `start`。否则执行 `"$i" start`。`/etc/init.d/rcK` 以相反顺序跑同一个列表，参数是 `stop`。
 
 出厂的启动顺序是：
 
@@ -235,7 +235,7 @@ ttyS1::respawn:/sbin/getty -L  ttyS1 115200 vt100 # GENERIC_SERIAL
 run-parts --test /etc/init.d
 ```
 
-`--test` 只列出脚本不运行；不带 `--test` 时，`run-parts DIR` 按字典序不带参数运行每个脚本。所以它不适合这里的启动脚本：这些脚本期望 `$1` 是 `start` 或 `stop`。自己的服务用一个单独的目录，里面的脚本要能在无参数时运行。
+`--test` 只列出脚本不运行。不带 `--test` 时，`run-parts DIR` 按字典序不带参数运行每个脚本。所以它不适合这里的启动脚本：这些脚本期望 `$1` 是 `start` 或 `stop`。自己的服务用一个单独的目录，里面的脚本要能在无参数时运行。
 
 ### start-stop-daemon
 
@@ -262,7 +262,7 @@ start-stop-daemon --start --background --make-pidfile \
 这套日志在这个内核上不能用。BusyBox syslogd 启动时创建一个本地 `AF_UNIX` 数据报 socket，而内核没有 `CONFIG_NET`，`socket()` 返回 `EAFNOSUPPORT`，syslogd 随即退出。此时 `start-stop-daemon --background` 已经返回成功，所以开机控制台仍然打印 `Starting syslogd: OK`。`klogd` 可能留在运行状态读内核日志，但它的 `syslog()` 调用没有 `/dev/log` 可到。`logger` 和 `/var/log/messages` 因此不可用。内核消息用 `dmesg`，要持久记录就在主机上抓串口控制台。
 :::
 
-`/var/lib/seedrng` 和 `/var` 的其余部分都在可写的 JFFS2 overlay 上，所以种子能跨重启保留，直到 overlay 被擦掉。overlay 只有 1 MiB；任何往那里写的东西都会占用它。
+`/var/lib/seedrng` 和 `/var` 的其余部分都在可写的 JFFS2 overlay 上，所以种子能跨重启保留，直到 overlay 被擦掉。overlay 只有 1 MiB。任何往那里写的东西都会占用它。
 
 ### 添加服务
 
@@ -296,18 +296,18 @@ case "$1" in
 esac
 ```
 
-现在用 `/etc/init.d/S99mydaemon start` 运行它。下一次开机会自动启动。在 `/etc/init.d` 里新建的文件落在 JFFS2 upper 上，能跨重启保留，但刷完整镜像就没了；要永久保留，把同一个文件放进 `buildroot-external-yuzukihd/board/yuzukihd/yuzukineko/overlay/etc/init.d/` 再重新构建。
+现在用 `/etc/init.d/S99mydaemon start` 运行它。下一次开机会自动启动。在 `/etc/init.d` 里新建的文件落在 JFFS2 upper 上，能跨重启保留，但刷完整镜像就没了。要永久保留，把同一个文件放进 `buildroot-external-yuzukihd/board/yuzukihd/yuzukineko/overlay/etc/init.d/` 再重新构建。
 
 ### cron
 
-`crond` 已经在跑。`crontab -e` 打开 `/etc/profile` 里设置的编辑器，也就是 `/bin/vi`；`crontab -l` 列出当前表。格式是通常的五个字段：
+`crond` 已经在跑。`crontab -e` 打开 `/etc/profile` 里设置的编辑器，也就是 `/bin/vi`。`crontab -l` 列出当前表。格式是通常的五个字段：
 
 ```text
 # min hour day month weekday command
 */5 * * * * date >> /tmp/cron.log
 ```
 
-保存后 crond 会在一分钟内读入。任务必须自己写输出：这个内核上 `logger` 和 syslogd 用不了，所以重定向到文件。`/tmp` 是 tmpfs，重启就没了；需要保留的文件放 `/root` 或 `/var`。crontab 文件在 `/etc/cron/crontabs` 下；手动启动 `crond` 时用 `crond -c DIR` 换目录。
+保存后 crond 会在一分钟内读入。任务必须自己写输出：这个内核上 `logger` 和 syslogd 用不了，所以重定向到文件。`/tmp` 是 tmpfs，重启就没了。需要保留的文件放 `/root` 或 `/var`。crontab 文件在 `/etc/cron/crontabs` 下。手动启动 `crond` 时用 `crond -c DIR` 换目录。
 
 ## 板子的 /sbin/init
 
@@ -388,7 +388,7 @@ exec /bin/busybox init
 7. 在新根里重新挂载伪文件系统。旧的挂载还在 `/oldroot` 下，但服务用的是新的 `/proc`、`/sys` 和 `/dev`。
 8. `exec /bin/busybox init` 用 init applet 替换脚本。从这里开始由 `/etc/inittab` 接管。
 
-脚本依赖 `pivot_root`（BusyBox 片段打开了 `CONFIG_PIVOT_ROOT`）和 mtd-utils 的 `flash_erase`。旧根一直挂在 `/oldroot`；没有东西卸载它，这也是 overlay 下层始终有效的原因。
+脚本依赖 `pivot_root`（BusyBox 片段打开了 `CONFIG_PIVOT_ROOT`）和 mtd-utils 的 `flash_erase`。旧根一直挂在 `/oldroot`。没有东西卸载它，这也是 overlay 下层始终有效的原因。
 
 ## vi
 
@@ -439,7 +439,7 @@ These features are available:
 | `:set nu` | 显示行号 |
 | `u` | 不可用；没有撤销 |
 
-`/etc` 下的文件可写，因为根是 overlayfs；改动存在 JFFS2 upper 里，能跨重启。刷完整镜像就没了。
+`/etc` 下的文件可写，因为根是 overlayfs。改动存在 JFFS2 upper 里，能跨重启。刷完整镜像就没了。
 
 ## microcom
 
@@ -506,13 +506,13 @@ hexdump -C -n 4 /dev/mtdblock4
 00000004
 ```
 
-末尾的 `00000004` 是 BusyBox hexdump 打印的最后偏移行；`xxd -l 4 /dev/mtdblock4` 给同样的字节但没有这一行。要读更多，用 `-s` 跳进设备：
+末尾的 `00000004` 是 BusyBox hexdump 打印的最后偏移行。`xxd -l 4 /dev/mtdblock4` 给同样的字节但没有这一行。要读更多，用 `-s` 跳进设备：
 
 ```sh
 hexdump -C -s 0x1000 -n 64 /dev/mtdblock4
 ```
 
-读 MTD 块设备是安全的。擦除或写入不是；见[常用命令](linux-commands.md)。
+读 MTD 块设备是安全的。擦除或写入不是。见[常用命令](linux-commands.md)。
 
 ### md5sum
 
@@ -535,7 +535,7 @@ md5sum /tmp/rootfs.squashfs > /tmp/rootfs.md5
 md5sum -c /tmp/rootfs.md5
 ```
 
-校验对每个文件打印 `OK` 或 `FAILED`，不匹配时退出码非零。`sha1sum`、`sha256sum`、`sha384sum`、`sha512sum`、`sha3sum` 和 `crc32` 也可用；安全相关的场合用 `sha256sum`，MD5 不抗碰撞。
+校验对每个文件打印 `OK` 或 `FAILED`，不匹配时退出码非零。`sha1sum`、`sha256sum`、`sha384sum`、`sha512sum`、`sha3sum` 和 `crc32` 也可用。安全相关的场合用 `sha256sum`，MD5 不抗碰撞。
 
 ## 常见问题
 

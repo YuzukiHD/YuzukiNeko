@@ -286,7 +286,7 @@ DSI 编码器 `allwinner,sun252iw2-mipi-dsi`：`reg`、`interrupts`、`phy`（�
 };
 ```
 
-完整的 22 个脚见 `f101_evb.dts`；每个引脚各复用功能的名字（`LCD0-Dx`、`LCD0-CLK`、`LCD0-DE`、`LCD0-HSYNC`、`LCD0-VSYNC`）见[引脚复用表](../../../hardware/mux.md)。
+完整的 22 个脚见 `f101_evb.dts`。每个引脚各复用功能的名字（`LCD0-Dx`、`LCD0-CLK`、`LCD0-DE`、`LCD0-HSYNC`、`LCD0-VSYNC`）见[引脚复用表](../../../hardware/mux.md)。
 
 ### 第三步：打开流水线，连起来
 
@@ -422,7 +422,7 @@ panel0: panel {
 };
 ```
 
-`spi-mode` 取 `"none"`（默认）、`"3wire-9bit"` 或 `"4wire-8bit"`（4 线时再加 `spi-dc-gpios`）。这一段是写法示范，具体的寄存器和值以你的屏的初始化代码为准；`f101_evb` 上的屏不需要 SPI 初始化。
+`spi-mode` 取 `"none"`（默认）、`"3wire-9bit"` 或 `"4wire-8bit"`（4 线时再加 `spi-dc-gpios`）。这一段是写法示范，具体的寄存器和值以你的屏的初始化代码为准。`f101_evb` 上的屏不需要 SPI 初始化。
 
 ### LVDS 屏
 
@@ -449,7 +449,7 @@ DSI 每条数据通道的位速率由像素时钟推出来：每个像素 24 位
 
 ### 第二步：引脚和 D-PHY
 
-DSI 的差分对是专用功能，写进 `dsi_pins`；`allwinner,drive-level` 加大驱动能力：
+DSI 的差分对是专用功能，写进 `dsi_pins`。`allwinner,drive-level` 加大驱动能力：
 
 ```c
 &pio {
@@ -630,7 +630,7 @@ DSI 的差分对是专用功能，写进 `dsi_pins`；`allwinner,drive-level` �
 | 引脚 `TP_RES`、`TP_INT`、`TP_SDA`、`TP_SCL` | 触摸控制器的复位、中断和 I2C，不属于显示 | 载板接 PD3、PD2、PD1、PD0，见 [I2C](i2c.md) |
 | 背光 `LEDA`、`LEDK`，6 颗灯串联（每颗 2.7…3.4 V），电流 20 mA × 2 | 背光要一个升压恒流的驱动，用 PWM 调亮度，写 `pwm-backlight` 节点 | 载板用 PD22 的 PWM，见 [PWM](pwm.md) |
 
-引脚上的差分对（D0P/D0N……）在 FPC 上连到 SoC 的 DSI 引脚，SoC 一侧固定是 PD12…PD21 复用功能 4，设备树里就是 `dsi_pins`，不用改。驱动芯片用引脚 `LANSEL` 选 2、3 还是 4 条通道，由模组上的接线决定；规格书里的引脚表有 4 对数据线，所以用 4 条。
+引脚上的差分对（D0P/D0N……）在 FPC 上连到 SoC 的 DSI 引脚，SoC 一侧固定是 PD12…PD21 复用功能 4，设备树里就是 `dsi_pins`，不用改。驱动芯片用引脚 `LANSEL` 选 2、3 还是 4 条通道，由模组上的接线决定。规格书里的引脚表有 4 对数据线，所以用 4 条。
 
 ### 第二步：时序
 
@@ -908,7 +908,7 @@ display: dphy: D-PHY 4 lane(s), HS clock 324000000 Hz
 | 数组里的延时 | `{REGFLAG_DELAY, 120, {}}` | 合并到前一条命令的延时里 |
 | 屏厂的 `write_command(0xdf); write_data(0x91); write_data(0x68);` 一类 | 一个命令字节加若干个数据字节 | 合起来是一条 `SUNXI_CMD_DCS` |
 
-规则只有两条：把命令和它的参数连成一串，数出一共几个字节；把紧跟其后的延时放到这条命令的第一个参数里。所有字节原样保留，不要重新排列。如果屏厂代码里区分 DCS 和 Generic，就用对应的宏，分不清时先用 DCS。
+规则只有两条：把命令和它的参数连成一串，数出一共几个字节。把紧跟其后的延时放到这条命令的第一个参数里。所有字节原样保留，不要重新排列。如果屏厂代码里区分 DCS 和 Generic，就用对应的宏，分不清时先用 DCS。
 
 ### 适配新屏的检查清单
 
@@ -957,7 +957,7 @@ display: dphy: D-PHY 4 lane(s), HS clock 324000000 Hz
 
 **`display_get_capabilities`** `void display_get_capabilities(const struct device *dev, struct display_capabilities *capabilities);`
 
-读帧缓冲的尺寸和像素格式。这里的 1024×768 是帧缓冲的大小（`display` 节点的 `width`、`height` 除以 `CONFIG_DISPLAY_SUNXI_FB_DIV`），不一定等于面板；格式是 `PIXEL_FORMAT_RGB_565`（0x10）。
+读帧缓冲的尺寸和像素格式。这里的 1024×768 是帧缓冲的大小（`display` 节点的 `width`、`height` 除以 `CONFIG_DISPLAY_SUNXI_FB_DIV`），不一定等于面板。格式是 `PIXEL_FORMAT_RGB_565`（0x10）。
 
 ```text
 [caps] 1024x768, supported pixel formats 0x10, current 0x10 (RGB_565 is 0x10), orientation 0
@@ -1004,7 +1004,7 @@ display: dphy: D-PHY 4 lane(s), HS clock 324000000 Hz
 
 **`display_set_brightness`** `int display_set_brightness(const struct device *dev, const uint8_t brightness);`
 
-设背光亮度，0…255，对应背光节点的 `max-level`；演示依次设 255、128、32、0、96，屏幕亮度跟着变。
+设背光亮度，0…255，对应背光节点的 `max-level`。演示依次设 255、128、32、0、96，屏幕亮度跟着变。
 
 ```text
 [brightness] display_set_brightness(255)         = 0
@@ -1052,7 +1052,7 @@ display: dphy: D-PHY 4 lane(s), HS clock 324000000 Hz
 
 **`display_sunxi_show_rgb`** `int display_sunxi_show_rgb(const struct device *dev, const struct display_sunxi_rgb *img);`
 
-头文件 `<zephyr/drivers/display/display_sunxi.h>`，是这个驱动的扩展。把一幅 RGB 图片放到视频层，由显示引擎缩放到屏幕上能放下的最大尺寸并居中，不拷贝像素，也不经过帧缓冲。图片的内存在下一次调用或者 `display_sunxi_hide_yuv` 之前必须保持有效且不变，数据缓存要已经写回。`xrgb8888` 选 32 位 XRGB8888 或 16 位 RGB565；`nonblock` 为真时不等图片出现就返回（图片要多保留一帧的时间）。
+头文件 `<zephyr/drivers/display/display_sunxi.h>`，是这个驱动的扩展。把一幅 RGB 图片放到视频层，由显示引擎缩放到屏幕上能放下的最大尺寸并居中，不拷贝像素，也不经过帧缓冲。图片的内存在下一次调用或者 `display_sunxi_hide_yuv` 之前必须保持有效且不变，数据缓存要已经写回。`xrgb8888` 选 32 位 XRGB8888 或 16 位 RGB565。`nonblock` 为真时不等图片出现就返回（图片要多保留一帧的时间）。
 
 ```text
 [rgb] display_sunxi_show_rgb 64x48                 = 0
@@ -1060,7 +1060,7 @@ display: dphy: D-PHY 4 lane(s), HS clock 324000000 Hz
 
 **`display_sunxi_show_yuv`** `int display_sunxi_show_yuv(const struct device *dev, const struct display_sunxi_yuv *img);`
 
-同样，但图片是 YCbCr 4:2:0 的 NV12（`nv21` 为真则是 NV21）：亮度平面一个地址，交错的色度平面一个地址，各有行距。`full_range` 表示样本是 0…255（JPEG），默认是 16…235；`bt709` 选 BT.709 矩阵，默认 BT.601。视频引擎解出来的帧直接这样显示，见[视频引擎 vdec](vdec.md) 和 [MP4 播放器](../apps/mp4-player.md)。
+同样，但图片是 YCbCr 4:2:0 的 NV12（`nv21` 为真则是 NV21）：亮度平面一个地址，交错的色度平面一个地址，各有行距。`full_range` 表示样本是 0…255（JPEG），默认是 16…235。`bt709` 选 BT.709 矩阵，默认 BT.601。视频引擎解出来的帧直接这样显示，见[视频引擎 vdec](vdec.md) 和 [MP4 播放器](../apps/mp4-player.md)。
 
 ```c
 static uint8_t luma[128 * 96] __aligned(64);

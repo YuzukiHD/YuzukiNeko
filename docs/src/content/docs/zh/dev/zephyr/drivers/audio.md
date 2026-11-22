@@ -2,7 +2,7 @@
 title: "AUDIO - 音频驱动"
 ---
 
-F101 有三个音频控制器，在 Zephyr 里都用标准的 I2S 接口 `<zephyr/drivers/i2s.h>` 传音频数据；片上 codec 的模拟部分另外用音频 codec 接口 `<zephyr/audio/codec.h>` 控制音量、静音和输入选择。
+F101 有三个音频控制器，在 Zephyr 里都用标准的 I2S 接口 `<zephyr/drivers/i2s.h>` 传音频数据。片上 codec 的模拟部分另外用音频 codec 接口 `<zephyr/audio/codec.h>` 控制音量、静音和输入选择。
 
 ```mermaid
 flowchart LR
@@ -26,7 +26,7 @@ flowchart LR
 | `i2s0` | `drivers/i2s/i2s_sunxi.c` | 外接 codec 用的 I2S / PCM / TDM 控制器 |
 | `owa` | `drivers/i2s/i2s_sunxi_owa.c` | S/PDIF（IEC 60958）的发送和接收 |
 
-三个 I2S 设备共用 `drivers/i2s/i2s_sunxi_stream.c` 里的 DMA 环和队列。`yuzukineko` 板用的是片上 codec，耳机输出，外部功放用 PD4 使能；`i2s0` 和 `owa` 的引脚在这块板上被占用（`i2s0` 的 PE0…PE4 和 WiFi 的 SDIO 共用，`owa` 的输出脚 PD22 是背光、PE6 是蓝牙 UART），默认不打开，演示用 overlay 打开它们，只测内部回环。
+三个 I2S 设备共用 `drivers/i2s/i2s_sunxi_stream.c` 里的 DMA 环和队列。`yuzukineko` 板用的是片上 codec，耳机输出，外部功放用 PD4 使能。`i2s0` 和 `owa` 的引脚在这块板上被占用（`i2s0` 的 PE0…PE4 和 WiFi 的 SDIO 共用，`owa` 的输出脚 PD22 是背光、PE6 是蓝牙 UART），默认不打开，演示用 overlay 打开它们，只测内部回环。
 
 | 项目 | 片上 codec | `i2s0` | `owa` |
 | --- | --- | --- | --- |
@@ -245,7 +245,7 @@ static struct i2s_config base_cfg(void)
 | DMA 环要的内存分配不到 | `-ENOMEM` |
 | `frame_clk_freq` 是 0 | 释放这个流和它的 DMA 环，返回 0 |
 
-片上 codec 的限制：发送 1 或 2 声道，接收 1 声道；字长 16、24、32 位。
+片上 codec 的限制：发送 1 或 2 声道，接收 1 声道。字长 16、24、32 位。
 
 ```text
 [configure] 48000 Hz, 16 bit, stereo            = 0
@@ -264,7 +264,7 @@ static struct i2s_config base_cfg(void)
 
 **`i2s_config_get`** `const struct i2s_config *i2s_config_get(const struct device *dev, enum i2s_dir dir);`
 
-返回流当前的配置；流没配置过（或者已经用 `frame_clk_freq = 0` 释放了）返回 NULL。
+返回流当前的配置。流没配置过（或者已经用 `frame_clk_freq = 0` 释放了）返回 NULL。
 
 ```text
 [config_get] after releasing the stream        = 0
@@ -277,9 +277,9 @@ static struct i2s_config base_cfg(void)
 
 **`i2s_write`** `int i2s_write(const struct device *dev, void *mem_block, size_t size);`
 
-把一个装满音频数据的块放进发送队列。块要从配置里的 `mem_slab` 分配，大小不超过 `block_size`；驱动播完后自己释放它。流处在已配置或运行状态才能写，否则 `-EIO`；比 `block_size` 长返回 `-EINVAL`；队列满了等 `timeout` 毫秒后返回 `-EAGAIN`。
+把一个装满音频数据的块放进发送队列。块要从配置里的 `mem_slab` 分配，大小不超过 `block_size`。驱动播完后自己释放它。流处在已配置或运行状态才能写，否则 `-EIO`。比 `block_size` 长返回 `-EINVAL`。队列满了等 `timeout` 毫秒后返回 `-EAGAIN`。
 
-演示先写 3 个块，每块 20 ms 的 48 kHz 立体声（3840 字节），内容是 440 Hz 的正弦波；写太长的块被拒绝。
+演示先写 3 个块，每块 20 ms 的 48 kHz 立体声（3840 字节），内容是 440 Hz 的正弦波。写太长的块被拒绝。
 
 ```c
 K_MEM_SLAB_DEFINE_STATIC(slab, BLOCK_SIZE, BLOCKS, 4);
@@ -341,7 +341,7 @@ static void make_table(void)
 
 **`i2s_read`** `int i2s_read(const struct device *dev, void **mem_block, size_t *size);`
 
-从接收队列里取一个录好的块。块来自配置里的 `mem_slab`，用完以后调用者要把它还给 slab（`k_mem_slab_free`）。队列里没有数据，流在运行时等 `timeout` 毫秒后返回 `-EAGAIN`，流不在运行（已配置或出错）时返回 `-EIO`；流没配置也是 `-EIO`。
+从接收队列里取一个录好的块。块来自配置里的 `mem_slab`，用完以后调用者要把它还给 slab（`k_mem_slab_free`）。队列里没有数据，流在运行时等 `timeout` 毫秒后返回 `-EAGAIN`，流不在运行（已配置或出错）时返回 `-EIO`。流没配置也是 `-EIO`。
 
 演示配置一个 48 kHz 单声道的接收流，块长 200 ms（19200 字节），打开麦克风输入，读 5 个块，打印每块的最小值、最大值、平均值。
 
@@ -467,7 +467,7 @@ START 以后程序每 20 ms 补一个块，播 3 秒，同时测真实的帧率�
 
 **`audio_codec_route_input`** `int audio_codec_route_input(const struct device *dev, audio_channel_t channel, uint32_t input);`
 
-选 ADC 听哪个模拟输入。`input` 取 1、2、3，0 是不接，大于 3 返回 `-EINVAL`；`channel` 被忽略。
+选 ADC 听哪个模拟输入。`input` 取 1、2、3，0 是不接，大于 3 返回 `-EINVAL`。`channel` 被忽略。
 
 | `input` | 输入 |
 | --- | --- |
@@ -664,7 +664,7 @@ static void demo_owa_loopback(void)
 [i2s0] 47992 frames compared, 0 mismatches: PASS
 ```
 
-I2S0 的回环通过：比较了 47992 帧，没有一帧不同。S/PDIF 的回环在这块板上没有通过：发送端的配置和启动都返回 0，接收端读不到数据（`i2s_read` 等 1 秒后返回 `-EAGAIN`），没有比较任何帧。在板子上读寄存器看到的现象：发送计数 `TXCNT` 和接收计数 `RXCNT` 都在增长（100 ms 后分别是 0xf00 和 0xd3a），说明接收器在回环下确实收到了帧，但接收 DMA 没有把数据交给队列，原因还没有查清。因此只能说“配置和启动可以，内部回环的数据没有送到应用”；如果你的应用要用 S/PDIF，请先用外部信号确认。
+I2S0 的回环通过：比较了 47992 帧，没有一帧不同。S/PDIF 的回环在这块板上没有通过：发送端的配置和启动都返回 0，接收端读不到数据（`i2s_read` 等 1 秒后返回 `-EAGAIN`），没有比较任何帧。在板子上读寄存器看到的现象：发送计数 `TXCNT` 和接收计数 `RXCNT` 都在增长（100 ms 后分别是 0xf00 和 0xd3a），说明接收器在回环下确实收到了帧，但接收 DMA 没有把数据交给队列，原因还没有查清。因此只能说“配置和启动可以，内部回环的数据没有送到应用”。如果你的应用要用 S/PDIF，请先用外部信号确认。
 
 ## 完整演示程序
 

@@ -2,7 +2,7 @@
 title: "mGBA - GBA 模拟器"
 ---
 
-在板子上运行 Game Boy Advance 游戏（也能跑 Game Boy / Game Boy Color）：模拟器核心是 [mGBA](https://github.com/mgba-emu/mgba)，ROM 从 TF 卡读取；游戏画面 240×160 交给显示引擎的视频层放大到整块屏幕；声音经 I2S 从片上 codec 输出；屏幕上叠一层 LVGL 画的半透明按键，用触摸屏操作。示例是 `zephyr-components/mgba/samples/gba_player`，mGBA 本体是组件里的 git 子模块（MPL-2.0），不需要 BIOS 文件。
+在板子上运行 Game Boy Advance 游戏（也能跑 Game Boy / Game Boy Color）：模拟器核心是 [mGBA](https://github.com/mgba-emu/mgba)，ROM 从 TF 卡读取。游戏画面 240×160 交给显示引擎的视频层放大到整块屏幕。声音经 I2S 从片上 codec 输出。屏幕上叠一层 LVGL 画的半透明按键，用触摸屏操作。示例是 `zephyr-components/mgba/samples/gba_player`，mGBA 本体是组件里的 git 子模块（MPL-2.0），不需要 BIOS 文件。
 
 ```mermaid
 flowchart TB
@@ -86,7 +86,7 @@ list(APPEND ZEPHYR_EXTRA_MODULES ${CMAKE_CURRENT_SOURCE_DIR}/../..)
 
 ### 运行后的输出
 
-串口控制台依次打印下面的内容（TF 卡里是一个 8 MiB 的 `.gba`，日志里的文件名写作 `game`；之后每 5 秒一行统计）：
+串口控制台依次打印下面的内容（TF 卡里是一个 8 MiB 的 `.gba`，日志里的文件名写作 `game`。之后每 5 秒一行统计）：
 
 ```text
 *** Booting Zephyr OS build b6f3dfe1a1f4 ***
@@ -101,7 +101,7 @@ gba: 300 frames, emulation 11407 us/frame, sound 241097 frames pushed, queued 31
 
 ### 显示和触摸屏初始化
 
-`display_sunxi` 报 `1024x768 @ 60 Hz`，说明视频层可用；`gt967` 报固件版本和 `up to 5 point(s)`，说明触摸屏可以同时识别 5 个手指。
+`display_sunxi` 报 `1024x768 @ 60 Hz`，说明视频层可用。`gt967` 报固件版本和 `up to 5 point(s)`，说明触摸屏可以同时识别 5 个手指。
 
 ### TF 卡和 ROM 读取
 
@@ -126,7 +126,7 @@ gba: 300 frames, emulation 11407 us/frame, sound 241097 frames pushed, queued 31
 
 ### 屏幕上的画面
 
-游戏画面放大后显示在面板中间，叠在上面的是半透明屏幕按键；手指按住某个键，该键变成橙黄色。
+游戏画面放大后显示在面板中间，叠在上面的是半透明屏幕按键。手指按住某个键，该键变成橙黄色。
 
 ![板子屏幕上的 GBA 游戏画面和叠加的屏幕按键](figures/mgba-game.webp)
 
@@ -143,7 +143,7 @@ gba: 300 frames, emulation 11407 us/frame, sound 241097 frames pushed, queued 31
 3. `video` 线程调 `display_sunxi_show_rgb()`，视频层从这块内存直接读，硬件放大。
 4. 同时，LVGL 的 ARGB 层画在视频层上面，所以屏幕按键不占用游戏画面的带宽。
 
-`video.c` 用 4 块缓冲（`NBUF 4`）轮流用：核心画下一帧时，视频层还在扫描上一帧，所以不能写同一块。`video_present()` 只把最新一帧的编号放进 `ready_idx`，`video` 线程等显示（可能要等下一次刷新）的时候，核心不会被卡住；如果来不及，旧画面直接被新的盖掉。
+`video.c` 用 4 块缓冲（`NBUF 4`）轮流用：核心画下一帧时，视频层还在扫描上一帧，所以不能写同一块。`video_present()` 只把最新一帧的编号放进 `ready_idx`，`video` 线程等显示（可能要等下一次刷新）的时候，核心不会被卡住。如果来不及，旧画面直接被新的盖掉。
 
 `video.c` 第 45–66 行：
 
@@ -238,7 +238,7 @@ audio_codec_set_property(ctl, AUDIO_PROPERTY_OUTPUT_VOLUME, AUDIO_CHANNEL_ALL,
 				(audio_property_value_t){.vol = 150});
 ```
 
-`.vol` 范围 0–255。想改音量改这个数；静音、左右声道分别设置的写法见 [MP4 播放器](mp4-player.md#在哪里调整音量)，两个应用用的是同一套 codec 接口。
+`.vol` 范围 0–255。想改音量改这个数。静音、左右声道分别设置的写法见 [MP4 播放器](mp4-player.md#在哪里调整音量)，两个应用用的是同一套 codec 接口。
 
 `audio.c` 的几个常量决定缓冲大小：
 
@@ -274,7 +274,7 @@ flowchart TD
 
 ### 创建控件
 
-每个键是一个 `lv_button`，里面一个 `lv_label`（方向键用 LVGL 内置符号，其余是文字）。`key_add()` 同时做两件事：创建并设置样式；把它的位置和键位记进数组 `pad_keys_tbl`，触摸时用来命中测试。`pad.c` 第 140–167 行：
+每个键是一个 `lv_button`，里面一个 `lv_label`（方向键用 LVGL 内置符号，其余是文字）。`key_add()` 同时做两件事：创建并设置样式。把它的位置和键位记进数组 `pad_keys_tbl`，触摸时用来命中测试。`pad.c` 第 140–167 行：
 
 ```c
 static void key_add(int x, int y, int w, int h, const char *text, uint32_t bit, int radius)
@@ -342,7 +342,7 @@ static void key_event(lv_event_t *e)
 }
 ```
 
-示例没有配置 LVGL 的指针输入设备，所以这个回调在示例里不会被触发；有触摸屏时，`keys` 每 16 ms 被 `touch_scan()` 的结果整个覆盖。
+示例没有配置 LVGL 的指针输入设备，所以这个回调在示例里不会被触发。有触摸屏时，`keys` 每 16 ms 被 `touch_scan()` 的结果整个覆盖。
 
 ### 触摸事件到 GBA 键位
 

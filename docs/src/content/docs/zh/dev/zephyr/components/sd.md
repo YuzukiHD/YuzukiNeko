@@ -13,7 +13,7 @@ SD 组件是 SD 主机控制器驱动（[SDHC](../drivers/sdhc.md)）之上的�
 * 文件系统：`zephyr/subsys/fs/fs.c` 是虚拟文件系统层，`zephyr/subsys/fs/fat_fs.c` 是 FAT 适配层，`modules/fs/fatfs/` 是 ELM FatFs；头文件 `zephyr/include/zephyr/fs/fs.h`。
 * 主机控制器：`zephyr/drivers/sdhc/sdhc_sunxi.c`。
 
-`yuzukineko` 上的几个前提：`SD` 磁盘只打开了 `SDMMC_STACK`，没有 MMC（eMMC）协议栈；SDIO 协议栈由 WiFi/蓝牙芯片使用，见 [AIC8800 WIFI](aic8800-wifi.md)。总线是 4 位，不支持 1.8 V 的 UHS 模式和 SPI 模式。文件系统是 FAT12/16/32，打开 `CONFIG_FS_FATFS_EXFAT` 后还有 exFAT，支持长文件名。磁盘名 `SD` 和 FatFs 的挂载点 `/SD:` 对应。
+`yuzukineko` 上的几个前提：`SD` 磁盘只打开了 `SDMMC_STACK`，没有 MMC（eMMC）协议栈。SDIO 协议栈由 WiFi/蓝牙芯片使用，见 [AIC8800 WIFI](aic8800-wifi.md)。总线是 4 位，不支持 1.8 V 的 UHS 模式和 SPI 模式。文件系统是 FAT12/16/32，打开 `CONFIG_FS_FATFS_EXFAT` 后还有 exFAT，支持长文件名。磁盘名 `SD` 和 FatFs 的挂载点 `/SD:` 对应。
 
 ## 架构
 
@@ -44,7 +44,7 @@ flowchart TB
 | 磁盘接口 | 给每块存储一个名字，统一成“初始化、状态、按扇区读写、ioctl”。同一个名字可以被多个使用者初始化，内部用引用计数 | `disk_access_init`、`disk_access_status`、`disk_access_read`、`disk_access_write`、`disk_access_ioctl` |
 | 文件系统 | 在磁盘上放 FAT，提供路径、文件、目录 | `fs_mount`、`fs_open`、`fs_read`、`fs_write`、`fs_readdir` 等 |
 
-应用可以用其中任意一层：只想要文件就用 `fs_*`；要自己管分区、做裸读写就用 `disk_access_*`；要持有 `struct sd_card`、自己决定什么时候初始化（比如不通过设备树里的磁盘节点）就直接用 `sd_init`。`fs_*` 往下走 `disk_access_*`，`disk_access_*` 往下走 `sdmmc_*`，三层可以同时使用，但它们各自记录卡的状态：`disk_access_*` 用的是磁盘驱动里的那个 `struct sd_card`，应用自己 `sd_init` 的是另一个，两个互不知道对方。
+应用可以用其中任意一层：只想要文件就用 `fs_*`。要自己管分区、做裸读写就用 `disk_access_*`。要持有 `struct sd_card`、自己决定什么时候初始化（比如不通过设备树里的磁盘节点）就直接用 `sd_init`。`fs_*` 往下走 `disk_access_*`，`disk_access_*` 往下走 `sdmmc_*`，三层可以同时使用，但它们各自记录卡的状态：`disk_access_*` 用的是磁盘驱动里的那个 `struct sd_card`，应用自己 `sd_init` 的是另一个，两个互不知道对方。
 
 ## 数据流
 
@@ -130,7 +130,7 @@ SD 协议栈本身没有自己的设备，它挂在 SDHC 主机控制器的节�
 };
 ```
 
-驱动 `sdmmc_subsys.c` 对每个 `zephyr,sdmmc-disk` 节点做三件事：一份自己的 `struct sd_card`（`sdmmc_data.card`）、用 `DT_INST_PARENT` 找到父节点（主机控制器）、在系统初始化阶段（优先级 `CONFIG_SD_INIT_PRIORITY`，90）用 `disk_access_register` 把磁盘名注册进去。注册时并不访问卡；第一次 `disk_access_init` 才会真正初始化卡。
+驱动 `sdmmc_subsys.c` 对每个 `zephyr,sdmmc-disk` 节点做三件事：一份自己的 `struct sd_card`（`sdmmc_data.card`）、用 `DT_INST_PARENT` 找到父节点（主机控制器）、在系统初始化阶段（优先级 `CONFIG_SD_INIT_PRIORITY`，90）用 `disk_access_register` 把磁盘名注册进去。注册时并不访问卡。第一次 `disk_access_init` 才会真正初始化卡。
 
 ### 绑定：zephyr,sdmmc-disk.yaml
 
@@ -162,7 +162,7 @@ properties:
 
 ## Kconfig
 
-SD 协议栈、磁盘、FatFs 三部分的 Kconfig 都是上游的。下表按“打开哪层、各层怎么调”的顺序，一个选项一行；默认值是 `yuzukineko` 上构建时实际生效的值，没有写出的选项没有被选中。
+SD 协议栈、磁盘、FatFs 三部分的 Kconfig 都是上游的。下表按“打开哪层、各层怎么调”的顺序，一个选项一行。默认值是 `yuzukineko` 上构建时实际生效的值，没有写出的选项没有被选中。
 
 ### SD 协议栈
 
@@ -250,7 +250,7 @@ SD 协议栈、磁盘、FatFs 三部分的 Kconfig 都是上游的。下表按�
 
 `CONFIG_FS_FATFS_MOUNT_MKFS` 的默认值是 `y`：挂载时如果没有认出文件系统，并且 `fs_mount_t.flags` 没有 `FS_MOUNT_FLAG_NO_FORMAT`，FatFs 会直接格式化这张卡。`sd_api` 在 `prj.conf` 里把它设成 `n`，同时给 `flags` 加了 `FS_MOUNT_FLAG_NO_FORMAT`。
 
-挂载失败时，先用 `disk_access_init("SD")` 单独试磁盘层：它返回 0 说明卡和设备树都没问题，问题在文件系统一侧；它返回负数就是卡或磁盘节点的问题。文件系统层出错时会在控制台打印 `<err> fs: ...`。
+挂载失败时，先用 `disk_access_init("SD")` 单独试磁盘层：它返回 0 说明卡和设备树都没问题，问题在文件系统一侧。它返回负数就是卡或磁盘节点的问题。文件系统层出错时会在控制台打印 `<err> fs: ...`。
 
 ## 接口详解
 
@@ -319,7 +319,7 @@ static uint8_t big[1024 * 1024 + 64] __aligned(64);
 bool sd_is_card_present(const struct device *sdhc_dev);
 ```
 
-问主机控制器卡槽里有没有卡。内部是 `sdhc_card_present(dev) == 1`，所以读的是设备树里 `cd-gpios` 的引脚（PF6）；控制器是 `NULL` 时返回 `false`。
+问主机控制器卡槽里有没有卡。内部是 `sdhc_card_present(dev) == 1`，所以读的是设备树里 `cd-gpios` 的引脚（PF6）。控制器是 `NULL` 时返回 `false`。
 
 | 返回 | 含义 |
 | --- | --- |
@@ -372,9 +372,9 @@ int sd_init(const struct device *sdhc_dev, struct sd_card *card);
 | `bus_io.bus_width`、`bus_io.clock` | 当前总线宽度和时钟 | 4 位、50 MHz |
 | `bus_io.timing` | 当前时序，取值是 `enum sdhc_timing_mode`：`SDHC_TIMING_LEGACY` 1、`SDHC_TIMING_HS` 2 | 1 |
 
-SD 规范版本低于 3.0 的卡（`sd_version` 小于 `SD_SPEC_VER3_0`），上游的 `sdmmc_read_switch` 只在 3.0 以上才记录卡支持的总线速度位（`switch_caps.bus_speed`）。`sdmmc_select_bus_speed` 读不到高速位，选了默认速度（CMD6 选默认功能，时序 `SDHC_TIMING_LEGACY`）；`sdmmc_set_bus_speed` 取时钟时用的是 `MIN(主机最高时钟, hs_max_dtr)`，`hs_max_dtr` 是另一处按 CMD6 检查结果填的高速上限 50 MHz。两处合起来，这张卡就是“默认速度时序、50 MHz 时钟”。SD 规范规定默认速度模式最高 25 MHz，所以 50 MHz 超出了规范。
+SD 规范版本低于 3.0 的卡（`sd_version` 小于 `SD_SPEC_VER3_0`），上游的 `sdmmc_read_switch` 只在 3.0 以上才记录卡支持的总线速度位（`switch_caps.bus_speed`）。`sdmmc_select_bus_speed` 读不到高速位，选了默认速度（CMD6 选默认功能，时序 `SDHC_TIMING_LEGACY`）。`sdmmc_set_bus_speed` 取时钟时用的是 `MIN(主机最高时钟, hs_max_dtr)`，`hs_max_dtr` 是另一处按 CMD6 检查结果填的高速上限 50 MHz。两处合起来，这张卡就是“默认速度时序、50 MHz 时钟”。SD 规范规定默认速度模式最高 25 MHz，所以 50 MHz 超出了规范。
 
-这是上游 `subsys/sd` 的行为，不是 F101 的 SDHC 驱动或对接层的问题：驱动按协议栈要求的时钟和时序设置控制器，设成什么就是什么。这张卡在 50 MHz 下读写 1 MiB 的数据、反复读写最后一个扇区和 FAT 文件都和写入一致，没有出现读写错误；但换别的 2.0 卡时，如果遇到读写错误或 CRC 错误，可以先怀疑这一点。本文没有改动上游代码。
+这是上游 `subsys/sd` 的行为，不是 F101 的 SDHC 驱动或对接层的问题：驱动按协议栈要求的时钟和时序设置控制器，设成什么就是什么。这张卡在 50 MHz 下读写 1 MiB 的数据、反复读写最后一个扇区和 FAT 文件都和写入一致，没有出现读写错误。但换别的 2.0 卡时，如果遇到读写错误或 CRC 错误，可以先怀疑这一点。本文没有改动上游代码。
 
 ```c
 static struct sd_card card;
@@ -470,7 +470,7 @@ static void demo_sdmmc_read_blocks(void)
 int sdmmc_write_blocks(struct sd_card *card, const uint8_t *wbuf, uint32_t start_block, uint32_t num_blocks);
 ```
 
-把 `wbuf` 里的 `num_blocks` 个块写到卡上，起始块号是 `start_block`。一个块用 CMD24，多个块用 CMD25。返回值和 `sdmmc_read_blocks` 相同；写超时或写出错时是 `-ETIMEDOUT`、`-EIO`。函数返回后卡可能还在内部编程，要确保数据落盘，之后调用 `sdmmc_ioctl(card, DISK_IOCTL_CTRL_SYNC, NULL)`，它会等卡空闲。
+把 `wbuf` 里的 `num_blocks` 个块写到卡上，起始块号是 `start_block`。一个块用 CMD24，多个块用 CMD25。返回值和 `sdmmc_read_blocks` 相同。写超时或写出错时是 `-ETIMEDOUT`、`-EIO`。函数返回后卡可能还在内部编程，要确保数据落盘，之后调用 `sdmmc_ioctl(card, DISK_IOCTL_CTRL_SYNC, NULL)`，它会等卡空闲。
 
 写裸块会破坏卡上的文件系统，所以演示只把最后一个块读出来再原样写回去，写完同步，再读一遍比较。
 
@@ -570,7 +570,7 @@ static void demo_sdmmc_deinit(void)
 int disk_access_init(const char *pdrv);
 ```
 
-初始化名为 `pdrv` 的磁盘。内部：先按名字查磁盘，没有就返回 `-EINVAL`；磁盘第一次初始化时调用驱动的 `init`（对 `SD` 就是先 `sd_is_card_present`，再 `sd_init`），成功后引用计数加 1；之后再调用只是引用计数加 1，不会再初始化卡。引用计数到 0（对应次数的 `DISK_IOCTL_CTRL_DEINIT`）之后才会真正关电。
+初始化名为 `pdrv` 的磁盘。内部：先按名字查磁盘，没有就返回 `-EINVAL`。磁盘第一次初始化时调用驱动的 `init`（对 `SD` 就是先 `sd_is_card_present`，再 `sd_init`），成功后引用计数加 1。之后再调用只是引用计数加 1，不会再初始化卡。引用计数到 0（对应次数的 `DISK_IOCTL_CTRL_DEINIT`）之后才会真正关电。
 
 新代码应当用 `disk_access_ioctl(pdrv, DISK_IOCTL_CTRL_INIT, NULL)`，这个函数只是为了兼容旧代码保留。
 
@@ -910,7 +910,7 @@ static void demo_fs_mount(void)
 int fs_readmount(int *index, const char **name);
 ```
 
-遍历当前的挂载点。`index` 从 0 开始，每成功一次加 1，`name` 返回挂载点名；没有更多挂载点时返回 `-ENOENT`，并把 `name` 置为 `NULL`。
+遍历当前的挂载点。`index` 从 0 开始，每成功一次加 1，`name` 返回挂载点名。没有更多挂载点时返回 `-ENOENT`，并把 `name` 置为 `NULL`。
 
 ```c
 static void demo_fs_readmount(void)
@@ -936,7 +936,7 @@ static void demo_fs_readmount(void)
 int fs_statvfs(const char *path, struct fs_statvfs *stat);
 ```
 
-读卷的总空间和剩余空间。`path` 是挂载点或挂载点下的路径。FAT 的结果：`f_frsize` 是簇大小，`f_blocks` 是总簇数，`f_bfree` 是空闲簇数；`f_bsize` 是扇区大小（512）。总字节数是 `f_blocks * f_frsize`。
+读卷的总空间和剩余空间。`path` 是挂载点或挂载点下的路径。FAT 的结果：`f_frsize` 是簇大小，`f_blocks` 是总簇数，`f_bfree` 是空闲簇数。`f_bsize` 是扇区大小（512）。总字节数是 `f_blocks * f_frsize`。
 
 | 返回 | 含义 |
 | --- | --- |
@@ -1014,7 +1014,7 @@ static void demo_fs_opendir(void)
 int fs_readdir(struct fs_dir_t *zdp, struct fs_dirent *entry);
 ```
 
-读下一个目录项到 `entry`（`name`、`type`、`size`）。`type` 是 `FS_DIR_ENTRY_FILE` 或 `FS_DIR_ENTRY_DIR`；目录的 `size` 是 0。到目录末尾时返回 0，并且 `entry->name[0]` 是 `'\0'`，所以结束条件是看名字，而不是返回值。FAT 的目录项没有固定顺序，是磁盘上存放的顺序。
+读下一个目录项到 `entry`（`name`、`type`、`size`）。`type` 是 `FS_DIR_ENTRY_FILE` 或 `FS_DIR_ENTRY_DIR`。目录的 `size` 是 0。到目录末尾时返回 0，并且 `entry->name[0]` 是 `'\0'`，所以结束条件是看名字，而不是返回值。FAT 的目录项没有固定顺序，是磁盘上存放的顺序。
 
 ```c
 /* the first entries of the root directory; an empty name ends the listing */
@@ -1132,7 +1132,7 @@ static void demo_fs_mkdir(void)
 int fs_open(struct fs_file_t *zfp, const char *file_name, fs_mode_t flags);
 ```
 
-打开文件。`zfp` 要先 `fs_file_t_init`；同时打开的文件数受 `CONFIG_FS_FATFS_NUM_FILES` 限制。`flags`：
+打开文件。`zfp` 要先 `fs_file_t_init`。同时打开的文件数受 `CONFIG_FS_FATFS_NUM_FILES` 限制。`flags`：
 
 | 标志 | 含义 |
 | --- | --- |
@@ -1187,7 +1187,7 @@ static void demo_fs_open(void)
 ssize_t fs_write(struct fs_file_t *zfp, const void *ptr, size_t size);
 ```
 
-从当前位置写 `size` 字节，位置往后移。返回实际写入的字节数，卡满了会小于 `size`；出错返回负的错误号。数据可能还在 FatFs 的缓存里，要落到卡上用 `fs_sync` 或 `fs_close`。
+从当前位置写 `size` 字节，位置往后移。返回实际写入的字节数，卡满了会小于 `size`。出错返回负的错误号。数据可能还在 FatFs 的缓存里，要落到卡上用 `fs_sync` 或 `fs_close`。
 
 用 `FS_O_READ` 打开的文件写入返回 `-EACCES`（FatFs 的“拒绝访问”）。
 
@@ -1350,7 +1350,7 @@ static void demo_fs_tell(void)
 ssize_t fs_read(struct fs_file_t *zfp, void *ptr, size_t size);
 ```
 
-从当前位置读最多 `size` 字节，位置往后移。返回实际读到的字节数；在文件末尾返回 0；出错返回负的错误号。
+从当前位置读最多 `size` 字节，位置往后移。返回实际读到的字节数。在文件末尾返回 0。出错返回负的错误号。
 
 ```c
 static void demo_fs_read(void)
@@ -1387,7 +1387,7 @@ static void demo_fs_read(void)
 int fs_truncate(struct fs_file_t *zfp, off_t length);
 ```
 
-把文件改成 `length` 字节：比原来小就截断，比原来大就扩展，扩展出来的部分用 0 填充（FatFs 适配层一个字节一个字节地写 0）。调用之后读写位置在 `length` 处；卷空间不够时，文件只扩展到能扩展的大小。文件要用可写方式打开。
+把文件改成 `length` 字节：比原来小就截断，比原来大就扩展，扩展出来的部分用 0 填充（FatFs 适配层一个字节一个字节地写 0）。调用之后读写位置在 `length` 处。卷空间不够时，文件只扩展到能扩展的大小。文件要用可写方式打开。
 
 ```c
 static void demo_fs_truncate(void)
@@ -1614,7 +1614,7 @@ static void demo_fs_unmount(void)
 
 ### 读写速度
 
-文件读写和裸读写是同一个路径，这里单独量一下 FatFs 的文件读写速度：写一个 1 MiB 的文件（每次 64 KiB），再读回来逐字节比较。写 90 ms（约 11 MiB/s），读 59 ms（约 17 MiB/s），读回的数据和写入的一致。文件读写是 16 次 64 KiB 的请求，缓冲区 64 字节对齐，直接 DMA；写入比读取慢，包含卡内部编程的时间和 FAT 表、目录项的更新。
+文件读写和裸读写是同一个路径，这里单独量一下 FatFs 的文件读写速度：写一个 1 MiB 的文件（每次 64 KiB），再读回来逐字节比较。写 90 ms（约 11 MiB/s），读 59 ms（约 17 MiB/s），读回的数据和写入的一致。文件读写是 16 次 64 KiB 的请求，缓冲区 64 字节对齐，直接 DMA。写入比读取慢，包含卡内部编程的时间和 FAT 表、目录项的更新。
 
 ```c
 static uint8_t pattern[64 * 1024] __aligned(64);
@@ -2475,7 +2475,7 @@ west build -b yuzukineko -d build/sd-api examples/sd_api
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/components-sd/build.cast" data-speed="6"></div>
 
-下载运行的方法见[编译与运行](../zephyr-build-run.md)。运行前把 TF 卡插进卡槽。卡槽里没有卡时，程序在 `sd_is_card_present` 之后打印 `no card in the slot, nothing more to do` 就退出；这条路径没有在板子上运行，板子上一直有卡。
+下载运行的方法见[编译与运行](../zephyr-build-run.md)。运行前把 TF 卡插进卡槽。卡槽里没有卡时，程序在 `sd_is_card_present` 之后打印 `no card in the slot, nothing more to do` 就退出。这条路径没有在板子上运行，板子上一直有卡。
 
 ## 板子上的完整日志
 

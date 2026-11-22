@@ -40,7 +40,7 @@ flowchart LR
 4. 运行 post-image 脚本，拼出 16 MiB 的 NOR 镜像。
 
 :::note
-没有 `opkg`、`apk`、`dpkg` 或 `rpm`。镜像里没有的命令无法在板子上安装；要把它加进 defconfig 重新构建，或者交叉编译一个静态二进制拷过去。
+没有 `opkg`、`apk`、`dpkg` 或 `rpm`。镜像里没有的命令无法在板子上安装。要把它加进 defconfig 重新构建，或者交叉编译一个静态二进制拷过去。
 :::
 
 本仓库里的这棵树有 74 个普通文件和 302 个符号链接，这两个数字基本就是全部：一个大的 BusyBox 可执行文件、少量 MTD 工具、C 库，以及给每个 applet 起名字的链接。
@@ -166,7 +166,7 @@ post-image 脚本按固定布局写镜像。除最后一块外，每个区域后
 | 根文件系统 | `0x6d0000` | 约 1.2 MiB | < 8.2 MiB | `rootfs.squashfs` |
 | overlay | `0xf00000` | 1 MiB | = 1 MiB | 已擦除；JFFS2 overlay upper |
 
-SquashFS 按实际大小写入，不做填充。如果根文件系统会越过 `0xf00000`，脚本直接拒绝构建；可用区域是 `0x6d0000` 到 `0xf00000`，即 `0x830000` 字节、8,585,216 字节或 8.2 MiB。
+SquashFS 按实际大小写入，不做填充。如果根文件系统会越过 `0xf00000`，脚本直接拒绝构建。可用区域是 `0x6d0000` 到 `0xf00000`，即 `0x830000` 字节、8,585,216 字节或 8.2 MiB。
 
 一次成功的 RV32 构建会以这样的报告结束（大小来自一次记录的构建）：
 
@@ -213,7 +213,7 @@ BR2_PACKAGE_STRACE=y
 
 ### 在外部树里写一个软件包
 
-自定义软件包放在 `package/<name>/` 下，包含 `Config.in` 和 `.mk`。外部树的 `Config.in` 必须引入这个菜单；`external.mk` 已经会自动包含每个 `package/*/*.mk`。
+自定义软件包放在 `package/<name>/` 下，包含 `Config.in` 和 `.mk`。外部树的 `Config.in` 必须引入这个菜单。`external.mk` 已经会自动包含每个 `package/*/*.mk`。
 
 ```text
 buildroot-external-yuzukihd/package/hello-f101/Config.in
@@ -267,7 +267,7 @@ find output/target -type l | wc -l
 output/host/bin/unsquashfs -l output/images/rootfs.squashfs | head
 ```
 
-`du -sh output/target` 是未压缩大小，比压缩后的 SquashFS 大得多；上限针对的是写进 NOR 的压缩文件，所以拿 `wc -c output/images/rootfs.squashfs` 和 8,585,216 比。`unsquashfs -l` 也是确认新软件包或改过的 overlay 文件进了最终镜像、而不只是进了暂存树的最快办法。
+`du -sh output/target` 是未压缩大小，比压缩后的 SquashFS 大得多。上限针对的是写进 NOR 的压缩文件，所以拿 `wc -c output/images/rootfs.squashfs` 和 8,585,216 比。`unsquashfs -l` 也是确认新软件包或改过的 overlay 文件进了最终镜像、而不只是进了暂存树的最快办法。
 
 要看单个软件包装了哪些文件，Buildroot 保留了逐包清单：
 
@@ -277,11 +277,11 @@ grep '^mtd,' output/build/packages-file-list.txt
 
 文件是一行一个 `<package>,<path>`。对应的 `packages-file-list-staging.txt` 和 `packages-file-list-host.txt` 分别覆盖 staging 和主机树。
 
-如果文件在 `output/target` 里却不在 SquashFS 列表里，说明最后一次安装之后没有重新生成镜像；跑 `make rootfs-squashfs`。
+如果文件在 `output/target` 里却不在 SquashFS 列表里，说明最后一次安装之后没有重新生成镜像。跑 `make rootfs-squashfs`。
 
 ## 重建
 
-下面所有命令都在 Buildroot 源码目录里运行，`O=` 和 `BR2_EXTERNAL=` 与最初构建时相同；为了简短省略了这两个参数。例如第一行实际是 `make O=../build/br-rv32 BR2_EXTERNAL=../buildroot-external-yuzukihd busybox-rebuild`。
+下面所有命令都在 Buildroot 源码目录里运行，`O=` 和 `BR2_EXTERNAL=` 与最初构建时相同。为了简短省略了这两个参数。例如第一行实际是 `make O=../build/br-rv32 BR2_EXTERNAL=../buildroot-external-yuzukihd busybox-rebuild`。
 
 | 目标 | 命令 |
 | --- | --- |
@@ -296,7 +296,7 @@ grep '^mtd,' output/build/packages-file-list.txt
 | 重新生成 16 MiB 镜像 | `make target-post-image` |
 | 做完所有有变化的部分 | `make` |
 
-`<pkg>-rebuild` 只删掉这个包的安装戳，重建并重装进 `output/target`。它本身不会重写 SquashFS；之后要跑 `make rootfs-squashfs` 或直接 `make`。
+`<pkg>-rebuild` 只删掉这个包的安装戳，重建并重装进 `output/target`。它本身不会重写 SquashFS。之后要跑 `make rootfs-squashfs` 或直接 `make`。
 
 `*-menuconfig` 目标编辑的是包自己的 `.config`。这块板子的内核用树内 defconfig，BusyBox 用 Buildroot 的基础配置，所以对应的 `-update-config` 目标会写进上游 Buildroot 或内核树，而不是外部树。改动要持久保留，应写进 `board/yuzukihd/yuzukineko/scripts/` 下的片段：把符号加进去再重新构建。
 
@@ -326,7 +326,7 @@ modprobe rng-core
 lsmod
 ```
 
-有两个限制。第一，模块必须和运行内核的版本、配置匹配；这里的 vermagic 是 `7.2.0 preempt riscv`。第二，这棵树里的 RV64I 内核没有开 `CONFIG_MODULE_UNLOAD`，模块一旦加载，`rmmod` 卸不掉。
+有两个限制。第一，模块必须和运行内核的版本、配置匹配。这里的 vermagic 是 `7.2.0 preempt riscv`。第二，这棵树里的 RV64I 内核没有开 `CONFIG_MODULE_UNLOAD`，模块一旦加载，`rmmod` 卸不掉。
 
 ## 大小限制和 overlay
 

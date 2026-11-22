@@ -45,7 +45,7 @@ static int demo_i2c_id(int argc, char **argv)
 MSH_CMD_EXPORT(demo_i2c_id, Read GT967 identity with repeated START);
 ```
 
-保存为 `applications/demo_i2c.c`，调用 `demo_i2c_id`。两个寄存器地址字节为大端，这是 GT967 协议要求。读取身份不会消费触摸坐标或修改配置；其他 I2C 外设可能使用单字节寄存器地址或不同协议。
+保存为 `applications/demo_i2c.c`，调用 `demo_i2c_id`。两个寄存器地址字节为大端，这是 GT967 协议要求。读取身份不会消费触摸坐标或修改配置。其他 I2C 外设可能使用单字节寄存器地址或不同协议。
 
 ## 总线时序与验证
 
@@ -61,4 +61,4 @@ sequenceDiagram
     I2C-->>APP: STOP, return 2
 ```
 
-运行 `test_i2c i2c1`：本次在 400 kHz 下通过 5 项检查并发现 `0x5d`。NACK 可能是地址错误；START 超时应检查总线卡死、引脚占用、上拉和供电。扫描任意设备可能产生副作用，已知外设应优先读取身份寄存器。事件处理见[触摸](touch.md)。
+运行 `test_i2c i2c1`：本次在 400 kHz 下通过 5 项检查并发现 `0x5d`。NACK 可能是地址错误。START 超时应检查总线卡死、引脚占用、上拉和供电。扫描任意设备可能产生副作用，已知外设应优先读取身份寄存器。事件处理见[触摸](touch.md)。

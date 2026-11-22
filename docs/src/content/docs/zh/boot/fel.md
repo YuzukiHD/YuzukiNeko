@@ -65,7 +65,7 @@ sudo install -m 755 xfel /usr/local/bin/xfel
 
 ## 安装 rfel
 
-rfel 是 [rustsbi/allwinner-hal](https://github.com/rustsbi/allwinner-hal/tree/main/rfel) 的一部分，用 Rust 写成，三个平台命令相同。需要 [Rust 和 Cargo](https://www.rust-lang.org/tools/install) 以及 Git。Windows 还需要 Visual Studio Build Tools 的 C++ 工具链；Linux 需要 C 编译器和链接器（Debian / Ubuntu 上是 `build-essential`）；macOS 需要 Xcode Command Line Tools。
+rfel 是 [rustsbi/allwinner-hal](https://github.com/rustsbi/allwinner-hal/tree/main/rfel) 的一部分，用 Rust 写成，三个平台命令相同。需要 [Rust 和 Cargo](https://www.rust-lang.org/tools/install) 以及 Git。Windows 还需要 Visual Studio Build Tools 的 C++ 工具链。Linux 需要 C 编译器和链接器（Debian / Ubuntu 上是 `build-essential`）。macOS 需要 Xcode Command Line Tools。
 
 ```sh
 git clone https://github.com/rustsbi/allwinner-hal.git
@@ -111,7 +111,7 @@ SUBSYSTEM=="usb", ATTR{idVendor}=="1f3a", ATTR{idProduct}=="efe8", TAG+="uaccess
 | `xfel spinor write <addr> <file>` | 写 Flash（自动擦除所需扇区） |
 | `xfel reset` | 复位板子 |
 
-表中的共同 Flash 操作可用 rfel 的对应命令；执行前检查所装版本的帮助。
+表中的共同 Flash 操作可用 rfel 的对应命令。执行前检查所装版本的帮助。
 
 :::caution
 <strong>某些命令的限制</strong>：`xfel ddr f101-s3` 只带 F101S3 的内存参数，不能初始化 F101S4 的 32 MiB PSRAM。要把程序载入 RAM 运行，先按板卡构建 SyterKit 的 PSRAM helper（S3 与 S4 的参数表不同，见 [PSRAM 初始化与 RAM 启动](psram-init.md)），写到 `0x20000` 并执行；helper 初始化 PSRAM 后返回 FEL。然后再把程序写到 `0x40000000` 并执行。这条流程需要<strong>每次重新上电进入 FEL</strong>，因为 `exec` 之后 FEL 不再可用。写 Flash 的流程（本站的固件刷写）<strong>不需要</strong>这些步骤。
@@ -126,4 +126,4 @@ SUBSYSTEM=="usb", ATTR{idVendor}=="1f3a", ATTR{idProduct}=="efe8", TAG+="uaccess
 | `usb bulk send/recv error` | 如果发生在 `exec` 之后：ROM USB 连接可能已在跳转后断开；以本次镜像串口日志判断是否运行 |
 | 权限不足（Linux） | 配置 udev 规则，见上 |
 
-部分 xfel 失败仍返回退出码 0。写入时同时检查输出，并在启动前读回相同长度、比较 SHA-256；USB 接口消失不能替代运行证据。
+部分 xfel 失败仍返回退出码 0。写入时同时检查输出，并在启动前读回相同长度、比较 SHA-256。USB 接口消失不能替代运行证据。

@@ -6,9 +6,9 @@ AAC 解码器把 AAC 音频帧解成 16 位 PCM。它是 OpenCORE（Android 早�
 
 源码分两部分。Zephyr 一侧的胶水在 `zephyr/lib/opencore_aac/`（`Kconfig`、`CMakeLists.txt`、`include/oscl_base.h`、`include/oscl_mem.h`），解码器本体在 west 项目 `modules/lib/opencore` 的 `codecs_v2/audio/aac/dec/`（`src/` 下 142 个 `.cpp` 文件，`include/` 下是对外头文件）。应用里 `#include <pvmp4audiodecoder_api.h>`，`CONFIG_OPENCORE_AAC=y` 之后头文件路径自动加到所有目标。`CONFIG_OPENCORE_AAC` 由 `zephyr/lib/Kconfig` 引入，`zephyr/lib/CMakeLists.txt` 在选项打开时编译这个库。
 
-这个构建能解的是 AAC-LC，单声道和双声道。编译时没有定义 `AAC_PLUS`，所以 HE-AAC 的 SBR 和 PS 不解码。输入可以是 ADTS（解码器自己找帧头），也可以是没有帧头的原始帧（先用 `AudioSpecificConfig` 配置，MP4 文件里的音频样本就是这种）。输出是 16 位有符号 PCM，左右声道交错，每帧每声道 1024 个样本。解码器状态 48680 字节，由调用者分配，库内部不调用 `malloc`；库的目标文件合计 58486 字节（示例用 `-Og` 编译）。除了 `memset`、`memcpy` 等 C 库函数（`oscl_mem.h` 映射过去），它不依赖任何设备。
+这个构建能解的是 AAC-LC，单声道和双声道。编译时没有定义 `AAC_PLUS`，所以 HE-AAC 的 SBR 和 PS 不解码。输入可以是 ADTS（解码器自己找帧头），也可以是没有帧头的原始帧（先用 `AudioSpecificConfig` 配置，MP4 文件里的音频样本就是这种）。输出是 16 位有符号 PCM，左右声道交错，每帧每声道 1024 个样本。解码器状态 48680 字节，由调用者分配，库内部不调用 `malloc`。库的目标文件合计 58486 字节（示例用 `-Og` 编译）。除了 `memset`、`memcpy` 等 C 库函数（`oscl_mem.h` 映射过去），它不依赖任何设备。
 
-胶水层很薄。解码器的源文件是用 `.cpp` 扩展名写的 C 代码，`CMakeLists.txt` 把它们用 C 编译（`set_source_files_properties(... LANGUAGE C)`），排除掉 C++ 封装类 `decoder_aac.cpp`；`oscl_base.h` 提供原来来自 OpenCORE 基础库的整数类型和几个宏，`oscl_mem.h` 把 `oscl_memset` 等映射到标准 C 函数。
+胶水层很薄。解码器的源文件是用 `.cpp` 扩展名写的 C 代码，`CMakeLists.txt` 把它们用 C 编译（`set_source_files_properties(... LANGUAGE C)`），排除掉 C++ 封装类 `decoder_aac.cpp`。`oscl_base.h` 提供原来来自 OpenCORE 基础库的整数类型和几个宏，`oscl_mem.h` 把 `oscl_memset` 等映射到标准 C 函数。
 
 ## 架构与数据流
 
@@ -335,7 +335,7 @@ static void setup_ext(tPVMP4AudioDecoderExternal *ext, int desired)
 }
 ```
 
-`index_adts()` 按 ADTS 帧头里 13 位的帧长把数据切成帧，用来取出不带帧头的原始帧；`account()` 把每帧的 PCM 累计成 CRC-32、峰值和绝对值之和，并和 ffmpeg 解出的参考帧比较；`HOST_CRC_*` 是在主机上用同一份解码器源码编译、解同一段数据得到的 CRC-32（见后面的验证项）。
+`index_adts()` 按 ADTS 帧头里 13 位的帧长把数据切成帧，用来取出不带帧头的原始帧。`account()` 把每帧的 PCM 累计成 CRC-32、峰值和绝对值之和，并和 ffmpeg 解出的参考帧比较。`HOST_CRC_*` 是在主机上用同一份解码器源码编译、解同一段数据得到的 CRC-32（见后面的验证项）。
 
 ### PVMP4AudioDecoderGetMemRequirements
 
@@ -343,7 +343,7 @@ static void setup_ext(tPVMP4AudioDecoderExternal *ext, int desired)
 UInt32 PVMP4AudioDecoderGetMemRequirements(void);
 ```
 
-返回一个解码器实例需要的内存字节数，也就是内部结构体 `tDec_Int_File` 的大小。分配这块内存，把指针交给其余的接口（`pMem` 参数）。演示用 `malloc()` 分配；也可以用静态数组。头文件里还有一个常量 `PVMP4AUDIODECODER_INBUFSIZE`（1536 字节），是两声道的一帧在标准里最大的字节数，输入缓冲区按这个大小准备就够用。
+返回一个解码器实例需要的内存字节数，也就是内部结构体 `tDec_Int_File` 的大小。分配这块内存，把指针交给其余的接口（`pMem` 参数）。演示用 `malloc()` 分配。也可以用静态数组。头文件里还有一个常量 `PVMP4AUDIODECODER_INBUFSIZE`（1536 字节），是两声道的一帧在标准里最大的字节数，输入缓冲区按这个大小准备就够用。
 
 ```c
 static void demo_get_mem_requirements(void)
@@ -468,9 +468,9 @@ static void demo_decode_frame(void)
 [decode] peak 8215, mean |sample| 2506, 17072 us in total, 656 us per frame
 ```
 
-一帧 44.1 kHz 的音频长 23.2 毫秒，板子上解一帧用 1280 微秒（`-Og` 编译、双声道）。CRC-32 和主机上同一份源码解出来的完全一致；和 ffmpeg 的浮点解码器相比，抽出来的两帧最大差 1 到 2 个最低位。`bitRate` 读出来是 0，所以演示里只打印了它而不使用。
+一帧 44.1 kHz 的音频长 23.2 毫秒，板子上解一帧用 1280 微秒（`-Og` 编译、双声道）。CRC-32 和主机上同一份源码解出来的完全一致。和 ffmpeg 的浮点解码器相比，抽出来的两帧最大差 1 到 2 个最低位。`bitRate` 读出来是 0，所以演示里只打印了它而不使用。
 
-`desiredChannels` 只处理单声道的流（复制到两个声道）。双声道的流把它设成 1 时，源码里没有下混的代码，输出仍然是两声道交错的数据，所以不支持立体声到单声道的转换；要单声道自己对左右声道取平均。
+`desiredChannels` 只处理单声道的流（复制到两个声道）。双声道的流把它设成 1 时，源码里没有下混的代码，输出仍然是两声道交错的数据，所以不支持立体声到单声道的转换。要单声道自己对左右声道取平均。
 
 #### 示例：出错的输入
 
@@ -555,7 +555,7 @@ Int PVMP4AudioDecoderConfig(tPVMP4AudioDecoderExternal *pExt, void *pMem);
 
 2 字节的 `AudioSpecificConfig` 的位布局：5 位对象类型（AAC-LC 是 2），4 位采样率序号（4 是 44100 Hz，7 是 22050 Hz），4 位声道配置，其余 3 位是 0。演示里 `asc_a` 是 `0x12 0x10`（LC、44100 Hz、2 声道），`asc_b` 是 `0x13 0x88`（LC、22050 Hz、1 声道）。
 
-`Config` 之后 `encodedChannels` 总是 2，即使是单声道的配置（源码里为了兼容 SBR 的隐式信令固定成 2）；真实的声道数在第一次 `PVMP4AudioDecodeFrame()` 之后更新。
+`Config` 之后 `encodedChannels` 总是 2，即使是单声道的配置（源码里为了兼容 SBR 的隐式信令固定成 2）。真实的声道数在第一次 `PVMP4AudioDecodeFrame()` 之后更新。
 
 | 返回值 | 含义 |
 | --- | --- |
@@ -778,7 +778,7 @@ static void demo_reset_buffer(void)
 void PVMP4AudioDecoderDisableAacPlus(tPVMP4AudioDecoderExternal *pExt, void *pMem);
 ```
 
-关闭 SBR 解码。解码器内部和 `pExt->aacPlusEnabled` 两处的开关都为真时才有动作：把两处都设成 `false`。在完整的 HE-AAC 构建里它还会把采样率序号改回核心码流的值；这个构建没有定义 `AAC_PLUS`，所以只改这两个标志，不影响解码。直接把 `aacPlusEnabled` 设成 `false` 再 `InitLibrary` 就不需要调用它。
+关闭 SBR 解码。解码器内部和 `pExt->aacPlusEnabled` 两处的开关都为真时才有动作：把两处都设成 `false`。在完整的 HE-AAC 构建里它还会把采样率序号改回核心码流的值。这个构建没有定义 `AAC_PLUS`，所以只改这两个标志，不影响解码。直接把 `aacPlusEnabled` 设成 `false` 再 `InitLibrary` 就不需要调用它。
 
 ```c
 static void demo_disable_aac_plus(void)
@@ -825,7 +825,7 @@ static void demo_disable_aac_plus(void)
 
 ### 解码结果和主机一致
 
-输入是 `clip_a`（44.1 kHz 双声道，64 帧，24172 字节）和 `clip_b`（22.05 kHz 单声道，26 帧，5202 字节）。做法：把同一份解码器源码在主机上编译（`host_decode.c` 和 `build_host.sh`，见完整演示程序），解同一段数据，算 PCM 的 CRC-32；板子上边解边累计同样的 CRC-32，打印时和写在源码里的主机值比较。板上输出：
+输入是 `clip_a`（44.1 kHz 双声道，64 帧，24172 字节）和 `clip_b`（22.05 kHz 单声道，26 帧，5202 字节）。做法：把同一份解码器源码在主机上编译（`host_decode.c` 和 `build_host.sh`，见完整演示程序），解同一段数据，算 PCM 的 CRC-32。板子上边解边累计同样的 CRC-32，打印时和写在源码里的主机值比较。板上输出：
 
 ```text
 [decode] 64 frames, 131072 samples, CRC-32 145b0881 (host 145b0881, match)
