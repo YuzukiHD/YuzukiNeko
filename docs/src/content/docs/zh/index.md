@@ -12,6 +12,7 @@ YuzukiNeko 是一块基于 <strong>Allwinner F101 系列 SoC</strong> 的开发�
 
 | 想做的事 | 去哪里 |
 | --- | --- |
+| 完全没接触过硬件 | [零基础入门](beginner/index.md) |
 | 第一次上电，让板子跑起来 | [上手指南](quickstart.md) |
 | 查某个引脚能做什么 | [引脚排布](hardware/pinout.md)、[引脚复用](hardware/mux.md) |
 | 接 UART / I²C / SPI / CAN / PWM | [常用外设引脚组合](hardware/groups.md) |

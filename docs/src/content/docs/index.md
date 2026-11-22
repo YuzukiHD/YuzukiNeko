@@ -12,6 +12,7 @@ YuzukiNeko is a development board based on the <strong>Allwinner F101 series SoC
 
 | What you want to do | Where to go |
 | --- | --- |
+| Never touched hardware before | [Beginner's guide](beginner/index.md) |
 | Power up for the first time and get the board running | [Quickstart](quickstart.md) |
 | Look up what a given pin can do | [Pinout](hardware/pinout.md), [Pin multiplexing](hardware/mux.md) |
 | Wire up UART / I²C / SPI / CAN / PWM | [Common peripheral pin groups](hardware/groups.md) |

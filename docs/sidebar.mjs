@@ -25,6 +25,43 @@ export const sidebar = [
     ]
   },
   {
+    "label": "Beginner's guide",
+    "translations": { "zh-CN": "零基础入门" },
+    "collapsed": false,
+    "items": [
+      {
+        "label": "Introduction",
+        "translations": { "zh-CN": "简介" },
+        "slug": "beginner"
+      },
+      {
+        "label": "Meet the boards",
+        "translations": { "zh-CN": "认识板子" },
+        "slug": "beginner/hardware"
+      },
+      {
+        "label": "Core board wiring",
+        "translations": { "zh-CN": "核心板接线" },
+        "slug": "beginner/core-board"
+      },
+      {
+        "label": "Base board wiring",
+        "translations": { "zh-CN": "底板接线" },
+        "slug": "beginner/base-board"
+      },
+      {
+        "label": "Install xfel and enter FEL",
+        "translations": { "zh-CN": "安装 xfel 与进入 FEL" },
+        "slug": "beginner/xfel"
+      },
+      {
+        "label": "Flashing NOR (special topic)",
+        "translations": { "zh-CN": "NOR 烧录专题" },
+        "slug": "beginner/nor-flash"
+      }
+    ]
+  },
+  {
     "label": "Hardware",
     "translations": { "zh-CN": "硬件" },
     "collapsed": false,

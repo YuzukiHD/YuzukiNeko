@@ -2,6 +2,10 @@
 title: "Quickstart"
 ---
 
+:::tip
+New to development boards? Start with the [beginner's guide](beginner/index.md) to meet the board and wire it up first.
+:::
+
 This page gets your board running by the shortest path. Pick either of the two routes; <strong>both require you to be able to get the board into FEL download mode</strong>.
 
 ## What you need
