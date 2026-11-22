@@ -309,7 +309,7 @@ grep '^mtd,' output/build/packages-file-list.txt
 | `output/host/` | 交叉编译器和主机工具，包括 `mksquashfs` |
 | `output/images/` | `Image`、设备树、`fw_jump.bin`、SyterKit 二进制、`rootfs.squashfs`、`yuzukineko-nor.img` |
 
-检查软件包是否真的装了某个文件时，看 `output/target`。它顶层的 `THIS_IS_NOT_YOUR_ROOT_FILESYSTEM` 是 Buildroot 的标记，不是给板子用的文件。
+检查软件包是否装了某个文件时，看 `output/target`。它顶层的 `THIS_IS_NOT_YOUR_ROOT_FILESYSTEM` 是 Buildroot 的标记，不是给板子用的文件。
 
 ## 内核模块
 

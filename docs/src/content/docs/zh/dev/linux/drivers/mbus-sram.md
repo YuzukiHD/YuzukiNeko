@@ -179,7 +179,7 @@ CONFIG_DEBUG_FS=y
 
 `f101_mbus_probe()` 映射 4 KiB 窗口，用 `devm_reset_control_get_optional_exclusive_deasserted()` 取得复位，用 `devm_clk_get_enabled()` 打开 `bus` 和 `mbus` 时钟，并把 `clk_get_rate() / 1000000` 存成 MBUS 时钟的 MHz 值。如果时钟频率为 0，probe 会失败，因为换算上限时会除以零。
 
-随后它通过向 `PMU_CTRL` 写窗口和使能位来启动监视器，遍历可用子节点应用 `priority` 和 `bandwidth-limit-mbps`，创建 debugfs 目录，并打印时钟的 MHz 值。复位在任何寄存器访问之前释放。复位仍被 assert 时整个窗口读回 `0x4`，看起来像控制器坏了，其实只是复位没释放。
+随后它通过向 `PMU_CTRL` 写窗口和使能位来启动监视器，遍历可用子节点应用 `priority` 和 `bandwidth-limit-mbps`，创建 debugfs 目录，并打印时钟的 MHz 值。复位在任何寄存器访问之前释放。复位仍被 assert 时整个窗口读回 `0x4`，看起来像控制器坏了，实际是复位没释放。
 
 ### 上限编码
 

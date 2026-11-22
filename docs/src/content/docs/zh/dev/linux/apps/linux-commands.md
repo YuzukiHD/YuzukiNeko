@@ -93,7 +93,7 @@ dmesg -c
 dmesg -n 4
 ```
 
-`dmesg -c` 打印缓冲区然后清空。清空会毁掉下一个人要看的证据，而且 klogd 可能已经把行拷进 `/var/log/messages`；除非缓冲区真的满了，优先用 `dmesg | tail`。`dmesg -n LEVEL` 设置控制台日志级别，是阻止内核消息盖掉提示符的快捷办法；它不改变 klogd 记录的内容。日志缓冲区是 128 KiB（`CONFIG_LOG_BUF_SHIFT=17`）。
+`dmesg -c` 打印缓冲区然后清空。清空会毁掉下一个人要看的证据，而且 klogd 可能已经把行拷进 `/var/log/messages`；除非缓冲区满了，优先用 `dmesg | tail`。`dmesg -n LEVEL` 设置控制台日志级别，是阻止内核消息盖掉提示符的快捷办法；它不改变 klogd 记录的内容。日志缓冲区是 128 KiB（`CONFIG_LOG_BUF_SHIFT=17`）。
 
 启动消息带时间戳，因为命令行里有 `printk.time=1`。典型启动行以 `[    0.000000]` 开头，时间戳是内核启动后的秒数。
 
