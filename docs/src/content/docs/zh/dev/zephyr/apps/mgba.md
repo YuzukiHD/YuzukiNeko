@@ -80,7 +80,7 @@ list(APPEND ZEPHYR_EXTRA_MODULES ${CMAKE_CURRENT_SOURCE_DIR}/../..)
 
 用 [编译与运行](../zephyr-build-run.md) 里的任一种方式下载，控制台是 UART1（115200 8N1）。
 
-- 调试时用<strong>方式一</strong>：`xfel ddr f101-s3`、`xfel write 0x40000000 build/mgba/zephyr/zephyr.bin`、`xfel exec 0x40000000`。
+- 调试时用<strong>方式一</strong>：`xfel write 0x20000 init_psram_efex.bin` + `xfel exec 0x20000`、`xfel write 0x40000000 build/mgba/zephyr/zephyr.bin`、`xfel exec 0x40000000`。
 - 脱机运行用<strong>方式三</strong>：`mkuf2.py app build/mgba/zephyr/zephyr.bin -o out/mgba.uf2`，拖进 `F101BOOT` 盘。
 
 :::caution

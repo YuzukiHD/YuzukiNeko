@@ -114,7 +114,7 @@ SUBSYSTEM=="usb", ATTR{idVendor}=="1f3a", ATTR{idProduct}=="efe8", TAG+="uaccess
 表中的共同 Flash 操作可用 rfel 的对应命令；执行前检查所装版本的帮助。
 
 :::caution
-<strong>某些命令的限制</strong>：`xfel ddr f101-s3`（初始化 RAM）加 `xfel write` + `xfel exec` 可以把程序直接载入 RAM 运行，不经 Flash，是开发 Zephyr 等裸机程序时的常用流程；这条流程需要<strong>每次重新上电进入 FEL</strong>，因为 `exec` 之后 FEL 不再可用。写 Flash 的流程（本站的固件刷写）<strong>不需要</strong>执行 `ddr`。
+<strong>某些命令的限制</strong>：`xfel ddr f101-s3` 只带 F101S3 的内存参数，不能初始化 F101S4 的 32 MiB PSRAM。要把程序载入 RAM 运行，先按板卡构建 SyterKit 的 PSRAM helper（S3 与 S4 的参数表不同，见 [PSRAM 初始化与 RAM 启动](psram-init.md)），写到 `0x20000` 并执行；helper 初始化 PSRAM 后返回 FEL。然后再把程序写到 `0x40000000` 并执行。这条流程需要<strong>每次重新上电进入 FEL</strong>，因为 `exec` 之后 FEL 不再可用。写 Flash 的流程（本站的固件刷写）<strong>不需要</strong>这些步骤。
 :::
 
 ## 常见错误

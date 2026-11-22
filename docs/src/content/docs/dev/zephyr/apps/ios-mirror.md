@@ -101,7 +101,8 @@ The sample's `prj.conf` selects `CONFIG_MINIMAL_LIBC=y`: the AIC8800 and RPiPlay
 Download it with either method from [Build and run](../zephyr-build-run.md); the console is UART1 (PB00/PB01, 115200 8N1). For debugging use <strong>method one</strong>:
 
 ```sh
-xfel ddr f101-s3
+xfel write 0x20000 init_psram_efex.bin
+xfel exec 0x20000
 xfel write 0x40000000 build/ios-mirror/zephyr/zephyr.bin
 xfel exec 0x40000000
 ```

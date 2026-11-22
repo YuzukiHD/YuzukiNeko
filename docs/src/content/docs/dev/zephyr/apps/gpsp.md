@@ -62,7 +62,7 @@ The sample's `prj.conf` has `CONFIG_MINIMAL_LIBC=y`, `CONFIG_CPP=y` and `CONFIG_
 
 Download it with either method in [Building and running](../zephyr-build-run.md); the console is UART1 (PB00/PB01, 115200 8N1).
 
-- For debugging use <strong>method one</strong>: `xfel ddr f101-s3`, `xfel write 0x40000000 build/gbsp/zephyr/zephyr.bin`, `xfel exec 0x40000000`.
+- For debugging use <strong>method one</strong>: `xfel write 0x20000 init_psram_efex.bin` + `xfel exec 0x20000`, `xfel write 0x40000000 build/gbsp/zephyr/zephyr.bin`, `xfel exec 0x40000000`.
 - For stand-alone running use <strong>method three</strong>: `mkuf2.py app build/gbsp/zephyr/zephyr.bin -o out/gbsp.uf2`, then drag it onto the `F101BOOT` drive.
 
 :::caution

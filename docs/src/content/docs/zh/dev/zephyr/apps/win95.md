@@ -91,7 +91,8 @@ CONFIG_BOCHS_TEXT_MIRROR=y
 下载方式见 [编译与运行](../zephyr-build-run.md)。调试用方式一：
 
 ```sh
-xfel ddr f101-s3
+xfel write 0x20000 init_psram_efex.bin
+xfel exec 0x20000
 xfel write 0x40000000 build/win95/zephyr/zephyr.bin
 xfel exec 0x40000000
 ```

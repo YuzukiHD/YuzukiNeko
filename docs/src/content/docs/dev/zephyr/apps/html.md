@@ -201,7 +201,7 @@ litehtml is a C++ library while the image uses a minimal C library, so the compo
 ### Downloading and starting
 
 1. For the first run, leave the page out: with no `.html` file in the TF card's root directory the board shows the built-in page. To show your own page, copy `page.html` (along with `img/` and `font.lhf`) to the TF card's root directory and insert it into the board.
-2. Download it with either method in [Building and running](../zephyr-build-run.md); the console is UART1 (PB00/PB01, 115200 8N1). For debugging use <strong>method one</strong>: `xfel ddr f101-s3`, `xfel write 0x40000000 build/html/zephyr/zephyr.bin`, `xfel exec 0x40000000`. Power-cycle the board before each run.
+2. Download it with either method in [Building and running](../zephyr-build-run.md); the console is UART1 (PB00/PB01, 115200 8N1). For debugging use <strong>method one</strong>: `xfel write 0x20000 init_psram_efex.bin` + `xfel exec 0x20000`, `xfel write 0x40000000 build/html/zephyr/zephyr.bin`, `xfel exec 0x40000000`. Power-cycle the board before each run.
 
 :::caution
 The board has only one USB-C port, which is both the xfel download port and the UF2 drive port. Download first, then connect other devices.

@@ -112,7 +112,7 @@ Neither WinUSB nor udev rules are needed.
 For the shared Flash operations above, use the corresponding rfel command after checking the installed version's help.
 
 :::caution
-<strong>Limits of some commands</strong>: `xfel ddr f101-s3` (initialise RAM) plus `xfel write` + `xfel exec` can load a program directly into RAM and run it without going through Flash, a common workflow when developing bare-metal programs such as Zephyr; this workflow requires <strong>re-entering FEL on every power-up</strong>, because FEL is no longer available after `exec`. The Flash-writing workflow (flashing firmware on this site) <strong>does not</strong> need the `ddr` command.
+<strong>Limits of some commands</strong>: `xfel ddr f101-s3` only carries F101S3 memory parameters and cannot initialize the 32 MiB PSRAM of F101S4. For loading a program into RAM, build the SyterKit PSRAM helper for the board (S3 and S4 use different parameter tables; see [PSRAM initialization and RAM boot](psram-init.md)), write it to `0x20000` and execute it; the helper initializes PSRAM and returns to FEL. Then write and execute the program at `0x40000000`. This workflow requires <strong>re-entering FEL on every power-up</strong>, because FEL is no longer available after `exec`. The Flash-writing workflow (flashing firmware on this site) <strong>does not</strong> need any of this.
 :::
 
 ## Common errors

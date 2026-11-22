@@ -70,7 +70,8 @@ Download and run it with xfel (see [Building and running](../zephyr-build-run.md
 The commands:
 
 ```sh
-xfel ddr f101-s3
+xfel write 0x20000 init_psram_efex.bin
+xfel exec 0x20000
 xfel write 0x40000000 build/lvgl-hello/zephyr/zephyr.bin
 xfel exec 0x40000000
 ```
@@ -191,7 +192,8 @@ Select a demo with `CONFIG_LV_Z_DEMO_*`; to select the benchmark:
 . ~/f101-zephyr/env.sh
 cd ~/f101-zephyr
 west build -b yuzukineko -d build/lvgl-bench zephyr/samples/modules/lvgl/demos -- -DCONFIG_LV_Z_DEMO_BENCHMARK=y
-xfel ddr f101-s3
+xfel write 0x20000 init_psram_efex.bin
+xfel exec 0x20000
 xfel write 0x40000000 build/lvgl-bench/zephyr/zephyr.bin
 xfel exec 0x40000000
 ```
@@ -251,7 +253,8 @@ The first row of the summary table is the average over all scenes, and each row 
 
 ```sh
 west build -b yuzukineko -d build/lvgl-widgets zephyr/samples/modules/lvgl/demos -- -DCONFIG_LV_Z_DEMO_WIDGETS=y
-xfel ddr f101-s3
+xfel write 0x20000 init_psram_efex.bin
+xfel exec 0x20000
 xfel write 0x40000000 build/lvgl-widgets/zephyr/zephyr.bin
 xfel exec 0x40000000
 ```

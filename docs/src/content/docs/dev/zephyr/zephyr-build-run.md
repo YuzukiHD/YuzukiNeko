@@ -58,6 +58,16 @@ When there is no output, first work out which link is at fault: the wiring and t
 
 The host writes `zephyr.bin` into PSRAM over USB and then jumps to it, without touching Flash.
 
+The RAM flow uses the SyterKit PSRAM helper instead of `xfel ddr f101-s3`, which only carries F101S3 parameters. Build the helper once and copy it next to the image:
+
+```sh
+make -C SyterKit O=../out/syterkit-efex sun252iw2_rv32_efex_defconfig
+make -C SyterKit O=../out/syterkit-efex CROSS_COMPILE="$CROSS_COMPILE" -j8
+cp ../out/syterkit-efex/build/soc/sun252iw2/app_efex/init_psram/init_psram_efex.bin .
+```
+
+The default build uses the 32 MiB S4 table. F101S3 needs the 16 MiB APS128M parameters; build or patch the matching image as described in [PSRAM initialization and RAM boot](../../boot/psram-init.md), then copy it here as `init_psram_efex.bin`. Build it with the XuanTie toolchain, not the ESP-IDF toolchain.
+
 1. Put the board into FEL: hold the FEL button, connect the USB data cable, release (see [FEL download mode and tools](../../boot/fel.md#entering-fel)).
 2. Confirm the connection:
 
@@ -67,10 +77,11 @@ The host writes `zephyr.bin` into PSRAM over USB and then jumps to it, without t
 
    The output should contain `AWUSBFEX ID=0x00193700(F101)`.
 
-3. Initialize memory, load, and run:
+3. Initialize PSRAM with the helper, then load and run:
 
    ```sh
-   xfel ddr f101-s3
+   xfel write 0x20000 init_psram_efex.bin
+   xfel exec 0x20000
    xfel write 0x40000000 build/hello/zephyr/zephyr.bin
    xfel exec 0x40000000
    ```
@@ -79,7 +90,7 @@ At this point the console should start producing output. `hello_world` prints `H
 
 | Command | Effect |
 | --- | --- |
-| `xfel ddr f101-s3` | Initialize PSRAM. This helper also sets up the UART clock and pin multiplexing; without it the console has no output |
+| `xfel write 0x20000 init_psram_efex.bin` + `xfel exec 0x20000` | Initialize PSRAM for F101S3 or F101S4 and return to FEL. Without it the console has no output |
 | `xfel write 0x40000000 …` | Write the image to the link address |
 | `xfel exec 0x40000000` | Jump to the entry point and start running |
 
@@ -324,7 +335,7 @@ For more detail about UF2 see [UF2 drag-and-drop flashing](zephyr-uf2.md).
 
 ## Troubleshooting
 
-<strong>Method 1: the console has no output after `exec`</strong>: first confirm the console wiring and parameters, and that `xfel ddr f101-s3` has been run. If there is still nothing, use the small bare-metal program mentioned in the "Console" section above to work out which link is at fault.
+<strong>Method 1: the console has no output after `exec`</strong>: first confirm the console wiring and parameters, and that `xfel write 0x20000 init_psram_efex.bin` + `xfel exec 0x20000` has been run. If there is still nothing, use the small bare-metal program mentioned in the "Console" section above to work out which link is at fault.
 
 <strong>`mkuf2.py` reports `… bytes, the limit is 10420224`</strong>: the application exceeds the `0x9F0000`-byte application area. Make the program smaller, or drop features you do not need.
 

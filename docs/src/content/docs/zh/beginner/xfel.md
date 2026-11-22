@@ -195,9 +195,9 @@ Found spi nor flash 'SFDP' with 16777216 bytes
 | `xfel spinor read <addr> <len> <file>` | 读取 Flash | 是，备份和回读 |
 | `xfel spinor write <addr> <file>` | 写入 Flash，自动擦除所需扇区 | 是，写入镜像 |
 | `xfel reset` | 复位板子 | 是，写入完成后执行 |
-| `xfel ddr` | 初始化 PSRAM 和串口时钟 | 否，用于下载到 RAM 运行 |
+| `xfel ddr` | 初始化 PSRAM 和串口时钟 | 否；`f101-s3` 只支持 S3，RAM 启动改用 [SyterKit helper](../boot/psram-init.md) |
 
-写 NOR Flash 不需要执行 `xfel ddr`。`ddr` 用于下载到 RAM 运行的流程，和 `spinor write` 是两条不同路径。
+写 NOR Flash 不需要执行 `xfel ddr`。下载到 RAM 运行使用 SyterKit 的 PSRAM helper，和 `spinor write` 是两条不同路径，见 [PSRAM 初始化与 RAM 启动](../boot/psram-init.md)。
 
 ## 命令执行顺序
 

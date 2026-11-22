@@ -121,7 +121,8 @@ The artifact is `build/doom-app/zephyr/zephyr.bin`, about 4.8 MB (28.89% of the 
 For the download procedure see [Building and running](../zephyr-build-run.md):
 
 ```sh
-xfel ddr f101-s3
+xfel write 0x20000 init_psram_efex.bin
+xfel exec 0x20000
 xfel write 0x40000000 build/doom-app/zephyr/zephyr.bin
 xfel exec 0x40000000
 ```

@@ -80,7 +80,7 @@ list(APPEND ZEPHYR_EXTRA_MODULES ${CMAKE_CURRENT_SOURCE_DIR}/../..)
 
 Download it with either method in [Building and running](../zephyr-build-run.md); the console is UART1 (115200 8N1).
 
-- For debugging use <strong>method one</strong>: `xfel ddr f101-s3`, `xfel write 0x40000000 build/mgba/zephyr/zephyr.bin`, `xfel exec 0x40000000`.
+- For debugging use <strong>method one</strong>: `xfel write 0x20000 init_psram_efex.bin` + `xfel exec 0x20000`, `xfel write 0x40000000 build/mgba/zephyr/zephyr.bin`, `xfel exec 0x40000000`.
 - For stand-alone running use <strong>method three</strong>: `mkuf2.py app build/mgba/zephyr/zephyr.bin -o out/mgba.uf2`, then drag it onto the `F101BOOT` drive.
 
 :::caution

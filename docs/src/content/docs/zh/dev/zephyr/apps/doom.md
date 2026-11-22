@@ -121,7 +121,8 @@ west build -b yuzukineko -d build/doom-app zephyr-components/doom/samples/doom_p
 下载方式见 [编译与运行](../zephyr-build-run.md)：
 
 ```sh
-xfel ddr f101-s3
+xfel write 0x20000 init_psram_efex.bin
+xfel exec 0x20000
 xfel write 0x40000000 build/doom-app/zephyr/zephyr.bin
 xfel exec 0x40000000
 ```

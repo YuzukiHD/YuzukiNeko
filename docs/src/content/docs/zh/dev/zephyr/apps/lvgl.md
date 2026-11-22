@@ -70,7 +70,8 @@ west build -b yuzukineko -d build/lvgl-hello zephyr-components/examples/lvgl_hel
 命令：
 
 ```sh
-xfel ddr f101-s3
+xfel write 0x20000 init_psram_efex.bin
+xfel exec 0x20000
 xfel write 0x40000000 build/lvgl-hello/zephyr/zephyr.bin
 xfel exec 0x40000000
 ```
@@ -191,7 +192,8 @@ CONFIG_CPU_LOAD=y
 . ~/f101-zephyr/env.sh
 cd ~/f101-zephyr
 west build -b yuzukineko -d build/lvgl-bench zephyr/samples/modules/lvgl/demos -- -DCONFIG_LV_Z_DEMO_BENCHMARK=y
-xfel ddr f101-s3
+xfel write 0x20000 init_psram_efex.bin
+xfel exec 0x20000
 xfel write 0x40000000 build/lvgl-bench/zephyr/zephyr.bin
 xfel exec 0x40000000
 ```
@@ -251,7 +253,8 @@ Heap at 0x40266fb0 contains 32767 units in 15 buckets
 
 ```sh
 west build -b yuzukineko -d build/lvgl-widgets zephyr/samples/modules/lvgl/demos -- -DCONFIG_LV_Z_DEMO_WIDGETS=y
-xfel ddr f101-s3
+xfel write 0x20000 init_psram_efex.bin
+xfel exec 0x20000
 xfel write 0x40000000 build/lvgl-widgets/zephyr/zephyr.bin
 xfel exec 0x40000000
 ```

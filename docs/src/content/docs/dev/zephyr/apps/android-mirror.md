@@ -157,7 +157,8 @@ The initial WiFi can be given the same way: `CONFIG_SAMPLE_MIRROR_WIFI_SSID="…
 For the download procedure see [Building and running](../zephyr-build-run.md); the console is UART1 (PB00/PB01, 115200 8N1). The image is 7.2 MiB; use method one while debugging:
 
 ```sh
-xfel ddr f101-s3
+xfel write 0x20000 init_psram_efex.bin
+xfel exec 0x20000
 xfel write 0x40000000 build/android-mirror/zephyr/zephyr.bin
 xfel exec 0x40000000
 ```

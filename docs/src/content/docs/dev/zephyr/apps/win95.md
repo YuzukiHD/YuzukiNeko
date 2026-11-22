@@ -91,7 +91,8 @@ The output `zephyr.bin` is 2946308 bytes, uses 17.6% of RAM, and is linked at `0
 See [Building and running](../zephyr-build-run.md) for the download methods. For debugging, use method one:
 
 ```sh
-xfel ddr f101-s3
+xfel write 0x20000 init_psram_efex.bin
+xfel exec 0x20000
 xfel write 0x40000000 build/win95/zephyr/zephyr.bin
 xfel exec 0x40000000
 ```

@@ -88,7 +88,7 @@ env -u CROSS_COMPILE cmake --build build/upy
 
 ## 运行
 
-用[编译与运行](../zephyr-build-run.md)里的任一方式下载；REPL 在控制台 UART1（115200）上。调试用方式一：`xfel ddr f101-s3`、`xfel write 0x40000000 build/upy/zephyr/zephyr.bin`、`xfel exec 0x40000000`。
+用[编译与运行](../zephyr-build-run.md)里的任一方式下载；REPL 在控制台 UART1（115200）上。调试用方式一：`xfel write 0x20000 init_psram_efex.bin` + `xfel exec 0x20000`、`xfel write 0x40000000 build/upy/zephyr/zephyr.bin`、`xfel exec 0x40000000`。
 
 ```text
 >>> import f101
