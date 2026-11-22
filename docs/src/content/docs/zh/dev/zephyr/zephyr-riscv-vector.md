@@ -2,17 +2,13 @@
 title: "RISC-V 向量扩展 (RVV)"
 ---
 
-:::note[版本范围]
-Zephyr 4.2.2 与 4.5.0 并存。本页原有示例、录像及板上结果使用 4.2.2 基线，4.5 的变化另行说明。请按[版本与迁移指南](zephyr-4-5.md)选择配套的内核、组件分支及独立环境和构建目录。4.5 编译或主机测试通过，不会改变已有板上结果的版本归属。
-:::
-
-
 这一页介绍 RISC-V 向量扩展（RVV），以及怎样在 YuzukiNeko 的 Zephyr 上使用它：打开哪个配置、有哪些接口、写代码时要注意什么，并给出可以直接编译的示例。
-
 
 ## 4.5 移植变化
 
-4.2.2 的 RVV 实现继续保留。4.5 在 C 启动前启用向量状态，由 SoC 异常帧保存全部向量寄存器，生成的 offset 头文件改用 `zephyr/` 命名空间；开关仍是 `CONFIG_SUN252I_F101_RVV`。RVV/MMU/XIP 和 LVGL 配置已编译，尚需实机验证上下文切换、标量／向量渲染一致性和性能。下文已有测量值属于其原始构建。
+4.2.2 的 RVV 实现继续保留。4.5 在 C 启动前启用向量状态，由 SoC 异常帧保存全部向量寄存器，生成的 offset 头文件改用 `zephyr/` 命名空间。开关仍是 `CONFIG_SUN252I_F101_RVV`。RVV/MMU/XIP 和 LVGL 配置已编译，尚需实机验证上下文切换、标量／向量渲染一致性和性能。下文已有测量值属于其原始构建。
+
+4.5 的 RVV 变化见[版本与迁移指南](zephyr-4-5.md)。
 
 ## 什么是 RVV
 
@@ -345,7 +341,7 @@ uint32_t rvv_hold_v8(uint32_t seed, uint32_t iters)
 west build -b yuzukineko -d build/rvv zephyr/samples/drivers/rvv
 ```
 
-全部检查通过时，最后一行输出是 `RVV: all checks passed`，示例的 `sample.yaml` 就是用这一行判断测试是否通过。示例的 `sample.yaml` 里 `platform_allow` 写的是评估板 `f101_evb`；`yuzukineko` 同样是 F101，示例已在 `yuzukineko` 上编译通过，没有上板运行。
+全部检查通过时，最后一行输出是 `RVV: all checks passed`，示例的 `sample.yaml` 就是用这一行判断测试是否通过。示例的 `sample.yaml` 里 `platform_allow` 写的是评估板 `f101_evb`。`yuzukineko` 同样是 F101，示例已在 `yuzukineko` 上编译通过，没有上板运行。
 
 ## 常见问题
 

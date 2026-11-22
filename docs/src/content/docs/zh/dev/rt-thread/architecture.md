@@ -32,7 +32,7 @@ flowchart TD
 
 ## 加入并调用示例
 
-将某驱动页的完整 C 程序保存为 `applications/demo_<name>.c`。`applications/SConscript` 已收集顶层 C 文件，驱动组会导出头文件路径。重新构建、下载后，在 FinSH 输入 `MSH_CMD_EXPORT` 注册的命令名。逐个运行示例，它们可能修改帧缓冲、背光或设备所有权。完整 C 示例已用本 BSP 交叉编译并完成链接检查，尚未逐个在板上运行；板测结果属于另行标明的回归命令。
+将某驱动页的完整 C 程序保存为 `applications/demo_<name>.c`。`applications/SConscript` 已收集顶层 C 文件，驱动组会导出头文件路径。重新构建、下载后，在 FinSH 输入 `MSH_CMD_EXPORT` 注册的命令名。逐个运行示例，它们可能修改帧缓冲、背光或设备所有权。完整 C 示例已用本 BSP 交叉编译并完成链接检查，尚未逐个在板上运行。板测结果属于另行标明的回归命令。
 
 ```c
 #include <rtthread.h>
@@ -65,4 +65,4 @@ DMA 缓冲区按 64 字节对齐并隔离缓存行，`rt_malloc_align` 必须对
 
 ## 原生日志
 
-在包含 `rtdbg.h` 之前定义 `DBG_TAG` 和 `DBG_LVL`。`LOG_E/W/I/D` 自行添加行尾；`RT_USING_ULOG=y` 时走 ulog，否则使用标准调试实现。显示标签包括 `display`、`display.core`、`display.dsi` 和 `display.de-rcq`。需要调试消息时调整对应源码日志级别，显示没有另设 printf 日志系统。
+在包含 `rtdbg.h` 之前定义 `DBG_TAG` 和 `DBG_LVL`。`LOG_E/W/I/D` 自行添加行尾。`RT_USING_ULOG=y` 时走 ulog，否则使用标准调试实现。显示标签包括 `display`、`display.core`、`display.dsi` 和 `display.de-rcq`。需要调试消息时调整对应源码日志级别，显示没有另设 printf 日志系统。

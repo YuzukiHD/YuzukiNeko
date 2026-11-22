@@ -2,12 +2,7 @@
 title: "MP4 播放器"
 ---
 
-:::note[版本范围]
-Zephyr 4.2.2 与 4.5.0 并存。本页原有示例、录像及板上结果使用 4.2.2 基线，4.5 的变化另行说明。请按[版本与迁移指南](../zephyr-4-5.md)选择配套的内核、组件分支及独立环境和构建目录。4.5 编译或主机测试通过，不会改变已有板上结果的版本归属。
-:::
-
-
-从 TF 卡读取 MP4 文件并播放：H.264 视频由片上视频引擎解码，直接送到显示的视频层；AAC 音频用软件解码，从片上 codec 输出。示例是 `samples/drivers/mp4_player`，放在 F101 的 Zephyr fork 里，不需要 `zephyr-components`。
+从 TF 卡读取 MP4 文件并播放：H.264 视频由片上视频引擎解码，直接送到显示的视频层。AAC 音频用软件解码，从片上 codec 输出。示例是 `samples/drivers/mp4_player`，放在 F101 的 Zephyr fork 里，不需要 `zephyr-components`。
 
 ```mermaid
 flowchart TB
@@ -75,7 +70,7 @@ ffmpeg -i 363550.mp4 -map 0:v:0 -map 0:a:0 \
   -movflags +faststart video540p.mp4
 ```
 
-和前面的通用命令相比多了两处：`-map 0:v:0 -map 0:a:0` 只取第一条视频和第一条音频，丢掉原片里的数据轨道；`-pix_fmt yuv420p` 同时把 10 位转成 8 位。转出来的文件约 3.3 MiB，`ffprobe` 看到 `h264`（`Main`，960×540，30 fps）和 `aac`（`LC`，44100 Hz，双声道）。
+和前面的通用命令相比多了两处：`-map 0:v:0 -map 0:a:0` 只取第一条视频和第一条音频，丢掉原片里的数据轨道。`-pix_fmt yuv420p` 同时把 10 位转成 8 位。转出来的文件约 3.3 MiB，`ffprobe` 看到 `h264`（`Main`，960×540，30 fps）和 `aac`（`LC`，44100 Hz，双声道）。
 
 然后把 `video540p.mp4` 拷到 TF 卡的<strong>根目录</strong>，插进板子的卡槽。想换文件名或放进子目录，见下面的 [配置选项](#配置选项)。
 
@@ -207,7 +202,7 @@ int mp4_seek_sync(const struct mp4_track *t, struct mp4_iter *it, uint32_t index
 int mp4_seek_time(const struct mp4_track *t, struct mp4_iter *it, int64_t time);
 ```
 
-`mp4_seek_sync()` 把迭代器放到 `index` 之前（含）最近的一个关键帧上；`mp4_seek_time()` 按播放时间（轨道 timescale 的刻度，0 是开头，内部会加上 `media_start`）找到要显示的那一帧，再定位到它之前的关键帧。注意：
+`mp4_seek_sync()` 把迭代器放到 `index` 之前（含）最近的一个关键帧上。`mp4_seek_time()` 按播放时间（轨道 timescale 的刻度，0 是开头，内部会加上 `media_start`）找到要显示的那一帧，再定位到它之前的关键帧。注意：
 
 - 两个函数都是从轨道开头一个样本一个样本扫过去的，所以目标越靠后越慢。
 - `mp4_seek_sync()` 只认<strong>样本序号</strong>；`index` 超过末尾时定位到最后一个关键帧。
@@ -329,7 +324,7 @@ flowchart TD
     F -->|"ENODATA"| L["vdec_stream_flush<br/>取空剩余帧，打印汇总"]
 ```
 
-音频线程独立运行：`mp4_next()` 取 AAC 样本 → `PVMP4AudioDecodeFrame()` 解成每帧 1024 个采样的 PCM → 从内存槽 `pcm_slab` 取块 → `i2s_write()` 送进 I2S。先预填 6 块再 `I2S_TRIGGER_START`；`i2s_write()` 返回 `-EIO` 说明数据断了，计一次 underrun 并重新预填。
+音频线程独立运行：`mp4_next()` 取 AAC 样本 → `PVMP4AudioDecodeFrame()` 解成每帧 1024 个采样的 PCM → 从内存槽 `pcm_slab` 取块 → `i2s_write()` 送进 I2S。先预填 6 块再 `I2S_TRIGGER_START`。`i2s_write()` 返回 `-EIO` 说明数据断了，计一次 underrun 并重新预填。
 
 ### 音视频同步
 
@@ -861,7 +856,7 @@ mp4_close(&m);
 | `-ENODATA` | 已经 `flush`，并且帧全部取完 |
 | `-EIO` | 硬件出错 |
 
-`vdec_stream_feed()` 返回 `-EAGAIN` 表示流缓冲区满了，要先取帧；返回 `-EINVAL` 表示数据里没有 NAL 单元。
+`vdec_stream_feed()` 返回 `-EAGAIN` 表示流缓冲区满了，要先取帧。返回 `-EINVAL` 表示数据里没有 NAL 单元。
 
 `struct vdec_stream_config`：
 

@@ -2,7 +2,7 @@
 title: "SPI、NOR、分区与 NVS"
 ---
 
-F101 的 SPI 主机、SPI NOR、分区表和 NVS 都使用 ESP-IDF 的标准 API。与 ESP32 不同的是，NOR 不参与启动，也不会被 `idf.py flash` 写入；FEL 只下载 RAM 镜像，分区表和 NVS 数据需要单独写入 NOR 才能使用。
+F101 的 SPI 主机、SPI NOR、分区表和 NVS 都使用 ESP-IDF 的标准 API。与 ESP32 不同的是，NOR 不参与启动，也不会被 `idf.py flash` 写入。FEL 只下载 RAM 镜像，分区表和 NVS 数据需要单独写入 NOR 才能使用。
 
 ## 控制器与焊盘
 
@@ -11,7 +11,7 @@ F101 的 SPI 主机、SPI NOR、分区表和 NVS 都使用 ESP-IDF 的标准 API
 | `SPI2_HOST` | SPI0 | PC0 SCLK、PC1 CS、PC2 MISO、PC3 WP、PC4 MOSI、PC5 HOLD |
 | `SPI3_HOST` | SPI1 | PD0 CS、PD1 SCLK、PD2 MOSI、PD3 MISO、PD4 HOLD、PD5 WP |
 
-`SPI2_HOST` 默认被板载 NOR 占用，`SPI3_HOST` 留给外部设备。SPI 是轮询的 8 位主机，没有 DMA；命令、地址和 dummy 阶段的位数必须是 8 的倍数。
+`SPI2_HOST` 默认被板载 NOR 占用，`SPI3_HOST` 留给外部设备。SPI 是轮询的 8 位主机，没有 DMA。命令、地址和 dummy 阶段的位数必须是 8 的倍数。
 
 ## SPI 主机
 
@@ -38,7 +38,7 @@ spi_device_handle_t dev;
 spi_bus_add_device(SPI3_HOST, &dev_cfg, &dev);
 ```
 
-`spi_bus_initialize()` 的 `dma_chan` 参数被忽略；`max_transfer_sz` 只用于检查，单次传输上限是 `0xFFFFFF` 字节。片选可以是控制器的硬件片选，也可以是任意 GPIO；后者由驱动按 `SPI_DEVICE_POSITIVE_CS` 处理极性。
+`spi_bus_initialize()` 的 `dma_chan` 参数被忽略。`max_transfer_sz` 只用于检查，单次传输上限是 `0xFFFFFF` 字节。片选可以是控制器的硬件片选，也可以是任意 GPIO。后者由驱动按 `SPI_DEVICE_POSITIVE_CS` 处理极性。
 
 ## SPI NOR
 
@@ -61,7 +61,7 @@ esp_flash_erase_region(esp_flash_default_chip, offset, length);
 esp_flash_write(esp_flash_default_chip, data, offset, length);
 ```
 
-不要同时对 `SPI2_HOST` 调用 `spi_bus_initialize()`；`esp_flash` 已经拥有这个控制器和它的片选。
+不要同时对 `SPI2_HOST` 调用 `spi_bus_initialize()`。`esp_flash` 已经拥有这个控制器和它的片选。
 
 ## 分区
 
@@ -82,7 +82,7 @@ const esp_partition_t *part = esp_partition_find_first(
 esp_partition_read(part, 0, buf, len);
 ```
 
-`esp_partition_mmap()` 在 F101 上返回一块 RAM 副本，不是 XIP 映射；映射之后对 flash 的写入不会反映到副本。
+`esp_partition_mmap()` 在 F101 上返回一块 RAM 副本，不是 XIP 映射。映射之后对 flash 的写入不会反映到副本。
 
 ## NVS
 
@@ -104,7 +104,7 @@ nvs_commit(handle);
 nvs_close(handle);
 ```
 
-第一次运行前 NOR 中必须已经有分区表，否则 `nvs_flash_init()` 返回 `ESP_ERR_NVS_PART_NOT_FOUND`。加密 NVS 的 XTS 入口是占位实现，返回不支持；不要启用 `CONFIG_NVS_ENCRYPTION`。
+第一次运行前 NOR 中必须已经有分区表，否则 `nvs_flash_init()` 返回 `ESP_ERR_NVS_PART_NOT_FOUND`。加密 NVS 的 XTS 入口是占位实现，返回不支持。不要启用 `CONFIG_NVS_ENCRYPTION`。
 
 ## 限制
 

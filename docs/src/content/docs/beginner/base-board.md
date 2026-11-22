@@ -2,57 +2,13 @@
 title: "Base board wiring"
 ---
 
-The base board (YuzukiCube-M) brings the core board signals out to the display, audio, antenna, button and serial connectors. It contains no SoC: the core board is surface-mount soldered to it as `U1`, and all peripherals operate through the core board. Disconnect USB before wiring and confirm connector orientation before inserting anything.
+The base board (YuzukiCube-M) brings the core board signals out to the display, audio, antenna, button and serial connectors. It contains no SoC; the core board is surface-mount soldered to it as `U1`. Disconnect USB before wiring and confirm connector orientation before inserting anything.
 
 | Base board photo | Base board schematic |
 | --- | --- |
 | <img src="assets/figures/base-board.webp" loading="eager" alt="The YuzukiCube-M base board with the core board installed"> | <img src="assets/figures/base-board-sch.webp" loading="eager" alt="YuzukiCube-M base board schematic"> |
 
-Connector positions in the photo:
-
-| Photo position | Connector |
-| --- | --- |
-| Top centre | `FPC1` display cable |
-| Top left | `CN1` CAN bus |
-| Top right | `CN3` speaker |
-| Right side | `CN2` serial |
-| Bottom right | `H1` 5 V header |
-| Bottom left | `SW1` button |
-
-## Base board function and power
-
-The base board adds the following devices and connectors:
-
-- `U3` AIC8800D80: Wi-Fi/Bluetooth module, with the antenna routed to `RF1`.
-- `U5` TJA1051T/3: CAN transceiver on CAN0.
-- `U2` LPA4890MSF: audio amplifier fed from `HPOUT`, output to `CN3`.
-- `U4` RY3730: display backlight boost, outputs `VLED-A` / `VLED-K`.
-- `U10` MT3520B: 5 V to 3.3 V buck.
-- `FPC1`, `CN1`, `CN2`, `CN3`, `RF1`, `H1`, `SW1`: external connectors.
-
-The base board has no battery or charging circuit; power comes from the core board's USB-C port.
-
-| Rail | Source | Use | Note |
-| --- | --- | --- | --- |
-| `VSYS-5V` | Core board USB-C VBUS | Base board buck, CAN transceiver, audio amplifier, `H1` | Do not feed power back through `H1` |
-| `VCC-3V3` | `U10` buck from `VSYS-5V` | Base board 3.3 V devices | 3.3 V logic |
-| `VSYS-3V3` | Core board 3.3 V output | 3.3 V reference for the module and base board | Do not supply externally |
-| `VLED-A` / `VLED-K` | `U4` boost | Display backlight | Brightness controlled by `DSI-PWM` |
-
-:::caution
-The core board is surface-mount soldered and cannot be removed. The bare parts include 49 pads and must be assembled with reflow or a rework station; hand soldering with a normal iron is not recommended.
-:::
-
-## Connector quick reference
-
-| Need | Connector | Description |
-| --- | --- | --- |
-| Display and touch | `FPC1` | 40-pin 0.5 mm FPC, also carries backlight and touch |
-| Console serial | `CN2` pins 1/2/5 | UART1 RX/TX/GND |
-| Second serial port | `CN2` pins 3/4 | UART4 RX/TX |
-| Speaker | `CN3` | `SPKR+` / `SPKR-` |
-| CAN bus | `CN1` | CANH / CANL |
-| Wi-Fi/Bluetooth antenna | `RF1` | IPEX / u.FL |
+In the photo, `FPC1` is at the top centre, `CN1` CAN at the top left, `CN3` speaker at the top right, `CN2` serial on the right, `H1` 5 V header at the bottom right and `SW1` button at the bottom left. For designators, power rails, signal mapping and pin conflicts, see the [YuzukiCube-M base board](../baseboard.md); for common peripheral pin groups, see [Peripheral pin groups](../hardware/groups.md).
 
 ## Wiring rules
 
@@ -62,24 +18,9 @@ The core board is surface-mount soldered and cannot be removed. The bare parts i
 - FPC cables and 1.25 mm connectors are thin; do not pull on the cable when inserting or removing.
 - See [Hardware files](../hardware/files.md) for the schematic.
 
-## Connector mechanics
-
-| Connector | Latch or insertion method | Note |
-| --- | --- | --- |
-| `FPC1` | Flip or slide latch | Power off; align the gold contacts |
-| `CN1` / `CN2` / `CN3` | 1.25 mm socket | Check orientation and insert gently |
-| `RF1` | IPEX / u.FL press-fit | Hold the connector body, not just the cable |
-| `H1` | 2.54 mm female header | Do not power the board from here |
-
 ## Display: FPC1
 
-`FPC1` is a 40-pin, 0.5 mm FPC (flat ribbon cable) connector. One cable carries MIPI DSI, backlight and capacitive touch.
-
-| Signal group | Contents | Description |
-| --- | --- | --- |
-| MIPI DSI | `DSI-D0` to `DSI-D3`, clock, `DSI-RST` | Four data lanes plus clock |
-| Backlight | `VLED-A` / `VLED-K`, `DSI-PWM` | Boosted by `U4`, dimmed by PWM |
-| Touch | `CTP-SCK` / `CTP-SDA`, `CTP-INT`, `CTP-RST` | Capacitive touch on TWI1 |
+`FPC1` is a 40-pin, 0.5 mm FPC connector. One cable carries MIPI DSI, backlight and capacitive touch.
 
 1. Disconnect USB.
 2. Locate the long `FPC1` connector and open its latch according to the connector design.
@@ -92,9 +33,7 @@ The core board is surface-mount soldered and cannot be removed. The bare parts i
 | --- | --- |
 | <img src="assets/figures/fpc1.webp" loading="eager" alt="FPC1 display cable connector with the cable inserted"> | <img src="assets/figures/fpc1-sch.webp" loading="eager" alt="FPC1 display, backlight and touch schematic"> |
 
-See [YuzukiCube-M base board](../baseboard.md) for display and touch details.
-
-## Display troubleshooting
+If the display stays dark, check these in order:
 
 | Check | Description |
 | --- | --- |
@@ -116,10 +55,7 @@ See [YuzukiCube-M base board](../baseboard.md) for display and touch details.
 | 4 | `UART4-TX` | Leave unconnected | Second serial port |
 | 5 | `GND` | Adapter `GND` | Signal ground |
 
-- Use a **3.3 V** USB-to-TTL adapter only; leave the adapter's `3V3`/`5V` unconnected.
-- The board is powered by USB, so the serial adapter connects only `TX`, `RX` and `GND`.
-- Use the silkscreen and schematic for pin numbering; if unsure, read [Hardware files](../hardware/files.md).
-- Serial parameters are 115200 baud, 8N1, no flow control.
+Use a 3.3 V USB-to-TTL adapter only; leave the adapter's `3V3`/`5V` unconnected. The board is powered by USB, so the adapter connects only `TX`, `RX` and `GND`. Serial parameters are 115200 baud, 8N1, no flow control; use the silkscreen and schematic for pin numbering.
 
 | CN2 photo | CN2 schematic |
 | --- | --- |
@@ -135,10 +71,7 @@ See [YuzukiCube-M base board](../baseboard.md) for display and touch details.
 | 2 | `CANL` | CAN low |
 | 3/4 | `GND` | Shield/ground |
 
-- `U5` is powered from `VSYS-5V`, with `VIO` connected to `VSYS-3V3`; CANH/CANL are differential bus signals.
-- Terminate both ends of the bus with 120 Ω resistors.
-- Do not connect CANH or CANL to power or ground.
-- Disconnect USB before wiring.
+`U5` is powered from `VSYS-5V`, with `VIO` connected to `VSYS-3V3`. Terminate both ends of the bus with 120 Ω resistors; do not connect CANH or CANL to power or ground; disconnect USB before wiring.
 
 | CN1 photo | CN1 schematic |
 | --- | --- |
@@ -148,95 +81,26 @@ See [YuzukiCube-M base board](../baseboard.md) for display and touch details.
 
 `HPOUT` goes from the core board through `C10` (100 nF) to the `U2` `+IN` input, and `U2` drives `SPKR+` / `SPKR-` to `CN3`. `HPOUT` is an on-board net; there is no external audio input connector.
 
-| Signal | Connection | Description |
-| --- | --- | --- |
-| `HPOUT` | Core board → `C10` → `U2` `+IN` | On-board net, no external connector |
-| `CN3` | Speaker `SPKR+` / `SPKR-` | `U2` amplifier output |
-
-- `U2` is enabled by `PD4` (`PA-SHDN`) and must be turned on by software.
-- If polarity is marked, follow the marking; if not, confirm before connecting.
-- Disconnect USB before wiring, and power up only after all connections are complete.
-- Connect the speaker wires only to `CN3`; do not connect them to power or ground.
-
-| CN3 photo | CN3 schematic |
-| --- | --- |
-| <img src="assets/figures/cn3.webp" loading="eager" alt="CN3 speaker connector"> | <img src="assets/figures/cn3-sch.webp" loading="eager" alt="CN3 and U2 audio amplifier schematic"> |
-
-## Audio connection steps
-
 1. Disconnect USB.
 2. Connect the speaker to `CN3`, observing the `SPKR+` / `SPKR-` marking.
 3. Check plug orientation and polarity; do not connect to power or ground.
 4. After power-up, enable the `PD4` amplifier in software.
 
-## Antenna: RF1
+| CN3 photo | CN3 schematic |
+| --- | --- |
+| <img src="assets/figures/cn3.webp" loading="eager" alt="CN3 speaker connector"> | <img src="assets/figures/cn3-sch.webp" loading="eager" alt="CN3 and U2 audio amplifier schematic"> |
 
-`RF1` is an IPEX / u.FL antenna connector for the Wi-Fi/Bluetooth antenna.
+## Antenna, button and 5 V
 
-- Align the antenna plug with the connector and press straight down until it is seated.
-- Do not pull the antenna cable, and do not cover the antenna with metal.
-- Connect the antenna before using Wi-Fi/Bluetooth.
-- The connector and cable are delicate; hold the connector body when inserting or removing, not just the cable.
+`RF1` is an IPEX / u.FL antenna connector. Align the plug with the connector and press straight down until seated; hold the connector body when inserting or removing, not just the cable; connect the antenna before using Wi-Fi/Bluetooth.
 
-## Antenna installation steps
+`SW1` is a tactile button connected to `PD5` / `DOWN`, the same pin as the UF2 loader button. It is not a reset button; holding it during power-up enters UF2 download mode when the corresponding firmware is installed.
 
-1. Disconnect USB.
-2. Align the antenna plug with the `RF1` connector.
-3. Press straight down until it is seated.
-4. Tug the cable gently to confirm it is secure.
-5. Do not pull the cable, and do not cover the antenna with metal.
-
-## Button: SW1
-
-`SW1` is a tactile button connected to `PD5` / `DOWN`, the same pin as the UF2 loader button.
-
-- It is not a reset button and should not be used as one.
-- Holding it during power-up can enter UF2 download mode when the corresponding firmware is installed.
-- Pressing the button pulls `PD5` low; the internal pull-up restores the high level when released.
-
-## 5 V header: H1
-
-`H1` is a 2.54 mm 2-pin female header that brings out `VSYS-5V` and `GND`.
-
-- It exposes USB 5 V; do not power the base board from this header.
-- Do not connect motors, relays or other high-current loads.
-- To measure 5 V, use a multimeter on DC voltage, with the black probe on `GND` and the red probe on `VSYS-5V`.
+`H1` is a 2.54 mm 2-pin female header that brings out `VSYS-5V` and `GND`. It only exposes USB 5 V; do not power the base board from it, and do not connect motors, relays or other high-current loads.
 
 ![SW1 button and H1 5V header](figures/sw1-h1.webp)
 
-## CAN / Wi-Fi / Bluetooth
-
-| Function | On-board device | External connection | Description |
-| --- | --- | --- | --- |
-| Wi-Fi/Bluetooth | `U3` AIC8800D80 | `RF1` antenna | SDIO and UART2 to the core board |
-| CAN | `U5` TJA1051T/3 | `CN1` (CANH / CANL) | Requires termination and bus wiring |
-| Audio amplifier | `U2` LPA4890MSF | `CN3` speaker | Input from `HPOUT` |
-
-- Wi-Fi uses SDIO on `PE0`–`PE5`; Bluetooth uses UART2 on `PE6`–`PE9`; `PE10` enables the Wi-Fi supply.
-- The CAN controller only exposes logic-level signals; `U5` is the transceiver. A real bus still requires CANH/CANL wiring and termination resistors.
-- These interfaces are advanced and are not needed for first-time flashing.
-
-## Base board to core board signal mapping
-
-| Function | Core board pins | Base board net |
-| --- | --- | --- |
-| Touch I²C | `PD0` / `PD1` | `CTP-SCK` / `CTP-SDA` |
-| Touch interrupt and reset | `PD2` / `PD3` | `CTP-INT` / `CTP-RST` |
-| Audio amplifier enable | `PD4` | `PA-SHDN` |
-| Button | `PD5` | `DOWN` |
-| CAN0 | `PB2` / `PB3` | `CAN-TX` / `CAN-RX` (to `U5`) |
-| UART4 | `PD6` / `PD7` | `UART4-TX` / `UART4-RX` |
-| Bluetooth reset | `PD8` | `BT-RST-N` |
-| Display reset | `PD9` | `DSI-RST` |
-| MIPI DSI | `PD12`–`PD21` | `DSI-D0`–`DSI-D3`, clock |
-| Backlight dimming | `PD22` | `DSI-PWM` |
-| Wi-Fi SDIO | `PE0`–`PE5` | `SDC2-D0`–`SDC2-D3`, `CLK`, `CMD` |
-| Bluetooth UART | `PE6`–`PE9` | `UART2-TX/RX/RTS/CTS` |
-| Wi-Fi supply enable | `PE10` | `WL-REG-ON` |
-
-These connections are fixed on the base board and cannot be moved to other pins by software. When the base board is used, do not assign the listed pins to other functions.
-
-## Recommended wiring order
+## Power-up and power-down
 
 1. Disconnect USB.
 2. Connect the display cable.
@@ -247,34 +111,17 @@ These connections are fixed on the base board and cannot be moved to other pins 
 7. Connect USB last.
 8. After power-up, check the display, serial, audio and wireless functions in that order.
 
-## Check before power-up
+Before power-up, confirm: USB is disconnected and all wiring was done with the power off; the cable is fully inserted and the latch is closed; the antenna is seated and its cable is not under tension; `CN3` has the speaker and `CN1` is connected only to CAN; the serial adapter is 3.3 V and only `TX`, `RX` and `GND` are connected; no loose wire ends touch other pins; the board is not touching metal; no external power source is connected to `H1`.
 
-- USB is disconnected; all wiring was done with the power off.
-- The display cable is fully inserted and the latch is closed.
-- The antenna is seated and its cable is not under tension.
-- `CN3` has the speaker; `CN1` is connected only to the CAN bus, not to audio.
-- The serial adapter is 3.3 V and only `TX`, `RX` and `GND` are connected.
-- No loose wire ends touch other pins.
-- The board is on a table and not touching a metal surface.
-- No external power source is connected to `H1`.
-- No motors, relays or other high-current loads are connected.
-
-## Check after power-up
-
-| Symptom | Description | Action |
+| After power-up | Description | Action |
 | --- | --- | --- |
 | Display lights up or shows a picture | Cable and backlight are working | Check touch and display orientation |
 | Serial output appears | `TX`/`RX`/`GND` are correct | Continue with the boot log |
 | Backlight only, no picture | DSI signal or firmware problem | Check cable orientation and display support |
-| Display dark and serial silent | Firmware does not support the display, the board is in FEL, or power is abnormal | Return to [Core board wiring](core-board.md) and check |
+| Display dark and serial silent | Firmware does not support the display, the board is in FEL, or power is abnormal | Return to [core board wiring](core-board.md) and check |
 | Strange smell or heat | Short circuit, reversed power or excessive peripheral current | Disconnect USB immediately and inspect |
 
-## Power-down order
-
-- Disconnect USB first and wait for the system to stop.
-- Then remove 1.25 mm audio, serial and 2.54 mm header connections.
-- Remove the FPC cable and antenna last.
-- Do not connect or remove any peripheral while powered.
+To power down, disconnect USB first and wait for the system to stop; then remove the 1.25 mm audio, serial and header connections; remove the FPC cable and antenna last. Do not connect or remove any peripheral while powered.
 
 ## Common problems
 
@@ -286,6 +133,13 @@ These connections are fixed on the base board and cannot be moved to other pins 
 | Speaker silent | `CN3` not connected, amplifier not enabled, volume low | Check `PD4`, the audio file and volume |
 | Wi-Fi has no signal | Antenna missing, driver not loaded, power abnormal | Check `RF1`, `PE10` and the firmware |
 | CAN does not communicate | `CN1` not connected, termination missing, `U5` unpowered | Check `CN1`, CANH/CANL and the termination resistors |
+
+## References
+
+- Base board devices, power and pin conflicts: [YuzukiCube-M base board](../baseboard.md)
+- Pin groups for display, audio, Wi-Fi and CAN: [Peripheral pin groups](../hardware/groups.md)
+- Schematics and hardware files: [Hardware files](../hardware/files.md)
+- Revision differences and known issues: [Errata and revision differences](../hardware/errata.md)
 
 ---
 

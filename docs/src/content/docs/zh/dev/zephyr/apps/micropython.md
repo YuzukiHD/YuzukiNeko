@@ -2,12 +2,7 @@
 title: "MicroPython - Python REPL 与脚本"
 ---
 
-:::note[版本范围]
-Zephyr 4.2.2 与 4.5.0 并存。本页原有示例、录像及板上结果使用 4.2.2 基线，4.5 的变化另行说明。请按[版本与迁移指南](../zephyr-4-5.md)选择配套的内核、组件分支及独立环境和构建目录。4.5 编译或主机测试通过，不会改变已有板上结果的版本归属。
-:::
-
-
-在板子上运行 [MicroPython](https://micropython.org/)：控制台上有 Python REPL，用 `machine` 访问引脚和外设，TF 卡作为文件系统挂载，可以驱动 LCD，另有一个 `f101` 模块，提供 MicroPython 没有通用绑定的硬件（芯片 ID、2D 加速器和音频输出）。应用是<strong>未经修改的 MicroPython Zephyr 移植</strong>（git 子模块，MIT）；`zephyr-components/micropython` 补充了板级配置、Zephyr 模块胶水和 `f101` 模块。它为 `yuzukineko` 板编译，REPL 在控制台上，即 UART1（PB0/PB1），115200。
+在板子上运行 [MicroPython](https://micropython.org/)：控制台上有 Python REPL，用 `machine` 访问引脚和外设，TF 卡作为文件系统挂载，可以驱动 LCD，另有一个 `f101` 模块，提供 MicroPython 没有通用绑定的硬件（芯片 ID、2D 加速器和音频输出）。应用是<strong>未经修改的 MicroPython Zephyr 移植</strong>（git 子模块，MIT）。`zephyr-components/micropython` 补充了板级配置、Zephyr 模块胶水和 `f101` 模块。它为 `yuzukineko` 板编译，REPL 在控制台上，即 UART1（PB0/PB1），115200。
 
 ```mermaid
 flowchart TB
@@ -25,7 +20,7 @@ flowchart TB
 
 ## 能用的功能
 
-下表是在应用迁到 `yuzukineko` 之前在 F101 EVB 上验证的；现在已为 `yuzukineko` 编译通过，但还没有在上面重新运行。两块板子不同的条目已标出。
+下表是在应用迁到 `yuzukineko` 之前在 F101 EVB 上验证的。现在已为 `yuzukineko` 编译通过，但还没有在上面重新运行。两块板子不同的条目已标出。
 
 | MicroPython | 硬件 |
 | --- | --- |
@@ -44,7 +39,7 @@ I2C 不在列表里：`i2c1` 是触摸屏，`i2c0` 是关闭的。需要的话�
 
 ## 准备
 
-只有 `/sd` 才需要 TF 卡。它在启动时由移植自带的 `_boot.py` 挂载（FAT），并成为当前目录，`/sd/lib` 会加进 `sys.path`；卡上有 `main.py` 时，像标准 Zephyr 移植一样在启动时运行。
+只有 `/sd` 才需要 TF 卡。它在启动时由移植自带的 `_boot.py` 挂载（FAT），并成为当前目录，`/sd/lib` 会加进 `sys.path`。卡上有 `main.py` 时，像标准 Zephyr 移植一样在启动时运行。
 
 编译需要子模块：
 
@@ -55,8 +50,9 @@ git -C zephyr-components/micropython/micropython submodule update --init --depth
 
 ## 编译
 
-4.5 也使用此 wrapper，输出目录改为 `build/zephyr-4.5.0/upy`；已通过构建，板上功能仍需复测。
+4.5 也使用此 wrapper，输出目录改为 `build/zephyr-4.5.0/upy`。已通过构建，板上功能仍需复测。
 
+4.5 的构建与验证状态见[版本与迁移指南](../zephyr-4-5.md)。
 
 ```sh
 . ./env.sh
@@ -88,7 +84,7 @@ env -u CROSS_COMPILE cmake --build build/upy
 
 ## 运行
 
-用[编译与运行](../zephyr-build-run.md)里的任一方式下载；REPL 在控制台 UART1（115200）上。调试用方式一：`xfel write 0x20000 init_psram_efex.bin` + `xfel exec 0x20000`、`xfel write 0x40000000 build/upy/zephyr/zephyr.bin`、`xfel exec 0x40000000`。
+用[编译与运行](../zephyr-build-run.md)里的任一方式下载。REPL 在控制台 UART1（115200）上。调试用方式一：`xfel write 0x20000 init_psram_efex.bin` + `xfel exec 0x20000`、`xfel write 0x40000000 build/upy/zephyr/zephyr.bin`、`xfel exec 0x40000000`。
 
 ```text
 >>> import f101
@@ -109,7 +105,7 @@ env -u CROSS_COMPILE cmake --build build/upy
 
 ## `machine` 与 `zephyr` 模块
 
-这是标准 MicroPython Zephyr 移植的模块；设备名就是 Zephyr 设备名，所以引脚写成 `(组标签, 编号)`。这里验证过的用法：
+这是标准 MicroPython Zephyr 移植的模块。设备名就是 Zephyr 设备名，所以引脚写成 `(组标签, 编号)`。这里验证过的用法：
 
 ```python
 from machine import Pin, SPI, ADC, PWM, WDT
@@ -125,7 +121,7 @@ machine.reset()                                  # 看门狗复位，约 1 s
 
 `machine.PWM(..., duty_u16=...)` 在周期超过约 130 µs 时会溢出 32 位（移植里把 `duty_u16` 乘以周期），所以请用 `duty_ns`。
 
-`zephyr.Display(0)` 是 LCD（RGB565，1024×768）。`write(buf, x, y, w, h)` 从缓冲画一个矩形；`as_framebuf()` 返回与 `framebuf` 兼容的对象。MicroPython 的堆（1 MiB）放不下完整的 1024×768 RGB565 一帧（1.5 MB），请分条绘制。
+`zephyr.Display(0)` 是 LCD（RGB565，1024×768）。`write(buf, x, y, w, h)` 从缓冲画一个矩形。`as_framebuf()` 返回与 `framebuf` 兼容的对象。MicroPython 的堆（1 MiB）放不下完整的 1024×768 RGB565 一帧（1.5 MB），请分条绘制。
 
 ## `f101` 模块
 
@@ -141,7 +137,7 @@ f101.unique_id() -> bytes
 
 ### 2D 加速器
 
-表面是普通缓冲（`bytearray`、`memoryview` 或任何支持缓冲协议的对象），里面是单平面的紧凑像素；平面格式（NV12、I420、YUYV）会被拒绝并抛出 `ValueError`。因为加速器直接读写内存，缓冲必须在 1:1 映射的内存里，这个配置下所有 RAM 都是（内核没有启用 MMU）。缓冲比 `width * height * 每像素字节数` 短时抛出 `ValueError("buffer too small")`。矩形是元组 `(x, y, w, h)`；`None` 表示整个表面。
+表面是普通缓冲（`bytearray`、`memoryview` 或任何支持缓冲协议的对象），里面是单平面的紧凑像素。平面格式（NV12、I420、YUYV）会被拒绝并抛出 `ValueError`。因为加速器直接读写内存，缓冲必须在 1:1 映射的内存里，这个配置下所有 RAM 都是（内核没有启用 MMU）。缓冲比 `width * height * 每像素字节数` 短时抛出 `ValueError("buffer too small")`。矩形是元组 `(x, y, w, h)`。`None` 表示整个表面。
 
 像素格式（模块常量）：`ARGB8888`、`ABGR8888`、`RGBA8888`、`BGRA8888`、`XRGB8888`、`XBGR8888`、`RGB888`、`BGR888`、`RGB565`、`BGR565`。翻转标志：`FLIP_H`、`FLIP_V`。
 
@@ -156,7 +152,7 @@ f101.g2d_blit(src, sw, sh, sfmt, dst, dw, dh, dfmt,
               src_rect=None, dst_rect=None, rotate=0, flags=0)
 ```
 
-把 `src_rect` 拷贝到 `dst_rect` 并转换格式。两个矩形的大小决定缩放；`rotate` 为 0、90、180 或 270 度（90 和 270 时目标尺寸是旋转后的源尺寸）；`flags` 是 `FLIP_H`、`FLIP_V` 或两者。先旋转，再翻转。
+把 `src_rect` 拷贝到 `dst_rect` 并转换格式。两个矩形的大小决定缩放。`rotate` 为 0、90、180 或 270 度（90 和 270 时目标尺寸是旋转后的源尺寸）。`flags` 是 `FLIP_H`、`FLIP_V` 或两者。先旋转，再翻转。
 
 ```python
 f101.g2d_blend(fg, fw, fh, ffmt, dst, dw, dh, dfmt, alpha=255, fg_rect=None, dst_rect=None)

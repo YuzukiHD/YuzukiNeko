@@ -3,11 +3,10 @@ title: "Zephyr 开发"
 ---
 
 :::note[版本范围]
-Zephyr 4.2.2 与 4.5.0 并存。本页原有示例、录像及板上结果使用 4.2.2 基线，4.5 的变化另行说明。请按[版本与迁移指南](zephyr-4-5.md)选择配套的内核、组件分支及独立环境和构建目录。4.5 编译或主机测试通过，不会改变已有板上结果的版本归属。
+本章示例、代码清单、日志与板上结果默认属于 Zephyr 4.2.2 基线，页面内 4.5 小节另有说明的除外。4.5 的分支、环境、API 变化、构建命令与验证状态见[版本与迁移指南](zephyr-4-5.md)。
 :::
 
-
-[Zephyr](https://www.zephyrproject.org) 是一个面向资源受限设备的开源实时操作系统（RTOS）。F101 的 Zephyr 支持是上游 Zephyr 的一个 fork：[`YuzukiHD/zephyr`](https://github.com/YuzukiHD/zephyr)，保留 `zephyr-v4.2.2-f101`（4.2.2），并提供独立的 `zephyr-v4.5.0-f101`（4.5.0）移植分支；两版配套关系见[版本与迁移指南](zephyr-4-5.md)。
+[Zephyr](https://www.zephyrproject.org) 是一个面向资源受限设备的开源实时操作系统（RTOS）。F101 的 Zephyr 支持是上游 Zephyr 的一个 fork：[`YuzukiHD/zephyr`](https://github.com/YuzukiHD/zephyr)，保留 `zephyr-v4.2.2-f101`（4.2.2），并提供独立的 `zephyr-v4.5.0-f101`（4.5.0）移植分支。两版配套关系见[版本与迁移指南](zephyr-4-5.md)。
 
 - <strong>SoC</strong>：`sun252i_f101`，一个玄铁 C907 核（`rv32imafdcv`，带向量扩展，可选 Sv32 MMU），片内 SRAM 加 16 MB PSRAM，没有外部 DDR。
 - <strong>板级</strong>：`yuzukineko`（本板，控制台为 UART1 的 PB00/PB01）和 `f101_evb`（F101 评估板，控制台为 UART3 的 PE08/PE09）。
@@ -106,13 +105,6 @@ SoC 代码在 `soc/allwinner/sun252i_f101`，SoC 设备树在 `dts/riscv/allwinn
 :::tip
 基于这套移植的应用（模拟器、WiFi、MicroPython、PocketJS 等）放在 [`YuzukiHD/zephyr-components`](https://github.com/YuzukiHD/zephyr-components) 仓库里，各自的状态不同，用法以各目录的 README 为准。
 :::
-
-## 本章内容
-
-- [配置开发环境](zephyr-setup-env.md)
-- [获取 Zephyr 代码](zephyr-get-source.md)
-- [编译与运行](zephyr-build-run.md)
-- [UF2 拖放烧录](zephyr-uf2.md)
 
 :::tip
 下载前请先阅读 [FEL 下载模式与工具](../../boot/fel.md) 和 [SPI NOR 布局与备份](../../boot/flash-layout.md)，并备份板上 Flash。要跑 Linux 请看 [Linux 开发](../linux/index.md)。

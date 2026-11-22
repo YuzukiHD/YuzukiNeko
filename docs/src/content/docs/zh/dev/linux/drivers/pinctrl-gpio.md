@@ -33,7 +33,7 @@ F101 的每个引脚都能承担多种功能之一。pinctrl 驱动保存引脚�
 
 ### 寄存器布局
 
-F101 使用较新的 Allwinner 寄存器布局，驱动用 `SUNXI_PINCTRL_NEW_REG_LAYOUT` 选择它。每个 bank 占 0x30 字节。复用、数据、驱动电平和上下拉寄存器按引脚排列；外部中断块是全局的。
+F101 使用较新的 Allwinner 寄存器布局，驱动用 `SUNXI_PINCTRL_NEW_REG_LAYOUT` 选择它。每个 bank 占 0x30 字节。复用、数据、驱动电平和上下拉寄存器按引脚排列。外部中断块是全局的。
 
 | 偏移 | 寄存器 | 字段 |
 | --- | --- | --- |
@@ -54,7 +54,7 @@ A 到 F 的 bank 基址分别是 `0x02000000`、`0x02000030`、`0x02000060`、`0
 
 ### 引脚功能
 
-每个引脚的复用值 0 是 `gpio_in`，1 是 `gpio_out`。值 0xe 是外部中断功能，0xf 是 `io_disabled`。中间的值是引脚的复用功能，按数据手册的编号顺序排列；驱动按数字顺序列出它们，devicetree 用字符串指定其中一个。
+每个引脚的复用值 0 是 `gpio_in`，1 是 `gpio_out`。值 0xe 是外部中断功能，0xf 是 `io_disabled`。中间的值是引脚的复用功能，按数据手册的编号顺序排列。驱动按数字顺序列出它们，devicetree 用字符串指定其中一个。
 
 | 功能值 | 名称 | 可用引脚 |
 | --- | --- | --- |
@@ -64,17 +64,17 @@ A 到 F 的 bank 基址分别是 `0x02000000`、`0x02000030`、`0x02000060`、`0
 | 0xf | `io_disabled` | 每个引脚 |
 | 2 到 0xd | 外设名称 | 取决于引脚 |
 
-功能名在引脚之间共享。例如 `uart1` 出现在 `PB0`、`PB1`、`PD2`、`PD3`、`PD10`、`PD11`、`PD21`、`PD22`、`PE10`、`PE11`、`PF0`、`PF4`、`PF5` 和 `PF6` 上；写 `function = "uart1"` 选中的是该引脚为这个功能使用的复用值，而不是一个全局值。这就是引脚组必须列出实际使用的引脚的原因。
+功能名在引脚之间共享。例如 `uart1` 出现在 `PB0`、`PB1`、`PD2`、`PD3`、`PD10`、`PD11`、`PD21`、`PD22`、`PE10`、`PE11`、`PF0`、`PF4`、`PF5` 和 `PF6` 上。写 `function = "uart1"` 选中的是该引脚为这个功能使用的复用值，而不是一个全局值。这就是引脚组必须列出实际使用的引脚的原因。
 
 ### 外部中断
 
 每个 bank 有一条 PLIC 线，最多 32 个 EINT 源。驱动建立 `irq_banks * IRQ_PER_BANK` = 192 个映射的 `irq_domain`。GPIO 通过引脚描述转换成中断：`irq` 功能携带 `(bank, pin)`，`to_irq` 返回 `irq_find_mapping(domain, bank * 32 + pin)`。中断被路由到该 bank 的 PLIC 线，所以同一 bank 的多个引脚共用一个 PLIC 中断，由状态寄存器分流。
 
-pinctrl 中断的 devicetree 中断说明符是三个 cell：bank、pin 和标志。`interrupts-extended = <&pio 5 6 IRQ_TYPE_EDGE_FALLING>` 表示 `PF6` 下降沿。去抖分频按 bank 设置，来自 `input-debounce` 属性，每 bank 一个值；F101 的 devicetree 没有设置它，所以六个 bank 都使用复位分频。
+pinctrl 中断的 devicetree 中断说明符是三个 cell：bank、pin 和标志。`interrupts-extended = <&pio 5 6 IRQ_TYPE_EDGE_FALLING>` 表示 `PF6` 下降沿。去抖分频按 bank 设置，来自 `input-debounce` 属性，每 bank 一个值。F101 的 devicetree 没有设置它，所以六个 bank 都使用复位分频。
 
 ### 上下拉与驱动强度
 
-上下拉字段是两位：0 是不上下拉，1 是弱上拉，2 是弱下拉。驱动接受通用的 `bias-pull-up`、`bias-pull-down`、`bias-disable` 属性和旧的 `allwinner,pull` 值。这个 SoC 没有可选的偏置电压；描述符把偏置电压 variant 留在默认值，所以 `0x300` 处的组配置寄存器不用于这个目的。
+上下拉字段是两位：0 是不上下拉，1 是弱上拉，2 是弱下拉。驱动接受通用的 `bias-pull-up`、`bias-pull-down`、`bias-disable` 属性和旧的 `allwinner,pull` 值。这个 SoC 没有可选的偏置电压。描述符把偏置电压 variant 留在默认值，所以 `0x300` 处的组配置寄存器不用于这个目的。
 
 驱动字段是四位，但绑定用毫安表示。解析器拒绝小于 10 的值，把大于 40 的值截到 40，并向下取整到 10 的倍数。寄存器值是 `mA / 10 - 1`，回读路径返回 `(value + 1) * 10`，所以 10 mA 是字段 0，20 mA 是 1，30 mA 是 2，40 mA 是 3。板子在 DSI 线上用 30 mA，在 SD 卡线上用 40 mA 并加上拉。
 
@@ -100,7 +100,7 @@ pio: pinctrl@2000000 {
 };
 ```
 
-六个中断项按 bank 排序。驱动对索引 0 到 5 调用 `platform_get_irq()`，并为每个注册 chained 处理函数。时钟是 APB0 门控；节点只有一个时钟，所以驱动用不带名字的 `devm_clk_get_enabled()` 获取。
+六个中断项按 bank 排序。驱动对索引 0 到 5 调用 `platform_get_irq()`，并为每个注册 chained 处理函数。时钟是 APB0 门控。节点只有一个时钟，所以驱动用不带名字的 `devm_clk_get_enabled()` 获取。
 
 ### 引脚组
 
@@ -191,7 +191,7 @@ CONFIG_GPIO_CDEV=y
 # CONFIG_GPIO_SYSFS is not set
 ```
 
-F101 驱动没有自己的 Kconfig 符号：`drivers/pinctrl/sunxi/Makefile` 用 `obj-$(CONFIG_ARCH_SUNXI)` 编译 `pinctrl-sun252i-f101.o`。`CONFIG_PINCTRL_SUNXI` 和 `CONFIG_PINCTRL` 由 `arch/riscv/Kconfig.socs` 里的 `ARCH_SUNXI` select，所以支持该板的内核一定带这个控制器。`CONFIG_GPIO_CDEV` 默认 `y`，提供 `/dev/gpiochip0`；`CONFIG_GPIO_SYSFS` 关闭，所以没有 `/sys/class/gpio`。
+F101 驱动没有自己的 Kconfig 符号：`drivers/pinctrl/sunxi/Makefile` 用 `obj-$(CONFIG_ARCH_SUNXI)` 编译 `pinctrl-sun252i-f101.o`。`CONFIG_PINCTRL_SUNXI` 和 `CONFIG_PINCTRL` 由 `arch/riscv/Kconfig.socs` 里的 `ARCH_SUNXI` select，所以支持该板的内核一定带这个控制器。`CONFIG_GPIO_CDEV` 默认 `y`，提供 `/dev/gpiochip0`。`CONFIG_GPIO_SYSFS` 关闭，所以没有 `/sys/class/gpio`。
 
 ## 驱动内部
 
@@ -209,13 +209,13 @@ devicetree 解析器先读通用的 `pins` 和 `function` 属性，再回退到 
 
 ### GPIO 控制器
 
-整个控制器只有一个 `gpio_chip`。它的 label 是设备名 `2000000.pinctrl`，base 是 0，`ngpio` 是 192。每个引脚被加成一个单引脚 GPIO range，这样引脚控制器和 GPIO 编号保持一致。芯片不按 bank 拆分；一个 range 让全局编号在各 bank 之间保持稳定。
+整个控制器只有一个 `gpio_chip`。它的 label 是设备名 `2000000.pinctrl`，base 是 0，`ngpio` 是 192。每个引脚被加成一个单引脚 GPIO range，这样引脚控制器和 GPIO 编号保持一致。芯片不按 bank 拆分。一个 range 让全局编号在各 bank 之间保持稳定。
 
 GPIO 方向不是单独的寄存器。`direction_input` 把引脚复用设为 `gpio_in`，`direction_output` 设为 `gpio_out`，`get`/`set` 读写数据寄存器。`of_xlate` 接受三 cell 形式：bank、pin、标志。`to_irq` 找到引脚的 `irq` 功能，并把它的 bank 和 pin 编号映射到 domain。
 
 ### 中断控制器
 
-当使用者向引脚控制器申请中断时，驱动会把引脚复用切到 `irq` 功能（如果还没切换），把请求的类型写进 EINT 配置寄存器，并在控制寄存器里使能对应位。chained 处理函数读该 bank 的状态寄存器，找出挂起位，再分发对应的虚拟中断。去抖分频来自 `input-debounce`；F101 的 devicetree 没有设置它，所以使用复位值。
+使用者向引脚控制器申请中断，驱动会把引脚复用切到 `irq` 功能（如果还没切换），把请求的类型写进 EINT 配置寄存器，并在控制寄存器里使能对应位。chained 处理函数读该 bank 的状态寄存器，找出挂起位，再分发对应的虚拟中断。去抖分频来自 `input-debounce`。F101 的 devicetree 没有设置它，所以使用复位值。
 
 ## 用户接口
 
@@ -240,7 +240,7 @@ ls /sys/kernel/debug/pinctrl/2000000.pinctrl/
 | `gpio-ranges` | 引脚控制器与 GPIO 芯片之间的映射 |
 | `pinmux-select` | 只写的调试覆盖接口：写 `group function` 直接改复用 |
 
-`CONFIG_GPIO_CDEV` 还提供 `/dev/gpiochip0`。镜像里没有 `gpioinfo` 或 `gpioget`，也没有 libgpiod，并且 `CONFIG_GPIO_SYSFS` 关闭，所以字符设备只能由自己发 GPIO ioctl 的程序使用。唯一的运行时复用控制是 root 可写的 `pinmux-select` 文件；它绕过 pinctrl 状态，也不认领引脚，所以只是调试手段，不是受支持的接口。
+`CONFIG_GPIO_CDEV` 还提供 `/dev/gpiochip0`。镜像里没有 `gpioinfo` 或 `gpioget`，也没有 libgpiod，并且 `CONFIG_GPIO_SYSFS` 关闭，所以字符设备只能由自己发 GPIO ioctl 的程序使用。唯一的运行时复用控制是 root 可写的 `pinmux-select` 文件。它绕过 pinctrl 状态，也不认领引脚，所以只是调试手段，不是受支持的接口。
 
 ### GPIO debugfs
 
@@ -274,7 +274,7 @@ pin 108 (PD12): device 5450000.dsi function dsi group dsi_pd_pins
 pin 166 (PF6): GPIO cd
 ```
 
-带 `UNCLAIMED` 的行表示没有驱动申请该引脚。带 `GPIO cd` 的行表示 mmc core 把该引脚当作 GPIO 申请；`cd` 标签来自 `cd-gpios` 的使用者名。带设备、功能和组的行表示引脚被某个 pinctrl map 复用。
+带 `UNCLAIMED` 的行表示没有驱动申请该引脚。带 `GPIO cd` 的行表示 mmc core 把该引脚当作 GPIO 申请。`cd` 标签来自 `cd-gpios` 的使用者名。带设备、功能和组的行表示引脚被某个 pinctrl map 复用。
 
 ### 对比引脚与复用寄存器
 
@@ -303,7 +303,7 @@ pin 166 (PF6) 166:2000000.pinctrl
 echo "PB0 uart1" > /sys/kernel/debug/pinctrl/2000000.pinctrl/pinmux-select
 ```
 
-这次写入不认领引脚，也不会记录进 `pinmux-pins`；下一次 pinctrl 状态激活、驱动重新绑定或重启都会覆盖它。这样改控制台引脚可能切断唯一的控制台，所以只在不影响恢复的引脚上使用。
+这次写入不认领引脚，也不会记录进 `pinmux-pins`。下一次 pinctrl 状态激活、驱动重新绑定或重启都会覆盖它。这样改控制台引脚可能切断唯一的控制台，所以只在不影响恢复的引脚上使用。
 
 ### 读取卡检测线
 

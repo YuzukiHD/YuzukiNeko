@@ -2,11 +2,6 @@
 title: "PWM-BL - 模拟背光"
 ---
 
-:::note[版本范围]
-Zephyr 4.2.2 与 4.5.0 并存。本页原有示例、录像及板上结果使用 4.2.2 基线，4.5 的变化另行说明。请按[版本与迁移指南](../zephyr-4-5.md)选择配套的内核、组件分支及独立环境和构建目录。4.5 编译或主机测试通过，不会改变已有板上结果的版本归属。
-:::
-
-
 PWM_BL 是 F101 上专门驱动 LCD 背光的模块，和通用的 [PWM](pwm.md) 是两个独立的设备。它不产生任意频率的方波：它控制片内的两个升压（BOOST）电路，通过“灌电流”的大小调节背光 LED 的亮度，调光有数字加模拟两种方式。在 Zephyr 里它是 `pwm_bl` 设备，接口仍然是标准的 `<zephyr/drivers/pwm.h>`，驱动是 `drivers/pwm/pwm_sunxi_bl.c`。
 
 | 项目 | 内容 |
@@ -20,17 +15,6 @@ PWM_BL 是 F101 上专门驱动 LCD 背光的模块，和通用的 [PWM](pwm.md)
 | 板子 | `f101_evb` 的 RGB 屏背光接在这里；`yuzukineko` 的背光在通用 PWM 的通道 2，不用 PWM_BL |
 
 本文的演示在 `yuzukineko` 上运行：用 overlay 把 `pwm_bl` 打开（只用 PB2、PB3，不动 PB0、PB1 的控制台），这块板上没有接 PWM_BL 的背光，所以演示读回模块的寄存器来看驱动写进去的亮度，没有测输出。
-
-
-## 在 4.5 构建仓库内的示例
-
-激活配套的 4.5 分支和环境后，可直接构建维护中的示例。下文完整代码保留 4.2.2 教程基线，当前头文件与 API 字段以所选分支中的示例为准。
-
-```sh
-west build -b yuzukineko -d build/zephyr-4.5.0/pwm_bl_api zephyr-components/examples/pwm_bl_api
-```
-
-该配置已通过 `yuzukineko` 的 4.5 组件构建检查，尚无新的 4.5 板上日志；请按实际镜像布局选择 [RAM 或 XIP 流程](../zephyr-build-run.md)。
 
 ## 设备树
 
@@ -97,7 +81,7 @@ pwm_bl: pwm@200a000 {
 
 `PWM_POLARITY_INVERTED` 写在这里只是和别的背光节点保持一致，对 PWM_BL 没有影响。显示流水线用的 `pwm-backlight` 节点的属性见 [显示](display.md) 和 [PWM](pwm.md)。
 
-### 绑定：allwinner,sunxi-pwm-bl.yaml
+**绑定：allwinner,sunxi-pwm-bl.yaml**
 
 ```yaml
 # Copyright (c) 2026 Yuzuki Tsuru
@@ -159,14 +143,14 @@ pwm-cells:
 
 ## 驱动怎么工作
 
-初始化时驱动做这些事：打开总线时钟、释放复位，把模块时钟设成 PLL_PERI_2X 分频后接近 400 MHz；应用 `pinctrl`；PB0 和 PB2 的驱动能力设为 3（`yuzukineko` 上 PB0 是控制台 TX，它的驱动能力也被改成 3，不影响通信）；按固定的参数配置两个端口：
+初始化时驱动做这些事：打开总线时钟、释放复位，把模块时钟设成 PLL_PERI_2X 分频后接近 400 MHz。应用 `pinctrl`。PB0 和 PB2 的驱动能力设为 3（`yuzukineko` 上 PB0 是控制台 TX，它的驱动能力也被改成 3，不影响通信）。按固定的参数配置两个端口：
 
 | 端口 | 配置 |
 | --- | --- |
 | 端口 1（BOOST1） | 纯模拟，750 kHz，最大亮度代码 2 |
 | 端口 0（BOOST0） | 数字加模拟比较：周期 0x215，初始有效 0x1a，最大有效 0x140，最大亮度代码 3 |
 
-设置亮度时（`pwm_set_cycles`）：`级别 = 脉宽 × 256 ÷ 周期`，不超过 200；级别非 0 就使能两个端口，端口 0 的灌电流设为这个级别；级别是 0 就关闭两个端口。下面的演示读回的寄存器：
+设置亮度时（`pwm_set_cycles`）：`级别 = 脉宽 × 256 ÷ 周期`，不超过 200。级别非 0 就使能两个端口，端口 0 的灌电流设为这个级别。级别是 0 就关闭两个端口。下面的演示读回的寄存器：
 
 | 寄存器 | 偏移（端口 0，端口 1 加 0x200） | 内容 |
 | --- | --- | --- |
@@ -174,8 +158,6 @@ pwm-cells:
 | `ANA1` | `0x0054` | 位 23:16 灌电流级别，位 2:0 最大亮度代码 |
 
 ## 接口详解
-
-下面每个接口一个小标题：原型、驱动的行为、示例函数和它在板子上的输出。示例来自文末的[完整演示程序](#完整演示程序)，里面的 `err()` 把返回值转成名字。读寄存器的函数和用到的宏：
 
 ```c
 #define BASE		DT_REG_ADDR(DT_NODELABEL(pwm_bl))
@@ -196,64 +178,25 @@ static void show_regs(void)
 }
 ```
 
-### pwm_get_cycles_per_sec
+### 周期与占空比
 
-```c
-int pwm_get_cycles_per_sec(const struct device *dev, uint32_t channel, uint64_t *cycles);
-```
+**`pwm_get_cycles_per_sec`** `int pwm_get_cycles_per_sec(const struct device *dev, uint32_t channel, uint64_t *cycles);`
 
 返回每秒多少个周期：1 000 000 000，所以脉宽和周期的数值直接就是纳秒。只有通道 0，别的通道返回 `-EINVAL`。
-
-```c
-/* pwm_get_cycles_per_sec: 1 GHz, so a cycle is a nanosecond and the ratios are exact */
-static void demo_cycles_per_sec(void)
-{
-	uint64_t hz;
-	int ret;
-
-	ret = pwm_get_cycles_per_sec(pwm_bl, 0, &hz);
-	printk("[clock] pwm_get_cycles_per_sec(channel 0)   = %s, %u Hz\n", err(ret), (uint32_t)hz);
-
-	ret = pwm_get_cycles_per_sec(pwm_bl, 1, &hz);
-	printk("[clock] pwm_get_cycles_per_sec(channel 1)   = %s\n", err(ret));
-}
-```
 
 ```text
 [clock] pwm_get_cycles_per_sec(channel 0)   = 0, 1000000000 Hz
 [clock] pwm_get_cycles_per_sec(channel 1)   = -EINVAL
 ```
 
-### pwm_set_cycles
+**`pwm_set_cycles`** `int pwm_set_cycles(const struct device *dev, uint32_t channel, uint32_t period, uint32_t pulse, pwm_flags_t flags);`
 
-```c
-int pwm_set_cycles(const struct device *dev, uint32_t channel, uint32_t period, uint32_t pulse, pwm_flags_t flags);
-```
-
-亮度由 `pulse / period` 决定。100% 得到 256，被限制到 200；50% 是 128；5% 是 12；0.5% 是 1。标志被忽略。
+亮度由 `pulse / period` 决定。100% 得到 256，被限制到 200。50% 是 128。5% 是 12。0.5% 是 1。标志被忽略。
 
 | 参数 | 返回 |
 | --- | --- |
 | 通道不是 0，周期 0，或脉宽大于周期 | `-EINVAL` |
 | 其他 | 0 |
-
-```c
-/* pwm_set_cycles: the level is pulse * 256 / period; 200 is the maximum, a level of 0 switches the
- * block off. The flags are ignored, there is no polarity.
- */
-static void demo_set_cycles(void)
-{
-	static const uint32_t pulse[] = { 20000, 10000, 5000, 1000, 100 };
-	int ret;
-
-	for (int i = 0; i < ARRAY_SIZE(pulse); i++) {
-		ret = pwm_set_cycles(pwm_bl, 0, 20000, pulse[i], 0);
-		printk("[cycles] pulse %5u of 20000 (%3u%%)         = %s\n", pulse[i], pulse[i] * 100 / 20000,
-		       err(ret));
-		show_regs();
-	}
-}
-```
 
 ```text
 [cycles] pulse 20000 of 20000 (100%)         = 0
@@ -268,29 +211,11 @@ static void demo_set_cycles(void)
          port 0 enabled 1, port 1 enabled 1, load current level 1 (maximum brightness code 3)
 ```
 
-### pwm_set
+### 设置亮度
 
-```c
-int pwm_set(const struct device *dev, uint32_t channel, uint32_t period, uint32_t pulse, pwm_flags_t flags);
-```
+**`pwm_set`** `int pwm_set(const struct device *dev, uint32_t channel, uint32_t period, uint32_t pulse, pwm_flags_t flags);`
 
-周期和脉宽用纳秒（`PWM_USEC()`、`PWM_MSEC()` 等宏）。时钟是 1 GHz，所以不需要换算；周期是 20 µs 还是 1 ms 不影响结果，比值一样级别就一样。
-
-```c
-/* pwm_set: the same in nanoseconds; the period does not change the output, only the ratio does */
-static void demo_set(void)
-{
-	int ret;
-
-	ret = pwm_set(pwm_bl, 0, PWM_USEC(20), PWM_USEC(10), PWM_POLARITY_NORMAL);
-	printk("[set] 20 us period, 10 us pulse                 = %s\n", err(ret));
-	show_regs();
-
-	ret = pwm_set(pwm_bl, 0, PWM_MSEC(1), PWM_USEC(500), PWM_POLARITY_INVERTED);
-	printk("[set] 1 ms period, 500 us pulse, inverted       = %s\n", err(ret));
-	show_regs();
-}
-```
+周期和脉宽用纳秒（`PWM_USEC()`、`PWM_MSEC()` 等宏）。时钟是 1 GHz，所以不需要换算。周期是 20 µs 还是 1 ms 不影响结果，比值一样级别就一样。
 
 ```text
 [set] 20 us period, 10 us pulse                 = 0
@@ -299,11 +224,7 @@ static void demo_set(void)
          port 0 enabled 1, port 1 enabled 1, load current level 128 (maximum brightness code 3)
 ```
 
-### pwm_set_dt
-
-```c
-int pwm_set_dt(const struct pwm_dt_spec *spec, uint32_t period, uint32_t pulse);
-```
+**`pwm_set_dt`** `int pwm_set_dt(const struct pwm_dt_spec *spec, uint32_t period, uint32_t pulse);`
 
 通道、设备和标志来自设备树的 `pwms` 属性。演示的 `bl` 取自 overlay 里 `zephyr,user` 节点的 `pwms = <&pwm_bl 0 20000 PWM_POLARITY_INVERTED>`。
 
@@ -327,28 +248,9 @@ static void demo_set_dt(void)
          port 0 enabled 1, port 1 enabled 1, load current level 64 (maximum brightness code 3)
 ```
 
-### pwm_set_pulse_dt
-
-```c
-int pwm_set_pulse_dt(const struct pwm_dt_spec *spec, uint32_t pulse);
-```
+**`pwm_set_pulse_dt`** `int pwm_set_pulse_dt(const struct pwm_dt_spec *spec, uint32_t pulse);`
 
 用设备树里写的周期，只给脉宽。脉宽 0 得到级别 0，两个端口都关闭，这是关背光的办法。
-
-```c
-/* pwm_set_pulse_dt: only the pulse; 0 switches the backlight off */
-static void demo_set_pulse_dt(void)
-{
-	int ret = pwm_set_pulse_dt(&bl, bl.period * 3 / 4);
-
-	printk("[dt] pwm_set_pulse_dt(3/4 of the period)        = %s\n", err(ret));
-	show_regs();
-
-	ret = pwm_set_pulse_dt(&bl, 0);
-	printk("[dt] pwm_set_pulse_dt(0)                        = %s\n", err(ret));
-	show_regs();
-}
-```
 
 ```text
 [dt] pwm_set_pulse_dt(3/4 of the period)        = 0
@@ -357,27 +259,9 @@ static void demo_set_pulse_dt(void)
          port 0 enabled 0, port 1 enabled 0, load current level 0 (maximum brightness code 3)
 ```
 
-### 驱动拒绝的参数
+**驱动拒绝的参数**
 
 驱动检查通道号、周期和脉宽三项：只有通道 0，别的通道返回 `-EINVAL`，寄存器不动。
-
-```c
-/* the arguments the driver refuses */
-static void demo_errors(void)
-{
-	int ret;
-
-	ret = pwm_set_cycles(pwm_bl, 0, 0, 0, 0);
-	printk("[error] period 0                                = %s\n", err(ret));
-
-	ret = pwm_set_cycles(pwm_bl, 0, 20000, 20001, 0);
-	printk("[error] pulse longer than the period            = %s\n", err(ret));
-
-	ret = pwm_set_cycles(pwm_bl, 5, 20000, 10000, 0);
-	printk("[error] channel 5 (only channel 0 exists)       = %s\n", err(ret));
-	show_regs();
-}
-```
 
 ```text
 [error] period 0                                = -EINVAL
@@ -388,7 +272,7 @@ static void demo_errors(void)
 
 ## 完整演示程序
 
-上面所有示例和日志都来自这一个程序。建一个目录，放进下面的文件，就可以像其他 Zephyr 应用一样编译。
+
 
 ```text
 pwm_bl_api/
@@ -399,7 +283,7 @@ pwm_bl_api/
     └── main.c
 ```
 
-### CMakeLists.txt
+**CMakeLists.txt**
 
 ```cmake
 cmake_minimum_required(VERSION 3.20.0)
@@ -409,7 +293,7 @@ project(pwm_bl_api)
 target_sources(app PRIVATE src/main.c)
 ```
 
-### prj.conf
+**prj.conf**
 
 ```ini
 CONFIG_PWM=y
@@ -420,7 +304,7 @@ CONFIG_DEVMEM_SHELL=n
 CONFIG_LOG_PRINTK=n
 ```
 
-### app.overlay
+**app.overlay**
 
 ```c
 /*
@@ -451,7 +335,7 @@ CONFIG_LOG_PRINTK=n
 };
 ```
 
-### src/main.c
+**src/main.c**
 
 ```c
 /*
@@ -598,7 +482,7 @@ int main(void)
 }
 ```
 
-### 编译和运行
+**编译和运行**
 
 ```sh
 . ~/f101-zephyr/env.sh

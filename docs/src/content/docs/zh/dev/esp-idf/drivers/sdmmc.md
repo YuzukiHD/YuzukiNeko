@@ -11,7 +11,7 @@ F101 有两个 SMHC 控制器：SMHC0 接 microSD 卡座，SMHC2 接 AIC8800 的
 | `SDMMC_HOST_SLOT_0` | SMHC0 | PF2 CLK、PF3 CMD、PF1 D0、PF0 D1、PF5 D2、PF4 D3 |
 | `SDMMC_HOST_SLOT_1` | SMHC2 | PE2 CLK、PE3 CMD、PE1 D0、PE0 D1、PE5 D2、PE4 D3 |
 
-两个插槽都只支持 1 位或 4 位总线，没有 8 位数据线。`SDMMC_SLOT_CONFIG_DEFAULT()` 给出 SMHC0 的默认焊盘和不使用卡检测的配置；SMHC2 需要应用自己填 `sdmmc_slot_config_t`。
+两个插槽都只支持 1 位或 4 位总线，没有 8 位数据线。`SDMMC_SLOT_CONFIG_DEFAULT()` 给出 SMHC0 的默认焊盘和不使用卡检测的配置。SMHC2 需要应用自己填 `sdmmc_slot_config_t`。
 
 ## SD 卡
 
@@ -33,7 +33,7 @@ uint8_t buf[512];
 ESP_ERROR_CHECK(sdmmc_read_sectors(&card, buf, 0, 1));
 ```
 
-默认最大频率是 20 MHz。`sdmmc_host_set_card_clk()` 可以在初始化后调整，但先确认卡和走线支持目标频率。`SDMMC_SLOT_CONFIG_DEFAULT()` 不配置卡检测；需要卡检测时把 `slot.cd` 设为 `GPIO_NUM_PF(6)`，并注意 V1.4 及更早的 10 kΩ 下拉可能无法把电平拉到逻辑低，PF6 应配置最低驱动强度。
+默认最大频率是 20 MHz。`sdmmc_host_set_card_clk()` 可以在初始化后调整，但先确认卡和走线支持目标频率。`SDMMC_SLOT_CONFIG_DEFAULT()` 不配置卡检测。需要卡检测时把 `slot.cd` 设为 `GPIO_NUM_PF(6)`，并注意 V1.4 及更早的 10 kΩ 下拉可能无法把电平拉到逻辑低，PF6 应配置最低驱动强度。
 
 FATFS 组件没有在本次实板会话中验证。使用 `esp_vfs_fat_sdmmc_mount()` 之前先做一次裸扇区读写，确认卡初始化和供电正常，再排查文件系统层。
 

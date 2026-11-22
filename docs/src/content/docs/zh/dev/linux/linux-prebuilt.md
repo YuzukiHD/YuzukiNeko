@@ -10,7 +10,7 @@ BROM → SyterKit → OpenSBI → Linux → BusyBox
 
 按 CPU 模式提供两个镜像：<strong>RV32</strong>（C907，`ilp32d`）和 <strong>RV64I</strong>（`lp64`）。根文件系统是 SquashFS，上面叠一层可写的 JFFS2 overlay，所以在板子上做的改动重启后仍在。镜像针对 <strong>16 MiB RAM + 16 MiB SPI NOR</strong> 的板子构建。
 
-想自己构建这些镜像，见 [Linux + Buildroot](linux-buildroot.md)（一条命令）和 [手动构建](linux-manual.md)（逐步构建）。
+想自己构建这些镜像，见 [Linux + Buildroot](linux-buildroot.md)（一条命令）和 [手动构建](linux-manual.md)（从源码构建）。
 
 ## 文件清单
 
@@ -24,7 +24,7 @@ BROM → SyterKit → OpenSBI → Linux → BusyBox
 
 每个镜像都是完整的——引导加载器、设备树、SBI 固件、内核、根文件系统——并且正好是整片 Flash 的大小。不存放载荷的空隙和 overlay 分区都擦成 `0xFF`。
 
-与 [RustSBI + Asterinas](../asterinas/rustsbi-asterinas.md) 不同：那个是 7 MiB 的部分镜像、启动到 initramfs；这里的镜像覆盖整片 16 MiB，并从 Flash 挂载可持久化的根文件系统。
+与 [RustSBI + Asterinas](../asterinas/rustsbi-asterinas.md) 不同：那个是 7 MiB 的部分镜像、启动到 initramfs。这里的镜像覆盖整片 16 MiB，并从 Flash 挂载可持久化的根文件系统。
 
 `.img` 是按固定偏移拼好的<strong>原始 SPI NOR 数据</strong>，既不是 PhoenixSuit 容器，也不是带分区表的磁盘镜像。
 
@@ -114,10 +114,10 @@ RV64I 镜像使用 `spinor-boot-rv64i_spi.bin` 和 `sun252i-f101-yuzukineko-rv64
 xfel spinor read 0xd0000 0x4c3be8 Image-readback.bin
 ```
 
-`0x4c3be8` 是本包 RV32 内核 Image 的大小（4,996,072 字节），其他版本请按实际大小调整长度；各镜像的数值见 `manifest.json`。回读的 SHA-256 与写入文件一致后，执行 `xfel reset`。
+`0x4c3be8` 是本包 RV32 内核 Image 的大小（4,996,072 字节），其他版本请按实际大小调整长度。各镜像的数值见 `manifest.json`。回读的 SHA-256 与写入文件一致后，执行 `xfel reset`。
 
 :::caution
-把<strong>另一个架构</strong>包里的引导加载器、设备树或 `fw_jump` 写进去会让板子无法启动。RV32 和 RV64I 镜像的组件不能互换使用；切换架构时要换整个镜像，而不是换部分组件。
+把<strong>另一个架构</strong>包里的引导加载器、设备树或 `fw_jump` 写进去会让板子无法启动。RV32 和 RV64I 镜像的组件不能互换使用。切换架构时要换整个镜像，而不是换部分组件。
 :::
 
 ## 启动之后

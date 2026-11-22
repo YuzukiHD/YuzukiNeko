@@ -2,7 +2,7 @@
 title: "显示与背光"
 ---
 
-F101 的显示栈把 Allwinner 的显示引擎（DE）、TCON、RGB/DSI 编码器和 combo D-PHY 包装在 ESP-IDF 的 `esp_lcd` API 后面。YuzukiNeko 使用 4 线 MIPI DSI 的 JD9168S 面板；`f101_evb` 使用并行 RGB 面板。
+F101 的显示栈把 Allwinner 的显示引擎（DE）、TCON、RGB/DSI 编码器和 combo D-PHY 包装在 ESP-IDF 的 `esp_lcd` API 后面。YuzukiNeko 使用 4 线 MIPI DSI 的 JD9168S 面板。`f101_evb` 使用并行 RGB 面板。
 
 ## 显示流水线
 
@@ -96,7 +96,7 @@ esp_lcd_panel_handle_t rgb_panel;
 esp_lcd_new_rgb_panel(&rgb_cfg, &rgb_panel);
 ```
 
-上面的时序只是示例，实际值必须来自面板数据手册；`data_width` 可以是 16、18 或 24 位，`data_gpio_nums`、`pclk_gpio_num`、`hsync_gpio_num`、`vsync_gpio_num` 和 `de_gpio_num` 也必须填成 RGB 总线可以承载的焊盘。`refresh_on_demand` 为真时只在调用 `esp_lcd_rgb_panel_refresh()` 后刷新，适合静态界面。
+上面的时序只是示例，实际值必须来自面板数据手册。`data_width` 可以是 16、18 或 24 位，`data_gpio_nums`、`pclk_gpio_num`、`hsync_gpio_num`、`vsync_gpio_num` 和 `de_gpio_num` 也必须填成 RGB 总线可以承载的焊盘。`refresh_on_demand` 为真时只在调用 `esp_lcd_rgb_panel_refresh()` 后刷新，适合静态界面。
 
 ## 背光
 
@@ -117,7 +117,7 @@ esp_lcd_panel_f101_set_backlight(panel, backlight_set, NULL);
 esp_lcd_panel_set_brightness(panel, 128);
 ```
 
-`level` 的范围是 0 到 255，10 位占空比乘以 4 得到 0 到 1020。先把 LEDC 通道配置成 1 kHz、10 位、`output_invert = 1`，再注册回调。另一条背光路径是 `f101_pwm_bl_init()`，它直接驱动 PWM_BL 模块的 PB0 到 PB3；只有底板把背光接在这些焊盘上时才使用。
+`level` 的范围是 0 到 255，10 位占空比乘以 4 得到 0 到 1020。先把 LEDC 通道配置成 1 kHz、10 位、`output_invert = 1`，再注册回调。另一条背光路径是 `f101_pwm_bl_init()`，它直接驱动 PWM_BL 模块的 PB0 到 PB3。只有底板把背光接在这些焊盘上时才使用。
 
 ## 触摸整合
 
@@ -125,6 +125,6 @@ esp_lcd_panel_set_brightness(panel, 128);
 
 ## 帧缓冲与 cache
 
-帧缓冲从 PSRAM 堆分配，DSI 面板可以用 `esp_lcd_dpi_panel_get_frame_buffer()` 取得驱动分配的地址。DE 通过 MBUS 读取帧缓冲，CPU 写完一帧后要保证数据对硬件可见；显示驱动在刷图和帧切换时调用 cache clean，应用自己分配缓冲时也要做同样的维护。
+帧缓冲从 PSRAM 堆分配，DSI 面板可以用 `esp_lcd_dpi_panel_get_frame_buffer()` 取得驱动分配的地址。DE 通过 MBUS 读取帧缓冲，CPU 写完一帧后要保证数据对硬件可见。显示驱动在刷图和帧切换时调用 cache clean，应用自己分配缓冲时也要做同样的维护。
 
 显示和触摸代码在本次会话中只做了交叉编译和链接，没有在实板上显示画面。首次上板时先确认背光、DSI 时钟和面板复位，再检查帧缓冲地址和 cache 配置。

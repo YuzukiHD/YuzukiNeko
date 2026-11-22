@@ -10,7 +10,7 @@ title: "从源码构建 RustSBI 与 Asterinas"
 BROM → SyterKit → RustSBI → Asterinas → BusyBox shell
 ```
 
-本教程使用 [RustSBI 维护的 Asterinas 仓库](https://github.com/rustsbi/asterinas)中的 Neko RV32 源码分支，直接获取内核、Buildroot 外部树和打包工具。请使用下列版本及板级配置。构建得到的是运行在 RAM 中的 initramfs 系统；文件修改不会跨重启保留。
+本教程使用 [RustSBI 维护的 Asterinas 仓库](https://github.com/rustsbi/asterinas)中的 Neko RV32 源码分支，直接获取内核、Buildroot 外部树和打包工具。请使用下列版本及板级配置。构建得到的是运行在 RAM 中的 initramfs 系统。文件修改不会跨重启保留。
 
 :::note
 SyterKit 的 PSRAM 初始化仍链接其仓库附带的预编译 `libpsram.a`，默认还使用仓库附带的 `dt2c` 主机工具。这里重建启动加载器、SBI 固件、内核和用户态，不表示这些外部依赖也全部从源码重建。
@@ -51,7 +51,7 @@ export PATH="$NEKO_WORK/tools/bin:$PATH"
 | Asterinas RV32 vDSO 汇编 | Ubuntu 的 `riscv64-linux-gnu-gcc`，脚本指定 RV32 ABI |
 | BusyBox 用户态 | Buildroot `2025.02.6`，BusyBox `1.37.0`，Bootlin `riscv32-ilp32d--musl--stable-2024.05-1` |
 
-RustSBI 使用 ILP32 软浮点 ABI，BusyBox 使用 RV32GC / ILP32D；它们分别用于固件和用户态，不能混用构建配置。Buildroot 会获取用户态所需的工具链，不需要用 Xuantie 的 Linux/glibc 工具链代替。
+RustSBI 使用 ILP32 软浮点 ABI，BusyBox 使用 RV32GC / ILP32D。它们分别用于固件和用户态，不能混用构建配置。Buildroot 会获取用户态所需的工具链，不需要用 Xuantie 的 Linux/glibc 工具链代替。
 
 ### 安装 Rust
 
@@ -101,7 +101,7 @@ sha256sum -c SHA256SUMS
 cd "$NEKO_WORK"
 ```
 
-下面使用新的源码目录。两个固件补丁在 `git apply --check` 通过后应用；Asterinas 克隆后检出本教程使用的固定提交，再继续构建。
+下面使用新的源码目录。两个固件补丁在 `git apply --check` 通过后应用。Asterinas 克隆后检出本教程使用的固定提交，再继续构建。
 
 ```sh
 git clone https://github.com/luojia65/SyterKit.git syterkit
@@ -123,7 +123,7 @@ git -C asterinas checkout --detach a38ffafb1b138bdd6b3095665acc0465e2f750da
 
 ## 3. 构建 SyterKit
 
-SyterKit 初始化 PSRAM，再按固定 NOR 布局加载后续组件。交接补丁保留 Asterinas 所需的缓存状态；不要用 Linux 教程的加载器替换它。
+SyterKit 初始化 PSRAM，再按固定 NOR 布局加载后续组件。交接补丁保留 Asterinas 所需的缓存状态。不要用 Linux 教程的加载器替换它。
 
 ```sh
 cd "$NEKO_WORK"
@@ -147,7 +147,7 @@ build/syterkit/build/yuzukineko/app_sram/spinor-boot/spinor-boot_spi.bin
 
 ## 4. 构建 RustSBI
 
-使用配套 JSON target 构建 RV32 标量固件。配置固定入口地址 `0x40f80000`、跳转地址 `0x40000000` 和 WARN 日志等级；设备树由加载器通过 `a1` 传递。
+使用配套 JSON target 构建 RV32 标量固件。配置固定入口地址 `0x40f80000`、跳转地址 `0x40000000` 和 WARN 日志等级。设备树由加载器通过 `a1` 传递。
 
 ```sh
 cd "$NEKO_WORK/rustsbi"
@@ -165,7 +165,7 @@ rustsbi/target/riscv32-neko-scalar-none-elf/release/rustsbi-prototyper-jump.bin
 rustsbi/target/riscv32-neko-scalar-none-elf/release/rustsbi-prototyper-jump.elf
 ```
 
-`.bin` 用于打包；`.elf` 用于确认入口和内存占用。运行时的 BSS、栈和堆也必须位于 `0x40f80000..0x41000000` 的保留区域内，不能只检查 `.bin` 是否小于 512 KiB。
+`.bin` 用于打包。`.elf` 用于确认入口和内存占用。运行时的 BSS、栈和堆也必须位于 `0x40f80000..0x41000000` 的保留区域内，不能只检查 `.bin` 是否小于 512 KiB。
 
 ## 5. 构建 BusyBox 与 initramfs
 
@@ -195,7 +195,7 @@ RUSTUP_TOOLCHAIN=nightly-2026-07-21 \
     target/neko-buildroot/output/images/rootfs.cpio 0x40500000
 ```
 
-脚本构建 RV32 vDSO、内核和设备树，并检查地址布局。OSDK 使用 `riscv32imac-unknown-none-elf` 目标重新构建所需 Rust 库；这里不使用 RustSBI 的自定义 JSON target。
+脚本构建 RV32 vDSO、内核和设备树，并检查地址布局。OSDK 使用 `riscv32imac-unknown-none-elf` 目标重新构建所需 Rust 库。这里不使用 RustSBI 的自定义 JSON target。
 
 产物为：
 
@@ -235,9 +235,9 @@ sha256sum images/asterinas-buildroot-nor.bin
 | Asterinas | `0x0d0000` | 5 MiB | `0x40000000` |
 | initramfs | `0x5d0000` | 1 MiB | `0x40500000` |
 
-输出包括 `images/asterinas-buildroot-nor.bin`、打包后的 `Image`、更新后的 `yuzuki-neko.dtb` 和 `manifest.json`。组合镜像应为 **7,143,424 字节（`0x6d0000`）**，空隙填充 `0xFF`；默认内核日志等级为 `loglevel=3`。
+输出包括 `images/asterinas-buildroot-nor.bin`、打包后的 `Image`、更新后的 `yuzuki-neko.dtb` 和 `manifest.json`。组合镜像应为 **7,143,424 字节（`0x6d0000`）**，空隙填充 `0xFF`。默认内核日志等级为 `loglevel=3`。
 
-SyterKit 固定将 NOR `0x0d0000` 起的 6 MiB 加载到 RAM `0x40000000`，其中前 5 MiB 留给内核，最后 1 MiB 携带 initramfs。不能只移动其中一个载荷的偏移或地址。打包脚本会检查槽位、RAM 布局及 SPL 启动头；保留同目录的 `check_image.py`，不要只复制单个打包脚本，也不要用普通 `objcopy` 替代它的 ELF 处理。
+SyterKit 固定将 NOR `0x0d0000` 起的 6 MiB 加载到 RAM `0x40000000`，其中前 5 MiB 留给内核，最后 1 MiB 携带 initramfs。不能只移动其中一个载荷的偏移或地址。打包脚本会检查槽位、RAM 布局及 SPL 启动头。保留同目录的 `check_image.py`，不要只复制单个打包脚本，也不要用普通 `objcopy` 替代它的 ELF 处理。
 
 重新编译的哈希可能与预编译包不同。保存本次构建的 `manifest.json` 和 SHA-256，烧录后以本次产物作为回读校验的基准。
 
@@ -253,7 +253,7 @@ xfel spinor read 0x0 0x6d0000 readback.img
 sha256sum images/asterinas-buildroot-nor.bin readback.img
 ```
 
-本镜像写入 `0x000000..0x6d0000`，不是整片 16 MiB 备份；其余范围不在本次写入内。不需要执行 `xfel ddr`。两个哈希一致后，松开 FEL 键并复位：
+本镜像写入 `0x000000..0x6d0000`，不是整片 16 MiB 备份。其余范围不在本次写入内。不需要执行 `xfel ddr`。两个哈希一致后，松开 FEL 键并复位：
 
 ```sh
 xfel reset
@@ -307,6 +307,6 @@ make -C target/neko-buildroot/buildroot-2025.02.6 \
 
 ## 版本与验证范围
 
-Neko RV32 源码分支及配套固件配置对应 2026-09-12 的固件构建资料。该预编译包已有 Flash 回读、BusyBox 启动和九个实板示例的验证记录；自行重建或修改后的产物需要按第 8 步重新验证，不能直接沿用原镜像的校验值和通过结论。
+Neko RV32 源码分支及配套固件配置对应 2026-09-12 的固件构建资料。该预编译包已有 Flash 回读、BusyBox 启动和九个实板示例的验证记录。自行重建或修改后的产物需要按第 8 步重新验证，不能直接沿用原镜像的校验值和通过结论。
 
-基础源码与补丁分别遵循相应项目的许可证；来源、文件校验值和许可说明见配套 `sources/README.md`。硬件仓库的 CC0 声明不替代这些软件许可证。
+基础源码与补丁分别遵循相应项目的许可证。来源、文件校验值和许可说明见配套 `sources/README.md`。硬件仓库的 CC0 声明不替代这些软件许可证。

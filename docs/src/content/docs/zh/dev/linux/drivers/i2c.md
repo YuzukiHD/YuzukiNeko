@@ -20,9 +20,9 @@ F101 上有三个 I²C 控制器，Allwinner 文档里叫 TWI。它们就是大�
 
 ## 总线的工作原理
 
-SDA 和 SCL 都得上拉。`i2c2_pb2_pins` 组没有设置任何偏置，上拉是底板的事；没有上拉，线永远升不起来，每次传输都会超时失败。控制器输出是开漏的，自己并不提供上拉。
+SDA 和 SCL 都得上拉。`i2c2_pb2_pins` 组没有设置任何偏置，上拉是底板的事。没有上拉，线永远升不起来，每次传输都会超时失败。控制器输出是开漏的，自己并不提供上拉。
 
-控制器在这里被当作只做主机的状态机使用。传输从把目标地址写进数据寄存器、在控制寄存器里置 START 开始；此后每一步——地址被应答、字节写完、字节读完——都会以中断形式报出，并附带一个说明线路上到底发生了什么的状态码。软件读状态、决定下一步动作、写下一个字节、清中断标志。没有 FIFO，也没有描述符引擎，所以一次传输就是一串中断，每个字节一到两次。
+控制器在这里被当作只做主机的状态机使用。传输从把目标地址写进数据寄存器、在控制寄存器里置 START 开始。此后每一步——地址被应答、字节写完、字节读完——都会以中断形式报出，并附带一个说明线路上到底发生了什么的状态码。软件读状态、决定下一步动作、写下一个字节、清中断标志。没有 FIFO，也没有描述符引擎，所以一次传输就是一串中断，每个字节一到两次。
 
 寄存器文件来自驱动里的 `mv64xxx_i2c_regs_sun4i`：
 
@@ -53,11 +53,11 @@ SDA 和 SCL 都得上拉。`i2c2_pb2_pins` 组没有设置任何偏置，上拉�
 | `0xe0` / `0xe8` | 第二地址字节读，ACK / NACK |
 | `0xf8` | 没有相关状态 |
 
-地址上的 NACK（`0x20` 或 `0x48`）正是扫描时发现某地址上没人的正常方式。写数据字节时的 NACK 表示目标拒绝了这一字节；驱动把这种情况变成 `write()` 或 ioctl 上的 I/O 错误。
+地址上的 NACK（`0x20` 或 `0x48`）正是扫描时发现某地址上没人的正常方式。写数据字节时的 NACK 表示目标拒绝了这一字节。驱动把这种情况变成 `write()` 或 ioctl 上的 I/O 错误。
 
 ### 总线时序
 
-时钟寄存器里放的不是速率，而是两个因子 `M` 和 `N`，这个变体的硬件把输入时钟除以 `10 × (M + 1) × 2^N`。驱动的 `mv64xxx_calc_freq()` 实现的就是这个公式，`mv64xxx_find_baud_factors()` 在 `N` 从 0 到 7、`M` 从 0 到 15 里找不超过目标频率的最大值；`clk_n_base_0` 标志对 Allwinner 的 compatible 置位，让幂次是 `2^N` 而不是 `2^(N+1)`。
+时钟寄存器里放的不是速率，而是两个因子 `M` 和 `N`，这个变体的硬件把输入时钟除以 `10 × (M + 1) × 2^N`。驱动的 `mv64xxx_calc_freq()` 实现的就是这个公式，`mv64xxx_find_baud_factors()` 在 `N` 从 0 到 7、`M` 从 0 到 15 里找不超过目标频率的最大值。`clk_n_base_0` 标志对 Allwinner 的 compatible 置位，让幂次是 `2^N` 而不是 `2^(N+1)`。
 
 输入是经过按总线门控的 `apb1` 时钟。`apb1`（寄存器 `0x0524`）是一个分频加一个 mux，复位时父时钟是 `dcxo24M`，bootloader 把它留在复位设置上，所以控制器看到的是 24 MHz。以这个输入：
 
@@ -66,9 +66,9 @@ SDA 和 SCL 都得上拉。`i2c2_pb2_pins` 组没有设置任何偏置，上拉�
 | 100 kHz | 1 | 11 | 24 MHz / (10 × 12 × 2) = 100 kHz |
 | 400 kHz | 0 | 5 | 24 MHz / (10 × 6 × 1) = 400 kHz |
 
-100 kHz 存在精确解，所以 `clock-frequency = <100000>` 就是准确的 100 kHz，`<400000>` 就是 400 kHz。因子凑不出来的值只会得到不超过目标的最近频率，绝不会偏高。搜索完成后这些位才写进 CLOCK；运行时不再调整，除了硬件自己做的时钟拉伸之外也没有额外支持。
+100 kHz 存在精确解，所以 `clock-frequency = <100000>` 就是准确的 100 kHz，`<400000>` 就是 400 kHz。因子凑不出来的值只会得到不超过目标的最近频率，绝不会偏高。搜索完成后这些位才写进 CLOCK。运行时不再调整，除了硬件自己做的时钟拉伸之外也没有额外支持。
 
-适配器超时固定为一秒：`mv64xxx_of_config()` 设置 `drv_data->adapter.timeout = HZ`，注释里写明设备树没有对应属性。目标一直拉住 SDA 的传输因此大约一秒后失败，而不是把调用者永远挂住。驱动还有一条"原子"传输路径，供 I²C 核心在不能睡眠的上下文里发起传输时使用；它不用等待而是轮询，并在读 STATUS 之前加 100 ns 延时，因为控制器有时要等 IFLG 置位后才更新状态寄存器。
+适配器超时固定为一秒：`mv64xxx_of_config()` 设置 `drv_data->adapter.timeout = HZ`，注释里写明设备树没有对应属性。目标一直拉住 SDA 的传输因此大约一秒后失败，而不是把调用者永远挂住。驱动还有一条"原子"传输路径，供 I²C 核心在不能睡眠的上下文里发起传输时使用。它不用等待而是轮询，并在读 STATUS 之前加 100 ns 延时，因为控制器有时要等 IFLG 置位后才更新状态寄存器。
 
 这个控制器不支持 Marvell 的卸载引擎。`offload_enabled` 只对 `marvell,mv78230-i2c` 置位，所以在 F101 上每条消息都走中断状态机。总线恢复在名义上是接好的（`mv64xxx_i2c_init_recovery_info()` 在设备有 pinctrl 时给适配器挂上 `bus_recovery_info`），但板子没有声明基于 GPIO 的恢复状态，通用的恢复流程没法用 GPIO 模拟 SCL。目标拉住 SDA 导致总线卡死时只能断电重来，ioctl 救不回来。
 
@@ -118,7 +118,7 @@ i2c2_pb2_pins: i2c2-pb2-pins {
 };
 ```
 
-`PB2` 和 `PB3` 是板级文件唯一配置的 I²C 引脚。`i2c0` 和 `i2c1` 在 SoC 设备树里没有任何引脚组，要使能其中一个得先补一组；承载它们的引脚在树里也没有列出。
+`PB2` 和 `PB3` 是板级文件唯一配置的 I²C 引脚。`i2c0` 和 `i2c1` 在 SoC 设备树里没有任何引脚组，要使能其中一个得先补一组。承载它们的引脚在树里也没有列出。
 
 目标是从节点，`reg` 就是七位地址。板级设备树里目前没有这样的子节点，但形式是这样的：
 
@@ -141,7 +141,7 @@ CONFIG_I2C_MV64XXX=y
 CONFIG_I2C_CHARDEV=y
 ```
 
-`CONFIG_I2C` 是核心，`i2c-dev` 接口由 `CONFIG_I2C_CHARDEV` 加上。`CONFIG_I2C_MV64XXX` 是总线驱动；它的 Kconfig 项依赖 `PLAT_ORION || ARCH_SUNXI || ARCH_MVEBU || COMPILE_TEST`，这里是靠 `ARCH_SUNXI` 满足的。板级 defconfig `arch/riscv/configs/sun252i_f101_yuzukineko_defconfig` 三项都设了，而 `CONFIG_I2C_SLAVE` *没有*设，所以这个构建里控制器只做主机。
+`CONFIG_I2C` 是核心，`i2c-dev` 接口由 `CONFIG_I2C_CHARDEV` 加上。`CONFIG_I2C_MV64XXX` 是总线驱动。它的 Kconfig 项依赖 `PLAT_ORION || ARCH_SUNXI || ARCH_MVEBU || COMPILE_TEST`，这里是靠 `ARCH_SUNXI` 满足的。板级 defconfig `arch/riscv/configs/sun252i_f101_yuzukineko_defconfig` 三项都设了，而 `CONFIG_I2C_SLAVE` *没有*设，所以这个构建里控制器只做主机。
 
 工具来自 BusyBox，不是 i2c-tools 软件包。出厂 `.config` 里 `CONFIG_I2CGET`、`CONFIG_I2CSET`、`CONFIG_I2CDUMP`、`CONFIG_I2CDETECT` 和 `CONFIG_I2CTRANSFER` 全部使能，applet 装到 `/usr/sbin`。
 
@@ -164,23 +164,23 @@ CONFIG_I2C_CHARDEV=y
 
 `mv64xxx_i2c_xfer()` 把 `atomic` 置 0 并调用 `mv64xxx_i2c_xfer_core()`，后者用 `mv64xxx_i2c_prepare_for_io()` 准备第一条消息，启动传输，然后在 `drv_data->waitq` 上等待。中断处理 `mv64xxx_i2c_intr()` 对状态码运行 `mv64xxx_i2c_fsm()`，再运行 `mv64xxx_i2c_do_action()`，由它写下一个字节、发 STOP 或开始下一条消息。最后一条消息完成，或者 NACK、仲裁丢失让传输中止时，处理函数把 `drv_data->block = 0` 并唤醒等待者，后者返回传输的消息数或负的 errno。
 
-状态有 `WAITING_FOR_START_COND`、`WAITING_FOR_RESTART`、`WAITING_FOR_ADDR_1_ACK`、`WAITING_FOR_ADDR_2_ACK`、`WAITING_FOR_TARGET_ACK`、`WAITING_FOR_TARGET_DATA`；动作有 `SEND_RESTART`、`SEND_ADDR_1`、`SEND_ADDR_2`、`SEND_DATA`、`RCV_DATA`、`RCV_DATA_STOP`、`SEND_STOP`。读驱动里的这两个枚举，是弄清某次传输为什么停下最快的办法。
+状态有 `WAITING_FOR_START_COND`、`WAITING_FOR_RESTART`、`WAITING_FOR_ADDR_1_ACK`、`WAITING_FOR_ADDR_2_ACK`、`WAITING_FOR_TARGET_ACK`、`WAITING_FOR_TARGET_DATA`。动作有 `SEND_RESTART`、`SEND_ADDR_1`、`SEND_ADDR_2`、`SEND_DATA`、`RCV_DATA`、`RCV_DATA_STOP`、`SEND_STOP`。读驱动里的这两个枚举，是弄清某次传输为什么停下最快的办法。
 
 I²C 核心用适配器锁串行化同一条总线上的每次传输，所以驱动里的单个 `waitq`、`block` 标志和 `msgs` 指针同一时刻只会被一个调用者使用。第二个打开同一个 `/dev/i2c-N` 的进程在核心里等，不在驱动里等。一次传输期间整条总线都归它所有：两个进程的字节不会在同一条适配器上交错，但也没有东西阻止某个调用者用一次很长的组合传输占着总线，让其他人等着。
 
 ### 中断与标志位的特殊之处
 
-只要控制寄存器显示 IFLG 置位，处理函数就继续循环。在 Allwinner 变体上，它清除标志的方式是把缓存的控制值连同 IFLG 一起写回，这就是 `irq_clear_inverted` 的含义；普通 mv64xxx 是反过来清的。它直到整个循环结束才放自旋锁，所以一连串状态机步骤在一次进入里处理完，不会重入。
+只要控制寄存器显示 IFLG 置位，处理函数就继续循环。在 Allwinner 变体上，它清除标志的方式是把缓存的控制值连同 IFLG 一起写回，这就是 `irq_clear_inverted` 的含义。普通 mv64xxx 是反过来清的。它直到整个循环结束才放自旋锁，所以一连串状态机步骤在一次进入里处理完，不会重入。
 
 如果控制器报了中断但状态寄存器还没跟上，原子路径会加上前面提到的 100 ns 延时。中断模式下不需要这样做，代码注释也说那里没观察到这个问题。
 
 ### 错误路径
 
-缺时钟会让探测失败，并打印 `mv64xxx_of_config()` 的消息（"CLK is mandatory when using DT to describe the i2c bus"）。请求的频率没有任何 `M`/`N` 组合能产生时返回 `-EINVAL`；实际上从 24 MHz 出发，所有标准速率都能凑出来。地址上的 NACK 表现为 `-ENXIO`，也就是核心"没有这个目标"的错误；仲裁丢失会以状态机的错误结束传输；总线卡死则在一秒适配器超时后以 `-ETIMEDOUT` 失败。`i2cget` 打印错误并以非零状态退出。
+缺时钟会让探测失败，并打印 `mv64xxx_of_config()` 的消息（"CLK is mandatory when using DT to describe the i2c bus"）。请求的频率没有任何 `M`/`N` 组合能产生时返回 `-EINVAL`。实际上从 24 MHz 出发，所有标准速率都能凑出来。地址上的 NACK 表现为 `-ENXIO`，也就是核心"没有这个目标"的错误。仲裁丢失会以状态机的错误结束传输。总线卡死则在一秒适配器超时后以 `-ETIMEDOUT` 失败。`i2cget` 打印错误并以非零状态退出。
 
 ### 运行时电源管理
 
-驱动带自动挂起使能运行时 PM；`mv64xxx_i2c_runtime_suspend()` 断言复位并关掉两个时钟，resume 反过来做。寄存器状态没有单独保存——设备挂起时状态机一定是空闲的，下一次传输会重新初始化控制器。
+驱动带自动挂起使能运行时 PM。`mv64xxx_i2c_runtime_suspend()` 断言复位并关掉两个时钟，resume 反过来做。寄存器状态没有单独保存——设备挂起时状态机一定是空闲的，下一次传输会重新初始化控制器。
 
 ## 用户态接口
 
@@ -237,7 +237,7 @@ i2c-0	i2c       	mv64xxx_i2c adapter             	I2C adapter
 70: -- -- -- -- -- -- -- -- --
 ```
 
-第一行来自 `i2cdetect -l`，它列出 `/sys/class/i2c-dev/*` 并打印适配器名和算法。表是扫描结果：0x00-0x02 和 0x78-0x7f 在默认范围之外，打印为空白；`--` 表示没有 ACK；有应答的地址会打印自己的编号。默认的 `auto` 模式对大多数地址用 SMBus quick 写，对 0x30-0x37 和 0x50-0x5f 用读字节探测；`-q` 强制 quick 写，`-r` 强制读字节探测，`-a` 把范围扩大到 0x00-0x7f。BusyBox 的源码提醒 quick 写已知会损坏 Atmel AT24RF08 EEPROM，读字节探测则可能锁住某些 SMBus 时钟芯片；面对未知总线时，把扫描范围缩到能容纳该设备的最小范围，例如 `i2cdetect -y 0 0x48 0x4f`。
+第一行来自 `i2cdetect -l`，它列出 `/sys/class/i2c-dev/*` 并打印适配器名和算法。表是扫描结果：0x00-0x02 和 0x78-0x7f 在默认范围之外，打印为空白。`--` 表示没有 ACK。有应答的地址会打印自己的编号。默认的 `auto` 模式对大多数地址用 SMBus quick 写，对 0x30-0x37 和 0x50-0x5f 用读字节探测。`-q` 强制 quick 写，`-r` 强制读字节探测，`-a` 把范围扩大到 0x00-0x7f。BusyBox 的源码提醒 quick 写已知会损坏 Atmel AT24RF08 EEPROM，读字节探测则可能锁住某些 SMBus 时钟芯片。面对未知总线时，把扫描范围缩到能容纳该设备的最小范围，例如 `i2cdetect -y 0 0x48 0x4f`。
 
 ### 示例 2：适配器能做什么
 
@@ -266,7 +266,7 @@ I2C block write                  yes
 I2C block read                   yes
 ```
 
-这来自 `mv64xxx_i2c_functionality()`，它返回 `I2C_FUNC_I2C | I2C_FUNC_10BIT_ADDR | I2C_FUNC_SMBUS_EMUL`。`SMBUS_EMUL` 包含块写和 I²C 块位，但不包含读块和块过程调用，所以那两行是 no。PEC 被声明为支持，尽管控制器不在硬件里计算它；由核心模拟。
+这来自 `mv64xxx_i2c_functionality()`，它返回 `I2C_FUNC_I2C | I2C_FUNC_10BIT_ADDR | I2C_FUNC_SMBUS_EMUL`。`SMBUS_EMUL` 包含块写和 I²C 块位，但不包含读块和块过程调用，所以那两行是 no。PEC 被声明为支持，尽管控制器不在硬件里计算它。由核心模拟。
 
 ### 示例 3：读写寄存器
 
@@ -279,7 +279,7 @@ i2cset -y 0 0x50 0x00 0x5a
 i2cdump -y 0 0x50
 ```
 
-`i2ctransfer` 把读到的字节按 `0xNN` 用空格分开打印；`i2cget` 用同样的形式打印单个值。`i2cset` 写入，带 `-r` 时还会读回比较。`i2cdump` 打印目标寄存器的 16 乘 16 表格。具体输出完全取决于设备；适配器提供的是传输形式，不是数据。目标不应答时，这些命令都会以 `read failed: Remote I/O error` 或 `write failed: Remote I/O error` 和一的状态退出，而不是打印一个值。
+`i2ctransfer` 把读到的字节按 `0xNN` 用空格分开打印。`i2cget` 用同样的形式打印单个值。`i2cset` 写入，带 `-r` 时还会读回比较。`i2cdump` 打印目标寄存器的 16 乘 16 表格。具体输出完全取决于设备。适配器提供的是传输形式，不是数据。目标不应答时，这些命令都会以 `read failed: Remote I/O error` 或 `write failed: Remote I/O error` 和一的状态退出，而不是打印一个值。
 
 ### 示例 4：一个最小的 i2c-dev 程序
 

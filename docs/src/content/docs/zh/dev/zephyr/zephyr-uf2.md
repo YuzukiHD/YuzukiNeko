@@ -6,13 +6,9 @@ title: "UF2 拖放烧录"
 本页保留普通 RAM 镜像的独立启动／UF2 流程，4.5 的下载器也已通过编译。它会在 NOR 安装 boot，改变上电自动进入 FEL 的行为，与 `0x80000` 的 XIP 开发布局不兼容。NekoBox、Bilibili 或 Miracast 的 XIP 镜像不能直接打包成这里的 `app.uf2`。开发流程见[编译与运行](zephyr-build-run.md)。
 :::
 
-
-:::note[版本范围]
-Zephyr 4.2.2 与 4.5.0 并存。本页原有示例、录像及板上结果使用 4.2.2 基线，4.5 的变化另行说明。请按[版本与迁移指南](zephyr-4-5.md)选择配套的内核、组件分支及独立环境和构建目录。4.5 编译或主机测试通过，不会改变已有板上结果的版本归属。
-:::
-
-
 UF2 下载器是跑在板子上的一个小程序：板子显示为 USB 盘 `F101BOOT`，把 `.uf2` 文件拷进去就会写进 SPI NOR，写完自动重启。装好之后下载应用不再需要 xfel 和 FEL。下载器本身的安装、`.uf2` 的日常使用流程见 [编译与运行](zephyr-build-run.md#方式三uf2-拖放下载)，这一页是参考资料。
+
+4.5 的下载器状态见[版本与迁移指南](zephyr-4-5.md)。
 
 ## 进入下载器
 
@@ -40,7 +36,7 @@ mkuf2.py loader flash-boot_spi.bin -o loader.uf2            # 加载器，Flash 
 | `app` | `0x31303146` | `0x200000` | 仅应用区 |
 | `system`、`loader` | `0x31303147` | `0x030000` / `0x000000` | 任意位置 |
 
-常用参数：`--load <地址>` 指定镜像载入的 PSRAM 地址（默认 `0x40000000`，与 Zephyr 链接地址一致）；`--raw` 输出带头页的 Flash 原始镜像而不是 `.uf2`，供 `xfel spinor write` 使用。
+常用参数：`--load <地址>` 指定镜像载入的 PSRAM 地址（默认 `0x40000000`，与 Zephyr 链接地址一致）。`--raw` 输出带头页的 Flash 原始镜像而不是 `.uf2`，供 `xfel spinor write` 使用。
 
 :::caution
 `system` 和 `loader` 文件可以写入任何位置，写坏了板子就没有加载器，那时只有 <strong>FEL</strong> 能救。只拖放你信任的文件，写入期间不要断电。

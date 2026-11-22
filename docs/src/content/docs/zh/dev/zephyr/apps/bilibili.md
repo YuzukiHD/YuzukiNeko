@@ -2,11 +2,6 @@
 title: "Bilibili - 视频客户端"
 ---
 
-:::note[版本范围]
-Zephyr 4.2.2 与 4.5.0 并存。本页原有示例、录像及板上结果使用 4.2.2 基线，4.5 的变化另行说明。请按[版本与迁移指南](../zephyr-4-5.md)选择配套的内核、组件分支及独立环境和构建目录。4.5 编译或主机测试通过，不会改变已有板上结果的版本归属。
-:::
-
-
 Bilibili 是 YuzukiNeko 上的 B 站客户端：触摸界面（LVGL，1024×768），有封面卡片、带拼音输入法的搜索、边下载边播放的播放器、滚动弹幕、扫码登录和 Wi-Fi 设置。它是一个应用而不是模块，和 [NekoBox](nekobox.md) 一样<strong>直接在 SPI NOR flash 中原地运行</strong>（XIP），并且用 NekoBox 的播放器文件编译。代码在 `zephyr-components/bilibili-tv`。
 
 本页按模块讲它是怎么做的，每个模块都附上代码：线程和命令队列、HTTP 与 TLS 客户端、带签名的网页接口、视频流怎样找到并下载、播放器、弹幕，以及界面的每个部分。
@@ -24,10 +19,11 @@ Bilibili 是 YuzukiNeko 上的 B 站客户端：触摸界面（LVGL，1024×768�
 
 开始之前，请先完成[配置开发环境](../zephyr-setup-env.md)和[获取 Zephyr 源码](../zephyr-get-source.md)。
 
-
 ## 4.5 兼容变化
 
-4.5 分支更新 TLS/PSA 配置、LVGL 9.6 的文字测量与图像缓存，以及 RVV alpha 边界混合。请配套 Zephyr 分支并使用新输出目录。应用已编译通过；下文详细 UI／内部代码和板上现象保留 4.2.2 基线。4.5 的网络登录、CDN 播放、音频、触摸与持续内存占用仍需上板验证。
+4.5 分支更新 TLS/PSA 配置、LVGL 9.6 的文字测量与图像缓存，以及 RVV alpha 边界混合。请配套 Zephyr 分支并使用新输出目录。应用已编译通过。下文详细 UI／内部代码和板上现象保留 4.2.2 基线。4.5 的网络登录、CDN 播放、音频、触摸与持续内存占用仍需上板验证。
+
+4.5 的兼容变化见[版本与迁移指南](../zephyr-4-5.md)。
 
 ## 构建与运行
 
@@ -42,7 +38,7 @@ flowchart LR
 west build -b yuzukineko -d build/bili zephyr-components/bilibili-tv
 ```
 
-镜像从 flash 窗口运行，所以开发流程与 NekoBox 相同：把 `zephyr.bin` 写到 flash `0x80000`，再从 RAM 运行 XIP 加载器（见[构建与运行](../zephyr-build-run.md)）。这会替换该位置上的 NekoBox；开发时不需要写入启动桩。
+镜像从 flash 窗口运行，所以开发流程与 NekoBox 相同：把 `zephyr.bin` 写到 flash `0x80000`，再从 RAM 运行 XIP 加载器（见[构建与运行](../zephyr-build-run.md)）。这会替换该位置上的 NekoBox。开发时不需要写入启动桩。
 
 ```mermaid
 flowchart LR
@@ -60,8 +56,7 @@ xfel spinor read 0x80000 "$(wc -c < build/bili/zephyr/zephyr.bin)" out/bili-read
 sha256sum build/bili/zephyr/zephyr.bin out/bili-readback.bin
 ```
 
-确认 F101 芯片 ID、写入输出及相同长度读回的散列后，按[编译与运行](../zephyr-build-run.md)下载当前源码构建的 `xip-boot_fel.bin` 到 RAM `0x20000`，检查写入结果，再单独执行。保留 NOR `0x20000` 参数及空启动区；4.5 替换为其独立构建目录。
-
+确认 F101 芯片 ID、写入输出及相同长度读回的散列后，按[编译与运行](../zephyr-build-run.md)下载当前源码构建的 `xip-boot_fel.bin` 到 RAM `0x20000`，检查写入结果，再单独执行。保留 NOR `0x20000` 参数及空启动区。4.5 替换为其独立构建目录。
 
 TF 卡上需要：
 
@@ -512,7 +507,7 @@ for (;;) {
 }
 ```
 
-回包的 `Set-Cookie` 字段被收集到 `res->set_cookie`；登录需要它们。
+回包的 `Set-Cookie` 字段被收集到 `res->set_cookie`。登录需要它们。
 
 ## 带签名的网页接口
 
@@ -520,7 +515,7 @@ for (;;) {
 
 ### 签名密钥
 
-大多数列表和播放接口都要求签名（WBI）。密钥并不保密：`/x/web-interface/nav` 的回包里有两个图片地址（`wbi_img.img_url` 和 `sub_url`），即使没有人登录也有（回包的 code 是 `-101`，但数据仍在）。把两个文件名里扩展名前的 32 个字符拼成 64 个字符，用一张固定的 64 项表重新排列；结果的前 32 个字符就是密钥：
+大多数列表和播放接口都要求签名（WBI）。密钥并不保密：`/x/web-interface/nav` 的回包里有两个图片地址（`wbi_img.img_url` 和 `sub_url`），即使没有人登录也有（回包的 code 是 `-101`，但数据仍在）。把两个文件名里扩展名前的 32 个字符拼成 64 个字符，用一张固定的 64 项表重新排列。结果的前 32 个字符就是密钥：
 
 ```mermaid
 flowchart LR
@@ -805,7 +800,7 @@ int bili_api_feed(int page, struct bili_video *out, int max)
 
 ### 不建树地读 JSON
 
-回包有 10 到 500 KiB 的 JSON，堆又很小，所以 `src/net/json.c` 不建树。一个值就是指向它在回包中第一个字符的指针；只有被要求取字符串时才复制：
+回包有 10 到 500 KiB 的 JSON，堆又很小，所以 `src/net/json.c` 不建树。一个值就是指向它在回包中第一个字符的指针。只有被要求取字符串时才复制：
 
 ```mermaid
 flowchart LR
@@ -826,7 +821,7 @@ int js_str(const char *v, char *out, size_t size);	/* decodes escapes and \uXXXX
 long long js_int(const char *v, long long def);
 ```
 
-`js_get()` 逐个走过一个对象的键，用 `js_skip()` 跳过不想要的值；`js_path()` 对每一段带点的路径调用它一次。`bili_parse.c` 里的解析函数是对数组的循环，只复制卡片要显示的内容：
+`js_get()` 逐个走过一个对象的键，用 `js_skip()` 跳过不想要的值。`js_path()` 对每一段带点的路径调用它一次。`bili_parse.c` 里的解析函数是对数组的循环，只复制卡片要显示的内容：
 
 ```mermaid
 flowchart TD
@@ -868,7 +863,7 @@ int bili_parse_playurl(const char *json, struct bili_stream *out)
 }
 ```
 
-文本必须是合法的 JSON；每个函数遇到被截断的回包都返回 NULL，而不会越过结尾。解析函数有用录下的回包做的主机测试（见下面的测试辅助）。
+文本必须是合法的 JSON。每个函数遇到被截断的回包都返回 NULL，而不会越过结尾。解析函数有用录下的回包做的主机测试（见下面的测试辅助）。
 
 ## 找到视频流
 
@@ -1032,7 +1027,7 @@ static int flush(struct dl *d)
 }
 ```
 
-正文回调把数据复制进暂存区，满了就写；它每 250 ms 报告一次进度，用户退出时返回 `-ECANCELED`。重试循环会从已有的字节处继续一次中断的传输：
+正文回调把数据复制进暂存区，满了就写。它每 250 ms 报告一次进度，用户退出时返回 `-ECANCELED`。重试循环会从已有的字节处继续一次中断的传输：
 
 ```mermaid
 flowchart TD
@@ -1215,11 +1210,11 @@ static void prebuffer(const struct bili_stream *s, const struct player_info *inf
 }
 ```
 
-`want` 是 `BILI_PREBUFFER_SEC` 秒（6）的平均码率，至少 256 KiB；下载结束、失败、被取消，或超过 `BILI_PREBUFFER_TIMEOUT_SEC`（20 秒）时，等待立即结束。显示的百分比是这批存量的，不是整个文件的：文件有几兆字节，它的百分比整个等待期间都停在 1 或 2。之后在 `play_loop()` 里，画面停住超过 1.5 秒时会再次出现 `缓冲中...`，表示下载落后了。
+`want` 是 `BILI_PREBUFFER_SEC` 秒（6）的平均码率，至少 256 KiB。下载结束、失败、被取消，或超过 `BILI_PREBUFFER_TIMEOUT_SEC`（20 秒）时，等待立即结束。显示的百分比是这批存量的，不是整个文件的：文件有几兆字节，它的百分比整个等待期间都停在 1 或 2。之后在 `play_loop()` 里，画面停住超过 1.5 秒时会再次出现 `缓冲中...`，表示下载落后了。
 
 ### 播放器线程
 
-播放器由三个线程运行。它们通过一个带序号的请求通信；新请求（跳转、暂停）会让正在运行的会话结束，下一个会话从请求的位置开始：
+播放器由三个线程运行。它们通过一个带序号的请求通信。新请求（跳转、暂停）会让正在运行的会话结束，下一个会话从请求的位置开始：
 
 ```mermaid
 sequenceDiagram
@@ -1247,7 +1242,7 @@ bool pl_req_changed(uint32_t seq)
 }
 ```
 
-暂停不是“停掉时钟”：它是对当前位置的一个不播放的会话的请求。这个会话从位置之前的关键帧开始解码，显示位置处的画面并保持住（`held = true`）；恢复是对同一位置的一个播放会话的请求。这也是为什么跳转和暂停的开销差不多，以及为什么视频最好每一两秒有一个关键帧。
+暂停不是“停掉时钟”：它是对当前位置的一个不播放的会话的请求。这个会话从位置之前的关键帧开始解码，显示位置处的画面并保持住（`held = true`）。恢复是对同一位置的一个播放会话的请求。这也是为什么跳转和暂停的开销差不多，以及为什么视频最好每一两秒有一个关键帧。
 
 **时钟。** 音频位置就是播放器的时钟：codec 已经播放的块数乘以每块的时长，再加上自上一块以来的时间：
 
@@ -1388,7 +1383,7 @@ static void disp_main(void *a, void *b, void *c)
 }
 ```
 
-画面以 NV12 和 BT.709 矩阵送到视频层（`display_sunxi_show_yuv()`）；视频引擎和显示引擎读的是同一块内存，CPU 从不碰像素。
+画面以 NV12 和 BT.709 矩阵送到视频层（`display_sunxi_show_yuv()`）。视频引擎和显示引擎读的是同一块内存，CPU 从不碰像素。
 
 ## 弹幕
 
@@ -1500,7 +1495,7 @@ uint32_t dm_find(const struct dm_set *set, uint32_t t_ms)
 
 视频上叠着滚动弹幕。标题在最上面，画面在视频平面上，弹幕是在它上方移动的 LVGL 标签，分成几行，白字加深色底，在任何画面上都看得清。
 
-`ui_danmaku_run()` 每一轮由界面调用一次。它在视频上方持有 `BILI_DM_ACTIVE`（20）个 LVGL 标签的池。一条弹幕占用一个空闲标签；滚动弹幕还需要一条不会追上前一条的行：
+`ui_danmaku_run()` 每一轮由界面调用一次。它在视频上方持有 `BILI_DM_ACTIVE`（20）个 LVGL 标签的池。一条弹幕占用一个空闲标签。滚动弹幕还需要一条不会追上前一条的行：
 
 ```mermaid
 flowchart TD
@@ -1585,7 +1580,7 @@ p = now + clk_off;
 /* never far ahead of the video (a stall), and never backwards */
 ```
 
-当一轮耗时超过 60 ms 时，`density_div` 变成 2，隔一条丢一条，直到每一轮重新变快。
+一轮耗时超过 60 ms，`density_div` 变成 2，隔一条丢一条，直到每一轮重新变快。
 
 ### 当作一张图来移动
 
@@ -1665,7 +1660,7 @@ int shift_cols(int x, int y, int w, int h, int dx, bool sync)
 }
 ```
 
-在同一个缓冲内向左拷贝，源和目的是重叠的；第一次使用时，`cols_check()` 画一个测试图案、移动并比较，所以 G2D 如果做不对，就会关掉这个功能，而不是画出乱码。
+在同一个缓冲内向左拷贝，源和目的是重叠的。第一次使用时，`cols_check()` 画一个测试图案、移动并比较，所以 G2D 如果做不对，就会关掉这个功能，而不是画出乱码。
 
 标签本身在下一轮还是要到达新的 x，但移动标签是一次样式修改，LVGL 在布局更新时才应用它，那会再次让旧位置和新位置失效。所以这个移动在关闭失效标记的窗口里做：
 
@@ -1768,7 +1763,7 @@ void ui_fonts_init(void)
 
 ![板子屏幕上的 Bilibili 首页：热门页的封面卡片](figures/bilibili-home.webp)
 
-照片里是热门页。顶栏有标志、搜索框（“搜索视频...”）和刷新按钮；下面左边是推荐、热门、关注三个标签，右边是我的和设置，当前的有下划线。视频是四列封面卡片：封面角上有时长，下面是两行标题，最下面是 UP 主和播放量。
+照片里是热门页。顶栏有标志、搜索框（“搜索视频...”）和刷新按钮。下面左边是推荐、热门、关注三个标签，右边是我的和设置，当前的有下划线。视频是四列封面卡片：封面角上有时长，下面是两行标题，最下面是 UP 主和播放量。
 
 ```text
 +--------------------------------------------------------------+
@@ -1864,7 +1859,7 @@ for (int y = 0; y < CORNER; y++) {
 }
 ```
 
-一个 100 个视频的列表有 100 张卡片，但只有屏幕附近的才存在。`window_rows()` 说明哪些行必须有控件（屏幕以及上下各一张卡片高度）；其余的会被删除，进入视野时再重建：
+一个 100 个视频的列表有 100 张卡片，但只有屏幕附近的才存在。`window_rows()` 说明哪些行必须有控件（屏幕以及上下各一张卡片高度）。其余的会被删除，进入视野时再重建：
 
 ```mermaid
 flowchart LR
@@ -1931,11 +1926,11 @@ static void scrolled(lv_event_t *e)
 }
 ```
 
-在下一次刷新开始时（`add_strips()`，`LV_EVENT_REFR_START`），失效标记重新打开，`shift_rows()` 按整帧的步数移动列表的画面，新进来的行被标为脏，LVGL 只画它们。这期间到达的封面保留它的脏区（`move_pending()` 把它移动同样的步数），所以不会被画两次。LVGL 在滚动开始和结束时给列表设置的状态会刷新它的样式，以前会把整个列表重画一遍；`state_guard_on/off` 在这期间关闭失效标记。
+在下一次刷新开始时（`add_strips()`，`LV_EVENT_REFR_START`），失效标记重新打开，`shift_rows()` 按整帧的步数移动列表的画面，新进来的行被标为脏，LVGL 只画它们。这期间到达的封面保留它的脏区（`move_pending()` 把它移动同样的步数），所以不会被画两次。LVGL 在滚动开始和结束时给列表设置的状态会刷新它的样式，以前会把整个列表重画一遍。`state_guard_on/off` 在这期间关闭失效标记。
 
 ### 封面
 
-封面从图片服务器经过视频引擎到屏幕，CPU 不转换任何一个像素。卡片按地址请求封面；三个线程（`BILI_COVER_THREADS`）负责获取和解码，一个 `BILI_COVER_CACHE`（24）张图片的缓存用引用计数保存它们：
+封面从图片服务器经过视频引擎到屏幕，CPU 不转换任何一个像素。卡片按地址请求封面。三个线程（`BILI_COVER_THREADS`）负责获取和解码，一个 `BILI_COVER_CACHE`（24）张图片的缓存用引用计数保存它们：
 
 ```mermaid
 stateDiagram-v2
@@ -1992,7 +1987,7 @@ if (ret == 0) {
 }
 ```
 
-`jpeg_for_engine()` 先读 JPEG 头，只接受引擎能解码的（8 位、三个分量、采样 2×2/1×1/1×1、基线）；它会拒绝的文件绝不交给它。`to_xrgb()` 是一次 `g2d_blit()`，读取 NV12 图片，一遍完成转换并缩放到卡片大小：
+`jpeg_for_engine()` 先读 JPEG 头，只接受引擎能解码的（8 位、三个分量、采样 2×2/1×1/1×1、基线）。它会拒绝的文件绝不交给它。`to_xrgb()` 是一次 `g2d_blit()`，读取 NV12 图片，一遍完成转换并缩放到卡片大小：
 
 ```mermaid
 flowchart LR
@@ -2018,7 +2013,7 @@ g2d_blit(g2d, &src, &sr, &dst, &dr, G2D_ROTATE_0, G2D_FLAG_YUV_FULL_RANGE);
 
 ![搜索页：热搜词和屏幕键盘](figures/bilibili-search.webp)
 
-搜索页：左上是返回，中间是文本框（“输入关键词...”），右边是搜索按钮，下面是热搜词按钮，底部是 LVGL 键盘。用它输入拼音字母会通过拼音输入法给出中文候选；点一个热搜词就直接搜它。
+搜索页：左上是返回，中间是文本框（“输入关键词...”），右边是搜索按钮，下面是热搜词按钮，底部是 LVGL 键盘。用它输入拼音字母会通过拼音输入法给出中文候选。点一个热搜词就直接搜它。
 
 搜索页是一个文本框、LVGL 键盘和 `lv_ime_pinyin`，后者按固件提供的字典逐个音节输入中文：
 
@@ -2040,7 +2035,7 @@ lv_ime_pinyin_set_dict(ime, (lv_pinyin_dict_t *)bili_pinyin_dict);
 lv_ime_pinyin_set_keyboard(ime, kb);
 ```
 
-字典（`src/ui/pinyin_dict.c`）由 `tools/make_pinyin_dict.py` 生成：对每个无声调音节，列出字体里有的字，按频率从高到低（频率来自 jieba 的词典，音节来自 pypinyin）。输入法取第一个以输入字母开头的条目，所以条目是排好序的，“ni”排在“nian”之前。输入框下面的热搜词行来自 `CMD_HOT`；点一下把词放进输入框并开始搜索。结果和其他列表一样；播放某个结果时，工作线程用 `/x/player/pagelist` 补上 `cid`。
+字典（`src/ui/pinyin_dict.c`）由 `tools/make_pinyin_dict.py` 生成：对每个无声调音节，列出字体里有的字，按频率从高到低（频率来自 jieba 的词典，音节来自 pypinyin）。输入法取第一个以输入字母开头的条目，所以条目是排好序的，“ni”排在“nian”之前。输入框下面的热搜词行来自 `CMD_HOT`。点一下把词放进输入框并开始搜索。结果和其他列表一样。播放某个结果时，工作线程用 `/x/player/pagelist` 补上 `cid`。
 
 ### 播放页
 
@@ -2181,7 +2176,7 @@ static void qr_poll(void)
 }
 ```
 
-界面从一个定时器发出 `CMD_QR_POLL`，大约每两秒一次。二维码本身由 LVGL 的 `lv_qrcode` 画在白色圆角底座上。成功时回包里带有 `SESSDATA`、`bili_jct` 和 `DedeUserID`；`account.c` 用一个扫描器把它们从文本里取出（`text_value()` 接受查询串、cookie 列表或 JSON），保存在内存里并写入 `auth.cfg`：
+界面从一个定时器发出 `CMD_QR_POLL`，大约每两秒一次。二维码本身由 LVGL 的 `lv_qrcode` 画在白色圆角底座上。成功时回包里带有 `SESSDATA`、`bili_jct` 和 `DedeUserID`。`account.c` 用一个扫描器把它们从文本里取出（`text_value()` 接受查询串、cookie 列表或 JSON），保存在内存里并写入 `auth.cfg`：
 
 ```mermaid
 flowchart LR
@@ -2252,7 +2247,7 @@ int wifi_join(const char *ssid, const char *psk, int timeout_s)
 }
 ```
 
-两个信号量由网络管理事件的处理函数（`NET_EVENT_WIFI_CONNECT_RESULT`、`NET_EVENT_IPV4_ADDR_ADD`）给出。设置页显示状态和最后一次错误，用 `NET_REQUEST_WIFI_SCAN` 扫描，并提供断开、重新连接和忘记；忘记会删除 `wifi.cfg`，需要在 3 秒内点两次（第一次点击改变按钮文字并启动计时器）。音量和亮度是两个滑块：前者调用 `player_set_volume()`，后者对显示设备调用 `display_set_brightness()`；两者都由 `CMD_SAVE_SETTINGS` 保存到 `settings.cfg`，这样手指每动一步都不会去写卡。
+两个信号量由网络管理事件的处理函数（`NET_EVENT_WIFI_CONNECT_RESULT`、`NET_EVENT_IPV4_ADDR_ADD`）给出。设置页显示状态和最后一次错误，用 `NET_REQUEST_WIFI_SCAN` 扫描，并提供断开、重新连接和忘记。忘记会删除 `wifi.cfg`，需要在 3 秒内点两次（第一次点击改变按钮文字并启动计时器）。音量和亮度是两个滑块：前者调用 `player_set_volume()`，后者对显示设备调用 `display_set_brightness()`。两者都由 `CMD_SAVE_SETTINGS` 保存到 `settings.cfg`，这样手指每动一步都不会去写卡。
 
 ## 板子上的网络
 
@@ -2284,7 +2279,7 @@ int wifi_join(const char *ssid, const char *psk, int timeout_s)
 
 ## 内存
 
-镜像约 10.4 MB（共 16 MB）；文本和只读数据（字体、Wi-Fi 固件）留在 flash 窗口里。板上实测：
+镜像约 10.4 MB（共 16 MB）。文本和只读数据（字体、Wi-Fi 固件）留在 flash 窗口里。板上实测：
 
 | 状态 | 空闲 RAM |
 | --- | --- |
@@ -2292,7 +2287,7 @@ int wifi_join(const char *ssid, const char *psk, int timeout_s)
 | 首页，封面已释放 | 约 9.5 MB |
 | 播放器已打开（640×360） | 约 1.8 MB |
 
-视频解码器的画面来自一个预算（`VDEC_SUNXI_MAX_MEMORY_KB`，这里是 6144；4300 时有些流会在 100 到 400 ms 处停住），`CONFIG_VDEC_SUNXI_H264_EXTRA_PICTURES` 保留备用画面（太少时画面会撕裂）。LVGL 代码、界面文件和封面解码器从 RAM 运行（`BILI_UI_RAM`）：flash 窗口里的代码在缓存未命中时很慢。
+视频解码器的画面来自一个预算（`VDEC_SUNXI_MAX_MEMORY_KB`，这里是 6144。4300 时有些流会在 100 到 400 ms 处停住），`CONFIG_VDEC_SUNXI_H264_EXTRA_PICTURES` 保留备用画面（太少时画面会撕裂）。LVGL 代码、界面文件和封面解码器从 RAM 运行（`BILI_UI_RAM`）：flash 窗口里的代码在缓存未命中时很慢。
 
 ## 测试辅助
 

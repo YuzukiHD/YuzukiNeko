@@ -36,7 +36,7 @@ xfel spinor write 0x0 neko-backup.bin
 
 ## 常见的布局
 
-Flash 的划分取决于你装的是哪套软件。同一块板子可以有以下几种布局之一，<strong>它们互相不兼容</strong>，独立启动布局切换时需要匹配的引导；XIP 开发流程则保留启动区为空。
+Flash 的划分取决于你装的是哪套软件。同一块板子可以有以下几种布局之一，<strong>它们互相不兼容</strong>，独立启动布局切换时需要匹配的引导。XIP 开发流程则保留启动区为空。
 
 ### RustSBI + Asterinas 镜像
 
@@ -48,7 +48,7 @@ Flash 的划分取决于你装的是哪套软件。同一块板子可以有以�
 | Asterinas | `0x0d0000` | 5 MiB（到 initramfs 之前） | `0x40000000` |
 | initramfs | `0x5d0000` | 1 MiB | `0x40500000` |
 
-完整镜像写入 `0x000000..0x6d0000`；`0x6d0000..0x1000000` 不会被碰到。详见 [RustSBI + Asterinas](../dev/asterinas/rustsbi-asterinas.md)。
+完整镜像写入 `0x000000..0x6d0000`。`0x6d0000..0x1000000` 不会被碰到。详见 [RustSBI + Asterinas](../dev/asterinas/rustsbi-asterinas.md)。
 
 ### Linux + Buildroot 镜像
 
@@ -71,7 +71,7 @@ Flash 的划分取决于你装的是哪套软件。同一块板子可以有以�
 | 采样参数 | `0x020000` | 保留，不能用应用或旧 UF2 loader 覆盖 |
 | XIP 应用 | `0x080000` | 当前应用写入并按相同长度读回校验 |
 
-loader 是从 RAM `0x20000` 运行的当前 `xip-boot_fel.bin`，不是写到 NOR `0x20000`。应用被映射到 `0x0e000000`。具体步骤与当前 loader 的构建方法见 [编译与运行](../dev/zephyr/zephyr-build-run.md)。仅在明确制作独立启动镜像时才安装 NOR boot；完整打包会覆盖应用前的区域，需要单独处理参数区。
+loader 是从 RAM `0x20000` 运行的当前 `xip-boot_fel.bin`，不是写到 NOR `0x20000`。应用被映射到 `0x0e000000`。具体步骤与当前 loader 的构建方法见 [编译与运行](../dev/zephyr/zephyr-build-run.md)。仅在明确制作独立启动镜像时才安装 NOR boot。完整打包会覆盖应用前的区域，需要单独处理参数区。
 
 ### UF2 布局
 
@@ -82,12 +82,12 @@ loader 是从 RAM `0x20000` 运行的当前 `xip-boot_fel.bin`，不是写到 NO
 | 系统程序头页（UF2 下载器） | `0x030000` |
 | 应用头页（Zephyr 应用） | `0x200000`（最大约 `0x9F0000` 字节） |
 
-应用最大 payload 为 `0x9F0000` 字节，头页另占 4 KiB；系统 payload 最大 `0x1CF000` 字节。该布局将普通 RAM 镜像复制到 PSRAM，不能用于 XIP 镜像。
+应用最大 payload 为 `0x9F0000` 字节，头页另占 4 KiB。系统 payload 最大 `0x1CF000` 字节。该布局将普通 RAM 镜像复制到 PSRAM，不能用于 XIP 镜像。
 
 详见 [UF2 拖放烧录](../dev/zephyr/zephyr-uf2.md)。
 
 :::tip
-上面几张表里的区域有重叠（例如独立启动布局都从 `0x000000` 开始放引导），<strong>不要在同一块 Flash 上混着写</strong>。切换布局前确认启动策略；FEL 开发保留空启动区，独立启动才安装配套引导，并用 `xfel spinor read` 回读确认。
+上面几张表里的区域有重叠（例如独立启动布局都从 `0x000000` 开始放引导），<strong>不要在同一块 Flash 上混着写</strong>。切换布局前确认启动策略。FEL 开发保留空启动区，独立启动才安装配套引导，并用 `xfel spinor read` 回读确认。
 :::
 
 ## 写入前自检清单

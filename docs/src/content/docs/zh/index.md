@@ -44,7 +44,7 @@ YuzukiNeko 是一块基于 <strong>Allwinner F101 系列 SoC</strong> 的开发�
 板载 NOR Flash 属于系统资源：里面存放启动加载器和固件。随意擦写会让板子无法从 Flash 启动，务必先[备份](boot/flash-layout.md#备份整片-flash)。
 :::
 
-当前两版 Zephyr 的板级 DTS 均按 16 MiB RAM 配置；32 MiB 硬件不代表软件已启用并验证全部容量。
+当前两版 Zephyr 的板级 DTS 均按 16 MiB RAM 配置。32 MiB 硬件不代表软件已启用并验证全部容量。
 
 ## SoC 能力
 

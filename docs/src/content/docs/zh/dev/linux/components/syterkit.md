@@ -7,7 +7,7 @@ SyterKit 是 YuzukiNeko 上 Allwinner Boot ROM 之后运行的第一段代码。
 本页介绍启动 Linux 用到的两个应用 `usb-boot`（FEL，镜像由 `xfel` 写入）和 `spinor-boot`（NOR，镜像从 flash 读取）、初始化 32 MiB W958 PSRAM 的 eFEX 应用 `init_psram`、固定地址布局，以及 `boards/yuzukineko/board.dts` 里的 PSRAM 参数表。
 
 :::note[版本范围]
-仓库内的 SyterKit 是 0.5.0，位于提交 `5d426c0a`。Buildroot external tree 固定使用自己的副本，提交为 `f95d29d611ce439a2510957b0f312b5b439f53b8`；两者对这里描述的启动路径足够接近，但不是同一棵树。下面的尺寸来自仓库内 `out-usb` 和 `out-efex` 的构建。
+仓库内的 SyterKit 是 0.5.0，位于提交 `5d426c0a`。Buildroot external tree 固定使用自己的副本，提交为 `f95d29d611ce439a2510957b0f312b5b439f53b8`。两者对这里描述的启动路径足够接近，但不是同一棵树。下面的尺寸来自仓库内 `out-usb` 和 `out-efex` 的构建。
 :::
 
 ## SyterKit 做什么
@@ -63,7 +63,7 @@ NOR 镜像必须按 SPI 启动路径构建：用 `spinor-boot_spi.bin`，不是 
 
 eFEX 应用是一种返回到 FEL 循环、而不是跳进内核的 FEL 载荷。它的 eGON 头仍然是 0x30 字节，但偏移 `+0x30` 处放了一个 16 字节描述符，包含魔数 `"SKEP"`、4 KiB 参数区的 SRAM 地址、大小和 ABI 版本。头里的 `ret_addr`（`+0x1c`）指向同一个区域，所以只知道 Boot ROM 结果指针的主机也能找到它。
 
-参数区是一张 32 位键值对的平表。主机可以在下载前修改镜像文件，也可以在下载后通过 FEL 写入；目标会把结果写回同一区域。ABI 记录在 `docs/efex-param.md`，定义在 `include/efex.h`；主机辅助脚本是 `tools/efex-param.py`。
+参数区是一张 32 位键值对的平表。主机可以在下载前修改镜像文件，也可以在下载后通过 FEL 写入。目标会把结果写回同一区域。ABI 记录在 `docs/efex-param.md`，定义在 `include/efex.h`。主机辅助脚本是 `tools/efex-param.py`。
 
 键空间按组划分，一张表可以描述应用涉及的所有模块：
 
@@ -85,7 +85,7 @@ xfel write 0x00020000 init_psram_efex.bin
 xfel exec  0x00020000
 ```
 
-应用把 UART1 初始化为 115200，初始化时钟树，然后带着板级参数表调用 `sunxi_psram_init()`。成功时它报告测到的容量并返回 0；eFEX 入口在返回 FEL 前写入 `status = "DONE"`、`ret = 0`、输出项和新的校验和。
+应用把 UART1 初始化为 115200，初始化时钟树，然后带着板级参数表调用 `sunxi_psram_init()`。成功时它报告测到的容量并返回 0。eFEX 入口在返回 FEL 前写入 `status = "DONE"`、`ret = 0`、输出项和新的校验和。
 
 ### 参数区
 
@@ -104,7 +104,7 @@ xfel exec  0x00020000
 0x020  {u32 key, u32 value} entries[508]
 ```
 
-键的编码是 `group[29:24] | id[23:8] | index[7:0]`，bit 31 表示“主机值已应用”，bit 30 表示“目标写入了这一项”。PSRAM 组是 `0x05`；内存字段 `id = 0x00` 是参数字，`0x01` 是参数个数，`0x02` 是基地址，`0x03` 是窗口大小，结果字段是 `0x10`（`size_mb`）和 `0x11`（`init_ok`）。因此一次 `init_psram` 运行会留下值为 32 的 `size_mb` 项和值为 1 的 `init_ok` 项。
+键的编码是 `group[29:24] | id[23:8] | index[7:0]`，bit 31 表示“主机值已应用”，bit 30 表示“目标写入了这一项”。PSRAM 组是 `0x05`。内存字段 `id = 0x00` 是参数字，`0x01` 是参数个数，`0x02` 是基地址，`0x03` 是窗口大小，结果字段是 `0x10`（`size_mb`）和 `0x11`（`init_ok`）。因此一次 `init_psram` 运行会留下值为 32 的 `size_mb` 项和值为 1 的 `init_ok` 项。
 
 回读参数区并用主机辅助脚本解码：
 
@@ -123,7 +123,7 @@ python3 SyterKit/tools/efex-param.py dump efex-param.bin
 python3 SyterKit/tools/efex-param.py set init_psram_efex.bin psram.para[0]=252
 ```
 
-覆盖只在这一次运行有效；编译默认值仍然是 192 MHz。为什么 252 MHz 不作为默认值见 [PSRAM](#psram)。
+覆盖只在这一次运行有效。编译默认值仍然是 192 MHz。为什么 252 MHz 不作为默认值见 [PSRAM](#psram)。
 
 ## spinor-boot
 
@@ -189,7 +189,7 @@ static const uint32_t f101_rv64_entry[] __attribute__((section(".text.rv64_entry
 
 同一张表出现在三个地方：SyterKit 常量、Buildroot external tree 里的 `post-image-nor.sh`，以及内核设备树里的固定 MTD 分区。改一个偏移意味着三处都要改。分区大小的取舍见 [SPI NOR 布局与备份](../../../boot/flash-layout.md)。
 
-bootloader 使用的 16 MiB PSRAM 窗口比 32 MiB 的颗粒小。内核设备树声明完整的 32 MiB 内存，但 loader 只预留 `0x41000000` 以下的地址；上半部分在启动期间不被触碰，启动后可供 Linux 使用。
+bootloader 使用的 16 MiB PSRAM 窗口比 32 MiB 的颗粒小。内核设备树声明完整的 32 MiB 内存，但 loader 只预留 `0x41000000` 以下的地址。上半部分在启动期间不被触碰，启动后可供 Linux 使用。
 
 ## PSRAM
 
@@ -238,7 +238,7 @@ allwinner,psram-parameters = <192 8 0x7bfffb 0 0x20 0
 | 22 | `dram_tpr12` | `0` | WDQ 窗口 nibble |
 | 23 | `dram_tpr13` | `0` | 控制标志 |
 
-设备树解析器接受 1 到 32 个字，其余补零，所以板级文件可以只列需要的字。驱动的按类型清理代码（`lpsram_para_merge_config()`）把 W958 时钟钳到最多 252 MHz，把 `dram_para1` 位宽钳到 32，并在 `dram_zq` 为 0 时填入 `0x7b7bfb`；板级的显式值优先。
+设备树解析器接受 1 到 32 个字，其余补零，所以板级文件可以只列需要的字。驱动的按类型清理代码（`lpsram_para_merge_config()`）把 W958 时钟钳到最多 252 MHz，把 `dram_para1` 位宽钳到 32，并在 `dram_zq` 为 0 时填入 `0x7b7bfb`。板级的显式值优先。
 
 ### 为什么是 192 MHz 而不是 252 MHz
 
@@ -247,7 +247,7 @@ W958 的厂商表写的是 252 MHz。在这些板子上它不稳定：
 * 部分板子在从 PSRAM 取指时挂死，完全没有 OpenSBI 输出。
 * 另一些能启动，但高 16 MiB 出现偶发位错误，损坏内核数据结构和栈 canary。
 
-192 MHz 下完整的 32 MiB 能启动，并通过 12 MiB tmpfs 的读写校验。因此 `board.dts` 和 eFEX 初始化器里的默认值都是 192。仍可通过 eFEX 参数覆盖单次尝试 252 MHz；如果挂死，用 `relay1` 上下电，板子会回到编译默认值。
+192 MHz 下完整的 32 MiB 能启动，并通过 12 MiB tmpfs 的读写校验。因此 `board.dts` 和 eFEX 初始化器里的默认值都是 192。仍可通过 eFEX 参数覆盖单次尝试 252 MHz。如果挂死，用 `relay1` 上下电，板子会回到编译默认值。
 
 ## defconfig 与产物
 
@@ -333,7 +333,7 @@ xfel spinor read  0x0 0xC000 spinor-boot-verify.bin
 
 ## 串口控制台与调试
 
-`spinor-boot` 在 UART1、115200 上打印 banner。PSRAM 初始化失败会在挂上 shell 之前直接停止。SPI NOR 探测、读取或 DTB 校验失败时会打印警告并挂上一个小 shell，而不是启动。shell 提供应用命令 `boot` 和下面的内建命令。没有 `regdump` 命令；寄存器检查用 `read32`、`write32` 和 `hexdump`，它们的参数都是十六进制。
+`spinor-boot` 在 UART1、115200 上打印 banner。PSRAM 初始化失败会在挂上 shell 之前直接停止。SPI NOR 探测、读取或 DTB 校验失败时会打印警告并挂上一个小 shell，而不是启动。shell 提供应用命令 `boot` 和下面的内建命令。没有 `regdump` 命令。寄存器检查用 `read32`、`write32` 和 `hexdump`，它们的参数都是十六进制。
 
 | 命令 | 参数 | 含义 |
 | --- | --- | --- |
@@ -356,7 +356,7 @@ hexdump 0x40000000 0x40  # 内核 Image 的前几个字节
 help boot
 ```
 
-`read32 0x40f40000` 返回 `0xedfe0dd0`；内存里的字节是 `d0 0d fe ed`，也就是大端的 DTB 魔数 `0xd00dfeed`。这是判断设备树是否已就位的最快方法。`boot` 命令会重跑与自动路径相同的校验和交接，所以手动用 `xfel` 装入镜像后很有用。
+`read32 0x40f40000` 返回 `0xedfe0dd0`。内存里的字节是 `d0 0d fe ed`，也就是大端的 DTB 魔数 `0xd00dfeed`。这是判断设备树是否已就位的最快方法。`boot` 命令会重跑与自动流程相同的校验和交接，所以手动用 `xfel` 装入镜像后很有用。
 
 ## 排错
 

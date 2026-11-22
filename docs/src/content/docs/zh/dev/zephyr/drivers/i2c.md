@@ -2,11 +2,6 @@
 title: "I2C"
 ---
 
-:::note[版本范围]
-Zephyr 4.2.2 与 4.5.0 并存。本页原有示例、录像及板上结果使用 4.2.2 基线，4.5 的变化另行说明。请按[版本与迁移指南](../zephyr-4-5.md)选择配套的内核、组件分支及独立环境和构建目录。4.5 编译或主机测试通过，不会改变已有板上结果的版本归属。
-:::
-
-
 F101 有 3 个两线接口控制器（TWI），在 Zephyr 里是 `i2c0`、`i2c1`、`i2c2`，接口是标准的 `<zephyr/drivers/i2c.h>`，驱动是 `drivers/i2c/i2c_sunxi.c`。
 
 | 项目 | 内容 |
@@ -17,17 +12,6 @@ F101 有 3 个两线接口控制器（TWI），在 Zephyr 里是 `i2c0`、`i2c1`
 | 地址 | 7 位；10 位地址返回 `-ENOTSUP` |
 | 传输方式 | 轮询，不用中断；传输期间持有一把互斥锁 |
 | 不支持 | 快速+（1 MHz）、从机模式、`i2c_get_config` |
-
-
-## 在 4.5 构建仓库内的示例
-
-激活配套的 4.5 分支和环境后，可直接构建维护中的示例。下文完整代码保留 4.2.2 教程基线，当前头文件与 API 字段以所选分支中的示例为准。
-
-```sh
-west build -b yuzukineko -d build/zephyr-4.5.0/i2c_api zephyr-components/examples/i2c_api
-```
-
-该配置已通过 `yuzukineko` 的 4.5 组件构建检查，尚无新的 4.5 板上日志；请按实际镜像布局选择 [RAM 或 XIP 流程](../zephyr-build-run.md)。
 
 ## 设备树
 
@@ -75,7 +59,7 @@ i2c1: i2c@2502400 {
 | `i2c@2502400` | `i2c1` | `0x02502400` | 10 | `CLK_BUS_TWI1` | `RST_BUS_TWI1` |
 | `i2c@2502800` | `i2c2` | `0x02502800` | 11 | `CLK_BUS_TWI2` | `RST_BUS_TWI2` |
 
-### 板级设备树：yuzukineko.dts
+**板级设备树：yuzukineko.dts**
 
 板级文件做三件事：定义引脚组，打开控制器并绑定引脚，把从设备挂在控制器下面。
 
@@ -120,9 +104,9 @@ i2c1: i2c@2502400 {
 };
 ```
 
-`i2c2` 在板级文件里没有打开；用它时在应用的 overlay 里写 `&i2c2 { status = "okay"; pinctrl-0 = <&twi2_pins>; pinctrl-names = "default"; };`，`twi2_pins` 已经在板级文件里定义好。
+`i2c2` 在板级文件里没有打开。用它时在应用的 overlay 里写 `&i2c2 { status = "okay"; pinctrl-0 = <&twi2_pins>; pinctrl-names = "default"; };`，`twi2_pins` 已经在板级文件里定义好。
 
-### 绑定：allwinner,sunxi-twi.yaml
+**绑定：allwinner,sunxi-twi.yaml**
 
 ```yaml
 # Copyright (c) 2026 Yuzuki Tsuru
@@ -168,9 +152,7 @@ properties:
 
 ## 接口详解
 
-下面每个接口一个小标题：原型、驱动的行为、一个完整的示例函数和它在板子上的输出。演示在 `i2c1` 上，对载板的触摸控制器 GT967 做所有这些调用；示例来自文末的[完整演示程序](#完整演示程序)，里面的 `err()` 把返回值转成名字。
-
-GT967 的寄存器地址是 16 位、大端的，产品 ID 寄存器 `0x8140` 里是 4 字节 ASCII，`"967"` 加一个 0。它在复位释放的瞬间看 INT 引脚的电平选地址：INT 为低是 `0x5d`，为高是 `0x14`。演示程序先用 `touch_reset()` 做这件事，真正的触摸驱动 `drivers/input/input_gt967.c` 也这么做；这个函数只用到 [GPIO](gpio.md) 的接口：
+GT967 的寄存器地址是 16 位、大端的，产品 ID 寄存器 `0x8140` 里是 4 字节 ASCII，`"967"` 加一个 0。它在复位释放的瞬间看 INT 引脚的电平选地址：INT 为低是 `0x5d`，为高是 `0x14`。演示程序先用 `touch_reset()` 做这件事，真正的触摸驱动 `drivers/input/input_gt967.c` 也这么做。这个函数只用到 [GPIO](gpio.md) 的接口：
 
 ```c
 /* The controller takes its address from the level of INT at the moment RST is released:
@@ -190,11 +172,9 @@ static void touch_reset(void)
 }
 ```
 
-### i2c_configure
+### 配置与检查
 
-```c
-int i2c_configure(const struct device *dev, uint32_t dev_config);
-```
+**`i2c_configure`** `int i2c_configure(const struct device *dev, uint32_t dev_config);`
 
 运行中改变总线速度。`dev_config` 必须带 `I2C_MODE_CONTROLLER`。
 
@@ -208,33 +188,6 @@ int i2c_configure(const struct device *dev, uint32_t dev_config);
 
 每次调用都会复位控制器、重新设置分频。
 
-```c
-/* i2c_configure: the speed can be changed at run time */
-static void demo_configure(void)
-{
-	int ret;
-
-	ret = i2c_configure(bus, I2C_SPEED_SET(I2C_SPEED_STANDARD) | I2C_MODE_CONTROLLER);
-	printk("[configure] standard, 100 kHz           = %s\n", err(ret));
-
-	ret = i2c_configure(bus, I2C_SPEED_SET(I2C_SPEED_FAST) | I2C_MODE_CONTROLLER);
-	printk("[configure] fast, 400 kHz               = %s\n", err(ret));
-
-	ret = i2c_configure(bus, I2C_SPEED_SET(I2C_SPEED_FAST_PLUS) | I2C_MODE_CONTROLLER);
-	printk("[configure] fast plus, 1 MHz            = %s\n", err(ret));
-
-	ret = i2c_configure(bus, I2C_SPEED_SET(I2C_SPEED_STANDARD) | I2C_MODE_CONTROLLER |
-				 I2C_ADDR_10_BITS);
-	printk("[configure] 10 bit addresses            = %s\n", err(ret));
-
-	ret = i2c_configure(bus, I2C_SPEED_SET(I2C_SPEED_STANDARD));
-	printk("[configure] without I2C_MODE_CONTROLLER = %s\n", err(ret));
-
-	ret = i2c_configure(bus, I2C_SPEED_SET(I2C_SPEED_FAST) | I2C_MODE_CONTROLLER);
-	printk("[configure] back to fast                = %s\n", err(ret));
-}
-```
-
 ```text
 [configure] standard, 100 kHz           = 0
 [configure] fast, 400 kHz               = 0
@@ -244,94 +197,34 @@ static void demo_configure(void)
 [configure] back to fast                = 0
 ```
 
-### i2c_get_config
-
-```c
-int i2c_get_config(const struct device *dev, uint32_t *dev_config);
-```
+**`i2c_get_config`** `int i2c_get_config(const struct device *dev, uint32_t *dev_config);`
 
 读当前的配置。驱动没有实现这个接口，返回 `-ENOSYS`。
-
-```c
-/* i2c_get_config is not implemented by this driver */
-static void demo_get_config(void)
-{
-	uint32_t cfg;
-	int ret = i2c_get_config(bus, &cfg);
-
-	printk("[configure] i2c_get_config              = %s\n", err(ret));
-}
-```
 
 ```text
 [configure] i2c_get_config              = -ENOSYS
 ```
 
-### i2c_read
+### 读写
 
-```c
-int i2c_read(const struct device *dev, uint8_t *buf, uint32_t num_bytes, uint16_t addr);
-```
+**`i2c_read`** `int i2c_read(const struct device *dev, uint8_t *buf, uint32_t num_bytes, uint16_t addr);`
 
 从 `addr` 读 `num_bytes` 个字节，是一次完整的传输，结尾有停止条件。设备不应答返回 `-EIO`，所以对每个地址读 1 个字节就可以扫描总线：
-
-```c
-/* A read of one byte finds out whether a device acknowledges its address. */
-static void demo_scan(void)
-{
-	uint8_t b;
-	int found = 0;
-
-	for (uint16_t a = 0x08; a <= 0x77; a++) {
-		if (i2c_read(bus, &b, 1, a) == 0) {
-			printk("[scan] device at 0x%02x\n", a);
-			found++;
-		}
-	}
-	printk("[scan] %d device(s) found\n", found);
-}
-```
 
 ```text
 [scan] device at 0x5d
 [scan] 1 device(s) found
 ```
 
-读寄存器时，先用 `i2c_write` 设好寄存器地址，再 `i2c_read`，两次之间有停止条件；GT967 接受这种写法，有的芯片不接受，要用 `i2c_write_read`。下面读 `0x8047`（配置版本）的 1 个字节，前提是上一步 `i2c_write` 已经设了这个地址：
-
-```c
-/* i2c_read: reads the register that the write above selected */
-static void demo_read(void)
-{
-	uint8_t val = 0;
-	int ret = i2c_read(bus, &val, 1, ADDR);
-
-	printk("[write+read] i2c_read(1 byte)            = %s: 0x%02x\n", err(ret), val);
-}
-```
+读寄存器时，先用 `i2c_write` 设好寄存器地址，再 `i2c_read`，两次之间有停止条件。GT967 接受这种写法，有的芯片不接受，要用 `i2c_write_read`。下面读 `0x8047`（配置版本）的 1 个字节，前提是上一步 `i2c_write` 已经设了这个地址：
 
 ```text
 [write+read] i2c_read(1 byte)            = 0: 0x69
 ```
 
-### i2c_write
-
-```c
-int i2c_write(const struct device *dev, const uint8_t *buf, uint32_t num_bytes, uint16_t addr);
-```
+**`i2c_write`** `int i2c_write(const struct device *dev, const uint8_t *buf, uint32_t num_bytes, uint16_t addr);`
 
 向 `addr` 写 `num_bytes` 个字节，是一次完整的传输。这里写的是 2 个字节的寄存器地址。
-
-```c
-/* i2c_write: one complete transfer with a stop at the end. Here it sets the register address. */
-static void demo_write(void)
-{
-	uint8_t reg[2] = { REG_CONFIG_VER >> 8, REG_CONFIG_VER & 0xff };
-	int ret = i2c_write(bus, reg, sizeof(reg), ADDR);
-
-	printk("[write+read] i2c_write(register address) = %s\n", err(ret));
-}
-```
 
 ```text
 [write+read] i2c_write(register address) = 0
@@ -339,64 +232,25 @@ static void demo_write(void)
 
 （日志里 `i2c_write` 在 `i2c_read` 之前，因为读依赖写设好的寄存器地址。）
 
-### i2c_write_read
-
-```c
-int i2c_write_read(const struct device *dev, uint16_t addr, const void *write_buf, size_t num_write,
-                   void *read_buf, size_t num_read);
-```
+**`i2c_write_read`** `int i2c_write_read(const struct device *dev, uint16_t addr, const void *write_buf, size_t num_write, void *read_buf, size_t num_read);`
 
 先写再读，两段之间是重复起始（restart），中间没有停止条件。这是读 16 位地址寄存器的标准办法。
-
-```c
-/* i2c_write_read: write the 16 bit register address, restart, read the value */
-static void demo_write_read(void)
-{
-	uint8_t reg[2] = { REG_PRODUCT_ID >> 8, REG_PRODUCT_ID & 0xff };
-	uint8_t id[4] = { 0 };
-	int ret;
-
-	ret = i2c_write_read(bus, ADDR, reg, sizeof(reg), id, sizeof(id));
-	printk("[write_read] product id register 0x%04x = %s: %02x %02x %02x %02x \"%c%c%c\"\n",
-	       REG_PRODUCT_ID, err(ret), id[0], id[1], id[2], id[3], id[0], id[1], id[2]);
-}
-```
 
 ```text
 [write_read] product id register 0x8140 = 0: 39 36 37 00 "967"
 ```
 
-### i2c_burst_read
+**`i2c_burst_read`** `int i2c_burst_read(const struct device *dev, uint16_t dev_addr, uint8_t start_addr, uint8_t *buf, uint32_t num_bytes);`
 
-```c
-int i2c_burst_read(const struct device *dev, uint16_t dev_addr, uint8_t start_addr, uint8_t *buf, uint32_t num_bytes);
-```
-
-写 1 个字节的起始地址，再连续读 `num_bytes` 个字节。GT967 的寄存器地址是 16 位，所以这个演示只说明调用能通；16 位地址的芯片用 `i2c_write_read`。
-
-```c
-/* i2c_burst_read: writes a one byte start address, then reads. The GT967 registers have 16 bit
- * addresses, so this only shows that the call goes through; use i2c_write_read for this chip.
- */
-static void demo_burst(void)
-{
-	uint8_t buf[4];
-	int ret;
-
-	ret = i2c_burst_read(bus, ADDR, 0x81, buf, sizeof(buf));
-	printk("[burst] i2c_burst_read(0x81, 4)       = %s\n", err(ret));
-}
-```
+写 1 个字节的起始地址，再连续读 `num_bytes` 个字节。GT967 的寄存器地址是 16 位，所以这个演示只说明调用能通。16 位地址的芯片用 `i2c_write_read`。
 
 ```text
 [burst] i2c_burst_read(0x81, 4)       = 0
 ```
 
-### i2c_transfer
+### 传输与错误
 
-```c
-int i2c_transfer(const struct device *dev, struct i2c_msg *msgs, uint8_t num_msgs, uint16_t addr);
-```
+**`i2c_transfer`** `int i2c_transfer(const struct device *dev, struct i2c_msg *msgs, uint8_t num_msgs, uint16_t addr);`
 
 自己组织消息。`flags` 决定起始、重复起始、停止：
 
@@ -409,60 +263,15 @@ int i2c_transfer(const struct device *dev, struct i2c_msg *msgs, uint8_t num_msg
 
 地址超过 7 位返回 `-EINVAL`。连续的写消息合并成同一次传输。
 
-```c
-/* i2c_transfer: the messages by hand, flags decide start, restart and stop */
-static void demo_transfer(void)
-{
-	uint8_t reg[2] = { REG_PRODUCT_ID >> 8, REG_PRODUCT_ID & 0xff };
-	uint8_t id[4] = { 0 };
-	struct i2c_msg msgs[2];
-	int ret;
-
-	msgs[0].buf = reg;
-	msgs[0].len = sizeof(reg);
-	msgs[0].flags = I2C_MSG_WRITE;				/* no stop: the next message restarts */
-	msgs[1].buf = id;
-	msgs[1].len = sizeof(id);
-	msgs[1].flags = I2C_MSG_READ | I2C_MSG_RESTART | I2C_MSG_STOP;
-
-	ret = i2c_transfer(bus, msgs, 2, ADDR);
-	printk("[transfer] write + restart + read       = %s: \"%c%c%c\"\n", err(ret), id[0], id[1], id[2]);
-
-	/* a 10 bit address is refused */
-	msgs[1].flags |= I2C_MSG_ADDR_10_BITS;
-	ret = i2c_transfer(bus, msgs, 2, ADDR);
-	printk("[transfer] 10 bit address               = %s\n", err(ret));
-
-	/* an address above 7 bits */
-	msgs[1].flags &= ~I2C_MSG_ADDR_10_BITS;
-	ret = i2c_transfer(bus, msgs, 2, 0x100);
-	printk("[transfer] address 0x100                = %s\n", err(ret));
-}
-```
-
 ```text
 [transfer] write + restart + read       = 0: "967"
 [transfer] 10 bit address               = -ENOTSUP
 [transfer] address 0x100                = -EINVAL
 ```
 
-### 没有设备应答
+**没有设备应答**
 
 地址发出去没有设备应答，驱动返回 `-EIO`，并且发出停止条件让总线回到空闲。
-
-```c
-/* a device that is not there does not acknowledge */
-static void demo_nack(void)
-{
-	uint8_t b;
-	int ret;
-
-	ret = i2c_read(bus, &b, 1, 0x50);
-	printk("[nack] read from 0x50                  = %s\n", err(ret));
-	ret = i2c_write(bus, &b, 1, 0x50);
-	printk("[nack] write to 0x50                   = %s\n", err(ret));
-}
-```
 
 ```text
 [nack] read from 0x50                  = -EIO
@@ -471,7 +280,7 @@ static void demo_nack(void)
 
 ## 完整演示程序
 
-上面所有示例和日志都来自这一个程序。建一个目录，放进下面的文件，就可以像其他 Zephyr 应用一样编译。
+
 
 ```text
 i2c_api/
@@ -481,7 +290,7 @@ i2c_api/
     └── main.c
 ```
 
-### CMakeLists.txt
+**CMakeLists.txt**
 
 ```cmake
 cmake_minimum_required(VERSION 3.20.0)
@@ -491,7 +300,7 @@ project(i2c_api)
 target_sources(app PRIVATE src/main.c)
 ```
 
-### prj.conf
+**prj.conf**
 
 ```ini
 CONFIG_I2C=y
@@ -503,7 +312,7 @@ CONFIG_DEVMEM_SHELL=n
 CONFIG_LOG_PRINTK=n
 ```
 
-### src/main.c
+**src/main.c**
 
 ```c
 /*
@@ -713,7 +522,7 @@ int main(void)
 }
 ```
 
-### 编译和运行
+**编译和运行**
 
 ```sh
 . ~/f101-zephyr/env.sh

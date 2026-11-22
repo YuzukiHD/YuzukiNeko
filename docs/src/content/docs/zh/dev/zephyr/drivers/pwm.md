@@ -2,11 +2,6 @@
 title: "PWM"
 ---
 
-:::note[版本范围]
-Zephyr 4.2.2 与 4.5.0 并存。本页原有示例、录像及板上结果使用 4.2.2 基线，4.5 的变化另行说明。请按[版本与迁移指南](../zephyr-4-5.md)选择配套的内核、组件分支及独立环境和构建目录。4.5 编译或主机测试通过，不会改变已有板上结果的版本归属。
-:::
-
-
 F101 的通用 PWM 在 Zephyr 里是 `pwm` 设备，4 个通道，接口是标准的 `<zephyr/drivers/pwm.h>`，驱动是 `drivers/pwm/pwm_sunxi.c`。`yuzukineko` 板用它的通道 2（PD22）驱动 DSI 屏的背光。背光专用的 PWM_BL 模块（模拟调光、灌电流）是另一个独立的设备，见 [PWM-BL - 模拟背光](pwm-bl.md)。
 
 | 项目 | 内容 |
@@ -18,17 +13,6 @@ F101 的通用 PWM 在 Zephyr 里是 `pwm` 设备，4 个通道，接口是标�
 | 极性 | `PWM_POLARITY_NORMAL`、`PWM_POLARITY_INVERTED` |
 | 停止 | 脉宽为 0 时关闭输出并关掉该通道的时钟门 |
 | 不支持 | 极性以外的标志（`-ENOTSUP`），输入捕获 |
-
-
-## 在 4.5 构建仓库内的示例
-
-激活配套的 4.5 分支和环境后，可直接构建维护中的示例。下文完整代码保留 4.2.2 教程基线，当前头文件与 API 字段以所选分支中的示例为准。
-
-```sh
-west build -b yuzukineko -d build/zephyr-4.5.0/pwm_api zephyr-components/examples/pwm_api
-```
-
-该配置已通过 `yuzukineko` 的 4.5 组件构建检查，尚无新的 4.5 板上日志；请按实际镜像布局选择 [RAM 或 XIP 流程](../zephyr-build-run.md)。
 
 ## 设备树
 
@@ -93,7 +77,7 @@ pwm: pwm@2000c00 {
 
 `pwms = <&pwm 2 1000000 PWM_POLARITY_INVERTED>` 里的三个数就是 `#pwm-cells = <3>` 规定的通道、周期（1 000 000 ns）和标志。别的外设用同样的写法引用 PWM，应用里 `PWM_DT_SPEC_GET()` 取出来。
 
-### 绑定
+**绑定**
 
 `allwinner,sunxi-pwm.yaml`：
 
@@ -159,8 +143,6 @@ pwm-cells:
 
 ## 接口详解
 
-下面每个接口一个小标题：原型、驱动的行为、示例函数和它在板子上的输出。演示用通道 2。它就是显示背光的通道，所以每一次调用屏幕亮度都会跟着变：先 10%、50%、90%，再回到默认亮度。示例来自文末的[完整演示程序](#完整演示程序)，里面的 `err()` 把返回值转成名字。
-
 每次调用后程序读回通道的寄存器，打印驱动实际编程的值：时钟源、M 分频、预分频、极性、周期计数和有效计数。输出周期 = 时钟源频率 ÷ M 分频 ÷ 预分频 ÷ 周期计数。读寄存器的函数和用到的宏：
 
 ```c
@@ -187,39 +169,18 @@ static void show_regs(void)
 }
 ```
 
-### pwm_get_cycles_per_sec
+### 周期与占空比
 
-```c
-int pwm_get_cycles_per_sec(const struct device *dev, uint32_t channel, uint64_t *cycles);
-```
+**`pwm_get_cycles_per_sec`** `int pwm_get_cycles_per_sec(const struct device *dev, uint32_t channel, uint64_t *cycles);`
 
 返回 `pwm_set_cycles` 里“周期”的单位，每秒多少个周期：24000000。通道号超过 3 返回 `-EINVAL`。
-
-```c
-/* pwm_get_cycles_per_sec: the unit of the cycles of pwm_set_cycles */
-static void demo_cycles_per_sec(void)
-{
-	uint64_t hz;
-	int ret;
-
-	ret = pwm_get_cycles_per_sec(pwm, CH, &hz);
-	printk("[clock] pwm_get_cycles_per_sec(channel %u) = %s, %u Hz\n", CH, err(ret), (uint32_t)hz);
-
-	ret = pwm_get_cycles_per_sec(pwm, 4, &hz);
-	printk("[clock] pwm_get_cycles_per_sec(channel 4) = %s\n", err(ret));
-}
-```
 
 ```text
 [clock] pwm_get_cycles_per_sec(channel 2) = 0, 24000000 Hz
 [clock] pwm_get_cycles_per_sec(channel 4) = -EINVAL
 ```
 
-### pwm_set_cycles
-
-```c
-int pwm_set_cycles(const struct device *dev, uint32_t channel, uint32_t period, uint32_t pulse, pwm_flags_t flags);
-```
+**`pwm_set_cycles`** `int pwm_set_cycles(const struct device *dev, uint32_t channel, uint32_t period, uint32_t pulse, pwm_flags_t flags);`
 
 周期和脉宽的单位是 24 MHz 的周期，`24000` 个周期就是 1 ms。`PWM_POLARITY_INVERTED` 时脉宽是周期里的低电平部分。第一次调用同时打开通道。
 
@@ -229,32 +190,7 @@ int pwm_set_cycles(const struct device *dev, uint32_t channel, uint32_t period, 
 | 极性以外的标志 | `-ENOTSUP` |
 | 周期换算不进 16 位计数加分频 | `-ERANGE` |
 
-#### 示例：不同的占空比和极性
-
-```c
-/* pwm_set_cycles: period and pulse in cycles of the 24 MHz reference clock. 24000 cycles are
- * 1 ms, a frequency of 1 kHz. PWM_POLARITY_INVERTED makes the pulse the low part of the period,
- * which is how the backlight of the board is wired (low = on).
- */
-static void demo_set_cycles(void)
-{
-	static const uint32_t pulse[] = { 2400, 12000, 21600 };
-	int ret;
-
-	for (int i = 0; i < ARRAY_SIZE(pulse); i++) {
-		ret = pwm_set_cycles(pwm, CH, 24000, pulse[i], PWM_POLARITY_INVERTED);
-		printk("[cycles] 1 kHz, pulse %5u of 24000 (%2u%%), inverted = %s\n", pulse[i],
-		       pulse[i] * 100 / 24000, err(ret));
-		show_regs();
-		k_msleep(1000);
-	}
-
-	ret = pwm_set_cycles(pwm, CH, 24000, 12000, PWM_POLARITY_NORMAL);
-	printk("[cycles] 1 kHz, 50%%, normal polarity            = %s\n", err(ret));
-	show_regs();
-	k_msleep(500);
-}
-```
+**示例：不同的占空比和极性**
 
 ```text
 [cycles] 1 kHz, pulse  2400 of 24000 (10%), inverted = 0
@@ -267,30 +203,7 @@ static void demo_set_cycles(void)
          enabled 1, clock source 0, divider 1/1, prescaler 1, normal, period 24000 counts, active 12000 counts
 ```
 
-#### 示例：驱动拒绝的参数
-
-```c
-/* what the driver refuses */
-static void demo_errors(void)
-{
-	int ret;
-
-	ret = pwm_set_cycles(pwm, 4, 24000, 12000, 0);
-	printk("[error] channel 4                       = %s\n", err(ret));
-
-	ret = pwm_set_cycles(pwm, CH, 0, 0, 0);
-	printk("[error] period 0                        = %s\n", err(ret));
-
-	ret = pwm_set_cycles(pwm, CH, 24000, 24001, 0);
-	printk("[error] pulse longer than the period    = %s\n", err(ret));
-
-	ret = pwm_set_cycles(pwm, CH, 24000, 12000, BIT(1));
-	printk("[error] a flag other than the polarity  = %s\n", err(ret));
-
-	ret = pwm_set_cycles(pwm, CH, 1, 1, 0);
-	printk("[error] period of 1 cycle (41.7 ns)     = %s\n", err(ret));
-}
-```
+**示例：驱动拒绝的参数**
 
 ```text
 [error] channel 4                       = -EINVAL
@@ -300,45 +213,13 @@ static void demo_errors(void)
 [error] period of 1 cycle (41.7 ns)     = 0
 ```
 
-### pwm_set
+### 设置输出
 
-```c
-int pwm_set(const struct device *dev, uint32_t channel, uint32_t period, uint32_t pulse, pwm_flags_t flags);
-```
+**`pwm_set`** `int pwm_set(const struct device *dev, uint32_t channel, uint32_t period, uint32_t pulse, pwm_flags_t flags);`
 
-周期和脉宽用纳秒，用 `PWM_USEC()`、`PWM_MSEC()`、`PWM_SEC()` 这些宏写。API 先按 24 MHz 换算成周期数（向下取整），再交给 `pwm_set_cycles`，所以短周期会被取整：200 ns 是 4.8 个周期，取整成 4 个周期（166.7 ns）；比一个周期（41.7 ns）还短的周期换算成 0，返回 `-EINVAL`。
+周期和脉宽用纳秒，用 `PWM_USEC()`、`PWM_MSEC()`、`PWM_SEC()` 这些宏写。API 先按 24 MHz 换算成周期数（向下取整），再交给 `pwm_set_cycles`，所以短周期会被取整：200 ns 是 4.8 个周期，取整成 4 个周期（166.7 ns）。比一个周期（41.7 ns）还短的周期换算成 0，返回 `-EINVAL`。
 
-驱动按周期自动选时钟：周期不超过 334 ns 用 100 MHz 的时钟源，计数更细；否则用 24 MHz，从 M 分频 1 开始，一直到预分频，找到第一个使 16 位计数放得下的组合。50 Hz 的舵机信号用预分频 8，0.5 Hz 用 M 分频 4 加预分频 184。
-
-```c
-/* pwm_set: the same in nanoseconds; the API converts to cycles of the 24 MHz reference, and a period
- * shorter than one cycle (41.7 ns) becomes 0 cycles and is refused.
- */
-static void demo_set(void)
-{
-	int ret;
-
-	ret = pwm_set(pwm, CH, PWM_USEC(100), PWM_USEC(25), PWM_POLARITY_NORMAL);
-	printk("[set] 10 kHz, 25%%                                = %s\n", err(ret));
-	show_regs();
-
-	ret = pwm_set(pwm, CH, PWM_MSEC(20), PWM_USEC(1500), PWM_POLARITY_NORMAL);
-	printk("[set] 50 Hz, 1.5 ms (a servo in the middle)      = %s\n", err(ret));
-	show_regs();
-
-	ret = pwm_set(pwm, CH, PWM_SEC(2), PWM_SEC(1), PWM_POLARITY_NORMAL);
-	printk("[set] 0.5 Hz, 50%%                                = %s\n", err(ret));
-	show_regs();
-
-	ret = pwm_set(pwm, CH, 200, 100, PWM_POLARITY_NORMAL);
-	printk("[set] 200 ns period (5 MHz), 50%%                 = %s\n", err(ret));
-	show_regs();
-
-	ret = pwm_set(pwm, CH, 10, 5, PWM_POLARITY_NORMAL);
-	printk("[set] 10 ns period (less than one 24 MHz cycle) = %s\n", err(ret));
-	show_regs();
-}
-```
+驱动按周期自动选时钟：周期不超过 334 ns 用 100 MHz 的时钟源，计数更细。否则用 24 MHz，从 M 分频 1 开始，一直到预分频，找到第一个使 16 位计数放得下的组合。50 Hz 的舵机信号用预分频 8，0.5 Hz 用 M 分频 4 加预分频 184。
 
 ```text
 [set] 10 kHz, 25%                                = 0
@@ -355,13 +236,9 @@ static void demo_set(void)
 
 最后一次返回 `-EINVAL`，通道的寄存器保持上一次的值。
 
-### pwm_set_dt
+**`pwm_set_dt`** `int pwm_set_dt(const struct pwm_dt_spec *spec, uint32_t period, uint32_t pulse);`
 
-```c
-int pwm_set_dt(const struct pwm_dt_spec *spec, uint32_t period, uint32_t pulse);
-```
-
-通道、设备和极性来自设备树节点的 `pwms` 属性，应用里不用写死通道号；周期和脉宽用纳秒。`spec` 用 `PWM_DT_SPEC_GET(node)` 取：
+通道、设备和极性来自设备树节点的 `pwms` 属性，应用里不用写死通道号。周期和脉宽用纳秒。`spec` 用 `PWM_DT_SPEC_GET(node)` 取：
 
 ```c
 static const struct pwm_dt_spec bl = PWM_DT_SPEC_GET(DT_NODELABEL(backlight_dsi));
@@ -382,11 +259,7 @@ static void demo_set_dt(void)
          enabled 1, clock source 0, divider 1/1, prescaler 1, inverted, period 24000 counts, active 18000 counts
 ```
 
-### pwm_set_pulse_dt
-
-```c
-int pwm_set_pulse_dt(const struct pwm_dt_spec *spec, uint32_t pulse);
-```
+**`pwm_set_pulse_dt`** `int pwm_set_pulse_dt(const struct pwm_dt_spec *spec, uint32_t pulse);`
 
 用设备树节点里写的周期（`backlight_dsi` 是 1 ms），只给脉宽。脉宽为 0 是 Zephyr 里停止 PWM 的办法：驱动关掉通道的使能位和时钟门，再设一个非 0 的脉宽就重新打开。
 
@@ -436,7 +309,7 @@ static void demo_stop(void)
 
 ## 完整演示程序
 
-上面所有示例和日志都来自这一个程序。建一个目录，放进下面的文件，就可以像其他 Zephyr 应用一样编译。
+
 
 ```text
 pwm_api/
@@ -446,7 +319,7 @@ pwm_api/
     └── main.c
 ```
 
-### CMakeLists.txt
+**CMakeLists.txt**
 
 ```cmake
 cmake_minimum_required(VERSION 3.20.0)
@@ -456,7 +329,7 @@ project(pwm_api)
 target_sources(app PRIVATE src/main.c)
 ```
 
-### prj.conf
+**prj.conf**
 
 ```ini
 CONFIG_PWM=y
@@ -467,7 +340,7 @@ CONFIG_DEVMEM_SHELL=n
 CONFIG_LOG_PRINTK=n
 ```
 
-### src/main.c
+**src/main.c**
 
 ```c
 /*
@@ -669,7 +542,7 @@ int main(void)
 }
 ```
 
-### 编译和运行
+**编译和运行**
 
 ```sh
 . ~/f101-zephyr/env.sh

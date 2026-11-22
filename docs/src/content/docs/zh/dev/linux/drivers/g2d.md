@@ -122,7 +122,7 @@ CONFIG_VIDEOBUF2_DMA_CONTIG=y
 CONFIG_VIDEO_SUN252I_G2D=y
 ```
 
-驱动在 `arch/riscv/configs/sun252i_f101_yuzukineko_defconfig` 里选中。`CONFIG_VIDEO_SUN252I_G2D` 是 tristate，依赖 `V4L_MEM2MEM_DRIVERS`、`VIDEO_DEV`、`ARCH_SUNXI`、`COMMON_CLK`、`RESET_CONTROLLER` 和 `OF`；它会选中 `VIDEOBUF2_DMA_CONTIG` 和 `V4L2_MEM2MEM_DEV`。
+驱动在 `arch/riscv/configs/sun252i_f101_yuzukineko_defconfig` 里选中。`CONFIG_VIDEO_SUN252I_G2D` 是 tristate，依赖 `V4L_MEM2MEM_DRIVERS`、`VIDEO_DEV`、`ARCH_SUNXI`、`COMMON_CLK`、`RESET_CONTROLLER` 和 `OF`。它会选中 `VIDEOBUF2_DMA_CONTIG` 和 `V4L2_MEM2MEM_DEV`。
 
 ## 驱动内部
 
@@ -142,7 +142,7 @@ cache 和限制值来自厂商驱动。限制器防止 G2D 抢走显示引擎和
 
 ### mem2mem 队列
 
-两个队列都是单平面，使用 `vb2_dma_contig_memops`，接受 `VB2_MMAP` 和 `VB2_DMABUF`。每个上下文有自己的格式对、控制项处理器和 m2m 上下文，所以多个进程可以打开设备；每设备的互斥锁串行化 ioctl，自旋锁保护唯一正在运行的作业。
+两个队列都是单平面，使用 `vb2_dma_contig_memops`，接受 `VB2_MMAP` 和 `VB2_DMABUF`。每个上下文有自己的格式对、控制项处理器和 m2m 上下文，所以多个进程可以打开设备。每设备的互斥锁串行化 ioctl，自旋锁保护唯一正在运行的作业。
 
 `open()` 时的默认值是 640x480 NV12 源和 640x480 XBGR32 目标。请求的格式不在表里时，`try_fmt` 在输出队列回退到 NV12，在捕获队列回退到 XBGR32。队列正在流式传输时，`set_fmt` 以 `-EBUSY` 拒绝。
 
@@ -205,19 +205,19 @@ struct g2d_rcq_header {
 
 ### 缩放
 
-缩放器使用 19 位小数步进：`step = in_size << 19 / out_size`。步进寄存器保留 bit 0，所以驱动写 `step << 1`。水平系数来自按比例选中的十六组 Lanczos 之一；垂直系数写进另一张表。平面 4:2:0 还会写色度步进、相位和系数，打包 4:2:2 使用线性垂直表，RGB 复用色度通路，采样数与亮度相同。
+缩放器使用 19 位小数步进：`step = in_size << 19 / out_size`。步进寄存器保留 bit 0，所以驱动写 `step << 1`。水平系数来自按比例选中的十六组 Lanczos 之一。垂直系数写进另一张表。平面 4:2:0 还会写色度步进、相位和系数，打包 4:2:2 使用线性垂直表，RGB 复用色度通路，采样数与亮度相同。
 
-在缩放器之前，V0 叠加层可以粗降采样。输入宽度至少是输出的八倍时降到 `out_width * 8`，上限 2048 像素；只是宽于 2048 时降到 2048。垂直方向，输入至少是输出的四倍时降到 `out_height * 4`。这样精细缩放器始终在水平 8 倍、垂直 4 倍的范围内。
+在缩放器之前，V0 叠加层可以粗降采样。输入宽度至少是输出的八倍时降到 `out_width * 8`，上限 2048 像素。只是宽于 2048 时降到 2048。垂直方向，输入至少是输出的四倍时降到 `out_height * 4`。这样精细缩放器始终在水平 8 倍、垂直 4 倍的范围内。
 
 ### 中断与看门狗
 
-命令表准备好后，驱动记录运行中的上下文，挂上 1 秒延迟工作看门狗，执行写内存屏障并敲响门铃。中断处理程序读取并清除线程状态。任务结束中断用 `VB2_BUF_STATE_DONE` 完成两个缓冲区；超时中断复位核心和线程，用 `VB2_BUF_STATE_ERROR` 完成它们。中断一直不来时看门狗做同样的事，并打印 `the engine did not finish the frame`。
+命令表准备好后，驱动记录运行中的上下文，挂上 1 秒延迟工作看门狗，执行写内存屏障并敲响门铃。中断处理程序读取并清除线程状态。任务结束中断用 `VB2_BUF_STATE_DONE` 完成两个缓冲区。超时中断复位核心和线程，用 `VB2_BUF_STATE_ERROR` 完成它们。中断一直不来时看门狗做同样的事，并打印 `the engine did not finish the frame`。
 
 处理程序在每次作业后脉冲线程复位，所以下一个作业从已知状态开始。
 
 ### Cache 与 PBMT
 
-C906/C907 核运行 Sv32，没有 PBMT。因此 DMA 映射不会自动变成非缓存。命令表用 `dmam_alloc_coherent()` 分配，并在敲门铃前写屏障，所以引擎能看到它。图像缓冲区是 `vb2_dma_contig` 缓冲区。MMAP 缓冲区来自 DMA 分配器，在这个队列上不会被标记为非一致性；USERPTR 和 dma-buf 导入会被标记为非一致性，`prepare` 和 `finish` memop 分别用 `dma_sync_sgtable_for_device` 和 `dma_sync_sgtable_for_cpu` 同步它们。随板的测试在 cedrus 和 G2D 之间传递 dma-buf，所以它们走的是导入路径。
+C906/C907 核运行 Sv32，没有 PBMT。因此 DMA 映射不会自动变成非缓存。命令表用 `dmam_alloc_coherent()` 分配，并在敲门铃前写屏障，所以引擎能看到它。图像缓冲区是 `vb2_dma_contig` 缓冲区。MMAP 缓冲区来自 DMA 分配器，在这个队列上不会被标记为非一致性。USERPTR 和 dma-buf 导入会被标记为非一致性，`prepare` 和 `finish` memop 分别用 `dma_sync_sgtable_for_device` 和 `dma_sync_sgtable_for_cpu` 同步它们。随板的测试在 cedrus 和 G2D 之间传递 dma-buf，所以它们走的是导入路径。
 
 ## 用户空间
 

@@ -2,11 +2,6 @@
 title: "HTML 渲染器 - litehtml"
 ---
 
-:::note[版本范围]
-Zephyr 4.2.2 与 4.5.0 并存。本页原有示例、录像及板上结果使用 4.2.2 基线，4.5 的变化另行说明。请按[版本与迁移指南](../zephyr-4-5.md)选择配套的内核、组件分支及独立环境和构建目录。4.5 编译或主机测试通过，不会改变已有板上结果的版本归属。
-:::
-
-
 把 TF 卡上的 HTML 页面画到屏幕上。[litehtml](https://github.com/litehtml/litehtml)（v0.9）负责解析 HTML、套 CSS、排版，板子上的渲染层（`lh_render.cpp`）把排好的盒子画进一块 RGB565 缓冲，再交给显示引擎。组件是 `zephyr-components/litehtml`，示例是 `samples/html_viewer`。
 
 没有浏览器内核：<strong>不跑 JavaScript，不联网，没有触摸或按键输入</strong>。页面太长时自己往下滚，滚到头再回来。
@@ -158,7 +153,7 @@ python3 mk-lh-assets.py img photo.png SD/img/photo.lhi
 python3 mk-lh-assets.py font /usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc SD/font.lhf SD/page.html
 ```
 
-（字体路径换成你机器上有的；`.ttc` 集合文件 Pillow 默认取第一个字体。）
+（字体路径换成你机器上有的。`.ttc` 集合文件 Pillow 默认取第一个字体。）
 
 没有 `font.lhf`，或者页面里的字不在里面，非 ASCII 字符画成 `?`。<strong>字体是固定的</strong>：`font-family` 不起作用，不能加载 TTF/OTF/WOFF，也不支持 `@font-face`。
 
@@ -398,7 +393,7 @@ void lh_draw(struct lh_page *page, uint16_t *fb, int stride, int w, int h, int s
 }
 ```
 
-文字怎么画：`create_font()` 把 CSS 字号当作字高，字宽按 10:16 的比例缩放（`cell_w = size * 10 / 16`，至少 1），粗体（权重 ≥ 600）宽度加 1 并往右多涂一列；`draw_glyph()` 用最近邻把 10×16 点阵缩放到目标尺寸，斜体按行错位。下划线、删除线、上划线直接画线。
+文字怎么画：`create_font()` 把 CSS 字号当作字高，字宽按 10:16 的比例缩放（`cell_w = size * 10 / 16`，至少 1），粗体（权重 ≥ 600）宽度加 1 并往右多涂一列。`draw_glyph()` 用最近邻把 10×16 点阵缩放到目标尺寸，斜体按行错位。下划线、删除线、上划线直接画线。
 
 ```cpp
 f->size = std::max(size, 6);
@@ -500,7 +495,7 @@ if (weight >= 600) {
 
 ### 加手动滚动
 
-示例里的 `scroll` 只由 `SCROLL_PX` 驱动。要接输入设备，思路是改 `main.c` 末尾的循环：去掉自动增减，改成由按键或触摸事件改 `scroll`，范围限制在 `0` 到 `max_scroll`。这只适用于整页模式（`CHUNK_KB=0`）；分片模式的滚动在 `chunked.c` 的 `y += CONFIG_SAMPLE_HTML_SCROLL_PX` 那一行。示例没有实现。
+示例里的 `scroll` 只由 `SCROLL_PX` 驱动。要接输入设备，思路是改 `main.c` 末尾的循环：去掉自动增减，改成由按键或触摸事件改 `scroll`，范围限制在 `0` 到 `max_scroll`。这只适用于整页模式（`CHUNK_KB=0`）。分片模式的滚动在 `chunked.c` 的 `y += CONFIG_SAMPLE_HTML_SCROLL_PX` 那一行。示例没有实现。
 
 ### 在自己的程序里用
 
@@ -601,7 +596,6 @@ west build -b yuzukineko -d build/html zephyr-components/litehtml/samples/html_v
 - 屏幕画面固定 1024×600，屏幕是 1024×768，上下有黑边。
 - 页面大到放不进内存时必须分片；分片模式下跨片的选择器和需要看整页的规则不起作用，翻到新的一片有停顿。
 - 网页需要先用 `tools/scrape_page.py` 转换，转换后的版式是近似的。
-
 
 ## 排错
 

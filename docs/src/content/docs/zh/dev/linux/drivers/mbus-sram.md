@@ -41,15 +41,15 @@ title: "MBUS 与 SRAM - 总线优先级与片上内存"
 | 6 | `tvd` | 14 | `other` |
 | 7 | `csi` | 15 | `total` |
 
-计数器按组统计，不按 master 统计。无法单独读某个 master 的流量；`masters` 文件显示它的配置，`traffic` 文件显示它贡献到的组。16 个组不保证覆盖全部流量：`reserved` 和 `other` 表示不对应单个具名 master 的桶。
+计数器按组统计，不按 master 统计。无法单独读某个 master 的流量。`masters` 文件显示它的配置，`traffic` 文件显示它贡献到的组。16 个组不保证覆盖全部流量：`reserved` 和 `other` 表示不对应单个具名 master 的桶。
 
-MBUS 时钟是上限和计数器共同的时间基准。500 MB/s 的上限只有相对于 `clk_get_rate()` 报告的频率才有意义；如果将来的板子降低 MBUS 时钟，同一个寄存器值对应的字节速率会更低，驱动会在启动时按新时钟重新算字段。
+MBUS 时钟是上限和计数器共同的时间基准。500 MB/s 的上限只有相对于 `clk_get_rate()` 报告的频率才有意义。如果将来的板子降低 MBUS 时钟，同一个寄存器值对应的字节速率会更低，驱动会在启动时按新时钟重新算字段。
 
 devicetree 绑定只给板子配置的两个 master 起了符号名：`SUN252I_F101_MBUS_MASTER_DE` 是 16，`SUN252I_F101_MBUS_MASTER_RISCV` 是 39。其他 master 编号来自硬件手册，头文件里没有命名。
 
 ### 系统控制与 SRAM
 
-`0x03000000` 的系统控制器基本上是一个 mux 模块。这个 SoC 上 `+0x00` 的寄存器读回为零、忽略写入，Linux 和 OpenSBI 都一样；只有 `+0x04` 的 mux 可写且有效。驱动建模了三个 section，其中两个共用同三位。
+`0x03000000` 的系统控制器基本上是一个 mux 模块。这个 SoC 上 `+0x00` 的寄存器读回为零、忽略写入，Linux 和 OpenSBI 都一样。只有 `+0x04` 的 mux 可写且有效。驱动建模了三个 section，其中两个共用同三位。
 
 | Section | 兼容字符串 | 寄存器 | 认领时的值 | 含义 |
 | --- | --- | --- | --- | --- |
@@ -59,7 +59,7 @@ devicetree 绑定只给板子配置的两个 master 起了符号名：`SUN252I_F
 
 VE 的内存是 `0x00020000` 处 0xb000 字节的 `mmio-sram`，也就是 FEL 阶段加载 `init_psram_efex.bin` 和 `usb-boot_fel.bin` 的同一块 SRAM。Linux 启动时这些程序已经结束，这块区域可以交给视频引擎。OTG FIFO RAM 位于 USB 控制器内部，但它的归属由显示引擎也使用的 bits 27:25 选择，这就是两个设备冲突的原因。
 
-显示引擎和 USB 控制器希望同一位段取相反的值。DE 认领自己的 section 时写 5；OTG 认领 USB section 时写 0。显示引擎在值为 0 时也能工作，板子在两者同时活动、且 OTG 最后认领时就是这个状态。如果位段停在 5，gadget 永远离不开 `default` 状态，枚举无法完成。角色切换和 gadget 侧见 [USB](usb.md)。
+显示引擎和 USB 控制器希望同一位段取相反的值。DE 认领自己的 section 时写 5。OTG 认领 USB section 时写 0。显示引擎在值为 0 时也能工作，板子在两者同时活动、且 OTG 最后认领时就是这个状态。如果位段停在 5，gadget 永远离不开 `default` 状态，枚举无法完成。角色切换和 gadget 侧见 [USB](usb.md)。
 
 ## Devicetree
 
@@ -137,7 +137,7 @@ de_sram_section: sram-section-de {
 
 ### 使用者
 
-设备用 `allwinner,sram` 申请 section；第二个 cell 是“这个设备”对应的值。驱动按兼容字符串找到 section 节点，把第二个 cell 与函数表对照，并在第一次认领时写入对应的寄存器值。
+设备用 `allwinner,sram` 申请 section。第二个 cell 是“这个设备”对应的值。驱动按兼容字符串找到 section 节点，把第二个 cell 与函数表对照，并在第一次认领时写入对应的寄存器值。
 
 ```text
 ve: video-codec@1c0e000 {
@@ -169,7 +169,7 @@ CONFIG_SUNXI_SRAM=y
 CONFIG_DEBUG_FS=y
 ```
 
-`CONFIG_SUNXI_SRAM` 是 bool，在 `CONFIG_ARCH_SUNXI` 下默认 `y`，并 select `REGMAP_MMIO`。F101 的系统控制 variant 没有 EMAC 时钟也没有 LDO 控制，所以驱动不会为它注册 regmap；它只映射窗口、populate SRAM 子节点并创建 debugfs 文件。`CONFIG_SUNXI_MBUS` 是另一个选项：它是 ARM 专用的 DMA quirk 修正，这里不用。
+`CONFIG_SUNXI_SRAM` 是 bool，在 `CONFIG_ARCH_SUNXI` 下默认 `y`，并 select `REGMAP_MMIO`。F101 的系统控制 variant 没有 EMAC 时钟也没有 LDO 控制，所以驱动不会为它注册 regmap。它只映射窗口、populate SRAM 子节点并创建 debugfs 文件。`CONFIG_SUNXI_MBUS` 是另一个选项：它是 ARM 专用的 DMA quirk 修正，这里不用。
 
 `CONFIG_SUN252I_F101_MBUS` 依赖 `ARCH_SUNXI` 或 `COMPILE_TEST`，是 tristate，不过板级配置把它编进内核。
 
@@ -179,11 +179,11 @@ CONFIG_DEBUG_FS=y
 
 `f101_mbus_probe()` 映射 4 KiB 窗口，用 `devm_reset_control_get_optional_exclusive_deasserted()` 取得复位，用 `devm_clk_get_enabled()` 打开 `bus` 和 `mbus` 时钟，并把 `clk_get_rate() / 1000000` 存成 MBUS 时钟的 MHz 值。如果时钟频率为 0，probe 会失败，因为换算上限时会除以零。
 
-随后它通过向 `PMU_CTRL` 写窗口和使能位来启动监视器，遍历可用子节点应用 `priority` 和 `bandwidth-limit-mbps`，创建 debugfs 目录，并打印时钟的 MHz 值。复位在任何寄存器访问之前释放。复位仍被 assert 时整个窗口读回 `0x4`，看起来像控制器坏了，其实只是复位没释放。
+随后它通过向 `PMU_CTRL` 写窗口和使能位来启动监视器，遍历可用子节点应用 `priority` 和 `bandwidth-limit-mbps`，创建 debugfs 目录，并打印时钟的 MHz 值。复位在任何寄存器访问之前释放。复位仍被 assert 时整个窗口读回 `0x4`，看起来像控制器坏了，实际是复位没释放。
 
 ### 上限编码
 
-`f101_mbus_set_limit()` 读 BWLR，清掉上限字段和使能位，再写新值。请求 0 mbps 被编码成“清除使能”，不是零上限。非零请求用 `div_u64(256 * mbps, clk_mhz)` 换算，结果是每周期 1/256 字节的单位；debugfs 的 `masters` 文件再用 `limit * clk_mhz / 256` 换回来，打印 MB/s。整数截断意味着 MBUS 时钟较低时，实际上限可能比请求值略低。
+`f101_mbus_set_limit()` 读 BWLR，清掉上限字段和使能位，再写新值。请求 0 mbps 被编码成“清除使能”，不是零上限。非零请求用 `div_u64(256 * mbps, clk_mhz)` 换算，结果是每周期 1/256 字节的单位。debugfs 的 `masters` 文件再用 `limit * clk_mhz / 256` 换回来，打印 MB/s。整数截断意味着 MBUS 时钟较低时，实际上限可能比请求值略低。
 
 ### 监视窗口
 
@@ -199,9 +199,9 @@ CONFIG_DEBUG_FS=y
 
 ### 认领计数与释放
 
-`sunxi_sram_release()` 只递减计数，别的什么都不做。它不恢复之前的所有者，也不写寄存器。如果驱动 probe、认领、然后被移除，字段会停在它写入的值。DE 和 VE 使用者在 probe 时认领，只在驱动移除时释放；OTG 在 `sunxi_musb_init()` 认领，在 `sunxi_musb_exit()` 释放。
+`sunxi_sram_release()` 只递减计数，别的什么都不做。它不恢复之前的所有者，也不写寄存器。如果驱动 probe、认领、然后被移除，字段会停在它写入的值。DE 和 VE 使用者在 probe 时认领，只在驱动移除时释放。OTG 在 `sunxi_musb_init()` 认领，在 `sunxi_musb_exit()` 释放。
 
-显示引擎和 OTG 控制器之间的认领顺序决定 bits 27:25 的最终值。MUSB 驱动在 MUSB core 初始化时认领，mixer 在 DRM component bind 时认领。按当前板子的构建，OTG 的认领是最后一次，所以字段读 0，显示和 gadget 都能工作。如果将来的 probe 顺序让字段停在 5，gadget 会卡在 `default`；见排错表。
+显示引擎和 OTG 控制器之间的认领顺序决定 bits 27:25 的最终值。MUSB 驱动在 MUSB core 初始化时认领，mixer 在 DRM component bind 时认领。按当前板子的构建，OTG 的认领是最后一次，所以字段读 0，显示和 gadget 都能工作。如果将来的 probe 顺序让字段停在 5，gadget 会卡在 `default`。见排错表。
 
 ## 用户接口
 
@@ -232,7 +232,7 @@ cat /sys/kernel/debug/sun252i-f101-mbus/traffic
 devmem 0x03000004
 ```
 
-bit 24 和 bits 27:25 是两个归属字段。整字读取是安全的；写入会改变 SRAM 归属，可能弄坏显示引擎或视频引擎，除非是刻意从错误的认领顺序里恢复，否则不要写。
+bit 24 和 bits 27:25 是两个归属字段。整字读取是安全的。写入会改变 SRAM 归属，可能弄坏显示引擎或视频引擎，除非是刻意从错误的认领顺序里恢复，否则不要写。
 
 ## 示例
 
@@ -261,7 +261,7 @@ cat /sys/kernel/debug/sun252i-f101-mbus/masters
 cat /sys/kernel/debug/sun252i-f101-mbus/traffic
 ```
 
-输出固定 16 行，名字如下；值是监视窗口内累计的原始字节数，每次读都会变：
+输出固定 16 行，名字如下。值是监视窗口内累计的原始字节数，每次读都会变：
 
 ```text
 cpu      ...
@@ -306,7 +306,7 @@ devmem 0x03102488
 devmem 0x03102310
 ```
 
-bits 3:2 是优先级。板子设成 3 时，其他位为零的情况下低字节读 `0x0c`。这和 `masters` 文件解析的是同一个值；当子节点存在但 `masters` 行仍显示优先级 0 时，用它可以确认寄存器写入没有发生。
+bits 3:2 是优先级。板子设成 3 时，其他位为零的情况下低字节读 `0x0c`。这和 `masters` 文件解析的是同一个值。子节点存在但 `masters` 行仍显示优先级 0，用它可以确认寄存器写入没有发生。
 
 ### 检查 SRAM 归属
 

@@ -29,7 +29,7 @@ flowchart TB
 
 ### 控制器与 PHY
 
-OTG 控制器是带 Allwinner 寄存器转换的 MUSB 核。它的寄存器窗口只有通用控制和端点块；FIFO 数据、端点控制、索引式总线控制和 configdata 寄存器位于 glue 层转换的固定偏移。MUSB 核是高速设备，也能当主机，但板子把它用作设备侧。
+OTG 控制器是带 Allwinner 寄存器转换的 MUSB 核。它的寄存器窗口只有通用控制和端点块。FIFO 数据、端点控制、索引式总线控制和 configdata 寄存器位于 glue 层转换的固定偏移。MUSB 核是高速设备，也能当主机，但板子把它用作设备侧。
 
 EHCI 控制器处理高速主机流量，OHCI 控制器处理全速和低速设备。它们是独立的主机控制器，各有自己的寄存器窗口和中断，但与 OTG 控制器共用 PHY。PHY 有一个路由位，即 PHY 偏移 `0x20` 的 `OTGCTL[0]`：1 把 PHY 接到 MUSB，0 接到 EHCI/OHCI 对。PHY 还有 ID 和 VBUS 比较器的强制位，因为板子没有连接这些引脚。
 
@@ -52,9 +52,9 @@ FIFO 配置表声明五个端点，每个端点最大包 512 字节并使用单�
 
 ### 角色选择
 
-板子上没有 ID 引脚，也没有 VBUS 比较器，所以 `sun4i_usb_phy` 使用 `ISCR` 的强制位：ID 强制字段是 bits 15:14，VBUS 强制字段是 bits 13:12。在 `USB_DR_MODE_OTG` 且没有 `usb0_id_det-gpios` 时，ID 回退值返回 1，表示外设。在 `USB_DR_MODE_HOST` 时返回 0。每次 `phy_set_mode()` 都会设置 `data->dr_mode`，把 `id_det` 强制为 -1，并立即排队一个检测工作项；工作项随后强制 ID 和 VBUS 比较器、通知 extcon、打开 PHY passby，并调用 `sun4i_usb_phy0_reroute()`。
+板子上没有 ID 引脚，也没有 VBUS 比较器，所以 `sun4i_usb_phy` 使用 `ISCR` 的强制位：ID 强制字段是 bits 15:14，VBUS 强制字段是 bits 13:12。在 `USB_DR_MODE_OTG` 且没有 `usb0_id_det-gpios` 时，ID 回退值返回 1，表示外设。在 `USB_DR_MODE_HOST` 时返回 0。每次 `phy_set_mode()` 都会设置 `data->dr_mode`，把 `id_det` 强制为 -1，并立即排队一个检测工作项。工作项随后强制 ID 和 VBUS 比较器、通知 extcon、打开 PHY passby，并调用 `sun4i_usb_phy0_reroute()`。
 
-MUSB 控制器和两个 HCD 在启动时都会调用 `phy_set_mode()`。HCD 核心通过 `usb_phy_roothub` 处理每个主机控制器的 `usb` PHY，先调用 `PHY_MODE_USB_HOST_SS`，失败后回退到 `PHY_MODE_USB_HOST`；PHY 拒绝 SS 模式，接受 USB2 主机模式。在这块板子上，HCD 是最后设置模式的，所以 PHY 留在主机侧，这就是观察到的启动状态。板级文件里的注释说端口以设备模式启动，这与板子上共用 PHY 的实际行为不符。
+MUSB 控制器和两个 HCD 在启动时都会调用 `phy_set_mode()`。HCD 核心通过 `usb_phy_roothub` 处理每个主机控制器的 `usb` PHY，先调用 `PHY_MODE_USB_HOST_SS`，失败后回退到 `PHY_MODE_USB_HOST`。PHY 拒绝 SS 模式，接受 USB2 主机模式。在这块板子上，HCD 是最后设置模式的，所以 PHY 留在主机侧，这就是观察到的启动状态。板级文件里的注释说端口以设备模式启动，这与板子上共用 PHY 的实际行为不符。
 
 ## Devicetree
 
@@ -115,7 +115,7 @@ ohci0: usb@4101400 {
 };
 ```
 
-OTG 节点有一个时钟和一个复位。PHY 节点有两段 `reg`，控制窗口和 PMU 窗口，并直接使用 24 MHz 振荡器。EHCI 节点列出三个不带名字的时钟，所以 platform 驱动按索引 0、1、2 的顺序获取；它还列出 OHCI 和 EHCI 两个复位，所以 EHCI probe 时两条复位线都会被释放。
+OTG 节点有一个时钟和一个复位。PHY 节点有两段 `reg`，控制窗口和 PMU 窗口，并直接使用 24 MHz 振荡器。EHCI 节点列出三个不带名字的时钟，所以 platform 驱动按索引 0、1、2 的顺序获取。它还列出 OHCI 和 EHCI 两个复位，所以 EHCI probe 时两条复位线都会被释放。
 
 ### 板级启用
 
@@ -138,7 +138,7 @@ OTG 节点有一个时钟和一个复位。PHY 节点有两段 `reg`，控制窗
 };
 ```
 
-板子没有 `usb0_id_det-gpios`、没有 `usb0_vbus_det-gpios`，也没有 `usb0_vbus-supply`。因此没有软件控制的 VBUS 开关，也没有线缆检测。设备模式依赖另一端的宿主提供 VBUS；主机模式无法报告过流事件，也无法切换端口供电。物理端口和 FEL、ThunderLinker 使用的是同一个，所以 Linux 运行后 Windows 看到的是 gadget（VID `1d6b`），而不是 FEL 设备。
+板子没有 `usb0_id_det-gpios`、没有 `usb0_vbus_det-gpios`，也没有 `usb0_vbus-supply`。因此没有软件控制的 VBUS 开关，也没有线缆检测。设备模式依赖另一端的宿主提供 VBUS。主机模式无法报告过流事件，也无法切换端口供电。物理端口和 FEL、ThunderLinker 使用的是同一个，所以 Linux 运行后 Windows 看到的是 gadget（VID `1d6b`），而不是 FEL 设备。
 
 | 绑定 | 范围 |
 | --- | --- |
@@ -170,7 +170,7 @@ CONFIG_USB_STORAGE=y
 CONFIG_USB_ACM=y
 ```
 
-`CONFIG_USB_MUSB_SUNXI` 依赖 `ARCH_SUNXI`、`NOP_USB_XCEIV`、`PHY_SUN4I_USB` 和 `EXTCON`，并 select `GENERIC_PHY` 与 `SUNXI_SRAM`。MUSB 模式是一个三选项 choice；`USB` 和 `USB_GADGET` 都打开时默认是 `USB_MUSB_DUAL_ROLE`，板子因此能在运行时切换角色。
+`CONFIG_USB_MUSB_SUNXI` 依赖 `ARCH_SUNXI`、`NOP_USB_XCEIV`、`PHY_SUN4I_USB` 和 `EXTCON`，并 select `GENERIC_PHY` 与 `SUNXI_SRAM`。MUSB 模式是一个三选项 choice。`USB` 和 `USB_GADGET` 都打开时默认是 `USB_MUSB_DUAL_ROLE`，板子因此能在运行时切换角色。
 
 defconfig 里列了 `CONFIG_USB_CONFIGFS_ECM=y`，但 `drivers/usb/gadget/Kconfig` 里 ECM 依赖 `CONFIG_NET`。板级内核以 `CONFIG_NET` 关闭构建（生成的 `.config` 里是 `# CONFIG_NET is not set`），所以 ECM 功能根本没有编译进来，不是“编译了但不可用”。这份 defconfig 里也没有 RNDIS 或 NCM 选项。`CONFIG_USB_ACM` 和 `CONFIG_USB_STORAGE` 是主机侧 class 驱动，不是 gadget 功能。
 
@@ -180,7 +180,7 @@ defconfig 里列了 `CONFIG_USB_CONFIGFS_ECM=y`，但 `drivers/usb/gadget/Kconfi
 
 `sunxi_musb_probe()` 从 devicetree 读取 `dr_mode`，映射成 `MUSB_OTG`、`MUSB_HOST` 或 `MUSB_PERIPHERAL`。对这块板子是 `MUSB_OTG`，所以 `glue->phy_mode` 从 `PHY_MODE_USB_OTG` 开始。函数随后取得时钟、复位、通过第一个 phandle 取得 extcon、通过 `phy-names = "usb"` 取得 PHY，为 xceiv 注册通用 USB PHY，并创建名为 `musb-hdrc` 的子 platform device，`PLATFORM_DEVID_AUTO` 自动分配编号。这个子设备就是 `musb-hdrc.1.auto`。
 
-F101 配置设置了 `has_sram`、`has_reset` 和 `no_configdata`。probe 本身不认领 SRAM；认领发生在 MUSB core 启动时的 `sunxi_musb_init()`。
+F101 配置设置了 `has_sram`、`has_reset` 和 `no_configdata`。probe 本身不认领 SRAM。认领发生在 MUSB core 启动时的 `sunxi_musb_init()`。
 
 ### MUSB core 的初始化和退出
 
@@ -190,7 +190,7 @@ F101 配置设置了 `has_sram`、`has_reset` 和 `no_configdata`。probe 本身
 
 ### HCD 的 probe
 
-EHCI 和 OHCI 是通用 platform 驱动。`ehci_platform_probe()` 按索引取得三个时钟，把两个复位当作数组释放，调用 `usb_add_hcd()`；HCD 核心随后根据 `phy-names = "usb"` 分配 PHY roothub，调用 `phy_init()`，设置 `PHY_MODE_USB_HOST` 并给 PHY 上电。`ohci_platform_probe()` 用它的两个时钟和一个复位做同样的事。结果是同一个 PHY 上出现两个根 hub。
+EHCI 和 OHCI 是通用 platform 驱动。`ehci_platform_probe()` 按索引取得三个时钟，把两个复位当作数组释放，调用 `usb_add_hcd()`。HCD 核心随后根据 `phy-names = "usb"` 分配 PHY roothub，调用 `phy_init()`，设置 `PHY_MODE_USB_HOST` 并给 PHY 上电。`ohci_platform_probe()` 用它的两个时钟和一个复位做同样的事。结果是同一个 PHY 上出现两个根 hub。
 
 ### 角色切换路径
 
@@ -203,11 +203,11 @@ EHCI 和 OHCI 是通用 platform 驱动。`ehci_platform_probe()` 按索引取�
 5. 检测工作项读到 ID 回退值 1，翻转 VBUS 强制位结束可能的主机会话，设置 ID 强制位，通知 `EXTCON_USB_HOST = false`，打开 PHY passby，并写 `OTGCTL[0] = 1` 把 PHY 路由到 MUSB。
 6. 此时 gadget 才能绑定到 `musb-hdrc.1.auto`。
 
-切回主机是同样的链路，只是换成 `MUSB_HOST` 和 `PHY_MODE_USB_HOST`。重要结果是 `host` 会把 PHY 交还给 EHCI/OHCI 对；这块板子上用于 USB 设备的主机不是 MUSB 控制器自己。切换前先解绑 gadget，否则 PHY 被路由走时 UDC 还绑着。
+切回主机是同样的链路，只是换成 `MUSB_HOST` 和 `PHY_MODE_USB_HOST`。重要结果是 `host` 会把 PHY 交还给 EHCI/OHCI 对。这块板子上用于 USB 设备的主机不是 MUSB 控制器自己。切换前先解绑 gadget，否则 PHY 被路由走时 UDC 还绑着。
 
 ### DMA 与缓存
 
-MUSB glue 没有 DMA 控制器，所以设备传输是 PIO：CPU 读写 FIFO，这条路径上没有描述符环，也没有缓存维护。EHCI 和 OHCI 确实使用 DMA。SoC 节点标了 `dma-noncoherent`，而 RISC-V Sv32 页表格式没有 PBMT，所以 DMA API 会为 HCD 缓冲区做缓存维护。USB 描述符和数据缓冲区由 HCD 通过 DMA API 分配；不要把栈上的缓冲区交给 gadget 功能并指望缓存维护覆盖它。
+MUSB glue 没有 DMA 控制器，所以设备传输是 PIO：CPU 读写 FIFO，这条路径上没有描述符环，也没有缓存维护。EHCI 和 OHCI 确实使用 DMA。SoC 节点标了 `dma-noncoherent`，而 RISC-V Sv32 页表格式没有 PBMT，所以 DMA API 会为 HCD 缓冲区做缓存维护。USB 描述符和数据缓冲区由 HCD 通过 DMA API 分配。不要把栈上的缓冲区交给 gadget 功能并指望缓存维护覆盖它。
 
 ## 用户接口
 
@@ -221,7 +221,7 @@ echo peripheral > /sys/devices/platform/soc/4100000.usb/musb-hdrc.1.auto/mode
 echo host > /sys/devices/platform/soc/4100000.usb/musb-hdrc.1.auto/mode
 ```
 
-读侧打印 MUSB 的 OTG 状态名。写侧接受 `host`、`peripheral` 和 `otg`；其他字符串返回 `-EINVAL`。写入值会在持有 spinlock 的情况下调用 `musb_platform_set_mode()`，所以真正的 PHY 操作被推迟到工作项，写操作在角色改变之前就返回了。
+读侧打印 MUSB 的 OTG 状态名。写侧接受 `host`、`peripheral` 和 `otg`。其他字符串返回 `-EINVAL`。写入值会在持有 spinlock 的情况下调用 `musb_platform_set_mode()`，所以真正的 PHY 操作被推迟到工作项，写操作在角色改变之前就返回了。
 
 ### UDC 与 configfs
 
@@ -231,7 +231,7 @@ gadget 侧是标准 configfs 接口。UDC 名就是子 platform device 名：
 cat /sys/class/udc/musb-hdrc.1.auto/state
 ```
 
-状态是 `not attached`、`attached`、`powered`、`reconnect`、`unauthorized`、`default`、`addressed` 或 `configured` 之一。gadget 的构建方式是：在 `/sys/kernel/config/usb_gadget` 下建目录，填字符串和配置，再把一个功能链接进配置。先挂载 configfs；镜像启动时不会挂载它。
+状态是 `not attached`、`attached`、`powered`、`reconnect`、`unauthorized`、`default`、`addressed` 或 `configured` 之一。gadget 的构建方式是：在 `/sys/kernel/config/usb_gadget` 下建目录，填字符串和配置，再把一个功能链接进配置。先挂载 configfs。镜像启动时不会挂载它。
 
 ### 主机侧
 
@@ -276,7 +276,7 @@ cat /sys/class/udc/musb-hdrc.1.auto/state
 dmesg | tail
 ```
 
-宿主枚举完成后，状态读作 `configured`。gadget 会创建 `/dev/ttyGS0`；向它写入会把字节送到宿主 COM 口，从它读取会得到宿主发来的内容：
+宿主枚举完成后，状态读作 `configured`。gadget 会创建 `/dev/ttyGS0`。向它写入会把字节送到宿主 COM 口，从它读取会得到宿主发来的内容：
 
 ```sh
 echo hello > /dev/ttyGS0
@@ -291,7 +291,7 @@ rm configs/c.1/acm.usb0
 rmdir configs/c.1 functions/acm.usb0
 ```
 
-如果 UDC 写入失败，说明端口还在主机模式；先执行 `echo peripheral`。
+如果 UDC 写入失败，说明端口还在主机模式。先执行 `echo peripheral`。
 
 ### Mass storage gadget
 
@@ -327,7 +327,7 @@ echo host > /sys/devices/platform/soc/4100000.usb/musb-hdrc.1.auto/mode
 lsusb -t
 ```
 
-会出现两个根 hub：EHCI 高速 hub 和 OHCI 全速/低速 hub。板子只验证到根 hub；这个端口上真实 USB 设备的枚举还没有验证。同一个物理接口也用于 FEL，所以设备模式活动时 Windows 看到 gadget，只有重新上电后才回到 FEL 设备。
+会出现两个根 hub：EHCI 高速 hub 和 OHCI 全速/低速 hub。板子只验证到根 hub。这个端口上真实 USB 设备的枚举还没有验证。同一个物理接口也用于 FEL，所以设备模式活动时 Windows 看到 gadget，只有重新上电后才回到 FEL 设备。
 
 ## 限制与排错
 

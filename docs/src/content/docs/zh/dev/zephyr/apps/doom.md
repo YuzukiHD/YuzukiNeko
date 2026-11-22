@@ -2,11 +2,6 @@
 title: "Doom - 毁灭战士游戏"
 ---
 
-:::note[版本范围]
-Zephyr 4.2.2 与 4.5.0 并存。本页原有示例、录像及板上结果使用 4.2.2 基线，4.5 的变化另行说明。请按[版本与迁移指南](../zephyr-4-5.md)选择配套的内核、组件分支及独立环境和构建目录。4.5 编译或主机测试通过，不会改变已有板上结果的版本归属。
-:::
-
-
 在板子上运行 Doom：游戏引擎用 [doomgeneric](https://github.com/ozkl/doomgeneric)（GPL-2.0），平台层、文件访问和声音混音由 `zephyr-components/doom` 提供。示例是 `samples/doom_player`：从 TF 卡读 WAD 文件，320×200 的画面送到显示的视频层并缩放到整屏，音效从片上 codec 输出，屏幕上用 LVGL 画一组半透明的虚拟按键，用触摸屏操作。
 
 ```mermaid
@@ -180,7 +175,7 @@ doom: 351 passes, 351 pictures, sound underruns 0
 
 ![板子屏幕上的 Doom 游戏画面和叠加的虚拟按键](figures/doom-game.webp)
 
-照片里是进入关卡后的画面：Doom 的画面放大后显示在面板中间，底部是弹药、生命值、护甲的状态栏，左上角的红字是拾取提示 `PICKED UP 4 SHOTGUN SHELLS.`。半透明的虚拟按键叠在画面上：左上角 ESC、右上角 ENTER，它们下面是向左、向右平移的 STR<、STR>；左下角是方向键；右侧是开火的 FIRE 和 USE（开门、操作）两个圆键；底部中间是 Y、N。
+照片里是进入关卡后的画面：Doom 的画面放大后显示在面板中间，底部是弹药、生命值、护甲的状态栏，左上角的红字是拾取提示 `PICKED UP 4 SHOTGUN SHELLS.`。半透明的虚拟按键叠在画面上：左上角 ESC、右上角 ENTER，它们下面是向左、向右平移的 STR<、STR>。左下角是方向键。右侧是开火的 FIRE 和 USE（开门、操作）两个圆键。底部中间是 Y、N。
 
 ## 画面输出
 
@@ -236,7 +231,7 @@ void DG_DrawFrame(void)
 		ret = display_sunxi_show_rgb(disp, &img);
 ```
 
-这个调用可能要等下一次刷新，所以放在单独的线程里，不拖慢引擎；线程只显示最新的那一张。
+这个调用可能要等下一次刷新，所以放在单独的线程里，不拖慢引擎。线程只显示最新的那一张。
 
 LVGL 的按键画在另一层：`CONFIG_DISPLAY_SUNXI_ARGB8888=y` 打开 ARGB8888 帧缓冲层，叠在视频层之上，所以按键是半透明地盖在游戏画面上。`prj.conf` 里没有设置 `CONFIG_DISPLAY_SUNXI_FB_WINDOW_WIDTH/HEIGHT`，两者都是 0。
 
@@ -255,7 +250,7 @@ LVGL 的按键画在另一层：`CONFIG_DISPLAY_SUNXI_ARGB8888=y` 打开 ARGB888
 				 (audio_property_value_t){.vol = 150});
 ```
 
-范围 0–255，要调大调小就改 `.vol`。`I2S_TRIGGER_START` 之后如果 `i2s_write()` 返回 `-EIO`，说明数据断了，计一次 underrun 并重新预填；这个计数就是 5 秒统计行里的 `sound underruns`。
+范围 0–255，要调大调小就改 `.vol`。`I2S_TRIGGER_START` 之后如果 `i2s_write()` 返回 `-EIO`，说明数据断了，计一次 underrun 并重新预填。这个计数就是 5 秒统计行里的 `sound underruns`。
 
 不要声音：在 `prj.conf` 里写 `CONFIG_DOOM_SOUND=n`，组件会改用 `doom_port.c` 里返回静音的 `doom_audio_read()`。
 
@@ -370,7 +365,7 @@ static void pad_main(void *a, void *b, void *c)
 }
 ```
 
-坐标是按 1024×600 画的；`dy` 是实际屏幕高度减 600，这块板子是 1024×768，所以 `dy` 是 168，下半部分的按键整体下移，贴着屏幕底边。顶部的 ESC、ENTER、STR< 、STR> 不加 `dy`，固定在上方。
+坐标是按 1024×600 画的。`dy` 是实际屏幕高度减 600，这块板子是 1024×768，所以 `dy` 是 168，下半部分的按键整体下移，贴着屏幕底边。顶部的 ESC、ENTER、STR< 、STR> 不加 `dy`，固定在上方。
 
 线程由 `pad_start()` 创建（栈 4096 字节，优先级 7），在 `main.c` 里调用，时机在 `doom_open()` 之前：
 
@@ -470,7 +465,7 @@ static void touch_scan(void)
 
 - 手指可以同时按在多个按键上，每个按键独立判断，所以“前进 + 开火 + 向左转”可以同时按。
 - 手指滑出一个按键、滑进另一个，会自然地释放前一个、按下后一个。
-- <strong>`RELEASE_HOLD_MS` = 50 ms 的保持</strong>：控制器偶尔会有一帧漏报手指（手指其实还在玻璃上），按“松开再按下”处理会让游戏里出现一次抖动，所以松开后键还会保持 50 ms。
+- <strong>`RELEASE_HOLD_MS` = 50 ms 的保持</strong>：控制器偶尔会有一帧漏报手指（手指仍在玻璃上），按“松开再按下”处理会让游戏里出现一次抖动，所以松开后键还会保持 50 ms。
 - 只在状态<strong>变化</strong>时才调 `doom_key()`，所以队列里只有“按下”和“松开”两种事件，不会每 16 ms 灌一次。同时用 `lv_obj_add_state` / `lv_obj_remove_state` 更新控件外观。
 
 ### 键码怎么进引擎
@@ -557,7 +552,7 @@ static void key_event(lv_event_t *e)
 #endif
 ```
 
-这一支只能同时按一个键，而且需要板子自己配置 LVGL 的指针输入设备（比如鼠标或触控板）；示例没有配置。
+这一支只能同时按一个键，而且需要板子自己配置 LVGL 的指针输入设备（比如鼠标或触控板）。示例没有配置。
 
 ### 怎么改按键布局
 

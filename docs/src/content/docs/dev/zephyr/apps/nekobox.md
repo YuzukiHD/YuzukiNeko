@@ -2,11 +2,6 @@
 title: "NekoBox - media and game box"
 ---
 
-:::note[Version scope]
-Zephyr 4.2.2 and 4.5.0 coexist. The original examples, captures and target results on this page use the 4.2.2 baseline; 4.5 changes are identified separately. Select matching kernel and component branches and separate environments/build directories using the [version and migration guide](../zephyr-4-5.md). A 4.5 build or host-test pass does not update the version of an existing board result.
-:::
-
-
 NekoBox is the media and game application of the YuzukiNeko: a touch user interface (LVGL, 1024×768) with a home screen and a clock, a file browser for the TF card, a video player (MP4 H.264 + AAC), DLNA video casting from a phone or PC, Android Miracast wireless screen mirroring, a photo viewer with pinch zoom, NES / Game Boy / Game Boy Color / Game Boy Advance games, a calculator, the USB second screen, Wi-Fi with network time and a settings screen. It is an application, not a module, and it runs <strong>in place from the SPI NOR flash</strong> (XIP). The code is in `zephyr-components/nekobox`.
 
 Every function is a <strong>feature</strong> with a switch of its own (`CONFIG_NEKOBOX_FEATURE_*`). A feature that is switched off is not built and leaves no tile, no settings row and no file type behind; `main()` has no `#ifdef` for it. The features register what they offer (screens, home tiles, settings rows, file types, start steps) in records that the linker collects, so a new feature is a new directory and nothing else has to be edited.
@@ -124,7 +119,6 @@ The sampling parameters at NOR `0x20000` and the loader's RAM address are separa
 
 Use this only when a complete standalone boot image is required. It overwrites the NOR boot area and parameters before the application; the next power-on no longer enters FEL automatically. Use the RAM loader flow above for daily development.
 
-
 `tools/mkimage.py` puts the boot stub (`xip-boot_spi.bin`) at the start of the flash and the application at `0x80000` into one file; everything in front of the application is overwritten.
 
 ```mermaid
@@ -200,6 +194,8 @@ The **Miracast** home tile starts receiving automatically. In a Miracast-capable
 `CONFIG_NEKOBOX_FEATURE_MIRACAST=n` removes the implementation and home entry. `CONFIG_NEKOBOX_MIRACAST_NAME` sets a name of 1–32 printable ASCII bytes. P2P GO owns the radio and cannot run alongside STA/DLNA. The default offer is 640×480p60 H.264 and LPCM; actual throughput needs target checks. See [Miracast](miracast.md) for the receiver/player, protocol limits and verification commands.
 
 The default NekoBox XIP build and Miracast lifecycle host checks passed on 4.5; actual phone discovery, picture, sound and extended running remain unverified. The feature is under `src/features/miracast/` and reuses `../miracast/`; network workers queue state changes, while the UI thread controls player and screen lifecycle.
+
+4.5 build and verification status is in the [version and migration guide](../zephyr-4-5.md).
 
 ## DLNA video casting
 

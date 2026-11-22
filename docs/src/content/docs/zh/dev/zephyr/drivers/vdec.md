@@ -2,11 +2,6 @@
 title: "视频引擎 vdec"
 ---
 
-:::note[版本范围]
-Zephyr 4.2.2 与 4.5.0 并存。本页原有示例、录像及板上结果使用 4.2.2 基线，4.5 的变化另行说明。请按[版本与迁移指南](../zephyr-4-5.md)选择配套的内核、组件分支及独立环境和构建目录。4.5 编译或主机测试通过，不会改变已有板上结果的版本归属。
-:::
-
-
 F101 片上的视频引擎（video engine）可以用硬件解码 <strong>JPEG</strong>、<strong>PNG</strong> 和 <strong>H.264</strong>。Zephyr 里把它做成一个设备，接口是 `<zephyr/drivers/vdec.h>`，驱动在 `drivers/vdec/sunxi/`。
 
 | 编码 | 用法 | 输出格式 |
@@ -24,23 +19,13 @@ F101 片上的视频引擎（video engine）可以用硬件解码 <strong>JPEG</
 | `VDEC_FORMAT_NV21` | 同上，但交错顺序是 Cr/Cb |
 | `VDEC_FORMAT_RGBA8888` | 32 位小端字，R 在最高字节、A 在最低字节（内存里的字节顺序是 A、B、G、R） |
 
-
-
 ## 4.5 测试数据与码流解析
 
 4.5 使用 `zephyr-components/examples/vdec_api`，其 CMake 包含 JPEG、PNG、H.264 样例的 `src/` 目录，测试头文件为 `jpeg_cases.h`、`png_cases.h`、`h264_cases.h`。JPEG 使用 `jpg_s320x240`，PNG 使用 `png_rgba8`，H.264 使用 `h264_base` 和 `crc_base`。MJPEG 循环使用三张 320×240 JPEG：`jpg_s320x240`、`jpg_q2_test`、`jpg_q31_test`。下文生成 `test_*.h` 的旧步骤和五帧日志属于 4.2.2 教程，不是当前测试数据。
 
-维护中的 Annex B 扫描器同时接受三字节、四字节起始码，并按实际前缀长度读取 NAL 类型。当前 JPEG/PNG/H.264 样例运行多组数据和 CRC 检查；4.5 不要再启用已移除的 `CONFIG_SAMPLE_VDEC_DUMP`。编译通过不等于实机解码输出已验证。
+4.5 的示例与测试数据变化见[版本与迁移指南](../zephyr-4-5.md)。
 
-## 在 4.5 构建仓库内的示例
-
-激活配套的 4.5 分支和环境后，可直接构建维护中的示例。下文完整代码保留 4.2.2 教程基线，当前头文件与 API 字段以所选分支中的示例为准。
-
-```sh
-west build -b yuzukineko -d build/zephyr-4.5.0/vdec_api zephyr-components/examples/vdec_api
-```
-
-该配置已通过 `yuzukineko` 的 4.5 组件构建检查，尚无新的 4.5 板上日志；请按实际镜像布局选择 [RAM 或 XIP 流程](../zephyr-build-run.md)。
+维护中的 Annex B 扫描器同时接受三字节、四字节起始码，并按实际前缀长度读取 NAL 类型。当前 JPEG/PNG/H.264 样例运行多组数据和 CRC 检查。4.5 不要再启用已移除的 `CONFIG_SAMPLE_VDEC_DUMP`。编译通过不等于实机解码输出已验证。
 
 ## 设备树
 
@@ -206,17 +191,17 @@ const struct device *dev = DEVICE_DT_GET(DT_NODELABEL(ve));
 
 ## 接口详解
 
-`<zephyr/drivers/vdec.h>` 一共 7 个函数。下面每个函数按“原型 → 参数 → 返回值 → 说明 → 示例代码 → 日志”写。<strong>日志是演示程序在 `yuzukineko` 上跑出来的真实输出</strong>，演示程序的完整源码在文末的 [完整演示程序](#完整演示程序)。
-
 示例里的 `err()`、`show_frame()`、`luma_crc()` 是演示程序里的小工具，源码在文末。
 
-演示程序的测试数据：JPEG、PNG 和 H.264 用的是 `samples/drivers/vdec/` 里三个示例内嵌的图片（都是 320×240）；MJPEG 用 ffmpeg 生成了 5 张 320×240 的 JPEG。
+演示程序的测试数据：JPEG、PNG 和 H.264 用的是 `samples/drivers/vdec/` 里三个示例内嵌的图片（都是 320×240）。MJPEG 用 ffmpeg 生成了 5 张 320×240 的 JPEG。
 
 :::caution
 解码失败时驱动会打印 `<err>` 日志。日志是延迟输出的，会和演示程序的 `printk` 输出交错，所以下面贴的日志只保留演示程序自己打印的行，驱动日志见 [驱动日志](#驱动日志)。
 :::
 
-### vdec_decode_image
+### 图片解码
+
+**`vdec_decode_image`**
 
 解码一张 JPEG 或 PNG。
 
@@ -252,33 +237,9 @@ int vdec_decode_image(const struct device *dev, enum vdec_codec codec,
 - JPEG 和 PNG 帧的 `pts` 都是 `-1`（没有时间戳）。
 - PNG 是 `RGBA8888`：`plane[0]` 是像素，`stride[0]` 是每行字节数（320×4=1280），`plane[1]` 是 NULL，`stride[1]` 为 0。内存里的字节顺序是 A、B、G、R。
 
-#### 示例：JPEG
+**示例：JPEG**
 
 演示程序依次请求 NV21、NV12、NV21，把每个调用的返回值打印出来，验证两种格式都能解码。成功时再打印帧信息和亮度平面的 CRC，最后释放。
-
-```c
-static void demo_jpeg(void)
-{
-	static const enum vdec_format formats[] = {VDEC_FORMAT_NV21, VDEC_FORMAT_NV12, VDEC_FORMAT_NV21};
-	struct vdec_frame frame;
-	int64_t t;
-	int ret;
-
-	for (int i = 0; i < ARRAY_SIZE(formats); i++) {
-		t = k_uptime_get();
-		ret = vdec_decode_image(dev, VDEC_CODEC_JPEG, test_jpeg, sizeof(test_jpeg),
-					formats[i], &frame);
-		printk("[jpeg] vdec_decode_image(format %d) = %s, %lld ms\n", formats[i], err(ret),
-		       k_uptime_get() - t);
-		if (ret == 0) {
-			show_frame("[jpeg]", &frame);
-			printk("[jpeg] luma crc %08x\n", luma_crc(&frame));
-			vdec_frame_release(dev, &frame);
-			printk("[jpeg] vdec_frame_release done\n");
-		}
-	}
-}
-```
 
 日志：
 
@@ -299,29 +260,7 @@ static void demo_jpeg(void)
 
 `format 2` 是 `VDEC_FORMAT_NV21`，`format 1` 是 `VDEC_FORMAT_NV12`，三次都成功。帧是 320×240，亮度和色度的 `stride` 都是 320，`pts` 为 -1。NV21 和 NV12 是同一张图，只是色度的字节顺序对调，所以三次的亮度 CRC 相同。
 
-#### 示例：PNG
-
-```c
-static void demo_png(void)
-{
-	struct vdec_frame frame;
-	int64_t t = k_uptime_get();
-	int ret;
-
-	ret = vdec_decode_image(dev, VDEC_CODEC_PNG, test_png, sizeof(test_png),
-				VDEC_FORMAT_RGBA8888, &frame);
-	printk("[png] vdec_decode_image(RGBA8888) = %s, %lld ms\n", err(ret), k_uptime_get() - t);
-	if (ret == 0) {
-		const uint8_t *p = frame.plane[0];
-
-		show_frame("[png]", &frame);
-		printk("[png] first pixel bytes (A, B, G, R): %02x %02x %02x %02x\n", p[0], p[1],
-		       p[2], p[3]);
-		vdec_frame_release(dev, &frame);
-		printk("[png] vdec_frame_release done\n");
-	}
-}
-```
+**示例：PNG**
 
 日志：
 
@@ -334,43 +273,7 @@ static void demo_png(void)
 
 `format 3` 是 `VDEC_FORMAT_RGBA8888`，`stride` 的第一项是 1280（320 像素 × 4 字节），第二项是 0。测试图的第一个像素四个字节全是 `ff`。
 
-#### 示例：各种错误
-
-```c
-static void demo_image_errors(void)
-{
-	static const uint8_t garbage[16] = {0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55,
-					    0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55};
-	struct vdec_frame frame;
-	int ret;
-
-	ret = vdec_decode_image(dev, VDEC_CODEC_PNG, test_png, sizeof(test_png), VDEC_FORMAT_NV12,
-				&frame);
-	printk("[error] PNG as NV12             = %s\n", err(ret));
-	ret = vdec_decode_image(dev, VDEC_CODEC_JPEG, test_jpeg, sizeof(test_jpeg),
-				VDEC_FORMAT_RGBA8888, &frame);
-	printk("[error] JPEG as RGBA8888        = %s\n", err(ret));
-	ret = vdec_decode_image(dev, VDEC_CODEC_H264, test_jpeg, sizeof(test_jpeg),
-				VDEC_FORMAT_NV12, &frame);
-	printk("[error] H.264 to decode_image   = %s\n", err(ret));
-	ret = vdec_decode_image(dev, VDEC_CODEC_JPEG, garbage, sizeof(garbage), VDEC_FORMAT_NV12,
-				&frame);
-	printk("[error] 16 bytes of 0x55 (JPEG) = %s\n", err(ret));
-	ret = vdec_decode_image(dev, VDEC_CODEC_JPEG, test_jpeg, sizeof(test_jpeg) / 2,
-				VDEC_FORMAT_NV12, &frame);
-	printk("[error] half a JPEG             = %s\n", err(ret));
-	if (ret == 0) {
-		vdec_frame_release(dev, &frame);
-	}
-	/* the decoder must still work after the errors */
-	ret = vdec_decode_image(dev, VDEC_CODEC_JPEG, test_jpeg, sizeof(test_jpeg),
-				VDEC_FORMAT_NV12, &frame);
-	printk("[error] a good JPEG afterwards  = %s\n", err(ret));
-	if (ret == 0) {
-		vdec_frame_release(dev, &frame);
-	}
-}
-```
+**示例：各种错误**
 
 日志：
 
@@ -385,7 +288,7 @@ static void demo_image_errors(void)
 
 每种错误的返回值见上面的返回值表。最后一行说明出错之后解码器仍然可以使用。
 
-### vdec_frame_release
+**`vdec_frame_release`**
 
 归还一帧。
 
@@ -406,35 +309,9 @@ void vdec_frame_release(const struct device *dev, struct vdec_frame *frame);
 - 显示引擎或 2D 加速器还在读这一帧时不能释放。MP4 播放器的做法是“晚一帧再释放”。
 - 每一帧只能释放一次。
 
-#### 示例：解码单张图片后释放
+**示例：解码单张图片后释放**
 
 解码一张 JPEG，释放，立刻再解码一次。两次返回的 `plane` 地址相同，说明解码器把同一块图片内存重新拿去用了，所以释放之后原来的指针不能再读：
-
-```c
-static void demo_frame_release(void)
-{
-	struct vdec_frame frame;
-	int ret;
-
-	ret = vdec_decode_image(dev, VDEC_CODEC_JPEG, test_jpeg, sizeof(test_jpeg),
-				VDEC_FORMAT_NV12, &frame);
-	printk("[release] first decode = %s, plane %p\n", err(ret), frame.plane[0]);
-	if (ret != 0) {
-		return;
-	}
-	vdec_frame_release(dev, &frame);
-	printk("[release] vdec_frame_release done\n");
-
-	/* the decoder is free again: the next picture can be decoded at once */
-	ret = vdec_decode_image(dev, VDEC_CODEC_JPEG, test_jpeg, sizeof(test_jpeg),
-				VDEC_FORMAT_NV12, &frame);
-	printk("[release] second decode = %s, plane %p\n", err(ret), frame.plane[0]);
-	if (ret == 0) {
-		vdec_frame_release(dev, &frame);
-		printk("[release] vdec_frame_release done\n");
-	}
-}
-```
 
 日志：
 
@@ -445,56 +322,9 @@ static void demo_frame_release(void)
 [release] vdec_frame_release done
 ```
 
-#### 示例：流里的帧
+**示例：流里的帧**
 
-`holding_frames` 设成 2，只取帧、不释放，直到被挡住（`-EBUSY`）；再把拿着的帧全部释放，解码器就恢复可用：
-
-```c
-static void demo_hold(void)
-{
-	const struct vdec_stream_config cfg = {
-		.codec = VDEC_CODEC_H264,
-		.format = VDEC_FORMAT_NV12,
-		.holding_frames = 2,
-	};
-	struct vdec_frame held[8], frame;
-	struct vdec_stream *stream;
-	size_t off = 0, used, nal_end;
-	int n = 0, ret;
-
-	ret = vdec_stream_open(dev, &cfg, &stream);
-	printk("[hold] vdec_stream_open(holding_frames 2) = %s\n", err(ret));
-	if (ret != 0) {
-		return;
-	}
-	/* take frames and never give them back */
-	while (n < ARRAY_SIZE(held)) {
-		ret = vdec_stream_get_frame(dev, stream, &held[n]);
-		if (ret == 0) {
-			n++;
-			continue;
-		}
-		if (ret != -EAGAIN || off >= sizeof(test_h264)) {
-			break;
-		}
-		nal_end = next_start_code(test_h264, sizeof(test_h264), off + 4);
-		if (vdec_stream_feed(dev, stream, test_h264 + off, nal_end - off, -1, &used) == 0) {
-			off += used;
-		}
-	}
-	printk("[hold] %d frames held, get_frame = %s\n", n, err(ret));
-	for (int i = 0; i < n; i++) {
-		vdec_frame_release(dev, &held[i]);
-	}
-	ret = vdec_stream_get_frame(dev, stream, &frame);
-	printk("[hold] after releasing them, get_frame = %s\n", err(ret));
-	if (ret == 0) {
-		vdec_frame_release(dev, &frame);
-	}
-	vdec_stream_close(dev, stream);
-	printk("[hold] vdec_stream_close done\n");
-}
-```
+`holding_frames` 设成 2，只取帧、不释放，直到被挡住（`-EBUSY`）。再把拿着的帧全部释放，解码器就恢复可用：
 
 日志：
 
@@ -505,9 +335,11 @@ static void demo_hold(void)
 [hold] vdec_stream_close done
 ```
 
-`3 frames held, get_frame = -EBUSY` 是释放之前的状态；释放之后变成 `-EAGAIN`（要更多数据，因为这个函数没有再喂数据），不再是 `-EBUSY`。
+`3 frames held, get_frame = -EBUSY` 是释放之前的状态。释放之后变成 `-EAGAIN`（要更多数据，因为这个函数没有再喂数据），不再是 `-EBUSY`。
 
-### vdec_stream_open
+### 流式解码
+
+**`vdec_stream_open`**
 
 打开一个解码流。
 
@@ -519,7 +351,7 @@ int vdec_stream_open(const struct device *dev, const struct vdec_stream_config *
 | 参数 | 说明 |
 | --- | --- |
 | `dev` | 视频引擎设备 |
-| `config` | 流的配置，字段见 [struct vdec_stream_config](#struct-vdec_stream_config) |
+| `config` | 流的配置，字段见 [结构体与格式](#结构体与格式) |
 | `stream` | 输出，成功时得到流句柄 |
 
 | 返回值 | 含义 |
@@ -534,62 +366,9 @@ int vdec_stream_open(const struct device *dev, const struct vdec_stream_config *
 - `buffer_size` 是压缩数据缓冲区，要装得下一次 `feed` 的最大一组 NAL；不确定就给 1 MiB（MP4 播放器就是这么做的），0 为默认值。
 - `holding_frames` 决定应用能同时持有多少帧，见 `-EBUSY` 的示例。
 
-#### 示例
+**示例**
 
 下面的函数用同一个 `open_and_close()` 试了六种配置：三种正常的，三种有问题的。成功的流立刻关闭，避免占着解码器。
-
-```c
-static void open_and_close(const char *what, const struct vdec_stream_config *cfg)
-{
-	struct vdec_stream *stream;
-	int ret = vdec_stream_open(dev, cfg, &stream);
-
-	printk("[open] %-34s = %s\n", what, err(ret));
-	if (ret == 0) {
-		vdec_stream_close(dev, stream);
-	}
-}
-
-static void demo_stream_open(void)
-{
-	const struct vdec_stream_config mjpeg = {
-		.codec = VDEC_CODEC_JPEG,
-		.format = VDEC_FORMAT_NV12,
-		.width = 320,
-		.height = 240,
-	};
-	const struct vdec_stream_config h264 = {
-		.codec = VDEC_CODEC_H264,
-		.format = VDEC_FORMAT_NV12,
-	};
-	const struct vdec_stream_config h264_big = {
-		.codec = VDEC_CODEC_H264,
-		.format = VDEC_FORMAT_NV12,
-		.buffer_size = 1024 * 1024,
-		.no_cache_ops = true,
-		.holding_frames = 2,
-	};
-	const struct vdec_stream_config jpeg_no_size = {
-		.codec = VDEC_CODEC_JPEG,
-		.format = VDEC_FORMAT_NV12,
-	};
-	const struct vdec_stream_config png = {
-		.codec = VDEC_CODEC_PNG,
-		.format = VDEC_FORMAT_RGBA8888,
-	};
-	const struct vdec_stream_config h264_rgba = {
-		.codec = VDEC_CODEC_H264,
-		.format = VDEC_FORMAT_RGBA8888,
-	};
-
-	open_and_close("MJPEG 320x240", &mjpeg);
-	open_and_close("H.264", &h264);
-	open_and_close("H.264, 1 MiB buffer, hold 2", &h264_big);
-	open_and_close("JPEG without width/height", &jpeg_no_size);
-	open_and_close("PNG as a stream", &png);
-	open_and_close("H.264 as RGBA8888", &h264_rgba);
-}
-```
 
 日志：
 
@@ -606,7 +385,7 @@ static void demo_stream_open(void)
 - `PNG as a stream`：PNG 不能作为流，返回 `-ENOTSUP`。
 - `H.264 as RGBA8888`：H.264 流不能输出 RGBA8888，返回 `-ENOTSUP`。
 
-### vdec_stream_feed
+**`vdec_stream_feed`**
 
 把压缩数据放进流的缓冲区。
 
@@ -633,46 +412,9 @@ int vdec_stream_feed(const struct device *dev, struct vdec_stream *stream,
 - 演示程序里每次都是“全部收下”（`used` 等于 `len`）。
 - MJPEG 的 `pts` 原样回到帧上（见日志：0、100、…、400）。H.264 逐块喂入时不是这样：日志里第一帧的 `pts` 是 1，而喂入时第一个切片块带的是 2，所以不要假设帧的 `pts` 等于刚喂入的那一块。
 
-#### 示例
+**示例**
 
 下面的函数试了三种输入：16 个 `0x55`（没有 NAL）、长度为 0、以及整段 H.264 码流（21745 字节）一次喂入。
-
-```c
-static void demo_stream_feed(void)
-{
-	const struct vdec_stream_config cfg = {
-		.codec = VDEC_CODEC_H264,
-		.format = VDEC_FORMAT_NV12,
-	};
-	static const uint8_t garbage[16] = {0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55,
-					    0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55};
-	struct vdec_stream *stream;
-	size_t used = 0;
-	int ret;
-
-	ret = vdec_stream_open(dev, &cfg, &stream);
-	printk("[feed] vdec_stream_open = %s\n", err(ret));
-	if (ret != 0) {
-		return;
-	}
-
-	/* data with no NAL unit in it */
-	ret = vdec_stream_feed(dev, stream, garbage, sizeof(garbage), -1, &used);
-	printk("[feed] 16 bytes of 0x55        = %s, used %zu\n", err(ret), used);
-
-	/* no data at all */
-	ret = vdec_stream_feed(dev, stream, test_h264, 0, -1, &used);
-	printk("[feed] 0 bytes                 = %s, used %zu\n", err(ret), used);
-
-	/* the whole clip, in Annex B form, in one call */
-	ret = vdec_stream_feed(dev, stream, test_h264, sizeof(test_h264), 0, &used);
-	printk("[feed] whole clip (%zu bytes) = %s, used %zu\n", sizeof(test_h264), err(ret),
-	       used);
-
-	vdec_stream_close(dev, stream);
-	printk("[feed] vdec_stream_close done\n");
-}
-```
 
 日志：
 
@@ -686,11 +428,11 @@ static void demo_stream_feed(void)
 
 - 没有 NAL 的数据和长度为 0 都返回 `-EINVAL`，`used` 为 0。
 - 整段码流一次喂入，全部被收下（`used` 等于 `len`）。
-- 逐块喂入的完整例子（把码流按起始码切成块，一块一个 `pts`）见 [vdec_stream_get_frame](#vdec_stream_get_frame) 一节的 `demo_stream_get_frame_h264()`；MJPEG 一次一张的例子见同一节的 `demo_stream_get_frame_mjpeg()`。
+- 逐块喂入的完整例子（把码流按起始码切成块，一块一个 `pts`）见 [流式解码](#流式解码) 一节的 `demo_stream_get_frame_h264()`；MJPEG 一次一张的例子见同一节的 `demo_stream_get_frame_mjpeg()`。
 
-### vdec_stream_get_frame
+**`vdec_stream_get_frame`**
 
-取下一帧；解码在这里完成。
+取下一帧。解码在这里完成。
 
 ```c
 int vdec_stream_get_frame(const struct device *dev, struct vdec_stream *stream,
@@ -709,49 +451,9 @@ int vdec_stream_get_frame(const struct device *dev, struct vdec_stream *stream,
 - 解码器只持有几张图片，帧要及时 `vdec_frame_release()`，否则就会 `-EBUSY`。
 - 取出的帧里 `pts` 是 `feed` 时给的时间戳，但 H.264 逐块喂入时和喂入的块不是一一对应，见 `vdec_stream_feed` 一节。
 
-#### 示例：MJPEG
+**示例：MJPEG**
 
 每张图喂进去，立刻 `get_frame` 取出一帧，`pts` 原样回来：
-
-```c
-static void demo_stream_get_frame_mjpeg(void)
-{
-	const struct vdec_stream_config cfg = {
-		.codec = VDEC_CODEC_JPEG,
-		.format = VDEC_FORMAT_NV12,
-		.width = 320,
-		.height = 240,
-	};
-	struct vdec_stream *stream;
-	struct vdec_frame frame;
-	size_t used;
-	int ret;
-
-	ret = vdec_stream_open(dev, &cfg, &stream);
-	printk("[mjpeg] vdec_stream_open = %s\n", err(ret));
-	if (ret != 0) {
-		return;
-	}
-	for (int i = 0; i < ARRAY_SIZE(test_mjpeg); i++) {
-		ret = vdec_stream_feed(dev, stream, test_mjpeg[i].data, test_mjpeg[i].len, i * 100,
-				       &used);
-		printk("[mjpeg] feed #%d (%u bytes, pts %d) = %s, used %zu\n", i, test_mjpeg[i].len,
-		       i * 100, err(ret), used);
-		ret = vdec_stream_get_frame(dev, stream, &frame);
-		printk("[mjpeg] get_frame = %s\n", err(ret));
-		if (ret == 0) {
-			show_frame("[mjpeg]", &frame);
-			vdec_frame_release(dev, &frame);
-		}
-	}
-	ret = vdec_stream_flush(dev, stream);
-	printk("[mjpeg] flush = %s\n", err(ret));
-	ret = vdec_stream_get_frame(dev, stream, &frame);
-	printk("[mjpeg] get_frame after flush = %s\n", err(ret));
-	vdec_stream_close(dev, stream);
-	printk("[mjpeg] vdec_stream_close done\n");
-}
-```
 
 日志：
 
@@ -777,99 +479,9 @@ static void demo_stream_get_frame_mjpeg(void)
 [mjpeg] vdec_stream_close done
 ```
 
-#### 示例：H.264 的完整循环
+**示例：H.264 的完整循环**
 
 把 `open`、`feed`、`get_frame`、`flush`、`close` 串在一个循环里。循环的节奏由 `get_frame` 的返回值决定：`-EAGAIN` 时喂数据，数据喂完就 flush，拿到帧就校验 CRC 并释放，`-ENODATA` 时退出。码流按起始码 `00 00 00 01` 切块，`next_start_code()` 找下一个起始码的位置。
-
-```c
-static size_t next_start_code(const uint8_t *d, size_t len, size_t from)
-{
-	for (size_t i = from; i + 4 <= len; i++) {
-		if (d[i] == 0 && d[i + 1] == 0 && d[i + 2] == 0 && d[i + 3] == 1) {
-			return i;
-		}
-	}
-
-	return len;
-}
-
-static void demo_stream_get_frame_h264(void)
-{
-	const struct vdec_stream_config cfg = {
-		.codec = VDEC_CODEC_H264,
-		.format = VDEC_FORMAT_NV12,
-	};
-	struct vdec_stream *stream;
-	struct vdec_frame frame;
-	size_t off = 0, used, nal_end;
-	int frames = 0, calls = 0, nal = 0;
-	bool flushed = false;
-	int ret;
-
-	ret = vdec_stream_open(dev, &cfg, &stream);
-	printk("[h264] vdec_stream_open = %s\n", err(ret));
-	if (ret != 0) {
-		return;
-	}
-	while (true) {
-		ret = vdec_stream_get_frame(dev, stream, &frame);
-		if (calls++ < 12) {
-			printk("[h264] get_frame = %s\n", err(ret));
-		}
-		if (ret == 0) {
-			if (frames < 4) {
-				show_frame("[h264]", &frame);
-			}
-			if (frames < ARRAY_SIZE(test_h264_crc)) {
-				/* the same CRC the vdec h264 sample checks */
-				uint32_t crc = 0;
-
-				for (int y = 0; y < frame.height; y++) {
-					crc = crc32_ieee_update(crc, frame.plane[0] +
-							      y * frame.stride[0], frame.width);
-				}
-				for (int y = 0; y < frame.height / 2; y++) {
-					crc = crc32_ieee_update(crc, frame.plane[1] +
-							      y * frame.stride[1], frame.width);
-				}
-				if (crc != test_h264_crc[frames]) {
-					printk("[h264] frame %d: bad crc\n", frames);
-				}
-			}
-			frames++;
-			vdec_frame_release(dev, &frame);
-		} else if (ret == -ENODATA) {
-			break;
-		} else if (ret == -EAGAIN) {
-			if (off < sizeof(test_h264)) {
-				/* one NAL unit per call, so every call has a time stamp */
-				nal_end = next_start_code(test_h264, sizeof(test_h264), off + 4);
-				ret = vdec_stream_feed(dev, stream, test_h264 + off, nal_end - off,
-						       nal, &used);
-				if (nal < 6) {
-					printk("[h264] feed NAL #%d (type %d, %zu bytes, pts %d) = %s, used %zu\n",
-					       nal, test_h264[off + 4] & 0x1f, nal_end - off, nal,
-					       err(ret), used);
-				}
-				if (ret == 0) {
-					off += used;
-					nal++;
-				}
-			} else if (!flushed) {
-				ret = vdec_stream_flush(dev, stream);
-				printk("[h264] flush = %s (after %d NAL units)\n", err(ret), nal);
-				flushed = true;
-			}
-		} else {
-			printk("[h264] get_frame failed: %s\n", err(ret));
-			break;
-		}
-	}
-	printk("[h264] %d frames decoded, all CRCs checked\n", frames);
-	vdec_stream_close(dev, stream);
-	printk("[h264] vdec_stream_close done\n");
-}
-```
 
 日志（前 12 次 `get_frame`，以及帧信息）：
 
@@ -902,58 +514,11 @@ static void demo_stream_get_frame_h264(void)
 [h264] vdec_stream_close done
 ```
 
-前几行能看出节奏：打开之后 `get_frame` 先是 `-EAGAIN`；喂了 SPS（类型 7）、PPS（类型 8）、第一个切片（类型 1）之后，第一帧出来；之后大体是“喂一个块，出一帧”。第 2 块长 5650 字节，是按四字节起始码切出来的，里面还夹着用三字节起始码分隔的其他 NAL，这对解码没有影响。最后喂完 33 个块，flush，剩下的帧被取空。30 帧都通过了 CRC 校验（有错会打印 `bad crc`，日志里没有）。
+前几行能看出节奏：打开之后 `get_frame` 先是 `-EAGAIN`。喂了 SPS（类型 7）、PPS（类型 8）、第一个切片（类型 1）之后，第一帧出来。之后大体是“喂一个块，出一帧”。第 2 块长 5650 字节，是按四字节起始码切出来的，里面还夹着用三字节起始码分隔的其他 NAL，这对解码没有影响。最后喂完 33 个块，flush，剩下的帧被取空。30 帧都通过了 CRC 校验（有错会打印 `bad crc`，日志里没有）。
 
-#### 示例：-EBUSY
+**示例：-EBUSY**
 
 `holding_frames` 设成 2，然后只取帧、不释放：
-
-```c
-static void demo_hold(void)
-{
-	const struct vdec_stream_config cfg = {
-		.codec = VDEC_CODEC_H264,
-		.format = VDEC_FORMAT_NV12,
-		.holding_frames = 2,
-	};
-	struct vdec_frame held[8], frame;
-	struct vdec_stream *stream;
-	size_t off = 0, used, nal_end;
-	int n = 0, ret;
-
-	ret = vdec_stream_open(dev, &cfg, &stream);
-	printk("[hold] vdec_stream_open(holding_frames 2) = %s\n", err(ret));
-	if (ret != 0) {
-		return;
-	}
-	/* take frames and never give them back */
-	while (n < ARRAY_SIZE(held)) {
-		ret = vdec_stream_get_frame(dev, stream, &held[n]);
-		if (ret == 0) {
-			n++;
-			continue;
-		}
-		if (ret != -EAGAIN || off >= sizeof(test_h264)) {
-			break;
-		}
-		nal_end = next_start_code(test_h264, sizeof(test_h264), off + 4);
-		if (vdec_stream_feed(dev, stream, test_h264 + off, nal_end - off, -1, &used) == 0) {
-			off += used;
-		}
-	}
-	printk("[hold] %d frames held, get_frame = %s\n", n, err(ret));
-	for (int i = 0; i < n; i++) {
-		vdec_frame_release(dev, &held[i]);
-	}
-	ret = vdec_stream_get_frame(dev, stream, &frame);
-	printk("[hold] after releasing them, get_frame = %s\n", err(ret));
-	if (ret == 0) {
-		vdec_frame_release(dev, &frame);
-	}
-	vdec_stream_close(dev, stream);
-	printk("[hold] vdec_stream_close done\n");
-}
-```
 
 日志：
 
@@ -964,9 +529,9 @@ static void demo_hold(void)
 [hold] vdec_stream_close done
 ```
 
-拿到 3 帧才返回 `-EBUSY`（解码器的帧缓冲不会少于 3 张，所以 `holding_frames` 设成 2 也能多拿一帧）。释放之后恢复，见 [vdec_frame_release](#vdec_frame_release) 一节。
+拿到 3 帧才返回 `-EBUSY`（解码器的帧缓冲不会少于 3 张，所以 `holding_frames` 设成 2 也能多拿一帧）。释放之后恢复，见 [图片解码](#图片解码) 一节。
 
-### vdec_stream_flush
+**`vdec_stream_flush`**
 
 告诉流“不会再有数据了”。
 
@@ -982,52 +547,9 @@ int vdec_stream_flush(const struct device *dev, struct vdec_stream *stream);
 - 只需要调用一次。演示程序用 `flushed` 变量保证这一点。
 - 头文件的说明是：flush 之后，解码器里还没吐出的帧才会交出来。不 flush，视频末尾的几帧就取不到。
 
-#### 示例
+**示例**
 
 MJPEG 流：先喂 3 张图，一张都不取，然后 flush，再把帧逐个取空，直到 `-ENODATA`：
-
-```c
-static void demo_stream_flush(void)
-{
-	const struct vdec_stream_config cfg = {
-		.codec = VDEC_CODEC_JPEG,
-		.format = VDEC_FORMAT_NV12,
-		.width = 320,
-		.height = 240,
-	};
-	struct vdec_stream *stream;
-	struct vdec_frame frame;
-	size_t used;
-	int taken = 0, ret;
-
-	ret = vdec_stream_open(dev, &cfg, &stream);
-	printk("[flush] vdec_stream_open = %s\n", err(ret));
-	if (ret != 0) {
-		return;
-	}
-
-	/* three pictures go in, none is taken out yet */
-	for (int i = 0; i < 3; i++) {
-		ret = vdec_stream_feed(dev, stream, test_mjpeg[i].data, test_mjpeg[i].len, i * 100,
-				       &used);
-		printk("[flush] feed #%d = %s\n", i, err(ret));
-	}
-
-	ret = vdec_stream_flush(dev, stream);
-	printk("[flush] vdec_stream_flush = %s\n", err(ret));
-
-	/* from now on get_frame hands out what is left, then returns -ENODATA */
-	while ((ret = vdec_stream_get_frame(dev, stream, &frame)) == 0) {
-		printk("[flush] get_frame = 0, pts %lld\n", frame.pts);
-		vdec_frame_release(dev, &frame);
-		taken++;
-	}
-	printk("[flush] get_frame = %s after %d frames\n", err(ret), taken);
-
-	vdec_stream_close(dev, stream);
-	printk("[flush] vdec_stream_close done\n");
-}
-```
 
 日志：
 
@@ -1046,7 +568,7 @@ static void demo_stream_flush(void)
 
 flush 之后 `get_frame` 依次给出 3 帧（`pts` 为 0、100、200），再返回 `-ENODATA`。H.264 流里 flush 的位置（数据喂完后调用一次）见 `demo_stream_get_frame_h264()`，日志里的 `flush = 0 (after 33 NAL units)`。
 
-### vdec_stream_close
+**`vdec_stream_close`**
 
 结束一个流，让出解码器。
 
@@ -1059,52 +581,9 @@ void vdec_stream_close(const struct device *dev, struct vdec_stream *stream);
 - 调用前，这个流的<strong>所有帧都必须已经释放</strong>。
 - 关闭后 `stream` 句柄作废，解码器可以被别的流和 `vdec_decode_image()` 使用。
 
-#### 示例
+**示例**
 
-打开 MJPEG 流，取一帧，释放，关闭；再打开一个 H.264 流，证明解码器已经让出：
-
-```c
-static void demo_stream_close(void)
-{
-	const struct vdec_stream_config mjpeg = {
-		.codec = VDEC_CODEC_JPEG,
-		.format = VDEC_FORMAT_NV12,
-		.width = 320,
-		.height = 240,
-	};
-	const struct vdec_stream_config h264 = {
-		.codec = VDEC_CODEC_H264,
-		.format = VDEC_FORMAT_NV12,
-	};
-	struct vdec_stream *stream;
-	struct vdec_frame frame;
-	size_t used;
-	int ret;
-
-	ret = vdec_stream_open(dev, &mjpeg, &stream);
-	printk("[close] open the MJPEG stream = %s\n", err(ret));
-	if (ret != 0) {
-		return;
-	}
-	vdec_stream_feed(dev, stream, test_mjpeg[0].data, test_mjpeg[0].len, 0, &used);
-	ret = vdec_stream_get_frame(dev, stream, &frame);
-	printk("[close] get_frame = %s\n", err(ret));
-	if (ret == 0) {
-		/* every frame has to be released before the stream is closed */
-		vdec_frame_release(dev, &frame);
-	}
-	vdec_stream_close(dev, stream);
-	printk("[close] vdec_stream_close done\n");
-
-	/* the decoder belongs to nobody now: another stream can be opened */
-	ret = vdec_stream_open(dev, &h264, &stream);
-	printk("[close] open an H.264 stream afterwards = %s\n", err(ret));
-	if (ret == 0) {
-		vdec_stream_close(dev, stream);
-		printk("[close] vdec_stream_close done\n");
-	}
-}
-```
+打开 MJPEG 流，取一帧，释放，关闭。再打开一个 H.264 流，证明解码器已经让出：
 
 日志：
 
@@ -1118,7 +597,9 @@ static void demo_stream_close(void)
 
 关闭之后，下一个流可以正常打开。
 
-### struct vdec_stream_config
+### 结构体与格式
+
+**`struct vdec_stream_config`**
 
 | 字段 | 说明 |
 | --- | --- |
@@ -1129,7 +610,7 @@ static void demo_stream_close(void)
 | `holding_frames` | 应用同时持有的帧数；0 为默认的 3，`VDEC_HOLD_NONE` 为不持有。解码器会分配 2 张加上这个数量的图片。实际的帧缓冲数不会少于 3 张，所以设为 2 时，在 MJPEG 流上拿 3 帧不放才会 `-EBUSY` |
 | `width`、`height` | 图片尺寸，只有 JPEG 流需要 |
 
-### struct vdec_frame
+**`struct vdec_frame`**
 
 | 字段 | 说明 |
 | --- | --- |
@@ -1140,7 +621,7 @@ static void demo_stream_close(void)
 | `pts` | `feed` 时给的时间戳 |
 | `priv` | 驱动私有，不要碰。播放器用 `priv != NULL` 判断一个 `vdec_frame` 变量里有没有持有帧 |
 
-### 帧格式
+**帧格式**
 
 | 格式 | 值 | 内存布局 |
 | --- | --- | --- |
@@ -1193,7 +674,7 @@ west build -b yuzukineko -d build/vdec-jpeg zephyr/samples/drivers/vdec/jpeg
 
 ## 完整演示程序
 
-上面所有示例和日志都来自这一个程序。建一个目录，放进下面的文件，就可以像其他 Zephyr 应用一样编译。
+
 
 ```text
 vdec_api/
@@ -1212,7 +693,7 @@ ffmpeg -f lavfi -i testsrc2=size=320x240:rate=10 -frames:v 5 -q:v 5 f%d.jpg
 
 JPEG、PNG、H.264 的测试数据直接用 `samples/drivers/vdec/` 里三个示例的头文件，`CMakeLists.txt` 里把它们的目录加进了头文件搜索路径。
 
-### CMakeLists.txt
+**CMakeLists.txt**
 
 ```cmake
 cmake_minimum_required(VERSION 3.20.0)
@@ -1229,7 +710,7 @@ target_include_directories(app PRIVATE
 	${VDEC_SAMPLES}/h264/src)
 ```
 
-### prj.conf
+**prj.conf**
 
 ```ini
 CONFIG_FPU=y
@@ -1246,7 +727,7 @@ CONFIG_LOG_PRINTK=n
 CONFIG_CRC=y
 ```
 
-### src/main.c
+**src/main.c**
 
 ```c
 /*
@@ -1785,7 +1266,7 @@ int main(void)
 }
 ```
 
-### 编译和运行
+**编译和运行**
 
 ```sh
 . ~/f101-zephyr/env.sh

@@ -8,11 +8,11 @@ title: "Linux + Buildroot"
 BROM → SyterKit → OpenSBI → Linux → BusyBox
 ```
 
-按 CPU 模式有两个 defconfig：<strong>RV32</strong> 和 <strong>RV64I</strong>。根文件系统是 SquashFS，上面叠一层可写的 JFFS2 overlay。构建好的镜像怎么烧录、串口怎么接、怎么替换单个组件，见 [预编译镜像](linux-prebuilt.md)；逐步手动构建见 [手动构建](linux-manual.md)。
+按 CPU 模式有两个 defconfig：<strong>RV32</strong> 和 <strong>RV64I</strong>。根文件系统是 SquashFS，上面叠一层可写的 JFFS2 overlay。构建好的镜像怎么烧录、串口怎么接、怎么替换单个组件，见 [预编译镜像](linux-prebuilt.md)。从源码构建见 [手动构建](linux-manual.md)。
 
 ## 从源码构建
 
-两个镜像都由 [`YuzukiHD/buildroot-external-yuzukihd`](https://github.com/YuzukiHD/buildroot-external-yuzukihd) 这个外部树产出。Buildroot 本体直接用官方主线的 [`buildroot/buildroot`](https://github.com/buildroot/buildroot) 仓库；板级 defconfig、SyterKit 构建规则和后处理脚本都在外部树里。
+两个镜像都由 [`YuzukiHD/buildroot-external-yuzukihd`](https://github.com/YuzukiHD/buildroot-external-yuzukihd) 这个外部树产出。Buildroot 本体直接用官方主线的 [`buildroot/buildroot`](https://github.com/buildroot/buildroot) 仓库。板级 defconfig、SyterKit 构建规则和后处理脚本都在外部树里。
 
 | defconfig | 架构 | 引导加载器 |
 | --- | --- | --- |
@@ -88,6 +88,6 @@ make O=../build/br-rv64i BR2_EXTERNAL=../buildroot-external-yuzukihd -j8
 
 上表来自 Buildroot `2026.08-323-g45f1c387e0`（外部树 `1e250e5`）的一次构建。烧录方法见 [预编译镜像](linux-prebuilt.md#刷入完整镜像)。
 
-两个 defconfig 都用 x86_64 的 Xuantie-900 ELF/Newlib V3.2.0 工具链构建 SyterKit，因为 SyterKit 的 C907 专用编译选项需要它；根文件系统则用 Buildroot 自带的 musl 工具链。`*_xuantie_nor_defconfig` 变体的根文件系统也改用 Xuantie musl32 工具链。
+两个 defconfig 都用 x86_64 的 Xuantie-900 ELF/Newlib V3.2.0 工具链构建 SyterKit，因为 SyterKit 的 C907 专用编译选项需要它。根文件系统则用 Buildroot 自带的 musl 工具链。`*_xuantie_nor_defconfig` 变体的根文件系统也改用 Xuantie musl32 工具链。
 
 本仓库里的镜像由 `manifest.json` 中记录的 Buildroot 版本构建。外部树和内核、OpenSBI 的分支都在持续变动，重新构建不太可能得到完全相同的文件。

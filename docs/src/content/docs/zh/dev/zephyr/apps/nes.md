@@ -2,11 +2,6 @@
 title: "NES - FC 模拟器"
 ---
 
-:::note[版本范围]
-Zephyr 4.2.2 与 4.5.0 并存。本页原有示例、录像及板上结果使用 4.2.2 基线，4.5 的变化另行说明。请按[版本与迁移指南](../zephyr-4-5.md)选择配套的内核、组件分支及独立环境和构建目录。4.5 编译或主机测试通过，不会改变已有板上结果的版本归属。
-:::
-
-
 从 TF 卡读取 `.nes` 游戏并运行。模拟核心是 [nofrendo](https://github.com/ducalex/retro-go)，画面（RGB565）交给显示引擎的缩放视频层，声音经 I2S 送到片上 codec，手柄按键是画在 LVGL 上的半透明按钮，用触摸屏操作。代码在 `zephyr-components/nes`（nofrendo 加一层 Zephyr 胶水），示例是 `samples/nes_player`。
 
 ```mermaid
@@ -22,7 +17,7 @@ flowchart TB
     RING -.->|"队列满则等待 = 实时节拍"| EMU
 ```
 
-运行速度由声音决定：模拟器每跑完一帧，把这一帧的声音推进环形缓冲；缓冲里排队的声音超过 `RATE / 15` 个采样帧就暂停模拟，等 codec 播掉一部分。排队的声音少于 `RATE / 30` 时，下一帧只模拟、不画，保证声音不断。
+运行速度由声音决定：模拟器每跑完一帧，把这一帧的声音推进环形缓冲。缓冲里排队的声音超过 `RATE / 15` 个采样帧就暂停模拟，等 codec 播掉一部分。排队的声音少于 `RATE / 30` 时，下一帧只模拟、不画，保证声音不断。
 
 开始前请先完成 [配置开发环境](../zephyr-setup-env.md) 和 [获取 Zephyr 代码](../zephyr-get-source.md)。
 
@@ -451,7 +446,7 @@ static void pad_main(void *a, void *b, void *c)
 | `CONFIG_NES` | 关（示例里打开） | 编译 nofrendo 核心，依赖 RISCV，会选上文件系统 |
 | `CONFIG_NES_MAX_ROM_SIZE_KB` | `2048` | 接受的最大 ROM 文件，范围 16–2048 |
 
-改法是在编译命令后面加 `-D`，字符串要带引号；也可以直接写进 `prj.conf`：
+改法是在编译命令后面加 `-D`，字符串要带引号。也可以直接写进 `prj.conf`：
 
 ```sh
 west build -b yuzukineko -d build/nes zephyr-components/nes/samples/nes_player -- -DCONFIG_SAMPLE_NES_ROM='"/SD:/roms/demo.nes"'

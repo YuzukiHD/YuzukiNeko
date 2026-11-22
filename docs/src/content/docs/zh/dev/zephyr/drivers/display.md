@@ -2,11 +2,6 @@
 title: "显示"
 ---
 
-:::note[版本范围]
-Zephyr 4.2.2 与 4.5.0 并存。本页原有示例、录像及板上结果使用 4.2.2 基线，4.5 的变化另行说明。请按[版本与迁移指南](../zephyr-4-5.md)选择配套的内核、组件分支及独立环境和构建目录。4.5 编译或主机测试通过，不会改变已有板上结果的版本归属。
-:::
-
-
 F101 的显示由一条固定的流水线组成：显示引擎（DE）把几个图层叠起来，时序控制器（TCON LCD）产生屏幕需要的时序，后面接一个编码器——并口 RGB、LVDS 或者 MIPI DSI——再接到屏幕上。Zephyr 里把整条流水线做成一个显示设备，应用用标准的 `<zephyr/drivers/display.h>` 写帧缓冲，驱动在 `drivers/display/sunxi/`。
 
 ```mermaid
@@ -27,6 +22,8 @@ flowchart LR
     P2 --> BL
 ```
 
+4.5 的显示与 LVGL 变化见[版本与迁移指南](../zephyr-4-5.md)。
+
 三种输出同一时间只开一种。`yuzukineko` 板接的是 MIPI DSI 屏（载板上的 1024×768 IPS 屏），`f101_evb` 接的是 RGB 屏（1024×600）。本文先讲设备树里这条流水线的各个节点，再分别讲怎么适配一块新的 RGB 屏和 MIPI DSI 屏，最后是显示接口。
 
 | 项目 | 内容 |
@@ -37,17 +34,6 @@ flowchart LR
 | 背光 | PWM 背光（`pwm-backlight`）或 GPIO 背光（`gpio-backlight`） |
 | 面板初始化 | 设备树里的命令序列：上电时序、DSI 的 DCS/Generic 命令、软件模拟 SPI 的命令 |
 | 不支持 | 读帧缓冲、改像素格式、改方向（见后面的接口） |
-
-
-## 在 4.5 构建仓库内的示例
-
-激活配套的 4.5 分支和环境后，可直接构建维护中的示例。下文完整代码保留 4.2.2 教程基线，当前头文件与 API 字段以所选分支中的示例为准。
-
-```sh
-west build -b yuzukineko -d build/zephyr-4.5.0/display_api zephyr-components/examples/display_api
-```
-
-该配置已通过 `yuzukineko` 的 4.5 组件构建检查，尚无新的 4.5 板上日志；请按实际镜像布局选择 [RAM 或 XIP 流程](../zephyr-build-run.md)。
 
 ## 设备树
 
@@ -300,7 +286,7 @@ DSI 编码器 `allwinner,sun252iw2-mipi-dsi`：`reg`、`interrupts`、`phy`（�
 };
 ```
 
-完整的 22 个脚见 `f101_evb.dts`；每个引脚各复用功能的名字（`LCD0-Dx`、`LCD0-CLK`、`LCD0-DE`、`LCD0-HSYNC`、`LCD0-VSYNC`）见[引脚复用表](../../../hardware/mux.md)。
+完整的 22 个脚见 `f101_evb.dts`。每个引脚各复用功能的名字（`LCD0-Dx`、`LCD0-CLK`、`LCD0-DE`、`LCD0-HSYNC`、`LCD0-VSYNC`）见[引脚复用表](../../../hardware/mux.md)。
 
 ### 第三步：打开流水线，连起来
 
@@ -436,7 +422,7 @@ panel0: panel {
 };
 ```
 
-`spi-mode` 取 `"none"`（默认）、`"3wire-9bit"` 或 `"4wire-8bit"`（4 线时再加 `spi-dc-gpios`）。这一段是写法示范，具体的寄存器和值以你的屏的初始化代码为准；`f101_evb` 上的屏不需要 SPI 初始化。
+`spi-mode` 取 `"none"`（默认）、`"3wire-9bit"` 或 `"4wire-8bit"`（4 线时再加 `spi-dc-gpios`）。这一段是写法示范，具体的寄存器和值以你的屏的初始化代码为准。`f101_evb` 上的屏不需要 SPI 初始化。
 
 ### LVDS 屏
 
@@ -463,7 +449,7 @@ DSI 每条数据通道的位速率由像素时钟推出来：每个像素 24 位
 
 ### 第二步：引脚和 D-PHY
 
-DSI 的差分对是专用功能，写进 `dsi_pins`；`allwinner,drive-level` 加大驱动能力：
+DSI 的差分对是专用功能，写进 `dsi_pins`。`allwinner,drive-level` 加大驱动能力：
 
 ```c
 &pio {
@@ -644,7 +630,7 @@ DSI 的差分对是专用功能，写进 `dsi_pins`；`allwinner,drive-level` �
 | 引脚 `TP_RES`、`TP_INT`、`TP_SDA`、`TP_SCL` | 触摸控制器的复位、中断和 I2C，不属于显示 | 载板接 PD3、PD2、PD1、PD0，见 [I2C](i2c.md) |
 | 背光 `LEDA`、`LEDK`，6 颗灯串联（每颗 2.7…3.4 V），电流 20 mA × 2 | 背光要一个升压恒流的驱动，用 PWM 调亮度，写 `pwm-backlight` 节点 | 载板用 PD22 的 PWM，见 [PWM](pwm.md) |
 
-引脚上的差分对（D0P/D0N……）在 FPC 上连到 SoC 的 DSI 引脚，SoC 一侧固定是 PD12…PD21 复用功能 4，设备树里就是 `dsi_pins`，不用改。驱动芯片用引脚 `LANSEL` 选 2、3 还是 4 条通道，由模组上的接线决定；规格书里的引脚表有 4 对数据线，所以用 4 条。
+引脚上的差分对（D0P/D0N……）在 FPC 上连到 SoC 的 DSI 引脚，SoC 一侧固定是 PD12…PD21 复用功能 4，设备树里就是 `dsi_pins`，不用改。驱动芯片用引脚 `LANSEL` 选 2、3 还是 4 条通道，由模组上的接线决定。规格书里的引脚表有 4 对数据线，所以用 4 条。
 
 ### 第二步：时序
 
@@ -922,7 +908,7 @@ display: dphy: D-PHY 4 lane(s), HS clock 324000000 Hz
 | 数组里的延时 | `{REGFLAG_DELAY, 120, {}}` | 合并到前一条命令的延时里 |
 | 屏厂的 `write_command(0xdf); write_data(0x91); write_data(0x68);` 一类 | 一个命令字节加若干个数据字节 | 合起来是一条 `SUNXI_CMD_DCS` |
 
-规则只有两条：把命令和它的参数连成一串，数出一共几个字节；把紧跟其后的延时放到这条命令的第一个参数里。所有字节原样保留，不要重新排列。如果屏厂代码里区分 DCS 和 Generic，就用对应的宏，分不清时先用 DCS。
+规则只有两条：把命令和它的参数连成一串，数出一共几个字节。把紧跟其后的延时放到这条命令的第一个参数里。所有字节原样保留，不要重新排列。如果屏厂代码里区分 DCS 和 Generic，就用对应的宏，分不清时先用 DCS。
 
 ### 适配新屏的检查清单
 
@@ -960,117 +946,34 @@ display: dphy: D-PHY 4 lane(s), HS clock 324000000 Hz
 | `CONFIG_DISPLAY_BACKLIGHT_GPIO` | `y` | GPIO 背光 |
 | `CONFIG_DISPLAY_BACKLIGHT_PWM` | `y` | PWM 背光 |
 | `CONFIG_DISPLAY_BOOT_COLORBAR` | 否 | 启动时让 TCON 直接输出彩条，用来验证时钟、引脚、面板时序，不经过显示引擎 |
-| `CONFIG_DISPLAY_SHELL_CMDS` | `y`（依赖 `SHELL`） | shell 命令 `display info|graph|regs|stats|log|backlight|blank` |
+| `CONFIG_DISPLAY_SHELL_CMDS` | `y`（依赖 `SHELL`） | shell 命令 `display info\|graph\|regs\|stats\|log\|backlight\|blank` |
 | `CONFIG_HAL_TEST_DISPLAY_ENGINE` | 否 | 显示引擎的自测命令 `display_test` |
 
 ## 接口详解
 
-下面每个接口一个小标题：原型、驱动的行为、示例函数和它在板子上的输出。演示在 `yuzukineko` 上运行，写的是载板的 DSI 屏。示例来自文末的[完整演示程序](#完整演示程序)，里面的 `err()` 把返回值转成名字。帧缓冲用 RGB565（`CONFIG_DISPLAY_SUNXI_RGB565`），所以像素是 16 位。
+### 能力与状态
 
-### display_get_capabilities
+**`display_get_capabilities`** `void display_get_capabilities(const struct device *dev, struct display_capabilities *capabilities);`
 
-```c
-void display_get_capabilities(const struct device *dev, struct display_capabilities *capabilities);
-```
-
-读帧缓冲的尺寸和像素格式。这里的 1024×768 是帧缓冲的大小（`display` 节点的 `width`、`height` 除以 `CONFIG_DISPLAY_SUNXI_FB_DIV`），不一定等于面板；格式是 `PIXEL_FORMAT_RGB_565`（0x10）。
-
-```c
-/* display_get_capabilities: the size of the frame buffer and its pixel format */
-static void demo_get_capabilities(void)
-{
-	display_get_capabilities(disp, &caps);
-	printk("[caps] %ux%u, supported pixel formats 0x%x, current 0x%x (RGB_565 is 0x%x), orientation %d\n",
-	       caps.x_resolution, caps.y_resolution, caps.supported_pixel_formats,
-	       caps.current_pixel_format, PIXEL_FORMAT_RGB_565, caps.current_orientation);
-}
-```
+读帧缓冲的尺寸和像素格式。这里的 1024×768 是帧缓冲的大小（`display` 节点的 `width`、`height` 除以 `CONFIG_DISPLAY_SUNXI_FB_DIV`），不一定等于面板。格式是 `PIXEL_FORMAT_RGB_565`（0x10）。
 
 ```text
 [caps] 1024x768, supported pixel formats 0x10, current 0x10 (RGB_565 is 0x10), orientation 0
 ```
 
-### display_write
-
-```c
-int display_write(const struct device *dev, const uint16_t x, const uint16_t y,
-                  const struct display_buffer_descriptor *desc, const void *buf);
-```
+**`display_write`** `int display_write(const struct device *dev, const uint16_t x, const uint16_t y, const struct display_buffer_descriptor *desc, const void *buf);`
 
 把 `buf` 里一块 `desc->width`×`desc->height` 的像素拷到帧缓冲的 (x, y) 处，逐行拷贝并写回数据缓存，返回时已经在屏幕上（下一次刷新）。`desc->pitch` 是 `buf` 里一行的像素数，可以比宽度大。超出帧缓冲的范围、或者 `width` 大于 `pitch` 返回 `-EINVAL`。
 
-#### 示例：整屏
+**示例：整屏**
 
 八条彩色竖条，每次写 16 行。
-
-```c
-static uint16_t band[1024 * 16];
-
-static void demo_write(void)
-{
-	static const uint16_t bars[8] = {
-		RGB565(255, 255, 255), RGB565(255, 255, 0), RGB565(0, 255, 255), RGB565(0, 255, 0),
-		RGB565(255, 0, 255), RGB565(255, 0, 0), RGB565(0, 0, 255), RGB565(0, 0, 0),
-	};
-	uint16_t w = caps.x_resolution, rows = 16;
-	struct display_buffer_descriptor desc = {
-		.buf_size = w * rows * 2,
-		.width = w,
-		.height = rows,
-		.pitch = w,
-	};
-	int ret = 0;
-
-	for (int y = 0; y < rows; y++) {
-		for (int x = 0; x < w; x++) {
-			band[y * w + x] = bars[x * 8 / w];
-		}
-	}
-	for (uint16_t y = 0; y < caps.y_resolution && ret == 0; y += rows) {
-		ret = display_write(disp, 0, y, &desc, band);
-	}
-	printk("[write] colour bars over the whole %ux%u frame buffer = %s\n", w, caps.y_resolution,
-	       err(ret));
-}
-```
 
 ```text
 [write] colour bars over the whole 1024x768 frame buffer = 0
 ```
 
-#### 示例：一块窗口和出错的写
-
-```c
-/* display_write with a window: a 200x100 white block at (412, 334), with a pitch wider than the block */
-static void demo_write_window(void)
-{
-	static uint16_t block[256 * 100];
-	struct display_buffer_descriptor desc = {
-		.buf_size = sizeof(block),
-		.width = 200,
-		.height = 100,
-		.pitch = 256,
-	};
-	int ret;
-
-	for (int i = 0; i < 256 * 100; i++) {
-		block[i] = 0xffff;
-	}
-	ret = display_write(disp, 412, 334, &desc, block);
-	printk("[write] 200x100 block at (412,334), pitch 256         = %s\n", err(ret));
-
-	desc.width = 300;
-	ret = display_write(disp, 412, 334, &desc, block);
-	printk("[write] a width larger than the pitch                 = %s\n", err(ret));
-
-	desc.width = 200;
-	ret = display_write(disp, caps.x_resolution - 100, 0, &desc, block);
-	printk("[write] a block that sticks out on the right          = %s\n", err(ret));
-
-	ret = display_write(disp, 0, caps.y_resolution - 50, &desc, block);
-	printk("[write] a block that sticks out at the bottom         = %s\n", err(ret));
-}
-```
+**示例：一块窗口和出错的写**
 
 ```text
 [write] 200x100 block at (412,334), pitch 256         = 0
@@ -1079,46 +982,17 @@ static void demo_write_window(void)
 [write] a block that sticks out at the bottom         = -EINVAL
 ```
 
-### display_blanking_on
-
-```c
-int display_blanking_on(const struct device *dev);
-```
+**`display_blanking_on`** `int display_blanking_on(const struct device *dev);`
 
 关掉图像输出（屏幕黑）。
-
-```c
-/* display_blanking_on and display_blanking_off: switch the picture off and on again */
-static void demo_blanking_on(void)
-{
-	int ret = display_blanking_on(disp);
-
-	printk("[blank] display_blanking_on                    = %s\n", err(ret));
-	k_msleep(1000);
-}
-```
 
 ```text
 [blank] display_blanking_on                    = 0
 ```
 
-### display_blanking_off
-
-```c
-int display_blanking_off(const struct device *dev);
-```
+**`display_blanking_off`** `int display_blanking_off(const struct device *dev);`
 
 重新打开图像输出。
-
-```c
-static void demo_blanking_off(void)
-{
-	int ret = display_blanking_off(disp);
-
-	printk("[blank] display_blanking_off                   = %s\n", err(ret));
-	k_msleep(1000);
-}
-```
 
 ```text
 [blank] display_blanking_off                   = 0
@@ -1126,28 +1000,9 @@ static void demo_blanking_off(void)
 
 关屏再开屏以后，日志里又出现一行 `display: dphy: D-PHY 4 lane(s), HS clock 324000000 Hz`（完整输出里在 `[blank]` 之后），说明 DSI 链路重新启动过。
 
-### display_set_brightness
+**`display_set_brightness`** `int display_set_brightness(const struct device *dev, const uint8_t brightness);`
 
-```c
-int display_set_brightness(const struct device *dev, const uint8_t brightness);
-```
-
-设背光亮度，0…255，对应背光节点的 `max-level`；演示依次设 255、128、32、0、96，屏幕亮度跟着变。
-
-```c
-/* display_set_brightness: the backlight, 0..255 */
-static void demo_set_brightness(void)
-{
-	static const uint8_t levels[] = { 255, 128, 32, 0, 96 };
-
-	for (int i = 0; i < ARRAY_SIZE(levels); i++) {
-		int ret = display_set_brightness(disp, levels[i]);
-
-		printk("[brightness] display_set_brightness(%3u)         = %s\n", levels[i], err(ret));
-		k_msleep(700);
-	}
-}
-```
+设背光亮度，0…255，对应背光节点的 `max-level`。演示依次设 255、128、32、0、96，屏幕亮度跟着变。
 
 ```text
 [brightness] display_set_brightness(255)         = 0
@@ -1157,143 +1012,53 @@ static void demo_set_brightness(void)
 [brightness] display_set_brightness( 96)         = 0
 ```
 
-### display_read
+### 读取与格式
 
-```c
-int display_read(const struct device *dev, const uint16_t x, const uint16_t y,
-                 const struct display_buffer_descriptor *desc, void *buf);
-```
+**`display_read`** `int display_read(const struct device *dev, const uint16_t x, const uint16_t y, const struct display_buffer_descriptor *desc, void *buf);`
 
 驱动没有实现，返回 `-ENOSYS`。要读回屏幕上的内容，自己在内存里留一份。
-
-```c
-/* display_read: the frame buffer of this driver is write only */
-static void demo_read(void)
-{
-	uint8_t pixel[4];
-	struct display_buffer_descriptor desc = { .buf_size = 4, .width = 1, .height = 1, .pitch = 1 };
-	int ret = display_read(disp, 0, 0, &desc, pixel);
-
-	printk("[unsupported] display_read                         = %s\n", err(ret));
-}
-```
 
 ```text
 [unsupported] display_read                         = -ENOSYS
 ```
 
-### display_set_pixel_format
-
-```c
-int display_set_pixel_format(const struct device *dev, const enum display_pixel_format pixel_format);
-```
+**`display_set_pixel_format`** `int display_set_pixel_format(const struct device *dev, const enum display_pixel_format pixel_format);`
 
 驱动没有实现，返回 `-ENOSYS`。像素格式在编译时选：`CONFIG_DISPLAY_SUNXI_RGB565` 或 `CONFIG_DISPLAY_SUNXI_ARGB8888`。
-
-```c
-/* display_set_pixel_format: the format is chosen at build time (CONFIG_DISPLAY_SUNXI_RGB565 or ARGB8888) */
-static void demo_set_pixel_format(void)
-{
-	int ret = display_set_pixel_format(disp, PIXEL_FORMAT_ARGB_8888);
-
-	printk("[unsupported] display_set_pixel_format             = %s\n", err(ret));
-}
-```
 
 ```text
 [unsupported] display_set_pixel_format             = -ENOSYS
 ```
 
-### display_set_orientation
-
-```c
-int display_set_orientation(const struct device *dev, const enum display_orientation orientation);
-```
+**`display_set_orientation`** `int display_set_orientation(const struct device *dev, const enum display_orientation orientation);`
 
 驱动没有实现，返回 `-ENOSYS`。要旋转画面，在软件里旋转，或者用 [G2D](g2d.md) 的 `g2d_blit` 旋转后再写。
-
-```c
-/* display_set_orientation: not implemented, rotate in software (or with the G2D) */
-static void demo_set_orientation(void)
-{
-	int ret = display_set_orientation(disp, DISPLAY_ORIENTATION_ROTATED_90);
-
-	printk("[unsupported] display_set_orientation              = %s\n", err(ret));
-}
-```
 
 ```text
 [unsupported] display_set_orientation              = -ENOSYS
 ```
 
-### display_get_framebuffer
-
-```c
-void *display_get_framebuffer(const struct device *dev);
-```
+**`display_get_framebuffer`** `void *display_get_framebuffer(const struct device *dev);`
 
 驱动不交出帧缓冲的地址，返回 NULL，只能用 `display_write` 写。
-
-```c
-/* display_get_framebuffer: the driver does not hand out its frame buffer, it returns NULL */
-static void demo_get_framebuffer(void)
-{
-	printk("[unsupported] display_get_framebuffer              = %p\n", display_get_framebuffer(disp));
-}
-```
 
 ```text
 [unsupported] display_get_framebuffer              = 0
 ```
 
-### display_sunxi_show_rgb
+### 视频层
 
-```c
-int display_sunxi_show_rgb(const struct device *dev, const struct display_sunxi_rgb *img);
-```
+**`display_sunxi_show_rgb`** `int display_sunxi_show_rgb(const struct device *dev, const struct display_sunxi_rgb *img);`
 
-头文件 `<zephyr/drivers/display/display_sunxi.h>`，是这个驱动的扩展。把一幅 RGB 图片放到视频层，由显示引擎缩放到屏幕上能放下的最大尺寸并居中，不拷贝像素，也不经过帧缓冲。图片的内存在下一次调用或者 `display_sunxi_hide_yuv` 之前必须保持有效且不变，数据缓存要已经写回。`xrgb8888` 选 32 位 XRGB8888 或 16 位 RGB565；`nonblock` 为真时不等图片出现就返回（图片要多保留一帧的时间）。
-
-```c
-static uint16_t small[64 * 48] __aligned(64);
-
-static void demo_show_rgb(void)
-{
-	struct display_sunxi_rgb img = {
-		.data = small,
-		.width = 64,
-		.height = 48,
-		.stride = 64 * 2,
-		.xrgb8888 = false,
-		.nonblock = false,
-	};
-	int ret;
-
-	for (int y = 0; y < 48; y++) {
-		for (int x = 0; x < 64; x++) {
-			small[y * 64 + x] = y < 24 ? (x < 32 ? RGB565(255, 0, 0) : RGB565(0, 255, 0))
-						   : (x < 32 ? RGB565(0, 0, 255) : RGB565(255, 255, 0));
-		}
-	}
-	sys_cache_data_flush_range(small, sizeof(small));
-
-	ret = display_sunxi_show_rgb(disp, &img);
-	printk("[rgb] display_sunxi_show_rgb 64x48                 = %s\n", err(ret));
-	k_msleep(2000);
-}
-```
+头文件 `<zephyr/drivers/display/display_sunxi.h>`，是这个驱动的扩展。把一幅 RGB 图片放到视频层，由显示引擎缩放到屏幕上能放下的最大尺寸并居中，不拷贝像素，也不经过帧缓冲。图片的内存在下一次调用或者 `display_sunxi_hide_yuv` 之前必须保持有效且不变，数据缓存要已经写回。`xrgb8888` 选 32 位 XRGB8888 或 16 位 RGB565。`nonblock` 为真时不等图片出现就返回（图片要多保留一帧的时间）。
 
 ```text
 [rgb] display_sunxi_show_rgb 64x48                 = 0
 ```
 
-### display_sunxi_show_yuv
+**`display_sunxi_show_yuv`** `int display_sunxi_show_yuv(const struct device *dev, const struct display_sunxi_yuv *img);`
 
-```c
-int display_sunxi_show_yuv(const struct device *dev, const struct display_sunxi_yuv *img);
-```
-
-同样，但图片是 YCbCr 4:2:0 的 NV12（`nv21` 为真则是 NV21）：亮度平面一个地址，交错的色度平面一个地址，各有行距。`full_range` 表示样本是 0…255（JPEG），默认是 16…235；`bt709` 选 BT.709 矩阵，默认 BT.601。视频引擎解出来的帧直接这样显示，见[视频引擎 vdec](vdec.md) 和 [MP4 播放器](../apps/mp4-player.md)。
+同样，但图片是 YCbCr 4:2:0 的 NV12（`nv21` 为真则是 NV21）：亮度平面一个地址，交错的色度平面一个地址，各有行距。`full_range` 表示样本是 0…255（JPEG），默认是 16…235。`bt709` 选 BT.709 矩阵，默认 BT.601。视频引擎解出来的帧直接这样显示，见[视频引擎 vdec](vdec.md) 和 [MP4 播放器](../apps/mp4-player.md)。
 
 ```c
 static uint8_t luma[128 * 96] __aligned(64);
@@ -1335,24 +1100,9 @@ static void demo_show_yuv(void)
 [yuv] display_sunxi_show_yuv 128x96                = 0
 ```
 
-### display_sunxi_hide_yuv
-
-```c
-int display_sunxi_hide_yuv(const struct device *dev);
-```
+**`display_sunxi_hide_yuv`** `int display_sunxi_hide_yuv(const struct device *dev);`
 
 关掉视频层，帧缓冲层回来。
-
-```c
-/* display_sunxi_hide_yuv: stop the video plane and bring the frame buffer back */
-static void demo_hide_yuv(void)
-{
-	int ret = display_sunxi_hide_yuv(disp);
-
-	printk("[hide] display_sunxi_hide_yuv                      = %s\n", err(ret));
-	k_msleep(1000);
-}
-```
 
 ```text
 [hide] display_sunxi_hide_yuv                      = 0
@@ -1360,7 +1110,7 @@ static void demo_hide_yuv(void)
 
 ## 完整演示程序
 
-上面所有示例和日志都来自这一个程序。建一个目录，放进下面的文件，就可以像其他 Zephyr 应用一样编译。
+
 
 ```text
 display_api/
@@ -1370,7 +1120,7 @@ display_api/
     └── main.c
 ```
 
-### CMakeLists.txt
+**CMakeLists.txt**
 
 ```cmake
 cmake_minimum_required(VERSION 3.20.0)
@@ -1380,7 +1130,7 @@ project(display_api)
 target_sources(app PRIVATE src/main.c)
 ```
 
-### prj.conf
+**prj.conf**
 
 ```ini
 CONFIG_DISPLAY=y
@@ -1392,7 +1142,7 @@ CONFIG_DEVMEM_SHELL=n
 CONFIG_LOG_PRINTK=n
 ```
 
-### src/main.c
+**src/main.c**
 
 ```c
 /*
@@ -1664,7 +1414,7 @@ int main(void)
 }
 ```
 
-### 编译和运行
+**编译和运行**
 
 ```sh
 . ~/f101-zephyr/env.sh

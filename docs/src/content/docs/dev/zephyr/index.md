@@ -3,9 +3,8 @@ title: "Zephyr development"
 ---
 
 :::note[Version scope]
-Zephyr 4.2.2 and 4.5.0 coexist. The original examples, captures and target results on this page use the 4.2.2 baseline; 4.5 changes are identified separately. Select matching kernel and component branches and separate environments/build directories using the [version and migration guide](zephyr-4-5.md). A 4.5 build or host-test pass does not update the version of an existing board result.
+All examples, listings, logs and board results in this chapter use the Zephyr 4.2.2 baseline unless a page-local 4.5 note says otherwise. For 4.5 branches, environment, API changes, build commands and verification status, see the [version and migration guide](zephyr-4-5.md).
 :::
-
 
 [Zephyr](https://www.zephyrproject.org) is an open-source real-time operating system (RTOS) for resource-constrained devices. The F101 Zephyr support is a fork of upstream Zephyr: [`YuzukiHD/zephyr`](https://github.com/YuzukiHD/zephyr), retaining `zephyr-v4.2.2-f101` (4.2.2) alongside the separate `zephyr-v4.5.0-f101` (4.5.0) port branch; see the [version and migration guide](zephyr-4-5.md) for matching components.
 
@@ -106,13 +105,6 @@ The SoC code is in `soc/allwinner/sun252i_f101`, the SoC devicetree is in `dts/r
 :::tip
 Applications built on this port (emulators, WiFi, MicroPython, PocketJS and so on) live in the [`YuzukiHD/zephyr-components`](https://github.com/YuzukiHD/zephyr-components) repository. Each has a different status; the README in each directory is the reference for how to use it.
 :::
-
-## In this chapter
-
-- [Set up the development environment](zephyr-setup-env.md)
-- [Get the Zephyr source](zephyr-get-source.md)
-- [Build and run](zephyr-build-run.md)
-- [UF2 drag-and-drop flashing](zephyr-uf2.md)
 
 :::tip
 Before downloading, read [FEL download mode and tools](../../boot/fel.md) and [SPI NOR layout and backup](../../boot/flash-layout.md), and back up the on-board Flash. To run Linux, see [Linux development](../linux/index.md).

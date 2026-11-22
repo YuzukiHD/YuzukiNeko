@@ -2,11 +2,6 @@
 title: "Windows 95 - Bochs x86 emulation"
 ---
 
-:::note[Version scope]
-Zephyr 4.2.2 and 4.5.0 coexist. The original examples, captures and target results on this page use the 4.2.2 baseline; 4.5 changes are identified separately. Select matching kernel and component branches and separate environments/build directories using the [version and migration guide](../zephyr-4-5.md). A 4.5 build or host-test pass does not update the version of an existing board result.
-:::
-
-
 Use [Bochs](https://github.com/bochs-emu/Bochs) on the board to emulate a 486-class x86 PC and boot Windows 95 from a disk image on a TF card. The component is `~/f101-zephyr/zephyr-components/bochs` and the example is `samples/pc`. Bochs is an interpreter written in C++; on a RISC-V board it runs entirely in software with no hardware acceleration, so it is very slow.
 
 ```mermaid
@@ -172,7 +167,6 @@ Then it goes to the desktop and the `Welcome to Windows 95` dialog pops up (a `D
 ![The Windows 95 desktop and Welcome dialog on the board's screen](figures/win95-desktop.webp)
 
 The mouse pointer on the dialog is drawn by Windows itself: after it boots, Windows 95 always renders a pointer on the screen, whether or not a mouse is present. On the board, no mouse is connected to the touchscreen or USB (see [Scope](#scope)), so this pointer does not move.
-
 
 ## Implementation
 
@@ -352,7 +346,6 @@ Component (`Kconfig`):
 | `CONFIG_BOCHS_HEARTBEAT` | n | prints the virtual machine `eip` and the number of virtual ticks per second once a second, to tell whether the virtual machine is running |
 
 The options in `samples/pc/prj.conf` that relate to this application and are on by default: `CONFIG_CPP`, `CONFIG_STD_CPP17`, `CONFIG_BOCHS`, `CONFIG_MAIN_STACK_SIZE=65536`, `CONFIG_COMMON_LIBC_MALLOC_ARENA_SIZE=-1` (the heap uses all remaining memory), `CONFIG_SDHC`, `CONFIG_DISK_DRIVER_SDMMC`, `CONFIG_FAT_FILESYSTEM_ELM`, `CONFIG_FS_FATFS_EXFAT`, `CONFIG_FS_FATFS_LFN`, `CONFIG_DISPLAY`. `CONFIG_DISPLAY_SUNXI_FB_DIV=1` is the display driver's frame-buffer divider.
-
 
 ## Scope
 

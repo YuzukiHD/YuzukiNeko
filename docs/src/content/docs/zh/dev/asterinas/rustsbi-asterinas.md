@@ -6,7 +6,7 @@ title: "在 YuzukiNeko 上运行 RustSBI 与 Asterinas"
 
 [RustSBI](https://github.com/rustsbi/rustsbi) 是使用 Rust 实现 RISC-V SBI（Supervisor Binary Interface）的项目，为操作系统提供标准的固件服务接口。它让内核通过统一接口使用定时器、核间中断和系统复位等底层服务，减少对具体硬件平台的依赖。
 
-[Asterinas](https://github.com/asterinas/asterinas) 是使用 Rust 编写的操作系统内核。它以兼容 Linux 应用为目标，利用 Rust 的类型系统和内存安全机制提高内核的安全性。
+[Asterinas](https://github.com/asterinas/asterinas) 是使用 Rust 编写的操作系统内核。它以兼容 Linux 应用为目标，靠 Rust 的类型系统和内存安全机制提高内核的安全性。
 
 本包使用针对 Neko 适配的 RV32 移植版本，具体来源与改动见[组件版本](#组件版本)。
 
@@ -24,7 +24,7 @@ BROM → SyterKit → RustSBI → Asterinas → BusyBox shell
 | Asterinas | 运行操作系统内核，管理内存、进程等资源 |
 | BusyBox | 提供交互式 shell 和基础命令，供用户运行示例 |
 
-下面按“准备与接线 → 刷写与校验 → 启动与示例”的顺序操作；需要更新单个组件时，再阅读[单独替换某个组件](#单独替换某个组件)。
+下面按“准备与接线 → 刷写与校验 → 启动与示例”的顺序操作。需要更新单个组件时，再阅读[单独替换某个组件](#单独替换某个组件)。
 
 ## 开始之前
 
@@ -37,7 +37,7 @@ BROM → SyterKit → RustSBI → Asterinas → BusyBox shell
 
 ### 获取镜像
 
-固件位于仓库的 [`02_Firmware/RustSBI-Asterinas/`](https://github.com/YuzukiHD/YuzukiNeko/tree/main/02_Firmware/RustSBI-Asterinas) 目录。首次安装请下载完整镜像 `yuzukineko-rustsbi-asterinas.img` 和同目录的 `SHA256SUMS`；`manifest.json` 记录版本、Flash 布局与验证信息。所有文件的用途见[文件清单](#文件清单)。
+固件位于仓库的 [`02_Firmware/RustSBI-Asterinas/`](https://github.com/YuzukiHD/YuzukiNeko/tree/main/02_Firmware/RustSBI-Asterinas) 目录。首次安装请下载完整镜像 `yuzukineko-rustsbi-asterinas.img` 和同目录的 `SHA256SUMS`。`manifest.json` 记录版本、Flash 布局与验证信息。所有文件的用途见[文件清单](#文件清单)。
 
 下面假设工具在 `PATH` 里，终端位于镜像所在目录。刷机命令在<strong>主机终端</strong>运行，启动后的示例命令在<strong>开发板的串口终端</strong>运行。
 
@@ -120,7 +120,7 @@ shasum -a 256 yuzukineko-rustsbi-asterinas.img readback.img
 368b658f93cb921a66c690a1ae26def95fbb500d0098b955695cebb977228cc5
 ```
 
-有报错或校验不一致时先解决，再启动。回读一致说明镜像写入正确；系统能否启动、示例能否完成，还需要继续执行后面的验证步骤。
+有报错或校验不一致时先解决，再启动。回读一致说明镜像写入正确。系统能否启动、示例能否完成，还需要继续执行后面的验证步骤。
 
 ![](figures/xfel-2.webp)
 
@@ -203,7 +203,7 @@ All 9 Asterinas examples completed.
 | Asterinas | `0x0d0000` | 5 MiB，到 initramfs 之前 | `0x40000000` |
 | initramfs（在完整镜像中） | `0x5d0000` | 1 MiB | `0x40500000` |
 
-这些容量限制只针对本镜像布局。自行构建时，还必须保证入口、载入地址、设备树和内存使用相互兼容；不能只看二进制大小。特别是 RustSBI 运行时占用的内存（含 BSS、栈和堆）必须落在它预留的区域内。
+这些容量限制只针对本镜像布局。自行构建时，还必须保证入口、载入地址、设备树和内存使用相互兼容。不能只看二进制大小。特别是 RustSBI 运行时占用的内存（含 BSS、栈和堆）必须落在它预留的区域内。
 
 按需选择写入命令，替换一个组件不必重写其他组件：
 
@@ -239,7 +239,7 @@ xfel spinor read 0x50000 0x42000 rustsbi-readback.bin
 
 ## 验证记录
 
-验证日期 2026-09-12，板子为 Yuzuki Neko F101-S3：Flash 回读与镜像 SHA-256 一致；SPI NOR 启动到达 BusyBox shell；九个示例通过。
+验证日期 2026-09-12，板子为 Yuzuki Neko F101-S3：Flash 回读与镜像 SHA-256 一致。SPI NOR 启动到达 BusyBox shell。九个示例通过。
 
 ## 许可证
 

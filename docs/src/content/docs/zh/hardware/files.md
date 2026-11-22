@@ -31,7 +31,7 @@ YuzukiNeko 模块的硬件设计文件放在仓库 `01_Hardware/` 下，<strong>
 
 ## YuzukiCube-M 底板
 
-底板的文件单独放在 `04_BaseBoard/` 下，目前只有 `V1.0`，条目与 `01_Hardware/` 的七个目录相同（`04_3D/` 里另有一份外壳 `3DShell_PCB2.zip`）。底板本身不是 YuzukiNeko 的一个版本，而是把模块装上去的载板；引脚、器件与电源见 [YuzukiCube-M 底板](../baseboard.md)。
+底板的文件单独放在 `04_BaseBoard/` 下，目前只有 `V1.0`，条目与 `01_Hardware/` 的七个目录相同（`04_3D/` 里另有一份外壳 `3DShell_PCB2.zip`）。底板本身不是 YuzukiNeko 的一个版本，而是把模块装上去的载板。引脚、器件与电源见 [YuzukiCube-M 底板](../baseboard.md)。
 
 ## 协议
 

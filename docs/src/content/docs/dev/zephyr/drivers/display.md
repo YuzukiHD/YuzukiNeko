@@ -2,11 +2,6 @@
 title: "Display"
 ---
 
-:::note[Version scope]
-Zephyr 4.2.2 and 4.5.0 coexist. The original examples, captures and target results on this page use the 4.2.2 baseline; 4.5 changes are identified separately. Select matching kernel and component branches and separate environments/build directories using the [version and migration guide](../zephyr-4-5.md). A 4.5 build or host-test pass does not update the version of an existing board result.
-:::
-
-
 The F101 display is one fixed pipeline: the display engine (DE) stacks several layers, the timing controller (TCON LCD) generates the timings the screen needs, and behind that sits an encoder — parallel RGB, LVDS or MIPI DSI — which connects to the screen. In Zephyr the whole pipeline is made into one display device, an application writes the frame buffer with the standard `<zephyr/drivers/display.h>`, and the driver lives in `drivers/display/sunxi/`.
 
 ```mermaid
@@ -27,6 +22,8 @@ flowchart LR
     P2 --> BL
 ```
 
+4.5 display and LVGL changes are in the [version and migration guide](../zephyr-4-5.md).
+
 Only one of the three outputs is enabled at a time. The `yuzukineko` board is connected to a MIPI DSI panel (the 1024×768 IPS panel on the carrier board), and `f101_evb` to an RGB panel (1024×600). This page first covers the nodes of this pipeline in the devicetree, then how to adapt a new RGB panel and a new MIPI DSI panel respectively, and finally the display interface.
 
 | Item | Content |
@@ -37,17 +34,6 @@ Only one of the three outputs is enabled at a time. The `yuzukineko` board is co
 | Backlight | PWM backlight (`pwm-backlight`) or GPIO backlight (`gpio-backlight`) |
 | Panel initialization | A command sequence in the devicetree: power-up timings, DSI DCS/Generic commands, software-emulated SPI commands |
 | Not supported | Reading the frame buffer, changing the pixel format, changing the orientation (see the interface below) |
-
-
-## Build the checked-in example on 4.5
-
-With the matching 4.5 branches and environment active, build the maintained example directly. The complete listings later in this article retain the 4.2.2 tutorial baseline; the example in the selected branch is the reference for current headers and API fields.
-
-```sh
-west build -b yuzukineko -d build/zephyr-4.5.0/display_api zephyr-components/examples/display_api
-```
-
-This configuration passed the 4.5 component build check for `yuzukineko`. It has no new 4.5 target log; use the [RAM or XIP flow](../zephyr-build-run.md) matching the actual image layout.
 
 ## Devicetree
 
@@ -961,117 +947,34 @@ There are only two rules: join the command and its parameters into one run and c
 | `CONFIG_DISPLAY_BACKLIGHT_GPIO` | `y` | GPIO backlight |
 | `CONFIG_DISPLAY_BACKLIGHT_PWM` | `y` | PWM backlight |
 | `CONFIG_DISPLAY_BOOT_COLORBAR` | no | At boot, have the TCON output colour bars directly, to verify the clocks, pins and panel timing, without going through the display engine |
-| `CONFIG_DISPLAY_SHELL_CMDS` | `y` (depends on `SHELL`) | The shell commands `display info|graph|regs|stats|log|backlight|blank` |
+| `CONFIG_DISPLAY_SHELL_CMDS` | `y` (depends on `SHELL`) | The shell commands `display info\|graph\|regs\|stats\|log\|backlight\|blank` |
 | `CONFIG_HAL_TEST_DISPLAY_ENGINE` | no | The display engine self-test command `display_test` |
 
 ## Interface details
 
-Each interface below gets its own heading: the prototype, the driver's behaviour, the sample function and its output on the board. The demo runs on `yuzukineko` and writes to the carrier board's DSI panel. The samples come from [Complete demo program](#complete-demo-program) at the end of the page, whose `err()` turns a return value into a name. The frame buffer uses RGB565 (`CONFIG_DISPLAY_SUNXI_RGB565`), so a pixel is 16 bits.
+### Capabilities and state
 
-### display_get_capabilities
-
-```c
-void display_get_capabilities(const struct device *dev, struct display_capabilities *capabilities);
-```
+**`display_get_capabilities`** `void display_get_capabilities(const struct device *dev, struct display_capabilities *capabilities);`
 
 Reads the frame buffer size and pixel format. The 1024×768 here is the size of the frame buffer (the `width`, `height` of the `display` node divided by `CONFIG_DISPLAY_SUNXI_FB_DIV`) and is not necessarily the panel; the format is `PIXEL_FORMAT_RGB_565` (0x10).
-
-```c
-/* display_get_capabilities: the size of the frame buffer and its pixel format */
-static void demo_get_capabilities(void)
-{
-	display_get_capabilities(disp, &caps);
-	printk("[caps] %ux%u, supported pixel formats 0x%x, current 0x%x (RGB_565 is 0x%x), orientation %d\n",
-	       caps.x_resolution, caps.y_resolution, caps.supported_pixel_formats,
-	       caps.current_pixel_format, PIXEL_FORMAT_RGB_565, caps.current_orientation);
-}
-```
 
 ```text
 [caps] 1024x768, supported pixel formats 0x10, current 0x10 (RGB_565 is 0x10), orientation 0
 ```
 
-### display_write
-
-```c
-int display_write(const struct device *dev, const uint16_t x, const uint16_t y,
-                  const struct display_buffer_descriptor *desc, const void *buf);
-```
+**`display_write`** `int display_write(const struct device *dev, const uint16_t x, const uint16_t y, const struct display_buffer_descriptor *desc, const void *buf);`
 
 Copies a block of `desc->width`×`desc->height` pixels from `buf` into the frame buffer at (x, y), row by row, writing the data cache back; when it returns they are already on the screen (at the next refresh). `desc->pitch` is the number of pixels in one row of `buf` and may be larger than the width. A block outside the frame buffer, or a `width` larger than the `pitch`, returns `-EINVAL`.
 
-#### Example: the whole screen
+**Example: the whole screen**
 
 Eight coloured vertical bars, written 16 rows at a time.
-
-```c
-static uint16_t band[1024 * 16];
-
-static void demo_write(void)
-{
-	static const uint16_t bars[8] = {
-		RGB565(255, 255, 255), RGB565(255, 255, 0), RGB565(0, 255, 255), RGB565(0, 255, 0),
-		RGB565(255, 0, 255), RGB565(255, 0, 0), RGB565(0, 0, 255), RGB565(0, 0, 0),
-	};
-	uint16_t w = caps.x_resolution, rows = 16;
-	struct display_buffer_descriptor desc = {
-		.buf_size = w * rows * 2,
-		.width = w,
-		.height = rows,
-		.pitch = w,
-	};
-	int ret = 0;
-
-	for (int y = 0; y < rows; y++) {
-		for (int x = 0; x < w; x++) {
-			band[y * w + x] = bars[x * 8 / w];
-		}
-	}
-	for (uint16_t y = 0; y < caps.y_resolution && ret == 0; y += rows) {
-		ret = display_write(disp, 0, y, &desc, band);
-	}
-	printk("[write] colour bars over the whole %ux%u frame buffer = %s\n", w, caps.y_resolution,
-	       err(ret));
-}
-```
 
 ```text
 [write] colour bars over the whole 1024x768 frame buffer = 0
 ```
 
-#### Example: a window and failing writes
-
-```c
-/* display_write with a window: a 200x100 white block at (412, 334), with a pitch wider than the block */
-static void demo_write_window(void)
-{
-	static uint16_t block[256 * 100];
-	struct display_buffer_descriptor desc = {
-		.buf_size = sizeof(block),
-		.width = 200,
-		.height = 100,
-		.pitch = 256,
-	};
-	int ret;
-
-	for (int i = 0; i < 256 * 100; i++) {
-		block[i] = 0xffff;
-	}
-	ret = display_write(disp, 412, 334, &desc, block);
-	printk("[write] 200x100 block at (412,334), pitch 256         = %s\n", err(ret));
-
-	desc.width = 300;
-	ret = display_write(disp, 412, 334, &desc, block);
-	printk("[write] a width larger than the pitch                 = %s\n", err(ret));
-
-	desc.width = 200;
-	ret = display_write(disp, caps.x_resolution - 100, 0, &desc, block);
-	printk("[write] a block that sticks out on the right          = %s\n", err(ret));
-
-	ret = display_write(disp, 0, caps.y_resolution - 50, &desc, block);
-	printk("[write] a block that sticks out at the bottom         = %s\n", err(ret));
-}
-```
+**Example: a window and failing writes**
 
 ```text
 [write] 200x100 block at (412,334), pitch 256         = 0
@@ -1080,46 +983,17 @@ static void demo_write_window(void)
 [write] a block that sticks out at the bottom         = -EINVAL
 ```
 
-### display_blanking_on
-
-```c
-int display_blanking_on(const struct device *dev);
-```
+**`display_blanking_on`** `int display_blanking_on(const struct device *dev);`
 
 Turns the picture output off (the screen goes black).
-
-```c
-/* display_blanking_on and display_blanking_off: switch the picture off and on again */
-static void demo_blanking_on(void)
-{
-	int ret = display_blanking_on(disp);
-
-	printk("[blank] display_blanking_on                    = %s\n", err(ret));
-	k_msleep(1000);
-}
-```
 
 ```text
 [blank] display_blanking_on                    = 0
 ```
 
-### display_blanking_off
-
-```c
-int display_blanking_off(const struct device *dev);
-```
+**`display_blanking_off`** `int display_blanking_off(const struct device *dev);`
 
 Turns the picture output on again.
-
-```c
-static void demo_blanking_off(void)
-{
-	int ret = display_blanking_off(disp);
-
-	printk("[blank] display_blanking_off                   = %s\n", err(ret));
-	k_msleep(1000);
-}
-```
 
 ```text
 [blank] display_blanking_off                   = 0
@@ -1127,28 +1001,9 @@ static void demo_blanking_off(void)
 
 After the screen has been blanked and unblanked, another `display: dphy: D-PHY 4 lane(s), HS clock 324000000 Hz` line appears in the log (in the full output after `[blank]`), showing that the DSI link has been restarted.
 
-### display_set_brightness
-
-```c
-int display_set_brightness(const struct device *dev, const uint8_t brightness);
-```
+**`display_set_brightness`** `int display_set_brightness(const struct device *dev, const uint8_t brightness);`
 
 Sets the backlight brightness, 0…255, matching the `max-level` of the backlight node; the demo sets 255, 128, 32, 0, 96 in turn and the screen brightness follows.
-
-```c
-/* display_set_brightness: the backlight, 0..255 */
-static void demo_set_brightness(void)
-{
-	static const uint8_t levels[] = { 255, 128, 32, 0, 96 };
-
-	for (int i = 0; i < ARRAY_SIZE(levels); i++) {
-		int ret = display_set_brightness(disp, levels[i]);
-
-		printk("[brightness] display_set_brightness(%3u)         = %s\n", levels[i], err(ret));
-		k_msleep(700);
-	}
-}
-```
 
 ```text
 [brightness] display_set_brightness(255)         = 0
@@ -1158,141 +1013,51 @@ static void demo_set_brightness(void)
 [brightness] display_set_brightness( 96)         = 0
 ```
 
-### display_read
+### Read, format and orientation
 
-```c
-int display_read(const struct device *dev, const uint16_t x, const uint16_t y,
-                 const struct display_buffer_descriptor *desc, void *buf);
-```
+**`display_read`** `int display_read(const struct device *dev, const uint16_t x, const uint16_t y, const struct display_buffer_descriptor *desc, void *buf);`
 
 The driver does not implement it and returns `-ENOSYS`. To read back what is on the screen, keep your own copy in memory.
-
-```c
-/* display_read: the frame buffer of this driver is write only */
-static void demo_read(void)
-{
-	uint8_t pixel[4];
-	struct display_buffer_descriptor desc = { .buf_size = 4, .width = 1, .height = 1, .pitch = 1 };
-	int ret = display_read(disp, 0, 0, &desc, pixel);
-
-	printk("[unsupported] display_read                         = %s\n", err(ret));
-}
-```
 
 ```text
 [unsupported] display_read                         = -ENOSYS
 ```
 
-### display_set_pixel_format
-
-```c
-int display_set_pixel_format(const struct device *dev, const enum display_pixel_format pixel_format);
-```
+**`display_set_pixel_format`** `int display_set_pixel_format(const struct device *dev, const enum display_pixel_format pixel_format);`
 
 The driver does not implement it and returns `-ENOSYS`. The pixel format is chosen at build time: `CONFIG_DISPLAY_SUNXI_RGB565` or `CONFIG_DISPLAY_SUNXI_ARGB8888`.
-
-```c
-/* display_set_pixel_format: the format is chosen at build time (CONFIG_DISPLAY_SUNXI_RGB565 or ARGB8888) */
-static void demo_set_pixel_format(void)
-{
-	int ret = display_set_pixel_format(disp, PIXEL_FORMAT_ARGB_8888);
-
-	printk("[unsupported] display_set_pixel_format             = %s\n", err(ret));
-}
-```
 
 ```text
 [unsupported] display_set_pixel_format             = -ENOSYS
 ```
 
-### display_set_orientation
-
-```c
-int display_set_orientation(const struct device *dev, const enum display_orientation orientation);
-```
+**`display_set_orientation`** `int display_set_orientation(const struct device *dev, const enum display_orientation orientation);`
 
 The driver does not implement it and returns `-ENOSYS`. To rotate the picture, rotate it in software, or rotate it with `g2d_blit` from [G2D](g2d.md) and then write.
-
-```c
-/* display_set_orientation: not implemented, rotate in software (or with the G2D) */
-static void demo_set_orientation(void)
-{
-	int ret = display_set_orientation(disp, DISPLAY_ORIENTATION_ROTATED_90);
-
-	printk("[unsupported] display_set_orientation              = %s\n", err(ret));
-}
-```
 
 ```text
 [unsupported] display_set_orientation              = -ENOSYS
 ```
 
-### display_get_framebuffer
-
-```c
-void *display_get_framebuffer(const struct device *dev);
-```
+**`display_get_framebuffer`** `void *display_get_framebuffer(const struct device *dev);`
 
 The driver does not hand out the address of its frame buffer and returns NULL; the only way to write is `display_write`.
-
-```c
-/* display_get_framebuffer: the driver does not hand out its frame buffer, it returns NULL */
-static void demo_get_framebuffer(void)
-{
-	printk("[unsupported] display_get_framebuffer              = %p\n", display_get_framebuffer(disp));
-}
-```
 
 ```text
 [unsupported] display_get_framebuffer              = 0
 ```
 
-### display_sunxi_show_rgb
+### Video layer
 
-```c
-int display_sunxi_show_rgb(const struct device *dev, const struct display_sunxi_rgb *img);
-```
+**`display_sunxi_show_rgb`** `int display_sunxi_show_rgb(const struct device *dev, const struct display_sunxi_rgb *img);`
 
 The header `<zephyr/drivers/display/display_sunxi.h>`; this is an extension of this driver. It puts an RGB picture on the video layer, scaled by the display engine to the largest size that fits the screen and centred, without copying pixels and without going through the frame buffer. The picture's memory must stay valid and unchanged until the next call or `display_sunxi_hide_yuv`, and its data cache must already be written back. `xrgb8888` selects 32-bit XRGB8888 or 16-bit RGB565; when `nonblock` is true it returns without waiting for the picture to appear (and the picture is then kept one frame longer).
-
-```c
-static uint16_t small[64 * 48] __aligned(64);
-
-static void demo_show_rgb(void)
-{
-	struct display_sunxi_rgb img = {
-		.data = small,
-		.width = 64,
-		.height = 48,
-		.stride = 64 * 2,
-		.xrgb8888 = false,
-		.nonblock = false,
-	};
-	int ret;
-
-	for (int y = 0; y < 48; y++) {
-		for (int x = 0; x < 64; x++) {
-			small[y * 64 + x] = y < 24 ? (x < 32 ? RGB565(255, 0, 0) : RGB565(0, 255, 0))
-						   : (x < 32 ? RGB565(0, 0, 255) : RGB565(255, 255, 0));
-		}
-	}
-	sys_cache_data_flush_range(small, sizeof(small));
-
-	ret = display_sunxi_show_rgb(disp, &img);
-	printk("[rgb] display_sunxi_show_rgb 64x48                 = %s\n", err(ret));
-	k_msleep(2000);
-}
-```
 
 ```text
 [rgb] display_sunxi_show_rgb 64x48                 = 0
 ```
 
-### display_sunxi_show_yuv
-
-```c
-int display_sunxi_show_yuv(const struct device *dev, const struct display_sunxi_yuv *img);
-```
+**`display_sunxi_show_yuv`** `int display_sunxi_show_yuv(const struct device *dev, const struct display_sunxi_yuv *img);`
 
 The same, but the picture is YCbCr 4:2:0 NV12 (NV21 when `nv21` is true): one address for the luma plane and one for the interleaved chroma plane, each with its own stride. `full_range` says the samples are 0…255 (JPEG), the default being 16…235; `bt709` selects the BT.709 matrix, the default being BT.601. Frames the video engine has decoded are displayed straight through this, see [the vdec video engine](vdec.md) and [MP4 player](../apps/mp4-player.md).
 
@@ -1336,32 +1101,15 @@ static void demo_show_yuv(void)
 [yuv] display_sunxi_show_yuv 128x96                = 0
 ```
 
-### display_sunxi_hide_yuv
-
-```c
-int display_sunxi_hide_yuv(const struct device *dev);
-```
+**`display_sunxi_hide_yuv`** `int display_sunxi_hide_yuv(const struct device *dev);`
 
 Turns the video layer off and the frame buffer layer comes back.
-
-```c
-/* display_sunxi_hide_yuv: stop the video plane and bring the frame buffer back */
-static void demo_hide_yuv(void)
-{
-	int ret = display_sunxi_hide_yuv(disp);
-
-	printk("[hide] display_sunxi_hide_yuv                      = %s\n", err(ret));
-	k_msleep(1000);
-}
-```
 
 ```text
 [hide] display_sunxi_hide_yuv                      = 0
 ```
 
 ## Complete demo program
-
-All the samples and logs above come from this one program. Create a directory, put the files below in it, and it builds like any other Zephyr application.
 
 ```text
 display_api/
@@ -1371,7 +1119,7 @@ display_api/
     └── main.c
 ```
 
-### CMakeLists.txt
+**CMakeLists.txt**
 
 ```cmake
 cmake_minimum_required(VERSION 3.20.0)
@@ -1381,7 +1129,7 @@ project(display_api)
 target_sources(app PRIVATE src/main.c)
 ```
 
-### prj.conf
+**prj.conf**
 
 ```ini
 CONFIG_DISPLAY=y
@@ -1393,7 +1141,7 @@ CONFIG_DEVMEM_SHELL=n
 CONFIG_LOG_PRINTK=n
 ```
 
-### src/main.c
+**src/main.c**
 
 ```c
 /*
@@ -1665,7 +1413,7 @@ int main(void)
 }
 ```
 
-### Build and run
+**Build and run**
 
 ```sh
 . ~/f101-zephyr/env.sh

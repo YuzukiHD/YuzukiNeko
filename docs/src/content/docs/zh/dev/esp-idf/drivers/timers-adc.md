@@ -29,7 +29,7 @@ gptimer_enable(timer);
 gptimer_start(timer);
 ```
 
-`resolution_hz` 不能超过 200 MHz。回调在中断上下文执行，只做计数、通知任务或置标志；需要耗时处理时用队列把事件送给任务。`gptimer_stop()` 之后才能重新设置 alarm。
+`resolution_hz` 不能超过 200 MHz。回调在中断上下文执行，只做计数、通知任务或置标志。需要耗时处理时用队列把事件送给任务。`gptimer_stop()` 之后才能重新设置 alarm。
 
 ## LEDC PWM
 
@@ -66,7 +66,7 @@ ledc_channel_config(&ccfg);
 | LEDC_CHANNEL_2 | PD8 或 PD22 |
 | LEDC_CHANNEL_3 | PB3 |
 
-占空比分辨率为 1 到 16 位。底板背光在 PD22 上低有效，所以示例设置了 `output_invert`；修改占空比用 `ledc_set_duty()` 加 `ledc_update_duty()`，两者必须成对调用。
+占空比分辨率为 1 到 16 位。底板背光在 PD22 上低有效，所以示例设置了 `output_invert`。修改占空比用 `ledc_set_duty()` 加 `ledc_update_duty()`，两者必须成对调用。
 
 ## GPADC
 
@@ -89,6 +89,6 @@ int raw;
 adc_oneshot_read(adc, ADC_CHANNEL_0, &raw);
 ```
 
-`raw` 的范围是 0 到 4095，对应 0 到 1.8 V。`adc_oneshot_get_calibrated_result()` 返回线性换算后的毫伏值，不做逐芯片校准。输入电压不能超过 1.8 V；需要测量更高电压时在外部加分压电阻，并确认分压后的源阻抗足够低。
+`raw` 的范围是 0 到 4095，对应 0 到 1.8 V。`adc_oneshot_get_calibrated_result()` 返回线性换算后的毫伏值，不做逐芯片校准。输入电压不能超过 1.8 V。需要测量更高电压时在外部加分压电阻，并确认分压后的源阻抗足够低。
 
-`adc_oneshot_io_to_channel()` 和反向接口在 F101 上返回 `ESP_ERR_NOT_SUPPORTED`；通道号与排针编号没有固定对应关系，以原理图为准。
+`adc_oneshot_io_to_channel()` 和反向接口在 F101 上返回 `ESP_ERR_NOT_SUPPORTED`。通道号与排针编号没有固定对应关系，以原理图为准。

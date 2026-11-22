@@ -236,7 +236,7 @@ sha256sum build/yuzukineko-manual-rv64.img
 
 整片烧录和 RV32 页相同，把镜像文件名换成 `build/yuzukineko-manual-rv64.img`。分段烧录时，每个文件换成上面 `dd` 用的 RV64 文件，偏移不变。
 
-板子上已经是 RV64I 镜像时，可以只替换某个组件；但要从 RV32 换成 RV64I，请整片烧录。
+板子上已经是 RV64I 镜像时，可以只替换某个组件。但要从 RV32 换成 RV64I，请整片烧录。
 
 ## 启动
 

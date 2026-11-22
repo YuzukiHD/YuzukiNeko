@@ -2,12 +2,7 @@
 title: "AUDIO - 音频驱动"
 ---
 
-:::note[版本范围]
-Zephyr 4.2.2 与 4.5.0 并存。本页原有示例、录像及板上结果使用 4.2.2 基线，4.5 的变化另行说明。请按[版本与迁移指南](../zephyr-4-5.md)选择配套的内核、组件分支及独立环境和构建目录。4.5 编译或主机测试通过，不会改变已有板上结果的版本归属。
-:::
-
-
-F101 有三个音频控制器，在 Zephyr 里都用标准的 I2S 接口 `<zephyr/drivers/i2s.h>` 传音频数据；片上 codec 的模拟部分另外用音频 codec 接口 `<zephyr/audio/codec.h>` 控制音量、静音和输入选择。
+F101 有三个音频控制器，在 Zephyr 里都用标准的 I2S 接口 `<zephyr/drivers/i2s.h>` 传音频数据。片上 codec 的模拟部分另外用音频 codec 接口 `<zephyr/audio/codec.h>` 控制音量、静音和输入选择。
 
 ```mermaid
 flowchart LR
@@ -22,6 +17,8 @@ flowchart LR
     OWA --> PIN2["PD22 / PE6<br/>OWA-OUT"]
 ```
 
+4.5 的音频 API 变化见[版本与迁移指南](../zephyr-4-5.md)。
+
 | 设备 | 驱动 | 内容 |
 | --- | --- | --- |
 | `audio_codec` | `drivers/i2s/i2s_sunxi_codec.c` | 片上 codec 的数字部分，I2S 接口：发送是 DAC，接收是 ADC |
@@ -29,7 +26,7 @@ flowchart LR
 | `i2s0` | `drivers/i2s/i2s_sunxi.c` | 外接 codec 用的 I2S / PCM / TDM 控制器 |
 | `owa` | `drivers/i2s/i2s_sunxi_owa.c` | S/PDIF（IEC 60958）的发送和接收 |
 
-三个 I2S 设备共用 `drivers/i2s/i2s_sunxi_stream.c` 里的 DMA 环和队列。`yuzukineko` 板用的是片上 codec，耳机输出，外部功放用 PD4 使能；`i2s0` 和 `owa` 的引脚在这块板上被占用（`i2s0` 的 PE0…PE4 和 WiFi 的 SDIO 共用，`owa` 的输出脚 PD22 是背光、PE6 是蓝牙 UART），默认不打开，演示用 overlay 打开它们，只测内部回环。
+三个 I2S 设备共用 `drivers/i2s/i2s_sunxi_stream.c` 里的 DMA 环和队列。`yuzukineko` 板用的是片上 codec，耳机输出，外部功放用 PD4 使能。`i2s0` 和 `owa` 的引脚在这块板上被占用（`i2s0` 的 PE0…PE4 和 WiFi 的 SDIO 共用，`owa` 的输出脚 PD22 是背光、PE6 是蓝牙 UART），默认不打开，演示用 overlay 打开它们，只测内部回环。
 
 | 项目 | 片上 codec | `i2s0` | `owa` |
 | --- | --- | --- | --- |
@@ -39,17 +36,6 @@ flowchart LR
 | 声道 | 发送 1 或 2，接收 1 | 1…16 | 1 或 2 |
 | 格式 | 固定 | I2S、左对齐、右对齐、PCM 短帧、PCM 长帧；主、从；时钟反相；内部回环 | 内部回环 |
 | 模拟部分 | 耳机输出，麦克风、FM、线路输入，3 个输入选择 | 没有 | 没有 |
-
-
-## 在 4.5 构建仓库内的示例
-
-激活配套的 4.5 分支和环境后，可直接构建维护中的示例。下文完整代码保留 4.2.2 教程基线，当前头文件与 API 字段以所选分支中的示例为准。
-
-```sh
-west build -b yuzukineko -d build/zephyr-4.5.0/audio_api zephyr-components/examples/audio_api
-```
-
-该配置已通过 `yuzukineko` 的 4.5 组件构建检查，尚无新的 4.5 板上日志；请按实际镜像布局选择 [RAM 或 XIP 流程](../zephyr-build-run.md)。
 
 ## 设备树
 
@@ -222,8 +208,6 @@ S/PDIF 的输出脚是 `OWA-OUT`：PD22（复用功能 2）或 PE6（复用功�
 
 ## 接口详解
 
-下面每个接口一个小标题：原型、驱动的行为、示例函数和它在板子上的输出。示例来自文末的[完整演示程序](#完整演示程序)，里面的 `err()` 把返回值转成名字。先看几个公共的写法：
-
 ```c
 static const struct device *const codec_i2s = DEVICE_DT_GET(DT_NODELABEL(audio_codec));
 
@@ -245,11 +229,9 @@ static struct i2s_config base_cfg(void)
 }
 ```
 
-### i2s_configure
+### I2S 配置
 
-```c
-int i2s_configure(const struct device *dev, enum i2s_dir dir, const struct i2s_config *i2s_cfg);
-```
+**`i2s_configure`** `int i2s_configure(const struct device *dev, enum i2s_dir dir, const struct i2s_config *i2s_cfg);`
 
 配置一个流（`I2S_DIR_TX` 或 `I2S_DIR_RX`）：采样率 `frame_clk_freq`、字长、声道数、数据格式，以及内存块来自哪个 `k_mem_slab`、块多大。流必须处在未配置或已配置（READY）状态，已经在运行的流返回 `-EINVAL`。
 
@@ -261,78 +243,7 @@ int i2s_configure(const struct device *dev, enum i2s_dir dir, const struct i2s_c
 | DMA 环要的内存分配不到 | `-ENOMEM` |
 | `frame_clk_freq` 是 0 | 释放这个流和它的 DMA 环，返回 0 |
 
-片上 codec 的限制：发送 1 或 2 声道，接收 1 声道；字长 16、24、32 位。
-
-```c
-/* i2s_configure: the format of a stream. A stream is configured before it starts, in the states
- * not-ready and ready only. The codec plays 8, 12, 16, 24, 32, 48, 96 and 192 kHz and the 44.1 kHz
- * family, 16, 24 and 32 bit words, mono or stereo for playback and mono for capture.
- */
-static void demo_i2s_configure(void)
-{
-	struct i2s_config cfg;
-	int ret;
-
-	cfg = base_cfg();
-	ret = i2s_configure(codec_i2s, I2S_DIR_TX, &cfg);
-	printk("[configure] 48000 Hz, 16 bit, stereo            = %s\n", err(ret));
-
-	cfg = base_cfg();
-	cfg.frame_clk_freq = 44100;
-	ret = i2s_configure(codec_i2s, I2S_DIR_TX, &cfg);
-	printk("[configure] 44100 Hz                            = %s\n", err(ret));
-
-	cfg = base_cfg();
-	cfg.frame_clk_freq = 8000;
-	cfg.channels = 1;
-	ret = i2s_configure(codec_i2s, I2S_DIR_TX, &cfg);
-	printk("[configure] 8000 Hz, mono                       = %s\n", err(ret));
-
-	cfg = base_cfg();
-	cfg.word_size = 24;
-	ret = i2s_configure(codec_i2s, I2S_DIR_TX, &cfg);
-	printk("[configure] 24 bit words                        = %s\n", err(ret));
-
-	cfg = base_cfg();
-	cfg.frame_clk_freq = 50000;
-	ret = i2s_configure(codec_i2s, I2S_DIR_TX, &cfg);
-	printk("[configure] 50000 Hz (not a rate of the codec)  = %s\n", err(ret));
-
-	cfg = base_cfg();
-	cfg.word_size = 8;
-	ret = i2s_configure(codec_i2s, I2S_DIR_TX, &cfg);
-	printk("[configure] 8 bit words                         = %s\n", err(ret));
-
-	cfg = base_cfg();
-	cfg.channels = 3;
-	ret = i2s_configure(codec_i2s, I2S_DIR_TX, &cfg);
-	printk("[configure] 3 channels                          = %s\n", err(ret));
-
-	cfg = base_cfg();
-	cfg.channels = 2;
-	ret = i2s_configure(codec_i2s, I2S_DIR_RX, &cfg);
-	printk("[configure] 2 channels for capture              = %s\n", err(ret));
-
-	cfg = base_cfg();
-	cfg.block_size = BLOCK_SIZE - 2;
-	ret = i2s_configure(codec_i2s, I2S_DIR_TX, &cfg);
-	printk("[configure] block size not a multiple of 4      = %s\n", err(ret));
-
-	cfg = base_cfg();
-	cfg.mem_slab = NULL;
-	ret = i2s_configure(codec_i2s, I2S_DIR_TX, &cfg);
-	printk("[configure] no memory slab                      = %s\n", err(ret));
-
-	cfg = base_cfg();
-	cfg.block_size = BLOCK_SIZE * 2;
-	ret = i2s_configure(codec_i2s, I2S_DIR_TX, &cfg);
-	printk("[configure] block larger than the slab blocks   = %s\n", err(ret));
-
-	cfg = base_cfg();
-	ret = i2s_configure(codec_i2s, I2S_DIR_BOTH, &cfg);
-	printk("[configure] I2S_DIR_BOTH                        = %s\n", err(ret));
-}
-```
+片上 codec 的限制：发送 1 或 2 声道，接收 1 声道。字长 16、24、32 位。
 
 ```text
 [configure] 48000 Hz, 16 bit, stereo            = 0
@@ -349,33 +260,9 @@ static void demo_i2s_configure(void)
 [configure] I2S_DIR_BOTH                        = -ENOSYS
 ```
 
-### i2s_config_get
+**`i2s_config_get`** `const struct i2s_config *i2s_config_get(const struct device *dev, enum i2s_dir dir);`
 
-```c
-const struct i2s_config *i2s_config_get(const struct device *dev, enum i2s_dir dir);
-```
-
-返回流当前的配置；流没配置过（或者已经用 `frame_clk_freq = 0` 释放了）返回 NULL。
-
-```c
-/* i2s_config_get: the configuration of a stream, NULL while it is not configured */
-static void demo_i2s_config_get(void)
-{
-	struct i2s_config cfg = base_cfg();
-	const struct i2s_config *got;
-
-	cfg.frame_clk_freq = 0;			/* frame_clk_freq 0 releases the stream */
-	i2s_configure(codec_i2s, I2S_DIR_TX, &cfg);
-	got = i2s_config_get(codec_i2s, I2S_DIR_TX);
-	printk("[config_get] after releasing the stream        = %p\n", got);
-
-	cfg = base_cfg();
-	i2s_configure(codec_i2s, I2S_DIR_TX, &cfg);
-	got = i2s_config_get(codec_i2s, I2S_DIR_TX);
-	printk("[config_get] after configuring                 = %u Hz, %u bit, %u channels, block %u\n",
-	       got->frame_clk_freq, got->word_size, got->channels, (unsigned int)got->block_size);
-}
-```
+返回流当前的配置。流没配置过（或者已经用 `frame_clk_freq = 0` 释放了）返回 NULL。
 
 ```text
 [config_get] after releasing the stream        = 0
@@ -384,15 +271,13 @@ static void demo_i2s_config_get(void)
 
 第一行的 `0` 是 `%p` 打印的 NULL。
 
-### i2s_write
+### I2S 数据
 
-```c
-int i2s_write(const struct device *dev, void *mem_block, size_t size);
-```
+**`i2s_write`** `int i2s_write(const struct device *dev, void *mem_block, size_t size);`
 
-把一个装满音频数据的块放进发送队列。块要从配置里的 `mem_slab` 分配，大小不超过 `block_size`；驱动播完后自己释放它。流处在已配置或运行状态才能写，否则 `-EIO`；比 `block_size` 长返回 `-EINVAL`；队列满了等 `timeout` 毫秒后返回 `-EAGAIN`。
+把一个装满音频数据的块放进发送队列。块要从配置里的 `mem_slab` 分配，大小不超过 `block_size`。驱动播完后自己释放它。流处在已配置或运行状态才能写，否则 `-EIO`。比 `block_size` 长返回 `-EINVAL`。队列满了等 `timeout` 毫秒后返回 `-EAGAIN`。
 
-演示先写 3 个块，每块 20 ms 的 48 kHz 立体声（3840 字节），内容是 440 Hz 的正弦波；写太长的块被拒绝。
+演示先写 3 个块，每块 20 ms 的 48 kHz 立体声（3840 字节），内容是 440 Hz 的正弦波。写太长的块被拒绝。
 
 ```c
 K_MEM_SLAB_DEFINE_STATIC(slab, BLOCK_SIZE, BLOCKS, 4);
@@ -452,57 +337,11 @@ static void make_table(void)
 [write] a block longer than block_size          = -EINVAL
 ```
 
-### i2s_read
+**`i2s_read`** `int i2s_read(const struct device *dev, void **mem_block, size_t *size);`
 
-```c
-int i2s_read(const struct device *dev, void **mem_block, size_t *size);
-```
-
-从接收队列里取一个录好的块。块来自配置里的 `mem_slab`，用完以后调用者要把它还给 slab（`k_mem_slab_free`）。队列里没有数据，流在运行时等 `timeout` 毫秒后返回 `-EAGAIN`，流不在运行（已配置或出错）时返回 `-EIO`；流没配置也是 `-EIO`。
+从接收队列里取一个录好的块。块来自配置里的 `mem_slab`，用完以后调用者要把它还给 slab（`k_mem_slab_free`）。队列里没有数据，流在运行时等 `timeout` 毫秒后返回 `-EAGAIN`，流不在运行（已配置或出错）时返回 `-EIO`。流没配置也是 `-EIO`。
 
 演示配置一个 48 kHz 单声道的接收流，块长 200 ms（19200 字节），打开麦克风输入，读 5 个块，打印每块的最小值、最大值、平均值。
-
-```c
-K_MEM_SLAB_DEFINE_STATIC(rx_slab, RATE / 5 * sizeof(int16_t), 6, 4);
-
-static void demo_i2s_read(void)
-{
-	struct i2s_config rx = base_cfg();
-	int ret;
-
-	rx.channels = 1;
-	rx.block_size = RATE / 5 * sizeof(int16_t);			/* 200 ms */
-	rx.mem_slab = &rx_slab;
-	ret = i2s_configure(codec_i2s, I2S_DIR_RX, &rx);
-	printk("[read] configure the capture stream             = %s\n", err(ret));
-	ret = i2s_trigger(codec_i2s, I2S_DIR_RX, I2S_TRIGGER_START);
-	printk("[read] start the capture                        = %s\n", err(ret));
-
-	for (int n = 0; n < 5 && ret == 0; n++) {
-		void *block;
-		size_t size;
-		int32_t min = 32767, max = -32768;
-		int64_t sum = 0;
-		int16_t *p;
-
-		ret = i2s_read(codec_i2s, &block, &size);
-		if (ret != 0) {
-			printk("[read] i2s_read                                 = %s\n", err(ret));
-			break;
-		}
-		p = block;
-		for (size_t i = 0; i < size / 2; i++) {
-			min = MIN(min, p[i]);
-			max = MAX(max, p[i]);
-			sum += p[i];
-		}
-		printk("[read] block %d: %zu bytes, min %d, max %d, mean %d\n", n, size, min, max,
-		       (int)(sum / (int)(size / 2)));
-		k_mem_slab_free(&rx_slab, block);
-	}
-	i2s_trigger(codec_i2s, I2S_DIR_RX, I2S_TRIGGER_DROP);
-}
-```
 
 ```text
 [read] configure the capture stream             = 0
@@ -516,11 +355,7 @@ static void demo_i2s_read(void)
 
 板上没有对着麦克风发声，所以数据是一个小范围的直流偏置（平均值约 −129）。
 
-### i2s_trigger
-
-```c
-int i2s_trigger(const struct device *dev, enum i2s_dir dir, enum i2s_trigger_cmd cmd);
-```
+**`i2s_trigger`** `int i2s_trigger(const struct device *dev, enum i2s_dir dir, enum i2s_trigger_cmd cmd);`
 
 控制流的状态。驱动的行为：
 
@@ -532,20 +367,7 @@ int i2s_trigger(const struct device *dev, enum i2s_dir dir, enum i2s_trigger_cmd
 | `I2S_TRIGGER_DROP` | 任何配置过的状态 | 马上停止，丢掉队列里的块，回到已配置；没配置返回 `-EIO` |
 | `I2S_TRIGGER_PREPARE` | 出错状态 | 清掉队列，回到已配置；其他状态返回 `-EIO` |
 
-#### 示例：START
-
-```c
-/* i2s_trigger START: begin the DMA transfer of the blocks that are queued */
-static void demo_i2s_trigger_start(void)
-{
-	int ret = i2s_trigger(codec_i2s, I2S_DIR_TX, I2S_TRIGGER_START);
-
-	printk("[trigger] I2S_TRIGGER_START                     = %s\n", err(ret));
-
-	ret = i2s_trigger(codec_i2s, I2S_DIR_TX, I2S_TRIGGER_START);
-	printk("[trigger] START again while running             = %s\n", err(ret));
-}
-```
+**示例：START**
 
 ```text
 [trigger] I2S_TRIGGER_START                     = 0
@@ -554,78 +376,19 @@ static void demo_i2s_trigger_start(void)
 
 START 以后程序每 20 ms 补一个块，播 3 秒，同时测真实的帧率：
 
-```c
-/* keep the stream fed for a while: a block every 20 ms, and measure the real frame rate */
-static void play_tone(int seconds)
-{
-	int64_t t0 = k_uptime_get(), mark = 0;
-	int blocks = 0, mark_blocks = 0;
-
-	while (k_uptime_get() - t0 < seconds * 1000) {
-		void *block;
-
-		if (k_mem_slab_alloc(&slab, &block, K_MSEC(1000)) != 0) {
-			printk("[play] no block\n");
-			return;
-		}
-		fill_tone(block);
-		if (i2s_write(codec_i2s, block, BLOCK_SIZE) != 0) {
-			k_mem_slab_free(&slab, block);
-			printk("[play] write failed after %d blocks\n", blocks);
-			return;
-		}
-		blocks++;
-		if (mark == 0 && k_uptime_get() - t0 > 1000) {
-			mark = k_uptime_get();
-			mark_blocks = blocks;
-		}
-	}
-	printk("[play] %d blocks in %d s, steady state %d Hz\n", blocks, seconds,
-	       (int)((blocks - mark_blocks) * FRAMES * 1000LL / (k_uptime_get() - mark)));
-}
-```
-
 ```text
 [play] 157 blocks in 3 s, steady state 48000 Hz
 ```
 
 157 个块 × 960 帧 = 150720 帧，3 秒，稳态的帧率是 48000 Hz。
 
-#### 示例：DRAIN
-
-```c
-/* i2s_trigger DRAIN: play what is queued, then stop. STOP stops after the current block, DROP at once and throws away what is queued. */
-static void demo_i2s_trigger_drain(void)
-{
-	int ret = i2s_trigger(codec_i2s, I2S_DIR_TX, I2S_TRIGGER_DRAIN);
-
-	printk("[trigger] I2S_TRIGGER_DRAIN                     = %s\n", err(ret));
-	k_msleep(300);
-}
-```
+**示例：DRAIN**
 
 ```text
 [trigger] I2S_TRIGGER_DRAIN                     = 0
 ```
 
-#### 示例：不在运行的流
-
-```c
-/* i2s_trigger with a stream that is not running */
-static void demo_i2s_trigger_errors(void)
-{
-	int ret;
-
-	ret = i2s_trigger(codec_i2s, I2S_DIR_TX, I2S_TRIGGER_STOP);
-	printk("[trigger] STOP while not running                = %s\n", err(ret));
-
-	ret = i2s_trigger(codec_i2s, I2S_DIR_TX, I2S_TRIGGER_DROP);
-	printk("[trigger] I2S_TRIGGER_DROP                      = %s\n", err(ret));
-
-	ret = i2s_trigger(codec_i2s, I2S_DIR_TX, I2S_TRIGGER_PREPARE);
-	printk("[trigger] PREPARE while not in the error state  = %s\n", err(ret));
-}
-```
+**示例：不在运行的流**
 
 ```text
 [trigger] STOP while not running                = -EIO
@@ -633,24 +396,11 @@ static void demo_i2s_trigger_errors(void)
 [trigger] PREPARE while not in the error state  = -EIO
 ```
 
-### i2s_sunxi_codec_tx_position
+### codec 配置
 
-```c
-int i2s_sunxi_codec_tx_position(const struct device *dev, uint32_t *blocks, uint32_t *cycle);
-```
+**`i2s_sunxi_codec_tx_position`** `int i2s_sunxi_codec_tx_position(const struct device *dev, uint32_t *blocks, uint32_t *cycle);`
 
 头文件 `<zephyr/drivers/i2s_sunxi.h>`，是这个驱动的扩展。返回 DMA 已经播完的块数，和最近一块播完时的 CPU 周期计数。音画同步用它：播放位置就是 `blocks × 每块的帧数`，[MP4 播放器](../apps/mp4-player.md)调用了这个函数。
-
-```c
-/* i2s_sunxi_codec_tx_position: how many blocks the DMA has played, and the cycle counter at the last block */
-static void demo_tx_position(void)
-{
-	uint32_t blocks = 0, cycle = 0;
-	int ret = i2s_sunxi_codec_tx_position(codec_i2s, &blocks, &cycle);
-
-	printk("[position] i2s_sunxi_codec_tx_position          = %s: %u blocks played\n", err(ret), blocks);
-}
-```
 
 ```text
 [position] i2s_sunxi_codec_tx_position          = 0: 151 blocks played
@@ -658,37 +408,15 @@ static void demo_tx_position(void)
 
 一共送了 160 个块（先写的 3 个，加循环里的 157 个），151 个已经播完，其余的在队列和 DMA 环里。
 
-### audio_codec_configure
-
-```c
-int audio_codec_configure(const struct device *dev, struct audio_codec_cfg *cfg);
-```
+**`audio_codec_configure`** `int audio_codec_configure(const struct device *dev, struct audio_codec_cfg *cfg);`
 
 模拟部分不需要配置：流的格式和时钟属于 I2S 设备。这个调用只检查参数不为空（传空指针返回 `-EINVAL`）。
-
-```c
-/* audio_codec_configure: the stream format and the clocks belong to the I2S device, so this call
- * only checks its argument
- */
-static void demo_audio_codec_configure(void)
-{
-	struct audio_codec_cfg cfg = { 0 };
-	int ret = audio_codec_configure(analog, &cfg);
-
-	printk("[codec_configure] audio_codec_configure         = %s\n", err(ret));
-}
-```
 
 ```text
 [codec_configure] audio_codec_configure         = 0
 ```
 
-### audio_codec_set_property
-
-```c
-int audio_codec_set_property(const struct device *dev, audio_property_t property,
-                             audio_channel_t channel, audio_property_value_t val);
-```
+**`audio_codec_set_property`** `int audio_codec_set_property(const struct device *dev, audio_property_t property, audio_channel_t channel, audio_property_value_t val);`
 
 | 属性 | 取值 | 驱动的行为 |
 | --- | --- | --- |
@@ -698,46 +426,6 @@ int audio_codec_set_property(const struct device *dev, audio_property_t property
 | `AUDIO_PROPERTY_INPUT_MUTE` | `val.mute` | 输入静音 |
 
 每个属性在设置的时候就写进寄存器。设备树里的 `dac-volume`（130）、`adc-volume`（160）是初始值。
-
-```c
-/* audio_codec_set_property: output volume 0..255 of one or both channels, mute, and the same for the input */
-static void demo_audio_codec_set_property(void)
-{
-	audio_property_value_t v;
-	int ret;
-
-	v.vol = 130;
-	ret = audio_codec_set_property(analog, AUDIO_PROPERTY_OUTPUT_VOLUME, AUDIO_CHANNEL_ALL, v);
-	printk("[property] output volume 130, both channels     = %s\n", err(ret));
-
-	v.vol = 200;
-	ret = audio_codec_set_property(analog, AUDIO_PROPERTY_OUTPUT_VOLUME, AUDIO_CHANNEL_FRONT_LEFT, v);
-	printk("[property] output volume 200, left only         = %s\n", err(ret));
-
-	v.vol = 256;
-	ret = audio_codec_set_property(analog, AUDIO_PROPERTY_OUTPUT_VOLUME, AUDIO_CHANNEL_ALL, v);
-	printk("[property] output volume 256                    = %s\n", err(ret));
-
-	v.mute = true;
-	ret = audio_codec_set_property(analog, AUDIO_PROPERTY_OUTPUT_MUTE, AUDIO_CHANNEL_FRONT_RIGHT, v);
-	printk("[property] mute the right channel               = %s\n", err(ret));
-
-	v.mute = false;
-	ret = audio_codec_set_property(analog, AUDIO_PROPERTY_OUTPUT_MUTE, AUDIO_CHANNEL_ALL, v);
-	printk("[property] unmute both channels                 = %s\n", err(ret));
-
-	v.vol = 160;
-	ret = audio_codec_set_property(analog, AUDIO_PROPERTY_INPUT_VOLUME, AUDIO_CHANNEL_ALL, v);
-	printk("[property] input volume 160                     = %s\n", err(ret));
-
-	v.mute = false;
-	ret = audio_codec_set_property(analog, AUDIO_PROPERTY_INPUT_MUTE, AUDIO_CHANNEL_ALL, v);
-	printk("[property] input unmuted                        = %s\n", err(ret));
-
-	v.vol = 130;
-	ret = audio_codec_set_property(analog, AUDIO_PROPERTY_OUTPUT_VOLUME, AUDIO_CHANNEL_ALL, v);
-}
-```
 
 ```text
 [property] output volume 130, both channels     = 0
@@ -749,79 +437,35 @@ static void demo_audio_codec_set_property(void)
 [property] input unmuted                        = 0
 ```
 
-### audio_codec_apply_properties
+### codec 输出与路由
 
-```c
-int audio_codec_apply_properties(const struct device *dev);
-```
+**`audio_codec_apply_properties`** `int audio_codec_apply_properties(const struct device *dev);`
 
 有的 codec 要攒一批属性再一起生效。这个驱动的属性在设置时就写了，所以什么也不用做，返回 0。
-
-```c
-/* audio_codec_apply_properties: every property is written as soon as it is set, so there is nothing to apply */
-static void demo_audio_codec_apply_properties(void)
-{
-	int ret = audio_codec_apply_properties(analog);
-
-	printk("[apply] audio_codec_apply_properties            = %s\n", err(ret));
-}
-```
 
 ```text
 [apply] audio_codec_apply_properties            = 0
 ```
 
-### audio_codec_start_output
-
-```c
-void audio_codec_start_output(const struct device *dev);
-```
+**`audio_codec_start_output`** `void audio_codec_start_output(const struct device *dev);`
 
 打开输出：使能 DAC 和耳机驱动（带防爆音的斜坡），设置了 `pa-gpios` 的话再拉高功放使能脚，等 `pa-delay-ms`（10 ms）。要在 `i2s_trigger(START)` 之前调用。
-
-```c
-/* audio_codec_start_output: power up the headphone driver (and enable the speaker amplifier on pa-gpios) */
-static void demo_audio_codec_start_output(void)
-{
-	int64_t t0 = k_uptime_get();
-
-	audio_codec_start_output(analog);
-	printk("[start_output] headphone driver and amplifier on, %lld ms\n", k_uptime_get() - t0);
-}
-```
 
 ```text
 [start_output] headphone driver and amplifier on, 10 ms
 ```
 
-### audio_codec_stop_output
-
-```c
-void audio_codec_stop_output(const struct device *dev);
-```
+**`audio_codec_stop_output`** `void audio_codec_stop_output(const struct device *dev);`
 
 先拉低功放使能脚，再依次关耳机驱动、斜坡和 DAC，输出静音。
-
-```c
-/* audio_codec_stop_output: power the headphone driver down again */
-static void demo_audio_codec_stop_output(void)
-{
-	audio_codec_stop_output(analog);
-	printk("[stop_output] headphone driver and amplifier off\n");
-}
-```
 
 ```text
 [stop_output] headphone driver and amplifier off
 ```
 
-### audio_codec_route_input
+**`audio_codec_route_input`** `int audio_codec_route_input(const struct device *dev, audio_channel_t channel, uint32_t input);`
 
-```c
-int audio_codec_route_input(const struct device *dev, audio_channel_t channel, uint32_t input);
-```
-
-选 ADC 听哪个模拟输入。`input` 取 1、2、3，0 是不接，大于 3 返回 `-EINVAL`；`channel` 被忽略。
+选 ADC 听哪个模拟输入。`input` 取 1、2、3，0 是不接，大于 3 返回 `-EINVAL`。`channel` 被忽略。
 
 | `input` | 输入 |
 | --- | --- |
@@ -832,67 +476,26 @@ int audio_codec_route_input(const struct device *dev, audio_channel_t channel, u
 
 初始值来自设备树 `adc-source`。
 
-```c
-/* audio_codec_route_input: choose what the ADC listens to: 1 microphone, 2 FM input, 3 line input */
-static void demo_audio_codec_route_input(void)
-{
-	int ret;
-
-	ret = audio_codec_route_input(analog, AUDIO_CHANNEL_ALL, 1);
-	printk("[route] input 1 (microphone)                    = %s\n", err(ret));
-
-	ret = audio_codec_route_input(analog, AUDIO_CHANNEL_ALL, 4);
-	printk("[route] input 4                                 = %s\n", err(ret));
-}
-```
-
 ```text
 [route] input 1 (microphone)                    = 0
 [route] input 4                                 = -EINVAL
 ```
 
-### audio_codec_route_output
-
-```c
-int audio_codec_route_output(const struct device *dev, audio_channel_t channel, uint32_t output);
-```
+**`audio_codec_route_output`** `int audio_codec_route_output(const struct device *dev, audio_channel_t channel, uint32_t output);`
 
 驱动没有实现，返回 `-ENOSYS`。输出固定是耳机，功放用 `pa-gpios` 控制。
 
-### audio_codec_clear_errors
+### 错误与释放
 
-```c
-int audio_codec_clear_errors(const struct device *dev);
-```
+**`audio_codec_clear_errors`** `int audio_codec_clear_errors(const struct device *dev);`
 
 驱动没有实现，返回 `-ENOSYS`。
 
-### audio_codec_register_error_callback
-
-```c
-int audio_codec_register_error_callback(const struct device *dev, audio_codec_error_callback_t cb);
-```
+**`audio_codec_register_error_callback`** `int audio_codec_register_error_callback(const struct device *dev, audio_codec_error_callback_t cb);`
 
 驱动没有实现，返回 `-ENOSYS`。
 
 三个都在下面的函数里：
-
-```c
-/* audio_codec functions the analog front end does not implement */
-static void demo_audio_codec_unsupported(void)
-{
-	int ret;
-
-	ret = audio_codec_route_output(analog, AUDIO_CHANNEL_ALL, 0);
-	printk("[unsupported] audio_codec_route_output          = %s\n", err(ret));
-
-	ret = audio_codec_clear_errors(analog);
-	printk("[unsupported] audio_codec_clear_errors          = %s\n", err(ret));
-
-	ret = audio_codec_register_error_callback(analog, NULL);
-	printk("[unsupported] audio_codec_register_error_callback = %s\n", err(ret));
-}
-```
 
 ```text
 [unsupported] audio_codec_route_output          = -ENOSYS
@@ -900,24 +503,9 @@ static void demo_audio_codec_unsupported(void)
 [unsupported] audio_codec_register_error_callback = -ENOSYS
 ```
 
-### 释放流
+**释放流**
 
 `i2s_configure` 的 `frame_clk_freq` 为 0，释放流和它的 DMA 环，内存还给堆。同一个设备的几个演示串着跑的时候，不释放的话后面的配置会因为堆不够返回 `-ENOMEM`。
-
-```c
-/* i2s_configure with frame_clk_freq 0: release the stream and give its DMA ring back to the heap */
-static void demo_i2s_release(void)
-{
-	struct i2s_config cfg = base_cfg();
-	int ret;
-
-	cfg.frame_clk_freq = 0;
-	ret = i2s_configure(codec_i2s, I2S_DIR_TX, &cfg);
-	printk("[release] playback stream                       = %s\n", err(ret));
-	ret = i2s_configure(codec_i2s, I2S_DIR_RX, &cfg);
-	printk("[release] capture stream                        = %s\n", err(ret));
-}
-```
 
 ```text
 [release] playback stream                       = 0
@@ -1074,11 +662,11 @@ static void demo_owa_loopback(void)
 [i2s0] 47992 frames compared, 0 mismatches: PASS
 ```
 
-I2S0 的回环通过：比较了 47992 帧，没有一帧不同。S/PDIF 的回环在这块板上没有通过：发送端的配置和启动都返回 0，接收端读不到数据（`i2s_read` 等 1 秒后返回 `-EAGAIN`），没有比较任何帧。在板子上读寄存器看到的现象：发送计数 `TXCNT` 和接收计数 `RXCNT` 都在增长（100 ms 后分别是 0xf00 和 0xd3a），说明接收器在回环下确实收到了帧，但接收 DMA 没有把数据交给队列，原因还没有查清。因此只能说“配置和启动可以，内部回环的数据没有送到应用”；如果你的应用要用 S/PDIF，请先用外部信号确认。
+I2S0 的回环通过：比较了 47992 帧，没有一帧不同。S/PDIF 的回环在这块板上没有通过：发送端的配置和启动都返回 0，接收端读不到数据（`i2s_read` 等 1 秒后返回 `-EAGAIN`），没有比较任何帧。在板子上读寄存器看到的现象：发送计数 `TXCNT` 和接收计数 `RXCNT` 都在增长（100 ms 后分别是 0xf00 和 0xd3a），说明接收器在回环下确实收到了帧，但接收 DMA 没有把数据交给队列，原因还没有查清。因此只能说“配置和启动可以，内部回环的数据没有送到应用”。如果你的应用要用 S/PDIF，请先用外部信号确认。
 
 ## 完整演示程序
 
-上面所有示例和日志都来自这一个程序。建一个目录，放进下面的文件，就可以像其他 Zephyr 应用一样编译。
+
 
 ```text
 audio_api/
@@ -1089,7 +677,7 @@ audio_api/
     └── main.c
 ```
 
-### CMakeLists.txt
+**CMakeLists.txt**
 
 ```cmake
 cmake_minimum_required(VERSION 3.20.0)
@@ -1099,7 +687,7 @@ project(audio_api)
 target_sources(app PRIVATE src/main.c)
 ```
 
-### prj.conf
+**prj.conf**
 
 ```ini
 CONFIG_I2S=y
@@ -1115,7 +703,7 @@ CONFIG_DEVMEM_SHELL=n
 CONFIG_LOG_PRINTK=n
 ```
 
-### src/main.c
+**src/main.c**
 
 ```c
 /*
@@ -1694,7 +1282,7 @@ int main(void)
 }
 ```
 
-### 编译和运行
+**编译和运行**
 
 ```sh
 . ~/f101-zephyr/env.sh

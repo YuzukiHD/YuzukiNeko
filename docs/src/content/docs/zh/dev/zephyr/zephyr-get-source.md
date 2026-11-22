@@ -2,7 +2,7 @@
 title: "获取 Zephyr 代码"
 ---
 
-F101 的内核、SoC、板级和驱动位于 [`YuzukiHD/zephyr`](https://github.com/YuzukiHD/zephyr)，应用与扩展模块位于 [`YuzukiHD/zephyr-components`](https://github.com/YuzukiHD/zephyr-components)。**4.2.2 与 4.5.0 并存。** 请按[版本指南](zephyr-4-5.md)选择配套组合；下列命令初始化保留的 4.2.2 工作区。开始前先完成[环境配置](zephyr-setup-env.md)。
+F101 的内核、SoC、板级和驱动位于 [`YuzukiHD/zephyr`](https://github.com/YuzukiHD/zephyr)，应用与扩展模块位于 [`YuzukiHD/zephyr-components`](https://github.com/YuzukiHD/zephyr-components)。**4.2.2 与 4.5.0 并存。** 请按[版本指南](zephyr-4-5.md)选择配套组合。下列命令初始化保留的 4.2.2 工作区。开始前先完成[环境配置](zephyr-setup-env.md)。
 
 ## 初始化 4.2.2 工作区
 
@@ -17,11 +17,11 @@ git clone --branch main https://github.com/YuzukiHD/zephyr-components.git
 west packages pip --install
 ```
 
-`zephyr/west.yml` 是 manifest，`west update` 使用其中固定的版本。指定的子集覆盖常见 F101 应用，无需获取无关 HAL；应用需要其他 manifest 项目时再补充，或用 `west update --narrow` 更新所有启用的分组。中断后可重复执行。仓库数量和磁盘占用取决于所选版本及获取的历史。
+`zephyr/west.yml` 是 manifest，`west update` 使用其中固定的版本。指定的子集覆盖常见 F101 应用，无需获取无关 HAL。应用需要其他 manifest 项目时再补充，或用 `west update --narrow` 更新所有启用的分组。中断后可重复执行。仓库数量和磁盘占用取决于所选版本及获取的历史。
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/zephyr-get-source/init.cast" data-speed="6"></div>
 
-本页录像是历史 4.2.2 会话；当前命令已显式指定分支和所需模块。
+本页录像是历史 4.2.2 会话。当前命令已显式指定分支和所需模块。
 
 :::caution
 west 工作区不能嵌套。初始化发现上级 `.west` 时，先确认它所属的工作区，再选择独立目录。保留已有工作区，不要为了初始化而删除其配置。
@@ -51,7 +51,7 @@ west update --narrow fatfs lvgl mbedtls tf-psa-crypto tf-psa-crypto-drivers cher
 | `dlna/` | UPnP 媒体接收协议 |
 | `examples/` | 驱动／组件文章使用的独立 API 示例 |
 
-模块带有 `zephyr/module.yml`，应用不一定带有该文件。应用的 `CMakeLists.txt` 通常自行加入所需的相邻模块；自建应用应在 `find_package(Zephyr)` 前把模块目录加入 `ZEPHYR_EXTRA_MODULES`。
+模块带有 `zephyr/module.yml`，应用不一定带有该文件。应用的 `CMakeLists.txt` 通常自行加入所需的相邻模块。自建应用应在 `find_package(Zephyr)` 前把模块目录加入 `ZEPHYR_EXTRA_MODULES`。
 
 只获取所选应用需要的上游子模块，例如：
 
@@ -86,7 +86,7 @@ west build -b yuzukineko -d build/hello zephyr/samples/hello_world
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/zephyr-get-source/build.cast"></div>
 
-检查实际退出状态。产物是 `build/hello/zephyr/zephyr.elf` 和 `zephyr.bin`。默认 hello-world 是 RAM 构建，[运行前](zephyr-build-run.md)核对 `.config` 和 ELF 地址；XIP 应用的布局和 loader 流程不同。
+检查实际退出状态。产物是 `build/hello/zephyr/zephyr.elf` 和 `zephyr.bin`。默认 hello-world 是 RAM 构建，[运行前](zephyr-build-run.md)核对 `.config` 和 ELF 地址。XIP 应用的布局和 loader 流程不同。
 
 ## 在所选版本内更新
 

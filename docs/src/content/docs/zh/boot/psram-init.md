@@ -40,9 +40,9 @@ SyterKit 的 `init_psram_efex.bin` 是一个 returning eFEX 应用：它在 FEL/
 | `dram_tpr11` | `0x00000000` | `0x00ff44ff` |
 | `dram_tpr13` | 0（允许检测） | 0（允许检测） |
 
-S4 的 192 MHz 是 SyterKit 验证过的稳定频率；W958 的 vendor 表也列出 252 MHz，但部分板子在 252 MHz 下从 PSRAM 取指失败或高 16 MiB 出现位错误，所以默认降到 192 MHz。
+S4 的 192 MHz 是 SyterKit 验证过的稳定频率。W958 的 vendor 表也列出 252 MHz，但部分板子在 252 MHz 下从 PSRAM 取指失败或高 16 MiB 出现位错误，所以默认降到 192 MHz。
 
-ESP-IDF 镜像还要把 `CONFIG_ESP_F101_PSRAM_MB` 设为与板卡一致的 16 或 32；它决定链接脚本的 RAM 长度和堆的上界。Zephyr 和 RT-Thread 的内存节点也需要按实际容量配置，否则只会使用前 16 MiB。
+ESP-IDF 镜像还要把 `CONFIG_ESP_F101_PSRAM_MB` 设为与板卡一致的 16 或 32。它决定链接脚本的 RAM 长度和堆的上界。Zephyr 和 RT-Thread 的内存节点也需要按实际容量配置，否则只会使用前 16 MiB。
 
 ## 按板卡修改源码并构建
 
@@ -375,7 +375,7 @@ status DONE  ret 0  entries 34/508  checksum ok
   -O 0x05001100 psram.init_ok            0x00000001 (1)
 ```
 
-`status DONE`、`psram.init_ok=1` 和正确的 `size_mb` 同时成立才算初始化成功；只看到 `simple test OK` 不够。
+`status DONE`、`psram.init_ok=1` 和正确的 `size_mb` 同时成立才算初始化成功。只看到 `simple test OK` 不够。
 
 ## 常见问题
 

@@ -2,11 +2,6 @@
 title: "LVGL - GUI"
 ---
 
-:::note[Version scope]
-Zephyr 4.2.2 and 4.5.0 coexist. The original examples, captures and target results on this page use the 4.2.2 baseline; 4.5 changes are identified separately. Select matching kernel and component branches and separate environments/build directories using the [version and migration guide](../zephyr-4-5.md). A 4.5 build or host-test pass does not update the version of an existing board result.
-:::
-
-
 LVGL is an embedded graphics library: widgets (buttons, labels, sliders, charts, …), styles, animations, and touch events all come ready-made. On the F101 with Zephyr, LVGL is built into the application as a west module (`modules/lib/gui/lvgl`, version 9.3.0), drawing to the screen through the standard display interface and reading the touchscreen through the standard input subsystem. No `zephyr-components` and no external assets are needed.
 
 ```mermaid
@@ -24,10 +19,11 @@ This page covers, in order: preparation, building and running the hello program,
 
 Before you start, first complete [Setting up the development environment](../zephyr-setup-env.md) and [Getting the Zephyr source](../zephyr-get-source.md).
 
-
 ## LVGL versions and the maintained example
 
 The 4.2.2 manifest pins LVGL 9.3; 4.5 pins LVGL 9.6. Existing 9.3 benchmark logs and screenshots below are retained unchanged. For 4.5, the display-pipeline class, text/image-cache interfaces and custom RVV blend hooks were adapted to 9.6. Use the headers and renderer from the matching branch rather than copying internal 9.3 hooks.
+
+LVGL 4.5 changes are in the [version and migration guide](../zephyr-4-5.md).
 
 The maintained hello example is `zephyr-components/examples/lvgl_hello`. It and the upstream LVGL demo configurations passed the 4.5 build checks; fresh display/touch, scalar/vector comparison and performance results are still needed.
 
@@ -49,7 +45,6 @@ The commands and logs in this page are for the `yuzukineko` board (carrier board
 ## Building
 
 Run this in the workspace:
-
 
 ```sh
 . ~/f101-zephyr/env.sh
@@ -161,7 +156,6 @@ The benchmark prints its summary table through the LVGL log. In `lvgl_log()` in 
 
 Under `samples/modules/lvgl/demos/boards/` the demo has `yuzukineko.conf` and `yuzukineko.overlay`, which Zephyr merges automatically when building for the `yuzukineko` board:
 
-
 ```text
 # yuzukineko: 1024x768 MIPI DSI panel, RGB565 frame buffer, GT967 touch panel
 CONFIG_INPUT=y
@@ -201,7 +195,6 @@ xfel exec 0x40000000
 The available demos are:
 
 The benchmark runs through all the scenes in turn by itself, and after about 70 seconds the serial port prints the summary table (times in milliseconds; Avg. time is render plus flush):
-
 
 ```text
 [00:00:00.564,000] <inf> gt967: GT967 firmware 0x1040, 1024x768
@@ -573,7 +566,6 @@ Key points (line numbers refer to the file above):
 - Lines 74–78: the main loop. `lv_timer_handler()` returns the number of milliseconds until the next call, and it sleeps that long (at most 1 second). Animations and events are driven by it, so do not starve it.
 
 Fonts: using `lv_font_montserrat_28` requires `CONFIG_LV_FONT_MONTSERRAT_28=y`; the build fails without it. The Montserrat fonts bundled with LVGL contain only ASCII and a few symbols, and <strong>no Chinese</strong>. To display Chinese you must generate a C font file with LVGL's font converter and add it to the project.
-
 
 ## Configuration options
 

@@ -2,11 +2,6 @@
 title: "Win95 - Bochs x86 模拟"
 ---
 
-:::note[版本范围]
-Zephyr 4.2.2 与 4.5.0 并存。本页原有示例、录像及板上结果使用 4.2.2 基线，4.5 的变化另行说明。请按[版本与迁移指南](../zephyr-4-5.md)选择配套的内核、组件分支及独立环境和构建目录。4.5 编译或主机测试通过，不会改变已有板上结果的版本归属。
-:::
-
-
 在板子上用 [Bochs](https://github.com/bochs-emu/Bochs) 模拟一台 486 级的 x86 PC，从 TF 卡上的磁盘镜像启动 Windows 95。组件是 `~/f101-zephyr/zephyr-components/bochs`，示例是 `samples/pc`。Bochs 是用 C++ 写的解释型模拟器，在 RISC-V 板子上整个跑在软件里，没有任何硬件加速，所以很慢。
 
 ```mermaid
@@ -97,7 +92,7 @@ xfel write 0x40000000 build/win95/zephyr/zephyr.bin
 xfel exec 0x40000000
 ```
 
-板子要插着放了镜像的 TF 卡。画面在板子的屏幕上；键盘输入在 UART1 的串口终端里打字。
+板子要插着放了镜像的 TF 卡。画面在板子的屏幕上。键盘输入在 UART1 的串口终端里打字。
 
 ### 运行后的输出
 
@@ -172,7 +167,6 @@ Win95 启动菜单有 30 秒倒计时。虚拟机时钟必须和主机速度对�
 ![板子屏幕上的 Windows 95 桌面和 Welcome 对话框](figures/win95-desktop.webp)
 
 对话框上的鼠标指针是 Windows 自己画的：Windows 95 启动后总会在屏幕上渲染指针，不管有没有鼠标。板子这边没有把鼠标接到触摸屏或 USB 上（见 [功能范围](#功能范围)），所以这个指针不会动。
-
 
 ## 实现原理
 
@@ -293,7 +287,7 @@ if (head != tail && now - last_ms >= 60) {
 
 为什么要一个一个送：串口终端一次把整行发过来，虚拟机键盘队列装不下，会丢键。所以串口敲字再粘贴整段话是可以的，但每个字符要排队 60 ms。
 
-`ascii_key()` 能转换的字符：小写字母、大写字母（带 Shift）、数字、`)!@#$%^&*(`、空格、回车、退格、Tab、Esc，以及 `- = , . / ; ' \ [ \` _ + : ? " < >`。<strong>没有</strong>的：`]`、`{`、`}`、`|`、`~` 等；方向键、F1–F12、Ctrl、Alt、Delete、Home/End 等。
+`ascii_key()` 能转换的字符：小写字母、大写字母（带 Shift）、数字、`)!@#$%^&*(`、空格、回车、退格、Tab、Esc，以及 `- = , . / ; ' \ [ \` _ + : ? " < >`。<strong>没有</strong>的：`]`、`{`、`}`、`|`、`~` 等。方向键、F1–F12、Ctrl、Alt、Delete、Home/End 等。
 
 ### 磁盘：`bochs_libc.c`
 
@@ -352,7 +346,6 @@ Bochs 原版的几项配置装不下，所以改小，见下面的 [补丁](#补
 | `CONFIG_BOCHS_HEARTBEAT` | n | 每秒打印一次虚拟机 `eip` 和每秒虚拟 tick 数，用来判断虚拟机有没有在跑 |
 
 `samples/pc/prj.conf` 里和本应用相关、默认就开的选项：`CONFIG_CPP`、`CONFIG_STD_CPP17`、`CONFIG_BOCHS`、`CONFIG_MAIN_STACK_SIZE=65536`、`CONFIG_COMMON_LIBC_MALLOC_ARENA_SIZE=-1`（堆用满剩余内存）、`CONFIG_SDHC`、`CONFIG_DISK_DRIVER_SDMMC`、`CONFIG_FAT_FILESYSTEM_ELM`、`CONFIG_FS_FATFS_EXFAT`、`CONFIG_FS_FATFS_LFN`、`CONFIG_DISPLAY`。`CONFIG_DISPLAY_SUNXI_FB_DIV=1` 是显示驱动的帧缓冲分频。
-
 
 ## 功能范围
 

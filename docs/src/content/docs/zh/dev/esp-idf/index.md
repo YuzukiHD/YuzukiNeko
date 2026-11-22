@@ -39,9 +39,9 @@ title: "ESP-IDF 开发"
 
 ## 与 Zephyr、RT-Thread 和 Linux 的关系
 
-三个 RTOS 移植覆盖同一颗 SoC，但软件模型不同。Zephyr 使用 devicetree、Kconfig 和 `DEVICE_DT_GET`；RT-Thread 使用运行时设备模型和内嵌 DTB；ESP-IDF 使用编译期 `sdkconfig`、组件依赖和标准 ESP-IDF 驱动 API，引脚来自每个驱动的配置结构体。三者的 Kconfig 名称、设备名和初始化顺序不能互换。
+三个 RTOS 移植覆盖同一颗 SoC，但软件模型不同。Zephyr 使用 devicetree、Kconfig 和 `DEVICE_DT_GET`。RT-Thread 使用运行时设备模型和内嵌 DTB。ESP-IDF 使用编译期 `sdkconfig`、组件依赖和标准 ESP-IDF 驱动 API，引脚来自每个驱动的配置结构体。三者的 Kconfig 名称、设备名和初始化顺序不能互换。
 
-已经验证过的功能只代表本页列出的范围，不代表与 Zephyr 驱动手册一一对等。显示、音频、SD 卡和存储页的代码都通过交叉编译和链接，但并非每个外设都在实板上执行过；运行验证的范围见[验证与已知限制](testing.md)。
+已经验证过的功能只代表本页列出的范围，不代表与 Zephyr 驱动手册一一对等。显示、音频、SD 卡和存储页的代码都通过交叉编译和链接，但并非每个外设都在实板上执行过。运行验证的范围见[验证与已知限制](testing.md)。
 
 ## 范围与限制
 

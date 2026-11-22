@@ -2,11 +2,6 @@
 title: "USB 副屏 - 电脑扩展屏"
 ---
 
-:::note[版本范围]
-Zephyr 4.2.2 与 4.5.0 并存。本页原有示例、录像及板上结果使用 4.2.2 基线，4.5 的变化另行说明。请按[版本与迁移指南](../zephyr-4-5.md)选择配套的内核、组件分支及独立环境和构建目录。4.5 编译或主机测试通过，不会改变已有板上结果的版本归属。
-:::
-
-
 把 F101 板子接到 Windows 电脑的 USB 口上，电脑就多出一块显示器：桌面画面被主机端驱动压成 JPEG，经 USB 批量端点发给板子，板子用片上视频引擎解码，直接放到显示的视频层上。同一个 USB 设备里还带一个 HID 多点触摸屏接口，板上的触摸屏可以回传触摸。示例是工作区里的 `samples/drivers/usb/cherryusb_display`，用的是 CherryUSB 的 vendor display 类，不需要 `zephyr-components`。
 
 开始前请先完成 [配置开发环境](../zephyr-setup-env.md) 和 [获取 Zephyr 代码](../zephyr-get-source.md)。
@@ -94,7 +89,7 @@ OK     HIDClass (中文名，控制台编码乱码)                             
 
 ### 电脑上：显示设置里的新显示器
 
-装好主机端驱动后，电脑“显示设置”里多出一块 1024x768 的显示器，板子屏幕显示电脑桌面；串口每隔一段时间打印一行统计（帧数、fps、KB/s、坏帧数、解码和显示耗时）。
+装好主机端驱动后，电脑“显示设置”里多出一块 1024x768 的显示器，板子屏幕显示电脑桌面。串口每隔一段时间打印一行统计（帧数、fps、KB/s、坏帧数、解码和显示耗时）。
 
 ![设备管理器显示适配器下的 xfz1986_usb_graphic(demo)](figures/usb-display-device-manager.webp)
 
@@ -143,7 +138,7 @@ cherryusb_R1024x768_Ejpg9_Fps60_Bl500
 
 ### USB 描述符
 
-设备描述符的 VID/PID 是 `0x303A` / `0x2987`（只有显示）；开了触摸后变成组合设备，PID `0x2986`。配置描述符由 `build_config_descriptor()`（第 79–102 行）拼出来：
+设备描述符的 VID/PID 是 `0x303A` / `0x2987`（只有显示）。开了触摸后变成组合设备，PID `0x2986`。配置描述符由 `build_config_descriptor()`（第 79–102 行）拼出来：
 
 ```c
 static void build_config_descriptor(void)
@@ -239,7 +234,7 @@ flowchart TB
     MAIN --> DSP
 ```
 
-线程分工：USB 中断里的回调只做指针搬运和重新挂读请求；`main()` 所在的主线程循环阻塞取帧、解码、显示；触摸事件由 input 子系统的线程调用 `usb_ctp.c` 的回调，回调里直接发 HID 报告，示例自己不另起线程。
+线程分工：USB 中断里的回调只做指针搬运和重新挂读请求。`main()` 所在的主线程循环阻塞取帧、解码、显示。触摸事件由 input 子系统的线程调用 `usb_ctp.c` 的回调，回调里直接发 HID 报告，示例自己不另起线程。
 
 ### 数据流
 

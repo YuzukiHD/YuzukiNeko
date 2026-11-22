@@ -2,11 +2,6 @@
 title: "MP4 - MP4 解封装"
 ---
 
-:::note[版本范围]
-Zephyr 4.2.2 与 4.5.0 并存。本页原有示例、录像及板上结果使用 4.2.2 基线，4.5 的变化另行说明。请按[版本与迁移指南](../zephyr-4-5.md)选择配套的内核、组件分支及独立环境和构建目录。4.5 编译或主机测试通过，不会改变已有板上结果的版本归属。
-:::
-
-
 MP4 解封装库把一个 MP4（ISO base media file）文件里的 <strong>H.264 视频轨</strong>和 <strong>AAC 音频轨</strong>的样本表读进内存，然后按解码顺序一个一个给出样本在文件中的位置、大小、时间戳和是否关键帧。它不解码，也不读样本内容：拿到位置和大小之后，调用者自己去文件里读，再交给视频引擎 [vdec](../drivers/vdec.md) 或 AAC 解码器。
 
 库的源码是 `zephyr/lib/mp4/mp4.c`，头文件是 `zephyr/include/zephyr/mp4.h`，应用里 `#include <zephyr/mp4.h>`。Kconfig 在 `zephyr/lib/mp4/Kconfig`（选项 `CONFIG_MP4_DEMUX`），由 `zephyr/lib/Kconfig` 引入，`zephyr/lib/CMakeLists.txt` 在选项打开时编译它。库只用 `malloc()`/`free()` 和 `<zephyr/sys/byteorder.h>`，不依赖文件系统和任何设备。
@@ -15,22 +10,11 @@ MP4 解封装库把一个 MP4（ISO base media file）文件里的 <strong>H.264
 
 本文只讲这个库本身。用它做的完整播放器见 [MP4 播放器](../apps/mp4-player.md)。
 
-
-## 在 4.5 构建仓库内的示例
-
-激活配套的 4.5 分支和环境后，可直接构建维护中的示例。下文完整代码保留 4.2.2 教程基线，当前头文件与 API 字段以所选分支中的示例为准。
-
-```sh
-west build -b yuzukineko -d build/zephyr-4.5.0/mp4_api zephyr-components/examples/mp4_api
-```
-
-该配置已通过 `yuzukineko` 的 4.5 组件构建检查，尚无新的 4.5 板上日志；请按实际镜像布局选择 [RAM 或 XIP 流程](../zephyr-build-run.md)。
-
 ## 架构与数据流
 
 ### 架构
 
-库只有一个源文件、六个对外函数。上层把文件抽象成读回调，库内部是递归的盒（box）解析器，把解析结果放进 `struct mp4_track`；迭代器 `struct mp4_iter` 只是一个游标，不拥有任何内存。
+库只有一个源文件、六个对外函数。上层把文件抽象成读回调，库内部是递归的盒（box）解析器，把解析结果放进 `struct mp4_track`。迭代器 `struct mp4_iter` 只是一个游标，不拥有任何内存。
 
 ```mermaid
 flowchart TB
@@ -116,7 +100,7 @@ flowchart LR
     N --> STSS["stss 里有 n+1 吗"] --> SYNC["sync"]
 ```
 
-`mp4_next()` 里：一个块里的样本用完就换下一个块，偏移取 `chunk_offset[chunk]`；块内的下一个样本偏移是前一个的偏移加大小；`stts`、`ctts` 各有一个“当前项还剩几个”的计数；`stss` 的下标只往前走。
+`mp4_next()` 里：一个块里的样本用完就换下一个块，偏移取 `chunk_offset[chunk]`。块内的下一个样本偏移是前一个的偏移加大小。`stts`、`ctts` 各有一个“当前项还剩几个”的计数。`stss` 的下标只往前走。
 
 ## 设备树
 
@@ -179,7 +163,7 @@ flowchart LR
 
 ## 接口详解
 
-演示的数据是一个 3 秒的片段 `clip.mp4`（从 `video540p.mp4` 截出来，视频重新编码成每 15 帧一个关键帧，保留 B 帧；音频直接复制），编进固件，读回调从内存数组里读。每个接口一个小标题，下面是它的原型、行为、一个完整的示例函数和板子上的输出。
+演示的数据是一个 3 秒的片段 `clip.mp4`（从 `video540p.mp4` 截出来，视频重新编码成每 15 帧一个关键帧，保留 B 帧。音频直接复制），编进固件，读回调从内存数组里读。每个接口一个小标题，下面是它的原型、行为、一个完整的示例函数和板子上的输出。
 
 演示里重复用到的数据和辅助函数：
 
@@ -232,7 +216,7 @@ static void print_track(const char *name, const struct mp4_track *t)
 typedef int (*mp4_read_t)(void *ctx, uint64_t offset, void *buf, size_t len);
 ```
 
-读回调。从文件 `offset` 处读 `len` 字节到 `buf`，成功返回 0，失败返回负的 errno；库不会重试，也原样把这个错误码传回给调用者。`ctx` 是 `mp4_open()` 时给的指针。读不到足够的数据（超出文件）也要返回错误，不能默默返回短读。
+读回调。从文件 `offset` 处读 `len` 字节到 `buf`，成功返回 0，失败返回负的 errno。库不会重试，也原样把这个错误码传回给调用者。`ctx` 是 `mp4_open()` 时给的指针。读不到足够的数据（超出文件）也要返回错误，不能默默返回短读。
 
 演示用的回调从一个内存数组读，另有一个总是失败的回调用来看错误传递：
 
@@ -306,7 +290,7 @@ audio: codec=AAC timescale=44100 duration=134144 (3041 ms) media_start=1024
   2 ch 44100 Hz AudioSpecificConfig(5 bytes): 12 10
 ```
 
-`profile_idc=77` 是 Main，`level_idc=31` 是 3.1；AudioSpecificConfig 的 `12 10` 是 AAC-LC、44100 Hz、双声道。视频有 `ctts`（有 B 帧），所以 `media_start` 是 1024：第一个样本的 `pts` 是 1024，要减掉才是播放时间 0。
+`profile_idc=77` 是 Main，`level_idc=31` 是 3.1。AudioSpecificConfig 的 `12 10` 是 AAC-LC、44100 Hz、双声道。视频有 `ctts`（有 B 帧），所以 `media_start` 是 1024：第一个样本的 `pts` 是 1024，要减掉才是播放时间 0。
 
 #### 示例：打不开的输入
 
@@ -346,7 +330,7 @@ bad_read: ret=-5
 zeros: ret=-2
 ```
 
-长度 4 放不下一个盒头，没有 `moov`，是 `-ENOENT`（-2）；长度 16 时 `ftyp` 盒声称有 32 字节，超出文件，是 `-EINVAL`（-22）；读回调失败的 `-EIO`（-5）原样返回；全零数据没有 `moov`，是 `-ENOENT`。
+长度 4 放不下一个盒头，没有 `moov`，是 `-ENOENT`（-2）。长度 16 时 `ftyp` 盒声称有 32 字节，超出文件，是 `-EINVAL`（-22）。读回调失败的 `-EIO`（-5）原样返回。全零数据没有 `moov`，是 `-ENOENT`。
 
 ### mp4_close
 
@@ -354,7 +338,7 @@ zeros: ret=-2
 void mp4_close(struct mp4 *m);
 ```
 
-释放两条轨道的 `extra` 和全部样本表，并把轨道清零。不关闭文件（文件是调用者的）。关闭之后可以再关一次，没有副作用；`mp4_open()` 失败时已经自动关闭过。关闭后，之前 `mp4_next()` 给出的 `struct mp4_sample` 里的数值仍然有效（它们是拷贝），但迭代器不能再用。
+释放两条轨道的 `extra` 和全部样本表，并把轨道清零。不关闭文件（文件是调用者的）。关闭之后可以再关一次，没有副作用。`mp4_open()` 失败时已经自动关闭过。关闭后，之前 `mp4_next()` 给出的 `struct mp4_sample` 里的数值仍然有效（它们是拷贝），但迭代器不能再用。
 
 ```c
 /* mp4_close(): free the tables, the struct is zeroed and can be closed again */
@@ -411,7 +395,7 @@ static void demo_iter_init(const struct mp4_track *t)
 next=0 chunk=0 in_chunk=0 chunk_pos=4629 stts_left=90 dts=0
 ```
 
-第一个样本在文件偏移 4629，在 `mdat`（@4621）的数据区里；`stts_left=90` 是 `stts` 第一项的计数，这条轨道只有一项（每帧间隔相同，下一节里 `dts` 每次加 512）。
+第一个样本在文件偏移 4629，在 `mdat`（@4621）的数据区里。`stts_left=90` 是 `stts` 第一项的计数，这条轨道只有一项（每帧间隔相同，下一节里 `dts` 每次加 512）。
 
 #### 示例：不存在的轨道
 
@@ -446,7 +430,7 @@ NULL track: ret=-22
 int mp4_next(const struct mp4_track *t, struct mp4_iter *it, struct mp4_sample *s);
 ```
 
-取出迭代器当前的样本，填进 `*s`，然后把迭代器推进到下一个。按解码顺序，`index` 依次是 0、1、2…。成功返回 0；样本取完返回 `-ENODATA`（-61），这时 `*s` 不变。它只算位置，不读文件。
+取出迭代器当前的样本，填进 `*s`，然后把迭代器推进到下一个。按解码顺序，`index` 依次是 0、1、2…。成功返回 0。样本取完返回 `-ENODATA`（-61），这时 `*s` 不变。它只算位置，不读文件。
 
 要得到样本数据，用 `s.offset` 和 `s.size` 调读回调。H.264 的样本是长度前缀的 NAL（每个 NAL 前面 4 字节大端长度，不是 Annex B 起始码），AAC 的样本是裸的 `raw_data_block`，没有 ADTS 头。
 
@@ -534,7 +518,7 @@ video: ret=-61 samples=90 sync=6 bytes=248350 last dts=45568 pts=46080
 audio: ret=-61 samples=131 sync=131 bytes=48673 last dts=133120 pts=133120
 ```
 
-最后返回的是 `-ENODATA`（-61）。视频 90 个样本、6 个关键帧、共 248350 字节；音频 131 个样本、全是关键帧。
+最后返回的是 `-ENODATA`（-61）。视频 90 个样本、6 个关键帧、共 248350 字节。音频 131 个样本、全是关键帧。
 
 ### mp4_seek_sync
 
@@ -542,7 +526,7 @@ audio: ret=-61 samples=131 sync=131 bytes=48673 last dts=133120 pts=133120
 int mp4_seek_sync(const struct mp4_track *t, struct mp4_iter *it, uint32_t index);
 ```
 
-把迭代器放到“样本序号 `index` 或之前最近的一个关键帧”上，之后 `mp4_next()` 返回的第一个样本就是这个关键帧。解码器必须从关键帧开始，所以 seek 到某个画面时要从这里开始解码，把不要显示的帧丢掉。成功返回 0；`index` 超出范围就落在最后一个关键帧上；轨道不存在返回 `-EINVAL`。函数从轨道开头往后扫（O(n)，只扫内存里的表，不读文件）。
+把迭代器放到“样本序号 `index` 或之前最近的一个关键帧”上，之后 `mp4_next()` 返回的第一个样本就是这个关键帧。解码器必须从关键帧开始，所以 seek 到某个画面时要从这里开始解码，把不要显示的帧丢掉。成功返回 0。`index` 超出范围就落在最后一个关键帧上。轨道不存在返回 `-EINVAL`。函数从轨道开头往后扫（O(n)，只扫内存里的表，不读文件）。
 
 ```c
 /* mp4_seek_sync(): the key frame at or before a sample, then read on from there */
@@ -644,7 +628,7 @@ seek 1500 ms (66150 ticks): ret=0, restart from sample 66
 
 ## 关于编辑列表
 
-库不改 `dts`、`pts`，原样给出 `mdhd`/`ctts` 里的值，同时把第一个非空编辑项的 `media_start` 单独放在轨道里。原因有两个：解码器和 B 帧重排需要原始的 `dts`/`pts` 顺序，改了反而要再还原；而减掉 `media_start` 只是一行 `pts - t->media_start`。需要“从 0 开始的播放时间”的地方（比如 `mp4_seek_time()`）库自己处理，其余由调用者减。库只用编辑列表的第一个非空项，多段编辑（拼接、静音段）不处理。
+库不改 `dts`、`pts`，原样给出 `mdhd`/`ctts` 里的值，同时把第一个非空编辑项的 `media_start` 单独放在轨道里。原因有两个：解码器和 B 帧重排需要原始的 `dts`/`pts` 顺序，改了反而要再还原。而减掉 `media_start` 只是一行 `pts - t->media_start`。需要“从 0 开始的播放时间”的地方（比如 `mp4_seek_time()`）库自己处理，其余由调用者减。库只用编辑列表的第一个非空项，多段编辑（拼接、静音段）不处理。
 
 ## 验证
 
@@ -652,29 +636,29 @@ seek 1500 ms (66150 ticks): ret=0, restart from sample 66
 
 ### 轨道信息
 
-验证 `mp4_open()` 读出的编码、分辨率、时长、样本数和 ffprobe 一致。板子上 `demo_open` 打印：视频 H264、960x540、timescale 15360、duration 46080（3000 ms）、90 个样本、profile_idc 77（Main）、level_idc 31；音频 AAC、2 声道、44100 Hz、131 个样本、AudioSpecificConfig `12 10`。ffprobe 给出 h264 Main level 31、960x540、time_base 1/15360、duration_ts 46080、nb_frames 90，以及 aac LC、44100 Hz、2 声道、nb_frames 131。一致。
+验证 `mp4_open()` 读出的编码、分辨率、时长、样本数和 ffprobe 一致。板子上 `demo_open` 打印：视频 H264、960x540、timescale 15360、duration 46080（3000 ms）、90 个样本、profile_idc 77（Main）、level_idc 31。音频 AAC、2 声道、44100 Hz、131 个样本、AudioSpecificConfig `12 10`。ffprobe 给出 h264 Main level 31、960x540、time_base 1/15360、duration_ts 46080、nb_frames 90，以及 aac LC、44100 Hz、2 声道、nb_frames 131。一致。
 
 音频时长不同：库给的是 `mdhd` 里的 134144（3041 ms），ffprobe 的 `duration_ts` 是 133094，它按编辑列表算实际呈现的时长。这不是错，`mp4_track.duration` 就是 `mdhd` 的值。
 
 ### 样本位置和大小
 
-验证 `mp4_next()` 算出的 `offset`、`size`。板子上视频 #0..#7 是 4629/7604、12233/2733、15304/1542、17587/1138、19087/2503、22308/1294、23961/1109、25811/2641；音频 #0..#3 是 14966/338、16846/408、17254/333、18725/362。ffprobe 的 `pos`/`size` 完全相同。另外 `demo_next` 用读回调读出视频 #0 的前 8 字节：`00 00 02 bc 06 ...`，是 4 字节长度加一个 SEI NAL，符合 MP4 里 H.264 的长度前缀格式。
+验证 `mp4_next()` 算出的 `offset`、`size`。板子上视频 #0..#7 是 4629/7604、12233/2733、15304/1542、17587/1138、19087/2503、22308/1294、23961/1109、25811/2641。音频 #0..#3 是 14966/338、16846/408、17254/333、18725/362。ffprobe 的 `pos`/`size` 完全相同。另外 `demo_next` 用读回调读出视频 #0 的前 8 字节：`00 00 02 bc 06 ...`，是 4 字节长度加一个 SEI NAL，符合 MP4 里 H.264 的长度前缀格式。
 
 ### 样本总数、字节数、关键帧
 
-验证走完整条轨道（`demo_next_all`）。板子上视频 90 个样本、6 个关键帧、248350 字节，音频 131 个样本、48673 字节，最后都返回 `-ENODATA`。ffprobe 的合计一样：视频 90/6/248350，音频 131/48673；关键帧在包序号 0 15 30 45 60 75。
+验证走完整条轨道（`demo_next_all`）。板子上视频 90 个样本、6 个关键帧、248350 字节，音频 131 个样本、48673 字节，最后都返回 `-ENODATA`。ffprobe 的合计一样：视频 90/6/248350，音频 131/48673。关键帧在包序号 0 15 30 45 60 75。
 
 ### 时间戳和编辑列表
 
-验证 `dts`、`pts`、`media_start`。板子上视频 #0 `dts=0 pts=1024`，#1 `pts=2560`，#2 `pts=1536`，`media_start=1024`；ffprobe 的是 `dts=-1024 pts=0`、`pts=1536`、`pts=512`。差都是 1024，也就是 `media_start`。视频 `dts` 每帧加 512，`pts` 不单调，是 B 帧。音频 #0 板子 `pts=0`，ffprobe 是 -1024，同样差 1024，换算成 -23 ms，是编码器延迟。
+验证 `dts`、`pts`、`media_start`。板子上视频 #0 `dts=0 pts=1024`，#1 `pts=2560`，#2 `pts=1536`，`media_start=1024`。ffprobe 的是 `dts=-1024 pts=0`、`pts=1536`、`pts=512`。差都是 1024，也就是 `media_start`。视频 `dts` 每帧加 512，`pts` 不单调，是 B 帧。音频 #0 板子 `pts=0`，ffprobe 是 -1024，同样差 1024，换算成 -23 ms，是编码器延迟。
 
 ### 错误路径
 
-验证 `mp4_open()` 和 `mp4_iter_init()` 的返回值，用 `demo_open_errors` 和 `demo_iter_init_errors`。板子上：长度 4 返回 `-2`，长度 16 返回 `-22`，读回调失败返回 `-5`，全零数据返回 `-2`；已关闭的轨道、全零的轨道、`NULL` 轨道调用 `mp4_iter_init()` 都返回 `-22`。这些是库代码的预期返回值，没有 ffprobe 可比的部分。`mp4_close()` 关闭两次也没有问题（`demo_close`）。
+验证 `mp4_open()` 和 `mp4_iter_init()` 的返回值，用 `demo_open_errors` 和 `demo_iter_init_errors`。板子上：长度 4 返回 `-2`，长度 16 返回 `-22`，读回调失败返回 `-5`，全零数据返回 `-2`。已关闭的轨道、全零的轨道、`NULL` 轨道调用 `mp4_iter_init()` 都返回 `-22`。这些是库代码的预期返回值，没有 ffprobe 可比的部分。`mp4_close()` 关闭两次也没有问题（`demo_close`）。
 
 ### seek
 
-验证 `mp4_seek_sync()` 和 `mp4_seek_time()` 落在 ffprobe 算出的关键帧上。`mp4-seekcheck.py` 对每个目标时间，在 ffprobe 的包表里找 `pts` 不早于目标的最小者，再往前找最近的关键帧。板子上 `mp4_seek_time()` 的结果：0 ms 到样本 0、1500 ms 到 45、2000 ms 到 60、2900 ms 到 75、5000 ms 返回 `-ERANGE` 并停在 75；音频 1500 ms 到 66。脚本给出的：0、45、60、75、越界、音频 66。完全一致，找到的关键帧的 `pts - media_start` 也和 ffprobe 的 `pts` 相同（23040、30720、……）。`mp4_seek_sync()` 的样本 47、89、1000、音频 66 分别落在 45、75、75、66，和关键帧列表 0 15 30 45 60 75 一致。
+验证 `mp4_seek_sync()` 和 `mp4_seek_time()` 落在 ffprobe 算出的关键帧上。`mp4-seekcheck.py` 对每个目标时间，在 ffprobe 的包表里找 `pts` 不早于目标的最小者，再往前找最近的关键帧。板子上 `mp4_seek_time()` 的结果：0 ms 到样本 0、1500 ms 到 45、2000 ms 到 60、2900 ms 到 75、5000 ms 返回 `-ERANGE` 并停在 75。音频 1500 ms 到 66。脚本给出的：0、45、60、75、越界、音频 66。完全一致，找到的关键帧的 `pts - media_start` 也和 ffprobe 的 `pts` 相同（23040、30720、……）。`mp4_seek_sync()` 的样本 47、89、1000、音频 66 分别落在 45、75、75、66，和关键帧列表 0 15 30 45 60 75 一致。
 
 ### ffprobe 输出
 
@@ -742,7 +726,7 @@ audio 1500 ms (66150 ticks): frame 66 pts 66560, key frame 66
 
 ## 完整演示程序
 
-上面所有示例和日志都来自这一个程序。建一个目录，放进下面的文件，就可以像其他 Zephyr 应用一样编译。`clip.mp4` 是被编进固件的片段，用这条命令从任意 MP4 截一段（视频重新编码成每 15 帧一个关键帧，音频直接复制）：
+`clip.mp4` 是被编进固件的片段，用这条命令从任意 MP4 截一段（视频重新编码成每 15 帧一个关键帧，音频直接复制）：
 
 ```sh
 ffmpeg -t 3 -i video540p.mp4 -c:v libx264 -profile:v main -g 15 -b:v 600k \

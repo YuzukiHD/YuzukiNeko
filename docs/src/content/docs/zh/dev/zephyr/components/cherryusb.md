@@ -2,33 +2,17 @@
 title: "CherryUSB - USB 协议栈"
 ---
 
-:::note[版本范围]
-Zephyr 4.2.2 与 4.5.0 并存。本页原有示例、录像及板上结果使用 4.2.2 基线，4.5 的变化另行说明。请按[版本与迁移指南](../zephyr-4-5.md)选择配套的内核、组件分支及独立环境和构建目录。4.5 编译或主机测试通过，不会改变已有板上结果的版本归属。
-:::
-
-
 [CherryUSB](https://github.com/cherry-embedded/CherryUSB) 是一个跨 RTOS 的 USB 设备/主机协议栈。F101 的 Zephyr 里没有用上游的 USB 设备栈，USB 功能都由它提供：设备栈把板子变成 CDC ACM 串口、U 盘、HID 等 USB 设备，主机栈在 EHCI/OHCI 控制器上枚举外接的 U 盘、串口、键鼠。
 
 [USB](../drivers/usb.md) 一页讲的是下面一层：OTG 控制器、EHCI/OHCI 主机控制器和 PHY 的设备树、PHY 的获取与释放，并用一个 CDC ACM 回显演示了设备模式的基本用法。这一页讲协议栈本身：组件怎么分层、Kconfig 怎么选、板级胶水要提供什么、`usbd_*`、`usbh_*` 每个接口怎么用。
 
 CherryUSB 1.6.1（`modules/lib/cherryusb/VERSION`）作为 Zephyr 模块（`zephyr/module.yml`）接入。设备栈的控制器是全志 MUSB（`musb_sunxi`），高速 480 Mbit/s，数据由 CPU 搬运，不用 USB 自带的 DMA。主机栈用 EHCI 加 OHCI 伴随控制器，EHCI 管高速，OHCI 管低速和全速，只有一个根端口。板子上的 USB 口同时只能做设备或主机，两者共用一个 PHY。
 
-Kconfig 里能打开的设备类有 CDC ACM、HID、MSC、音频、视频、RNDIS/ECM/NCM、MTP、ADB、DFU、vendor display、TMC；主机类有 CDC ACM、HID、MSC、ECM/RNDIS/NCM、视频、音频、蓝牙、ASIX、RTL8152、FTDI、CH34x、CP210x、PL2303、GSM、AOA，hub 类一直编进去。文中的演示用 CDC ACM 加 MSC 作设备，主机一侧演示栈的启动和各个类驱动接口的调用。
+Kconfig 里能打开的设备类有 CDC ACM、HID、MSC、音频、视频、RNDIS/ECM/NCM、MTP、ADB、DFU、vendor display、TMC。主机类有 CDC ACM、HID、MSC、ECM/RNDIS/NCM、视频、音频、蓝牙、ASIX、RTL8152、FTDI、CH34x、CP210x、PL2303、GSM、AOA，hub 类一直编进去。文中的演示用 CDC ACM 加 MSC 作设备，主机一侧演示栈的启动和各个类驱动接口的调用。
 
-运行方式：主机栈有自己的线程，根 hub 线程处理端口变化和枚举；设备栈的端点回调和类回调直接在中断里运行，不能阻塞。
+运行方式：主机栈有自己的线程，根 hub 线程处理端口变化和枚举。设备栈的端点回调和类回调直接在中断里运行，不能阻塞。
 
 哪些接口在板上验证过、哪些没有，写在[验证项](#验证项)一节。
-
-
-## 在 4.5 构建仓库内的示例
-
-激活配套的 4.5 分支和环境后，可直接构建维护中的示例。下文完整代码保留 4.2.2 教程基线，当前头文件与 API 字段以所选分支中的示例为准。
-
-```sh
-west build -b yuzukineko -d build/zephyr-4.5.0/cherryusb_api zephyr-components/examples/cherryusb_api
-```
-
-该配置已通过 `yuzukineko` 的 4.5 组件构建检查，尚无新的 4.5 板上日志；请按实际镜像布局选择 [RAM 或 XIP 流程](../zephyr-build-run.md)。
 
 ## 源码位置
 
@@ -153,7 +137,7 @@ flowchart TB
     RUN --> APP["应用<br/>usbh_find_class_instance 取实例<br/>usbh_msc_scsi_read10 等"]
 ```
 
-类驱动的登记表 `usbh_class_info` 放在一个单独的链接段里，由 `zephyr/usbh_class_info.ld` 在 `CONFIG_CHERRYUSB_HOST` 时加进链接脚本；`usbh_initialize` 取这个段的起止地址作为匹配表。
+类驱动的登记表 `usbh_class_info` 放在一个单独的链接段里，由 `zephyr/usbh_class_info.ld` 在 `CONFIG_CHERRYUSB_HOST` 时加进链接脚本。`usbh_initialize` 取这个段的起止地址作为匹配表。
 
 ## 设备树
 
@@ -345,7 +329,7 @@ usbhci: usb@4101000 {
 void usb_dc_low_level_init(uint8_t busid);
 ```
 
-`usbd_initialize` 内部调用。取出设备树里 `usbotg` 的时钟、复位、PHY：PHY 如果标了 `zephyr,deferred-init` 就先 `device_init`；打开总线时钟，放复位，`sunxi_usb_phy_acquire(phy, SUNXI_USB_PHY_DEVICE)` 取 PHY（主机已经占着就失败，日志 `cannot take the phy`）；把 `VEND0` 寄存器的 PIO 位置 1，数据由 CPU 搬运；第一次时 `IRQ_CONNECT` 连上 `USBD_IRQHandler`，再 `irq_enable`。
+`usbd_initialize` 内部调用。取出设备树里 `usbotg` 的时钟、复位、PHY：PHY 如果标了 `zephyr,deferred-init` 就先 `device_init`。打开总线时钟，放复位，`sunxi_usb_phy_acquire(phy, SUNXI_USB_PHY_DEVICE)` 取 PHY（主机已经占着就失败，日志 `cannot take the phy`）。把 `VEND0` 寄存器的 PIO 位置 1，数据由 CPU 搬运。第一次时 `IRQ_CONNECT` 连上 `USBD_IRQHandler`，再 `irq_enable`。
 
 ```c
 void usb_dc_low_level_init(uint8_t busid)
@@ -426,7 +410,7 @@ uintptr_t usb_sunxi_otg_base(void)
 void usb_hc_low_level_init(struct usbh_bus *bus);
 ```
 
-`usbh_initialize` 内部调用。取 `usbhci` 的 EHCI、OHCI 两个总线门控和两个复位，打开、放开，取主机角色的 PHY（`SUNXI_USB_PHY_HOST`；`vbus-gpios` 在这时由 PHY 驱动拉高），连接 EHCI 和 OHCI 两个中断并打开。
+`usbh_initialize` 内部调用。取 `usbhci` 的 EHCI、OHCI 两个总线门控和两个复位，打开、放开，取主机角色的 PHY（`SUNXI_USB_PHY_HOST`。`vbus-gpios` 在这时由 PHY 驱动拉高），连接 EHCI 和 OHCI 两个中断并打开。
 
 ```c
 void usb_hc_low_level_init(struct usbh_bus *bus)
@@ -869,7 +853,7 @@ static void usb_dev_register_descriptors(void)
 void usbd_add_interface(uint8_t busid, struct usbd_interface *intf);
 ```
 
-把一个接口加入栈。接口由类驱动的 `*_init_intf` 初始化并返回，里面登记了该类的请求回调（`class_interface_handler`）。CDC ACM 有控制和数据两个接口，所以 `usbd_cdc_acm_init_intf` 调两次；MSC 一个。接口编号按加入的先后顺序给，和描述符里的 `bInterfaceNumber` 要一致（CDC 的 0、1，MSC 的 2）。
+把一个接口加入栈。接口由类驱动的 `*_init_intf` 初始化并返回，里面登记了该类的请求回调（`class_interface_handler`）。CDC ACM 有控制和数据两个接口，所以 `usbd_cdc_acm_init_intf` 调两次。MSC 一个。接口编号按加入的先后顺序给，和描述符里的 `bInterfaceNumber` 要一致（CDC 的 0、1，MSC 的 2）。
 
 ```c
 /* usbd_add_interface: CDC has two interfaces, mass storage one */
@@ -889,7 +873,7 @@ static void usb_dev_add_interfaces(void)
 void usbd_add_endpoint(uint8_t busid, struct usbd_endpoint *ep);
 ```
 
-登记端点和它的完成回调：`ep_addr` 是端点地址，`ep_cb(busid, ep, nbytes)` 在这个端点上的一次传输完成时调用，`nbytes` 是实际传输的字节数，在中断里运行。类驱动自己管的端点（MSC 的两个）不用登记；CDC ACM 的批量端点由应用登记，应用自己决定数据怎么收发。
+登记端点和它的完成回调：`ep_addr` 是端点地址，`ep_cb(busid, ep, nbytes)` 在这个端点上的一次传输完成时调用，`nbytes` 是实际传输的字节数，在中断里运行。类驱动自己管的端点（MSC 的两个）不用登记。CDC ACM 的批量端点由应用登记，应用自己决定数据怎么收发。
 
 ```c
 /* usbd_add_endpoint: the callbacks of the CDC bulk endpoints (the MSC class registers its own) */
@@ -932,7 +916,7 @@ static void cdc_bulk_out(uint8_t busid, uint8_t ep, uint32_t nbytes)
 }
 ```
 
-板上输出（主机先写了 19 字节，再写了 1000 字节；统计是累计值，第二行是 1019 字节、两次传输）：
+板上输出（主机先写了 19 字节，再写了 1000 字节。统计是累计值，第二行是 1019 字节、两次传输）：
 
 ```text
 [echo] received 19 bytes in 1 transfer(s), sent back 19 bytes, 0 break(s)
@@ -1109,7 +1093,7 @@ void usb_dev_try_remote_wakeup(void)
 }
 ```
 
-板上输出（示例声明了远程唤醒，所以第一条错误没有了；主机没有允许，总线也没有挂起）：
+板上输出（示例声明了远程唤醒，所以第一条错误没有了。主机没有允许，总线也没有挂起）：
 
 ```text
 [E/usbd_core] device remote wakeup is not enabled
@@ -1205,7 +1189,7 @@ void usbd_cdc_acm_set_line_coding(uint8_t busid, uint8_t intf, struct cdc_line_c
 void usbd_cdc_acm_get_line_coding(uint8_t busid, uint8_t intf, struct cdc_line_coding *line_coding);
 ```
 
-主机读取线路参数时调用，应用把当前参数填进去。默认实现返回 2000000 波特、8 数据位；示例记住了主机最后一次设置的值。
+主机读取线路参数时调用，应用把当前参数填进去。默认实现返回 2000000 波特、8 数据位。示例记住了主机最后一次设置的值。
 
 ```c
 void usbd_cdc_acm_get_line_coding(uint8_t busid, uint8_t intf, struct cdc_line_coding *line_coding)
@@ -1295,7 +1279,7 @@ void usbd_msc_get_cap(uint8_t busid, uint8_t lun, uint32_t *block_num, uint32_t 
 int usbd_msc_sector_read(uint8_t busid, uint8_t lun, uint32_t sector, uint8_t *buffer, uint32_t length);
 ```
 
-读：把从 `sector` 开始的 `length` 字节（注意单位是字节）拷到栈给的 `buffer`，成功返回 0，返回非 0 则栈向主机报读错误。在中断里运行，不能做慢操作；真实介质（SD 卡）的话要把读操作放到线程里，打开 `CONFIG_USBDEV_MSC_THREAD`。
+读：把从 `sector` 开始的 `length` 字节（注意单位是字节）拷到栈给的 `buffer`，成功返回 0，返回非 0 则栈向主机报读错误。在中断里运行，不能做慢操作。真实介质（SD 卡）的话要把读操作放到线程里，打开 `CONFIG_USBDEV_MSC_THREAD`。
 
 ```c
 /* usbd_msc_sector_read: copy `length` bytes starting at `sector` into the stack's buffer; 0 is success */
@@ -1499,7 +1483,7 @@ static void usbh_event_handler(uint8_t busid, uint8_t hub_index, uint8_t hub_por
 int usbh_deinitialize(uint8_t busid);
 ```
 
-停止根 hub 线程，从总线链表里摘掉，成功返回 0。流程：往消息队列里发一个空消息，根 hub 线程收到后释放各个端口、`usb_hc_deinit`、删除消息队列、给信号量，自己退出；`usbh_hub_deinitialize` 等到信号量后删除信号量并发 `USBH_EVENT_DEINIT`。
+停止根 hub 线程，从总线链表里摘掉，成功返回 0。流程：往消息队列里发一个空消息，根 hub 线程收到后释放各个端口、`usb_hc_deinit`、删除消息队列、给信号量，自己退出。`usbh_hub_deinitialize` 等到信号量后删除信号量并发 `USBH_EVENT_DEINIT`。
 
 <strong>用 `west.yml` 钉住的上游 CherryUSB（`323ade2f`）时，这个函数会让板子崩溃。</strong>`usbh_hub_deinitialize` 在根 hub 线程已经删掉消息队列之后又删了一次，同一块内存释放两次，`k_heap_free` 在堆的等待队列上访问到被破坏的数据（`z_unpend_all`），出现 CPU 异常。这是上游代码的问题，不是移植层的问题。
 
@@ -1592,7 +1576,7 @@ uint8_t usb_host_config_index(struct usbh_hubport *hport)
 void *usbh_find_class_instance(const char *devname);
 ```
 
-按设备名取类驱动的实例，没有返回 `NULL`。设备名由类驱动在匹配成功后给出：MSC 是 `/dev/sda`、`/dev/sdb`，CDC ACM 是 `/dev/ttyACM0`，USB 转串口芯片是 `/dev/ttyUSB0`，HID 是 `/dev/input0`，hub 是 `/dev/hub1`。拿到的指针类型由类决定（`struct usbh_msc *`、`struct usbh_hid *`；串口类用 `usbh_serial_open` 打开）。设备断开时实例消失，应用要在使用前后重新查。
+按设备名取类驱动的实例，没有返回 `NULL`。设备名由类驱动在匹配成功后给出：MSC 是 `/dev/sda`、`/dev/sdb`，CDC ACM 是 `/dev/ttyACM0`，USB 转串口芯片是 `/dev/ttyUSB0`，HID 是 `/dev/input0`，hub 是 `/dev/hub1`。拿到的指针类型由类决定（`struct usbh_msc *`、`struct usbh_hid *`。串口类用 `usbh_serial_open` 打开）。设备断开时实例消失，应用要在使用前后重新查。
 
 ```c
 /* usbh_find_class_instance: the class driver instance of a device name, NULL when there is none:
@@ -1719,7 +1703,7 @@ int usb_host_set_alt(struct usbh_hubport *hport, uint8_t intf, uint8_t alt)
 
 ## 主机类：串口
 
-CDC ACM、FTDI、CH34x、CP210x、PL2303、GSM 都归到 `class/serial/usbh_serial.c` 这一层，接口一样；设备名是 `/dev/ttyACM0` 或 `/dev/ttyUSB0`。
+CDC ACM、FTDI、CH34x、CP210x、PL2303、GSM 都归到 `class/serial/usbh_serial.c` 这一层，接口一样。设备名是 `/dev/ttyACM0` 或 `/dev/ttyUSB0`。
 
 ### usbh_serial_open
 
@@ -2200,11 +2184,11 @@ MSPower_DeviceWakeEnable: enabled on 0 instance(s)
 
 ### CDC ACM 类回调
 
-验证 `set_dtr`、`set_rts`、`set_line_coding`、`get_line_coding`、`send_break`。脚本打开端口时板子打印 `DTR 1`、`RTS 1`、`set_line_coding: 115200`，关闭时打印 `DTR 0`；脚本把 `BreakState` 置位再清除，板子打印两次 `send_break`。Windows 打开端口时还会反复读线路参数，所以 `get_line_coding` 出现很多次。
+验证 `set_dtr`、`set_rts`、`set_line_coding`、`get_line_coding`、`send_break`。脚本打开端口时板子打印 `DTR 1`、`RTS 1`、`set_line_coding: 115200`，关闭时打印 `DTR 0`。脚本把 `BreakState` 置位再清除，板子打印两次 `send_break`。Windows 打开端口时还会反复读线路参数，所以 `get_line_coding` 出现很多次。
 
 ### MSC 读写
 
-验证 `usbd_msc_get_cap`、`usbd_msc_sector_read`、`usbd_msc_sector_write`、`usbd_msc_set_readonly`、`usbd_msc_get_popup`。PC 上读到 `README.TXT` 的内容，写入 `HELLO.TXT` 后读回内容一致。板子统计 53 次读（27136 字节）、32 次写（16384 字节），其中包含 Windows 挂载卷时自己的读写。脚本没有弹出卷，所以 `get_popup` 为 0；`set_readonly(false)` 之后主机可写，这与写入成功一致。读只读介质时主机拒绝写的行为没有验。
+验证 `usbd_msc_get_cap`、`usbd_msc_sector_read`、`usbd_msc_sector_write`、`usbd_msc_set_readonly`、`usbd_msc_get_popup`。PC 上读到 `README.TXT` 的内容，写入 `HELLO.TXT` 后读回内容一致。板子统计 53 次读（27136 字节）、32 次写（16384 字节），其中包含 Windows 挂载卷时自己的读写。脚本没有弹出卷，所以 `get_popup` 为 0。`set_readonly(false)` 之后主机可写，这与写入成功一致。读只读介质时主机拒绝写的行为没有验。
 
 ### usbd_deinitialize
 
@@ -2212,9 +2196,9 @@ MSPower_DeviceWakeEnable: enabled on 0 instance(s)
 
 ### 主机栈：初始化、根 hub、反初始化
 
-验证 `usbh_initialize`、`usbh_event_handler_t`、`usbh_find_hubport`、`lsusb`、`usbh_deinitialize`。换上主机演示的固件（设备树 overlay 关掉 OTG 设备控制器，打开 EHCI/OHCI），板子上看到 EHCI/OHCI 的能力寄存器信息（`n_ports:1`，EHCI 用伴随控制器处理低速和全速设备）、`event INIT`、根 hub 在 480M，端口 1 没有设备；`usbh_deinitialize` 返回 0 并发出 `event DEINIT`。
+验证 `usbh_initialize`、`usbh_event_handler_t`、`usbh_find_hubport`、`lsusb`、`usbh_deinitialize`。换上主机演示的固件（设备树 overlay 关掉 OTG 设备控制器，打开 EHCI/OHCI），板子上看到 EHCI/OHCI 的能力寄存器信息（`n_ports:1`，EHCI 用伴随控制器处理低速和全速设备）、`event INIT`、根 hub 在 480M，端口 1 没有设备。`usbh_deinitialize` 返回 0 并发出 `event DEINIT`。
 
-`usbh_deinitialize` 在未修改的上游 CherryUSB 上会崩溃：根 hub 线程退出时已经把消息队列删了，`usbh_hub_deinitialize` 又删了一次，同一块内存释放两次，`k_heap_free` 里 `z_unpend_all` 访问到被破坏的堆结构，出现 CPU 异常。上面 `usbh_deinitialize` 返回 0 的输出，是本地去掉 `class/hub/usbh_hub.c` 里多余的那次删除之后抓的；fork 没有带这个修改，未修改的检出上跑主机演示，到最后一步会崩。
+`usbh_deinitialize` 在未修改的上游 CherryUSB 上会崩溃：根 hub 线程退出时已经把消息队列删了，`usbh_hub_deinitialize` 又删了一次，同一块内存释放两次，`k_heap_free` 里 `z_unpend_all` 访问到被破坏的堆结构，出现 CPU 异常。上面 `usbh_deinitialize` 返回 0 的输出，是本地去掉 `class/hub/usbh_hub.c` 里多余的那次删除之后抓的。fork 没有带这个修改，未修改的检出上跑主机演示，到最后一步会崩。
 
 ### 示例工程
 
@@ -3285,9 +3269,9 @@ west build -b yuzukineko -d build/cherryusb-host-api examples/cherryusb_host_api
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/components-cherryusb/build.cast" data-speed="6"></div>
 
-上面的录屏是设备演示的编译。下载运行的方法见[编译与运行](../zephyr-build-run.md)。注意：用 xfel 下载到 RAM 时，板子是通过同一个 USB 口进入 FEL 的；设备演示一运行，这个口就变成了复合设备，FEL 设备消失。
+上面的录屏是设备演示的编译。下载运行的方法见[编译与运行](../zephyr-build-run.md)。注意：用 xfel 下载到 RAM 时，板子是通过同一个 USB 口进入 FEL 的。设备演示一运行，这个口就变成了复合设备，FEL 设备消失。
 
-另外还有三个示例：`zephyr/samples/drivers/usb/cherryusb_cdc_acm`（CherryUSB 自带的 CDC ACM 演示）、`cherryusb_display`（vendor display 类，把屏幕投给主机上的程序）、`cherryusb_host`（主机模式，读 U 盘、串口回环；这个示例带 `yuzukineko` 的 overlay，能编译，但接设备需要有 VBUS 开关的硬件）。
+另外还有三个示例：`zephyr/samples/drivers/usb/cherryusb_cdc_acm`（CherryUSB 自带的 CDC ACM 演示）、`cherryusb_display`（vendor display 类，把屏幕投给主机上的程序）、`cherryusb_host`（主机模式，读 U 盘、串口回环。这个示例带 `yuzukineko` 的 overlay，能编译，但接设备需要有 VBUS 开关的硬件）。
 
 ## 板子日志
 

@@ -2,11 +2,6 @@
 title: "USB"
 ---
 
-:::note[Version scope]
-Zephyr 4.2.2 and 4.5.0 coexist. The original examples, captures and target results on this page use the 4.2.2 baseline; 4.5 changes are identified separately. Select matching kernel and component branches and separate environments/build directories using the [version and migration guide](../zephyr-4-5.md). A 4.5 build or host-test pass does not update the version of an existing board result.
-:::
-
-
 F101 has one USB 2.0 OTG controller (a Mentor MUSB core) and one EHCI/OHCI host controller, sharing the same UTMI PHY. Zephyr does not use the upstream USB device stack here but the [CherryUSB](https://github.com/cherry-embedded/CherryUSB) stack, with F101 providing the board-level glue (`drivers/usb/cherryusb/`) and the PHY driver (`drivers/usb/phy/usb_phy_sunxi.c`).
 
 ```mermaid
@@ -28,17 +23,6 @@ flowchart TB
 | Transfer | In device mode the CPU moves the FIFO data (the PIO bit of the `VEND0` register); the USB block's own DMA is not used |
 
 This page demonstrates device mode: a CDC ACM virtual serial port that sends back exactly what the host writes to it.
-
-
-## Build the checked-in example on 4.5
-
-With the matching 4.5 branches and environment active, build the maintained example directly. The complete listings later in this article retain the 4.2.2 tutorial baseline; the example in the selected branch is the reference for current headers and API fields.
-
-```sh
-west build -b yuzukineko -d build/zephyr-4.5.0/usb_api zephyr-components/examples/usb_api
-```
-
-This configuration passed the 4.5 component build check for `yuzukineko`. It has no new 4.5 target log; use the [RAM or XIP flow](../zephyr-build-run.md) matching the actual image layout.
 
 ## Devicetree
 
@@ -176,11 +160,11 @@ To use host mode on your own board, write `vbus-gpios` in `usbphy` (the driver d
 
 ## API reference
 
-CherryUSB's API is `usbd_*` (device) and `usbh_*` (host). The order of use for a device is: register the descriptors, add the interfaces and endpoints, initialize the controller. Below, each API gets a heading: prototype, behaviour, and an example function. The examples come from the [complete demo program](#complete-demo-program) at the end of the page.
-
 The demo is made of two source files. The CherryUSB headers and the Zephyr headers define macros with the same names (such as `__PACKED`) and cannot be included in the same source file, so the CherryUSB code is in `cdc_echo.c` and the Zephyr code in `main.c`, connected by a few external functions. CherryUSB's log macro `USB_LOG_RAW` is mapped to `printk` by the board's `usb_config.h`.
 
-### Descriptors
+### Descriptors and registration
+
+**Descriptors**
 
 The host knows a device through its descriptors: the device descriptor (VID/PID and class), the configuration descriptor (interfaces and endpoints), and the string descriptors. A high speed device also provides a device qualifier descriptor and the configuration descriptor of the "other speed". The descriptors live in arrays such as `config_descriptor_hs` and `config_descriptor_fs`, assembled with CherryUSB's macros: `USB_DEVICE_DESCRIPTOR_INIT`, `USB_CONFIG_DESCRIPTOR_INIT`, `CDC_ACM_DESCRIPTOR_INIT`. Three endpoints:
 
@@ -192,111 +176,23 @@ The host knows a device through its descriptors: the device descriptor (VID/PID 
 
 The maximum packet size of the bulk endpoints is 512 bytes at high speed (`USB_BULK_EP_MPS_HS`) and 64 bytes at full speed (`USB_BULK_EP_MPS_FS`). The stack calls the callbacks below when it needs a descriptor; they are collected in a `struct usb_descriptor`:
 
-```c
-static const uint8_t *device_descriptor_callback(uint8_t speed)
-{
-	(void)speed;
-	return device_descriptor;
-}
-
-static const uint8_t *config_descriptor_callback(uint8_t speed)
-{
-	return speed == USB_SPEED_HIGH ? config_descriptor_hs :
-	       speed == USB_SPEED_FULL ? config_descriptor_fs : NULL;
-}
-
-static const uint8_t *device_quality_descriptor_callback(uint8_t speed)
-{
-	(void)speed;
-	return device_quality_descriptor;
-}
-
-static const uint8_t *other_speed_config_descriptor_callback(uint8_t speed)
-{
-	return speed == USB_SPEED_HIGH ? other_speed_config_descriptor_hs :
-	       speed == USB_SPEED_FULL ? other_speed_config_descriptor_fs : NULL;
-}
-
-static const char *string_descriptor_callback(uint8_t speed, uint8_t index)
-{
-	(void)speed;
-	return index < (sizeof(string_descriptors) / sizeof(string_descriptors[0])) ? string_descriptors[index] : NULL;
-}
-```
-
-### usbd_desc_register
-
-```c
-void usbd_desc_register(uint8_t busid, const struct usb_descriptor *desc);
-```
+**`usbd_desc_register`** `void usbd_desc_register(uint8_t busid, const struct usb_descriptor *desc);`
 
 Hands that group of descriptor callbacks to the stack. `busid` is the USB bus number; there is only one controller, so it is 0.
 
-```c
-/* usbd_desc_register: hand the descriptors to the stack */
-static void cdc_register_descriptors(void)
-{
-	usbd_desc_register(0, &cdc_descriptor);
-}
-```
-
-### usbd_add_interface
-
-```c
-void usbd_add_interface(uint8_t busid, struct usbd_interface *intf);
-```
+**`usbd_add_interface`** `void usbd_add_interface(uint8_t busid, struct usbd_interface *intf);`
 
 Registers an interface. A CDC ACM has two interfaces (the control interface and the data interface), so `usbd_cdc_acm_init_intf` is called twice; it initializes the interface and returns it, to be handed to `usbd_add_interface`.
 
-```c
-/* usbd_add_interface: the two interfaces of a CDC function, control and data */
-static void cdc_add_interfaces(void)
-{
-	usbd_add_interface(0, usbd_cdc_acm_init_intf(0, &intf0));
-	usbd_add_interface(0, usbd_cdc_acm_init_intf(0, &intf1));
-}
-```
-
-### usbd_add_endpoint
-
-```c
-void usbd_add_endpoint(uint8_t busid, struct usbd_endpoint *ep);
-```
+**`usbd_add_endpoint`** `void usbd_add_endpoint(uint8_t busid, struct usbd_endpoint *ep);`
 
 Registers an endpoint and its completion callback: `ep_addr` is the endpoint address, and `ep_cb` is called when one transfer on this endpoint finishes, with the number of bytes actually transferred as an argument. The demo registers the bulk OUT and the bulk IN endpoint.
 
-```c
-/* usbd_add_endpoint: the callbacks of the bulk endpoints */
-static void cdc_add_endpoints(void)
-{
-	usbd_add_endpoint(0, &cdc_out_ep);
-	usbd_add_endpoint(0, &cdc_in_ep);
-}
-```
+### Initialization and events
 
-### usbd_initialize
-
-```c
-int usbd_initialize(uint8_t busid, uintptr_t reg_base, usbd_event_handler_t event_handler);
-```
+**`usbd_initialize`** `int usbd_initialize(uint8_t busid, uintptr_t reg_base, usbd_event_handler_t event_handler);`
 
 Starts the controller; from here on the host can enumerate the device. `reg_base` is the OTG register base, given by the board's glue function `usb_sunxi_otg_base()`. It calls `usb_dc_low_level_init()`: enable the clocks, release the reset, acquire the PHY, set PIO mode, connect and enable the interrupt. `event_handler` receives bus events.
-
-```c
-/* usbd_initialize: start the controller; from here on the host can enumerate the device */
-static void cdc_start(uintptr_t reg_base)
-{
-	usbd_initialize(0, reg_base, usbd_event_handler);
-}
-
-void cdc_echo_init(uintptr_t reg_base)
-{
-	cdc_register_descriptors();
-	cdc_add_interfaces();
-	cdc_add_endpoints();
-	cdc_start(reg_base);
-}
-```
 
 Where `main.c` calls it:
 
@@ -327,52 +223,13 @@ int main(void)
 }
 ```
 
-### usbd_event_handler
-
-```c
-typedef void (*usbd_event_handler_t)(uint8_t busid, uint8_t event);
-```
+**`usbd_event_handler`** `typedef void (*usbd_event_handler_t)(uint8_t busid, uint8_t event);`
 
 Bus events: `USBD_EVENT_RESET`, `CONNECTED`, `DISCONNECTED`, `SUSPEND`, `RESUME`, `CONFIGURED` and so on. Receiving `CONFIGURED` means the host has selected a configuration and the endpoints are usable; the demo issues its first read here.
 
-```c
-/* the events of the bus */
-static void usbd_event_handler(uint8_t busid, uint8_t event)
-{
-	switch (event) {
-	case USBD_EVENT_RESET:
-		USB_LOG_RAW("[usb] reset\r\n");
-		break;
-	case USBD_EVENT_CONNECTED:
-		USB_LOG_RAW("[usb] connected\r\n");
-		break;
-	case USBD_EVENT_DISCONNECTED:
-		USB_LOG_RAW("[usb] disconnected\r\n");
-		configured = false;
-		break;
-	case USBD_EVENT_SUSPEND:
-		USB_LOG_RAW("[usb] suspend\r\n");
-		break;
-	case USBD_EVENT_RESUME:
-		USB_LOG_RAW("[usb] resume\r\n");
-		break;
-	case USBD_EVENT_CONFIGURED:
-		USB_LOG_RAW("[usb] configured, bulk packet size %u\r\n", usbd_get_ep_mps(busid, CDC_OUT_EP));
-		configured = true;
-		/* the first read: wait for data from the host */
-		cdc_start_read(busid);
-		break;
-	default:
-		break;
-	}
-}
-```
+### Endpoint I/O
 
-### usbd_ep_start_read
-
-```c
-int usbd_ep_start_read(uint8_t busid, const uint8_t ep, uint8_t *data, uint32_t data_len);
-```
+**`usbd_ep_start_read`** `int usbd_ep_start_read(uint8_t busid, const uint8_t ep, uint8_t *data, uint32_t data_len);`
 
 Waits for the host to send data on the OUT endpoint, at most `data_len` bytes, and calls this endpoint's callback when they arrive. The buffer lives in non-cached memory and is aligned (`USB_NOCACHE_RAM_SECTION USB_MEM_ALIGNX`).
 
@@ -399,11 +256,7 @@ static void usbd_cdc_acm_bulk_out(uint8_t busid, uint8_t ep, uint32_t nbytes)
 }
 ```
 
-### usbd_ep_start_write
-
-```c
-int usbd_ep_start_write(uint8_t busid, const uint8_t ep, const uint8_t *data, uint32_t data_len);
-```
+**`usbd_ep_start_write`** `int usbd_ep_start_write(uint8_t busid, const uint8_t ep, const uint8_t *data, uint32_t data_len);`
 
 Sends data to the host on the IN endpoint and calls this endpoint's callback when it is out. When the data written is exactly a whole number of maximum-size packets, a further zero length packet must be sent to tell the host the transfer is over; that is the `nbytes % mps == 0` branch in `usbd_cdc_acm_bulk_in`.
 
@@ -430,11 +283,9 @@ static void usbd_cdc_acm_bulk_in(uint8_t busid, uint8_t ep, uint32_t nbytes)
 }
 ```
 
-### usbd_cdc_acm_set_dtr
+### CDC control
 
-```c
-void usbd_cdc_acm_set_dtr(uint8_t busid, uint8_t intf, bool state);
-```
+**`usbd_cdc_acm_set_dtr`** `void usbd_cdc_acm_set_dtr(uint8_t busid, uint8_t intf, bool state);`
 
 Called by the class driver when the host sets the DTR control line (asserted when a serial tool opens the port); the application just defines this function.
 
@@ -447,11 +298,7 @@ void usbd_cdc_acm_set_dtr(uint8_t busid, uint8_t intf, bool state)
 }
 ```
 
-### usbd_cdc_acm_set_rts
-
-```c
-void usbd_cdc_acm_set_rts(uint8_t busid, uint8_t intf, bool state);
-```
+**`usbd_cdc_acm_set_rts`** `void usbd_cdc_acm_set_rts(uint8_t busid, uint8_t intf, bool state);`
 
 Called when the host sets the RTS control line.
 
@@ -462,11 +309,7 @@ void usbd_cdc_acm_set_rts(uint8_t busid, uint8_t intf, bool state)
 }
 ```
 
-### usbd_cdc_acm_set_line_coding
-
-```c
-void usbd_cdc_acm_set_line_coding(uint8_t busid, uint8_t intf, struct cdc_line_coding *line_coding);
-```
+**`usbd_cdc_acm_set_line_coding`** `void usbd_cdc_acm_set_line_coding(uint8_t busid, uint8_t intf, struct cdc_line_coding *line_coding);`
 
 Called when the host sets the line parameters (baud rate, data bits, parity, stop bits). The "baud rate" of CDC ACM is only a number agreed between the host and the device and has no effect on the USB transfer speed.
 
@@ -562,8 +405,6 @@ usb_api done
 
 ## Complete demo program
 
-All the examples and logs above come from this one program. Create a directory, put the files below in it, and it builds like any other Zephyr application.
-
 ```text
 usb_api/
 ├── CMakeLists.txt
@@ -575,7 +416,7 @@ usb_api/
     └── usbtest.ps1       verification script for the host side, see above
 ```
 
-### CMakeLists.txt
+**CMakeLists.txt**
 
 ```cmake
 cmake_minimum_required(VERSION 3.20.0)
@@ -585,7 +426,7 @@ project(usb_api)
 target_sources(app PRIVATE src/main.c src/cdc_echo.c)
 ```
 
-### prj.conf
+**prj.conf**
 
 ```ini
 CONFIG_CHERRYUSB=y
@@ -602,7 +443,7 @@ CONFIG_DEVMEM_SHELL=n
 CONFIG_LOG_PRINTK=n
 ```
 
-### src/cdc_echo.c
+**src/cdc_echo.c**
 
 ```c
 /*
@@ -865,7 +706,7 @@ void cdc_echo_init(uintptr_t reg_base)
 }
 ```
 
-### src/main.c
+**src/main.c**
 
 ```c
 /*
@@ -910,7 +751,7 @@ int main(void)
 }
 ```
 
-### Build and run
+**Build and run**
 
 ```sh
 . ~/f101-zephyr/env.sh

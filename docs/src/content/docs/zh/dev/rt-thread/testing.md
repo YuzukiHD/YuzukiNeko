@@ -2,7 +2,7 @@
 title: "回归与已知限制"
 ---
 
-按[配置流程](build-run.md)使用 `test_defconfig` 为 YuzukiNeko 构建，常规镜像有意关闭测试命令。先检查本轮启动的板级身份，再运行测试；报告应保留源码版本、配置、板级 DTS 和完整串口日志。
+按[配置流程](build-run.md)使用 `test_defconfig` 为 YuzukiNeko 构建，常规镜像有意关闭测试命令。先检查本轮启动的板级身份，再运行测试。报告应保留源码版本、配置、板级 DTS 和完整串口日志。
 
 ## 推荐顺序
 
@@ -24,9 +24,9 @@ test_sd
 free
 ```
 
-`test_all` 执行注册的冒烟测试组，不包含所有扩展命令。`test_touch` 检查实体控制器并注入原生输入事件；实物手指另用 `test_touch_watch 60` 验证。解码器参考素材要求见 [VE 页](drivers/vdec.md)。测试不能与占用同一外设的应用并发运行。
+`test_all` 执行注册的冒烟测试组，不包含所有扩展命令。`test_touch` 检查实体控制器并注入原生输入事件。实物手指另用 `test_touch_watch 60` 验证。解码器参考素材要求见 [VE 页](drivers/vdec.md)。测试不能与占用同一外设的应用并发运行。
 
-JPEG 自测先检查流式显示的 RGB，再保留独立预览；`test_display_jpeg` 校验保留的图像，逐一比较八条色带。`test_vdec` 对 NV12、NV21 分别检查 Y、Cb 和 Cr。旧测试镜像只校验亮度，未覆盖使黄色变青、青色变棕的 UV 顺序错误。
+JPEG 自测先检查流式显示的 RGB，再保留独立预览。`test_display_jpeg` 校验保留的图像，逐一比较八条色带。`test_vdec` 对 NV12、NV21 分别检查 Y、Cb 和 Cr。旧测试镜像只校验亮度，未覆盖使黄色变青、青色变棕的 UV 顺序错误。
 
 ## YuzukiNeko 实测结果
 
@@ -47,11 +47,11 @@ JPEG 自测先检查流式显示的 RGB，再保留独立预览；`test_display_
 
 ## 其他配置
 
-SD PIO 和 UI 窗口使用 `pio_window_defconfig`。SPIF 使用 `test_defconfig` 加 `SUN252I_BOARD=yuzukineko-spif`；参考数据未变化时运行 `test_spif_read 0x11c60a82`。Flash 数据变化后应由 SPI 重新计算参考 CRC。采样延迟及 CRC 是特定板卡和镜像的实测值，不能硬编码为通用参数。
+SD PIO 和 UI 窗口使用 `pio_window_defconfig`。SPIF 使用 `test_defconfig` 加 `SUN252I_BOARD=yuzukineko-spif`。参考数据未变化时运行 `test_spif_read 0x11c60a82`。Flash 数据变化后应由 SPI 重新计算参考 CRC。采样延迟及 CRC 是特定板卡和镜像的实测值，不能硬编码为通用参数。
 
 ## 证据的边界
 
-180 秒实物触摸观察未收到事件。原生多点转换已通过，但手指触摸仍待确认。显示像素通过内部抓回验证，没有摄像头或现场观察确认屏幕观感。播放 DMA 正常推进，但没有确认听感；麦克风样本为零。未连接 DBI 屏和 USB host 外设。OWA 接收没有 RX DMA 请求，明确跳过。
+180 秒实物触摸观察未收到事件。原生多点转换已通过，但手指触摸仍待确认。显示像素通过内部抓回验证，没有摄像头或现场观察确认屏幕观感。播放 DMA 正常推进，但没有确认听感。麦克风样本为零。未连接 DBI 屏和 USB host 外设。OWA 接收没有 RX DMA 请求，明确跳过。
 
 writeback 的非零裁剪起点当前会抓取左上角，测试采用整帧抓回后软件取 patch。中间 alpha 值与理想线性算术有差异（记录中的 alpha 128 案例为 `0xff008486`），测试验证端点和单调性，不证明精确色彩。不能把这些限制改写为已完成的实物或观感测试。
 

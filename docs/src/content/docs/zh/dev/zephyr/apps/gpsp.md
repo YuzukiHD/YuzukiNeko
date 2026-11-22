@@ -2,14 +2,9 @@
 title: "gpSP - GBA 模拟器（动态重编译）"
 ---
 
-:::note[版本范围]
-Zephyr 4.2.2 与 4.5.0 并存。本页原有示例、录像及板上结果使用 4.2.2 基线，4.5 的变化另行说明。请按[版本与迁移指南](../zephyr-4-5.md)选择配套的内核、组件分支及独立环境和构建目录。4.5 编译或主机测试通过，不会改变已有板上结果的版本归属。
-:::
-
-
 用 [gpSP](https://github.com/libretro/gpsp) 内核在板子上运行 Game Boy Advance 游戏，带 <strong>RISC-V 动态重编译器</strong>：游戏的 ARM 代码在运行时被翻译成 RISC-V 代码并原生执行，而不是逐条解释。ROM 从 TF 卡读取，240×160 的游戏画面交给显示引擎的视频层并放大到整个屏幕，声音经片上 codec 走 I2S 输出，屏幕上叠加一层用 LVGL 画的半透明按钮，用触摸屏操作。代码在 `zephyr-components/gbsp`（GPL-2.0-or-later），示例是 `samples/gbsp_player`。
 
-它是 [mGBA](mgba.md) 之外的第二个 GBA 内核。接口相同（`gbsp_*` 函数与 mGBA 的 `gba_*` 函数含义一致），示例选项和主循环也相同，所以可以在同一个游戏上对比两个内核，也可以把两者链接进同一个镜像。同一个 ROM 上 gpSP 每帧耗时约为 mGBA 的 1/2.4 到 1/2.7（见[与 mGBA 的速度对比](#与-mgba-的速度对比)）。只支持 GBA ROM；Game Boy / Game Boy Color 请用 mGBA。
+它是 [mGBA](mgba.md) 之外的第二个 GBA 内核。接口相同（`gbsp_*` 函数与 mGBA 的 `gba_*` 函数含义一致），示例选项和主循环也相同，所以可以在同一个游戏上对比两个内核，也可以把两者链接进同一个镜像。同一个 ROM 上 gpSP 每帧耗时约为 mGBA 的 1/2.4 到 1/2.7（见[与 mGBA 的速度对比](#与-mgba-的速度对比)）。只支持 GBA ROM。Game Boy / Game Boy Color 请用 mGBA。
 
 ```mermaid
 flowchart TB
@@ -56,11 +51,11 @@ west build -b yuzukineko -d build/gbsp zephyr-components/gbsp/samples/gbsp_playe
 
 输出是 `build/gbsp/zephyr/zephyr.bin`，链接在 `0x40000000`。示例的 `CMakeLists.txt` 通过 `ZEPHYR_EXTRA_MODULES` 引入该组件，命令行不需要再传参数。`boards/yuzukineko.conf` 会自动合并：它打开 I2C 和 INPUT 以支持触摸屏（5 点触控，输入线程优先级 4，高于模拟线程，这样一帧运行期间手指不会丢）。
 
-示例的 `prj.conf` 有 `CONFIG_MINIMAL_LIBC=y`、`CONFIG_CPP=y` 和 `CONFIG_STD_CPP17=y`（内核有两个源文件是 C++）；你自己的应用使用这个模块时也必须设置。
+示例的 `prj.conf` 有 `CONFIG_MINIMAL_LIBC=y`、`CONFIG_CPP=y` 和 `CONFIG_STD_CPP17=y`（内核有两个源文件是 C++）。你自己的应用使用这个模块时也必须设置。
 
 ## 运行
 
-用[编译与运行](../zephyr-build-run.md)里的任一方式下载；控制台是 UART1（PB00/PB01，115200 8N1）。
+用[编译与运行](../zephyr-build-run.md)里的任一方式下载。控制台是 UART1（PB00/PB01，115200 8N1）。
 
 - 调试用<strong>方式一</strong>：`xfel write 0x20000 init_psram_efex.bin` + `xfel exec 0x20000`、`xfel write 0x40000000 build/gbsp/zephyr/zephyr.bin`、`xfel exec 0x40000000`。
 - 独立运行用<strong>方式三</strong>：`mkuf2.py app build/gbsp/zephyr/zephyr.bin -o out/gbsp.uf2`，再拖到 `F101BOOT` 盘上。
@@ -69,7 +64,7 @@ west build -b yuzukineko -d build/gbsp zephyr-components/gbsp/samples/gbsp_playe
 板子只有一个 USB-C 口，它既是 xfel 下载口也是 UF2 盘口。先下载，再接其他设备。
 :::
 
-先把放好 ROM 的 TF 卡插进卡槽，再上电下载。只能用触摸屏操作：L、R 在上方两角，方向键在左下，A、B 在右下，SELECT 和 START 在底部中间。最多跟踪 5 根手指，所以可以同时按住方向和 A/B；被按下的按钮变成橙色。
+先把放好 ROM 的 TF 卡插进卡槽，再上电下载。只能用触摸屏操作：L、R 在上方两角，方向键在左下，A、B 在右下，SELECT 和 START 在底部中间。最多跟踪 5 根手指，所以可以同时按住方向和 A/B。被按下的按钮变成橙色。
 
 ### 运行后的输出
 
@@ -103,11 +98,11 @@ gba: <frames> frames, emulation <n> us/frame, sound <n> frames pushed, queued <n
 | Zelda（8 MiB） | 13166 µs/帧 | 5464 µs/帧 | 2.4× |
 | FireRed（16 MiB；mGBA 按需分页，gpSP 8 MiB 在内存 + 文件） | 14104 µs/帧 | 5181 µs/帧 | 2.7× |
 
-两个内核的画面校验和在最初几帧相同（FireRed 的第 600、1200 帧也相同）；Zelda 后来会不同，因为两个内核对事件的计时方式不完全一样。最慢的一帧 gpSP 为 51 到 54 ms（一批新代码要翻译），mGBA 为 31 到 57 ms。
+两个内核的画面校验和在最初几帧相同（FireRed 的第 600、1200 帧也相同）。Zelda 后来会不同，因为两个内核对事件的计时方式不完全一样。最慢的一帧 gpSP 为 51 到 54 ms（一批新代码要翻译），mGBA 为 31 到 57 ms。
 
 ## 接口：`gbsp.h`
 
-`include/gbsp_zephyr/gbsp.h` 就是模块的全部公共接口。它一次只驱动<strong>一台模拟的主机</strong>；ROM 和存档通过 Zephyr 文件系统读写，画面是 RGB565，声音是有符号 16 位立体声，采样率由你指定。示例在主线程里调用全部接口。
+`include/gbsp_zephyr/gbsp.h` 就是模块的全部公共接口。它一次只驱动<strong>一台模拟的主机</strong>。ROM 和存档通过 Zephyr 文件系统读写，画面是 RGB565，声音是有符号 16 位立体声，采样率由你指定。示例在主线程里调用全部接口。
 
 | 函数 | 作用 |
 | --- | --- |
@@ -142,7 +137,7 @@ void gbsp_set_frame_buffer(uint16_t *buf);
 #define GBSP_FRAME_BYTES ((GBSP_WIDTH) * ((GBSP_HEIGHT) + 1) * 2)
 ```
 
-内核把之后的帧画进 `buf`：RGB565，每行 240 像素（行距 480 字节），共 160 行。<strong>缓冲必须有 `GBSP_FRAME_BYTES` 这么长</strong>（画面再加一行临时行，对象窗口通道会用到）；只有 240×160 像素的缓冲会越界 480 字节。轮换缓冲时，像示例那样在每次 `gbsp_run_frame()` 之前都设置一次。
+内核把之后的帧画进 `buf`：RGB565，每行 240 像素（行距 480 字节），共 160 行。<strong>缓冲必须有 `GBSP_FRAME_BYTES` 这么长</strong>（画面再加一行临时行，对象窗口通道会用到）。只有 240×160 像素的缓冲会越界 480 字节。轮换缓冲时，像示例那样在每次 `gbsp_run_frame()` 之前都设置一次。
 
 ### `gbsp_set_frameskip()`
 
@@ -150,7 +145,7 @@ void gbsp_set_frame_buffer(uint16_t *buf);
 void gbsp_set_frameskip(int skip);
 ```
 
-画一帧，然后跳过 `skip` 帧，如此循环；0 表示每帧都画。被跳过的帧仍会运行模拟和声音，只是不运行渲染器，所以更省时间。它只影响画面，不影响声音。
+画一帧，然后跳过 `skip` 帧，如此循环。0 表示每帧都画。被跳过的帧仍会运行模拟和声音，只是不运行渲染器，所以更省时间。它只影响画面，不影响声音。
 
 ### `gbsp_set_keys()`
 
@@ -176,7 +171,7 @@ void gbsp_set_keys(uint32_t keys);
 int gbsp_run_frame(void);
 ```
 
-模拟到下一帧完成，再把这一帧的声音转换到输出采样率并放入队列。画面已画进帧缓冲时返回 1；该帧被跳过（由 `gbsp_set_frameskip()` 决定）或没有打开的主机时返回 0。耗时都在这个调用里（火红为 4 到 6 ms），需要时它也负责从卡里读 ROM 页。
+模拟到下一帧完成，再把这一帧的声音转换到输出采样率并放入队列。画面已画进帧缓冲时返回 1。该帧被跳过（由 `gbsp_set_frameskip()` 决定）或没有打开的主机时返回 0。耗时都在这个调用里（火红为 4 到 6 ms），需要时它也负责从卡里读 ROM 页。
 
 ### `gbsp_frame()`
 
@@ -193,7 +188,7 @@ size_t gbsp_audio_read(int16_t *out, size_t frames);
 size_t gbsp_audio_available(void);
 ```
 
-内核产生 32768 Hz 的声音；每次 `gbsp_run_frame()` 都用 16.16 定点线性重采样器把它转成 `out_rate`，放进内部 8192 个立体声帧的环。`gbsp_audio_read()` 最多拷出 `frames` 个立体声帧（左右交错的 `int16_t`）并返回实际个数；`gbsp_audio_available()` 返回环里等待的帧数。每帧之后要循环调用 `gbsp_audio_read()` 直到它返回 0，否则环会满，新的声音就被丢掉。
+内核产生 32768 Hz 的声音。每次 `gbsp_run_frame()` 都用 16.16 定点线性重采样器把它转成 `out_rate`，放进内部 8192 个立体声帧的环。`gbsp_audio_read()` 最多拷出 `frames` 个立体声帧（左右交错的 `int16_t`）并返回实际个数。`gbsp_audio_available()` 返回环里等待的帧数。每帧之后要循环调用 `gbsp_audio_read()` 直到它返回 0，否则环会满，新的声音就被丢掉。
 
 ### `gbsp_save_flush()`
 
@@ -201,7 +196,7 @@ size_t gbsp_audio_available(void);
 int gbsp_save_flush(void);
 ```
 
-存档内存自上次写入后有变化（比较 CRC）时写存档文件，写了返回 1；没有可写的内容、没有存档路径或写入失败时返回 0。写入的长度是 128 KiB 存档内存中用到的部分，向上取整到 512 字节，末尾的 `0xff` 省略。`gbsp_close()` 会调用它，但断电时不会，所以要像示例那样每隔几秒（3 秒）调用一次。
+存档内存自上次写入后有变化（比较 CRC）时写存档文件，写了返回 1。没有可写的内容、没有存档路径或写入失败时返回 0。写入的长度是 128 KiB 存档内存中用到的部分，向上取整到 512 字节，末尾的 `0xff` 省略。`gbsp_close()` 会调用它，但断电时不会，所以要像示例那样每隔几秒（3 秒）调用一次。
 
 ### `gbsp_get_stats()`
 
@@ -217,7 +212,7 @@ struct gbsp_stats {
 void gbsp_get_stats(struct gbsp_stats *st);
 ```
 
-游戏启动以来的计数器；两次读数相减就是一个场景的代价。`rom_loads` 和 `rom_load_us` 反映 ROM 分页的代价，`translations` 反映新代码的多少，两个 flush 计数则说明翻译缓存是否太小。基准测试每 200 帧打印一次。
+游戏启动以来的计数器。两次读数相减就是一个场景的代价。`rom_loads` 和 `rom_load_us` 反映 ROM 分页的代价，`translations` 反映新代码的多少，两个 flush 计数则说明翻译缓存是否太小。基准测试每 200 帧打印一次。
 
 ### 最小播放器
 
@@ -241,7 +236,7 @@ while (1) {
 
 ## 画面输出路径
 
-`gbsp_run_frame()` 画进 `video_acquire()` 给出的缓冲；返回 1 时主循环调用 `video_present(240, 160)`，`video` 线程把画面交给 `display_sunxi_show_rgb()`，后者把它放到显示引擎的缩放视频层上：硬件把 240×160 放大到屏幕大小，LVGL 按钮在它上面的 ARGB 层。`samples/gbsp_player/src/app.h` 里的函数：
+`gbsp_run_frame()` 画进 `video_acquire()` 给出的缓冲。返回 1 时主循环调用 `video_present(240, 160)`，`video` 线程把画面交给 `display_sunxi_show_rgb()`，后者把它放到显示引擎的缩放视频层上：硬件把 240×160 放大到屏幕大小，LVGL 按钮在它上面的 ARGB 层。`samples/gbsp_player/src/app.h` 里的函数：
 
 | 函数 | 作用 |
 | --- | --- |
@@ -249,7 +244,7 @@ while (1) {
 | `video_acquire()` | 返回模拟器可以画进去的缓冲 |
 | `video_present(w, h)` | 把缓冲从数据缓存写回，并交给视频线程 |
 
-显示一张画面可能要等下一次刷新，而这不能拖住由声音定速的模拟。所以画面经过四个缓冲的交接，`video` 线程只显示最新的一张。每个缓冲恰好处于一种状态：模拟器正在画（`drawing`）、已交出（`ready`）、视频线程正在显示（`inflight`）、刚显示过且还在被扫描输出（`shown`）。`video_acquire()` 不会返回后三种状态的缓冲；否则 60 fps 下卡顿之后模拟器可能连续跑好几帧，画进正在被扫描输出的那张画面。
+显示一张画面可能要等下一次刷新，而这不能拖住由声音定速的模拟。所以画面经过四个缓冲的交接，`video` 线程只显示最新的一张。每个缓冲恰好处于一种状态：模拟器正在画（`drawing`）、已交出（`ready`）、视频线程正在显示（`inflight`）、刚显示过且还在被扫描输出（`shown`）。`video_acquire()` 不会返回后三种状态的缓冲。否则 60 fps 下卡顿之后模拟器可能连续跑好几帧，画进正在被扫描输出的那张画面。
 
 ## 声音输出路径
 
@@ -263,7 +258,7 @@ while (1) {
 | `RING_BLOCKS` | 8 | 环能容纳 8 块 |
 | `HIGH_WATER`（`main.c`） | `RATE / 15` | 队列超过这么多帧（48 kHz 下 3200 帧，约 67 ms）模拟就等待 |
 
-`i2s_write()` 返回 `-EIO` 表示流断了；线程会记一次欠载，`PREPARE` 该流再重新填充。音量用 codec 的 `AUDIO_PROPERTY_OUTPUT_VOLUME` 在 `audio.c` 里设置（`.vol = 150`，范围 0 到 255）；静音和左右声道分别调节见 [MP4 播放器](mp4-player.md#在哪里调整音量)。
+`i2s_write()` 返回 `-EIO` 表示流断了。线程会记一次欠载，`PREPARE` 该流再重新填充。音量用 codec 的 `AUDIO_PROPERTY_OUTPUT_VOLUME` 在 `audio.c` 里设置（`.vol = 150`，范围 0 到 255）。静音和左右声道分别调节见 [MP4 播放器](mp4-player.md#在哪里调整音量)。
 
 追赶声音：队列低于 `SKIP_BELOW`（1500 帧）时，主循环每四帧只画一帧（`SKIP_COUNT` 为 3），直到队列重新涨到 `SKIP_RESUME`（2800 帧）以上。两个阈值之间的间隔，是为了避免队列一恢复就立刻回到正常速率——繁重的场景撑不住正常速率。
 
@@ -276,7 +271,7 @@ while (1) {
 | `pad_start()` | 启动 `pad` 线程（优先级 7）：创建按钮，然后每 16 ms 扫描触摸并运行 `lv_timer_handler()` |
 | `pad_keys()` | 当前被按下的按钮的 `GBSP_KEY_*` 掩码 |
 
-布局是按 1024×600 的屏幕画的；`dy`（屏幕高度减 600）会在更高的屏幕（比如 1024×768）上把底部的按钮下移：
+布局是按 1024×600 的屏幕画的。`dy`（屏幕高度减 600）会在更高的屏幕（比如 1024×768）上把底部的按钮下移：
 
 | 按钮 | 位置 (x, y)，大小 |
 | --- | --- |
@@ -286,7 +281,7 @@ while (1) {
 | L / R | (20, 20) / (864, 20)，140×70 |
 | SELECT / START | (380, 520+dy) / (524, 520+dy)，120×60 |
 
-要改布局，修改 `pad_main()` 里的 `key_add(x, y, w, h, text, bit, radius)` 调用；上限是 `MAX_KEYS`（10）。没有选定 `zephyr,touch` 节点时 `HAS_TOUCH` 为假，按钮改为响应 LVGL 的单指针。
+要改布局，修改 `pad_main()` 里的 `key_add(x, y, w, h, text, bit, radius)` 调用。上限是 `MAX_KEYS`（10）。没有选定 `zephyr,touch` 节点时 `HAS_TOUCH` 为假，按钮改为响应 LVGL 的单指针。
 
 ## 线程
 
@@ -303,7 +298,7 @@ while (1) {
 
 ### 翻译缓存
 
-一块 ARM 或 Thumb 代码第一次运行时被翻译成 RISC-V 代码，放进翻译缓存；之后直接跳进去执行。有两个缓存：`GBSP_ROM_CACHE_KB`（从 ROM 运行的代码，2048 KiB）和 `GBSP_RAM_CACHE_KB`（从 RAM 运行的代码，256 KiB）。重编译器要求写入代码的内存可执行（板子上是可执行的），并且在代码运行前把数据缓存写回；内核在 `platform_cache_sync()` 里完成，而且只同步上次同步之后写入的那一段。C 与翻译代码之间的过渡例程（`core/riscv/riscv_stubs.c`）在启动时用同一个发射器生成，所以没有汇编文件。
+一块 ARM 或 Thumb 代码第一次运行时被翻译成 RISC-V 代码，放进翻译缓存。之后直接跳进去执行。有两个缓存：`GBSP_ROM_CACHE_KB`（从 ROM 运行的代码，2048 KiB）和 `GBSP_RAM_CACHE_KB`（从 RAM 运行的代码，256 KiB）。重编译器要求写入代码的内存可执行（板子上是可执行的），并且在代码运行前把数据缓存写回。内核在 `platform_cache_sync()` 里完成，而且只同步上次同步之后写入的那一段。C 与翻译代码之间的过渡例程（`core/riscv/riscv_stubs.c`）在启动时用同一个发射器生成，所以没有汇编文件。
 
 ### ROM 内存
 
@@ -311,7 +306,7 @@ while (1) {
 
 ## 配置选项
 
-模块选项（`zephyr-components/gbsp/Kconfig`；`CONFIG_GBSP=y` 启用模块）：
+模块选项（`zephyr-components/gbsp/Kconfig`。`CONFIG_GBSP=y` 启用模块）：
 
 | 选项 | 默认 | 说明 |
 | --- | --- | --- |

@@ -2,11 +2,6 @@
 title: "PWM-BL - analog backlight"
 ---
 
-:::note[Version scope]
-Zephyr 4.2.2 and 4.5.0 coexist. The original examples, captures and target results on this page use the 4.2.2 baseline; 4.5 changes are identified separately. Select matching kernel and component branches and separate environments/build directories using the [version and migration guide](../zephyr-4-5.md). A 4.5 build or host-test pass does not update the version of an existing board result.
-:::
-
-
 PWM_BL is the module on the F101 dedicated to driving the LCD backlight, and it is a device separate from the general-purpose [PWM](pwm.md). It does not produce square waves of arbitrary frequency: it controls two on-chip boost (BOOST) circuits and adjusts the brightness of the backlight LEDs through the size of the "sink current"; dimming has both a digital and an analog form. In Zephyr it is the `pwm_bl` device, the interface is still the standard `<zephyr/drivers/pwm.h>`, and the driver is `drivers/pwm/pwm_sunxi_bl.c`.
 
 | Item | Content |
@@ -20,17 +15,6 @@ PWM_BL is the module on the F101 dedicated to driving the LCD backlight, and it 
 | Board | The RGB panel backlight of `f101_evb` is connected here; the backlight of `yuzukineko` is on channel 2 of the general-purpose PWM and does not use PWM_BL |
 
 The demonstration in this page runs on `yuzukineko`: an overlay switches `pwm_bl` on (using only PB2 and PB3, without touching the console on PB0 and PB1), and since no backlight on this board is connected to PWM_BL, the demonstration reads the module's registers back to see the brightness the driver wrote into them, without measuring the output.
-
-
-## Build the checked-in example on 4.5
-
-With the matching 4.5 branches and environment active, build the maintained example directly. The complete listings later in this article retain the 4.2.2 tutorial baseline; the example in the selected branch is the reference for current headers and API fields.
-
-```sh
-west build -b yuzukineko -d build/zephyr-4.5.0/pwm_bl_api zephyr-components/examples/pwm_bl_api
-```
-
-This configuration passed the 4.5 component build check for `yuzukineko`. It has no new 4.5 target log; use the [RAM or XIP flow](../zephyr-build-run.md) matching the actual image layout.
 
 ## Devicetree
 
@@ -97,7 +81,7 @@ The board files of `yuzukineko` do not switch `pwm_bl` on, so the demonstration 
 
 `PWM_POLARITY_INVERTED` is written here only to stay consistent with the other backlight nodes; it has no effect on PWM_BL. For the properties of the `pwm-backlight` node used by the display pipeline, see [Display](display.md) and [PWM](pwm.md).
 
-### Binding: allwinner,sunxi-pwm-bl.yaml
+**Binding: allwinner,sunxi-pwm-bl.yaml**
 
 ```yaml
 # Copyright (c) 2026 Yuzuki Tsuru
@@ -175,8 +159,6 @@ When setting the brightness (`pwm_set_cycles`): `level = pulse × 256 ÷ period`
 
 ## API details
 
-Each API below gets its own short heading: the prototype, the driver's behavior, an example function, and its output on the board. The examples come from [the complete demonstration program](#the-complete-demonstration-program) at the end of the page, whose `err()` turns a return value into a name. The function that reads the registers and the macros it uses:
-
 ```c
 #define BASE		DT_REG_ADDR(DT_NODELABEL(pwm_bl))
 #define PORT_STRIDE	0x200
@@ -196,39 +178,18 @@ static void show_regs(void)
 }
 ```
 
-### pwm_get_cycles_per_sec
+### Period and duty cycle
 
-```c
-int pwm_get_cycles_per_sec(const struct device *dev, uint32_t channel, uint64_t *cycles);
-```
+**`pwm_get_cycles_per_sec`** `int pwm_get_cycles_per_sec(const struct device *dev, uint32_t channel, uint64_t *cycles);`
 
 Returns how many cycles there are per second: 1 000 000 000, so the values of the pulse and the period are directly in nanoseconds. Only channel 0 exists, any other channel returns `-EINVAL`.
-
-```c
-/* pwm_get_cycles_per_sec: 1 GHz, so a cycle is a nanosecond and the ratios are exact */
-static void demo_cycles_per_sec(void)
-{
-	uint64_t hz;
-	int ret;
-
-	ret = pwm_get_cycles_per_sec(pwm_bl, 0, &hz);
-	printk("[clock] pwm_get_cycles_per_sec(channel 0)   = %s, %u Hz\n", err(ret), (uint32_t)hz);
-
-	ret = pwm_get_cycles_per_sec(pwm_bl, 1, &hz);
-	printk("[clock] pwm_get_cycles_per_sec(channel 1)   = %s\n", err(ret));
-}
-```
 
 ```text
 [clock] pwm_get_cycles_per_sec(channel 0)   = 0, 1000000000 Hz
 [clock] pwm_get_cycles_per_sec(channel 1)   = -EINVAL
 ```
 
-### pwm_set_cycles
-
-```c
-int pwm_set_cycles(const struct device *dev, uint32_t channel, uint32_t period, uint32_t pulse, pwm_flags_t flags);
-```
+**`pwm_set_cycles`** `int pwm_set_cycles(const struct device *dev, uint32_t channel, uint32_t period, uint32_t pulse, pwm_flags_t flags);`
 
 The brightness is determined by `pulse / period`. 100% gives 256, clamped to 200; 50% is 128; 5% is 12; 0.5% is 1. The flags are ignored.
 
@@ -236,24 +197,6 @@ The brightness is determined by `pulse / period`. 100% gives 256, clamped to 200
 | --- | --- |
 | Channel other than 0, period 0, or pulse greater than the period | `-EINVAL` |
 | Other | 0 |
-
-```c
-/* pwm_set_cycles: the level is pulse * 256 / period; 200 is the maximum, a level of 0 switches the
- * block off. The flags are ignored, there is no polarity.
- */
-static void demo_set_cycles(void)
-{
-	static const uint32_t pulse[] = { 20000, 10000, 5000, 1000, 100 };
-	int ret;
-
-	for (int i = 0; i < ARRAY_SIZE(pulse); i++) {
-		ret = pwm_set_cycles(pwm_bl, 0, 20000, pulse[i], 0);
-		printk("[cycles] pulse %5u of 20000 (%3u%%)         = %s\n", pulse[i], pulse[i] * 100 / 20000,
-		       err(ret));
-		show_regs();
-	}
-}
-```
 
 ```text
 [cycles] pulse 20000 of 20000 (100%)         = 0
@@ -268,29 +211,11 @@ static void demo_set_cycles(void)
          port 0 enabled 1, port 1 enabled 1, load current level 1 (maximum brightness code 3)
 ```
 
-### pwm_set
+### Setting the brightness
 
-```c
-int pwm_set(const struct device *dev, uint32_t channel, uint32_t period, uint32_t pulse, pwm_flags_t flags);
-```
+**`pwm_set`** `int pwm_set(const struct device *dev, uint32_t channel, uint32_t period, uint32_t pulse, pwm_flags_t flags);`
 
 The period and pulse are in nanoseconds (macros such as `PWM_USEC()` and `PWM_MSEC()`). The clock is 1 GHz, so no conversion is needed; whether the period is 20 µs or 1 ms does not affect the result, the same ratio gives the same level.
-
-```c
-/* pwm_set: the same in nanoseconds; the period does not change the output, only the ratio does */
-static void demo_set(void)
-{
-	int ret;
-
-	ret = pwm_set(pwm_bl, 0, PWM_USEC(20), PWM_USEC(10), PWM_POLARITY_NORMAL);
-	printk("[set] 20 us period, 10 us pulse                 = %s\n", err(ret));
-	show_regs();
-
-	ret = pwm_set(pwm_bl, 0, PWM_MSEC(1), PWM_USEC(500), PWM_POLARITY_INVERTED);
-	printk("[set] 1 ms period, 500 us pulse, inverted       = %s\n", err(ret));
-	show_regs();
-}
-```
 
 ```text
 [set] 20 us period, 10 us pulse                 = 0
@@ -299,11 +224,7 @@ static void demo_set(void)
          port 0 enabled 1, port 1 enabled 1, load current level 128 (maximum brightness code 3)
 ```
 
-### pwm_set_dt
-
-```c
-int pwm_set_dt(const struct pwm_dt_spec *spec, uint32_t period, uint32_t pulse);
-```
+**`pwm_set_dt`** `int pwm_set_dt(const struct pwm_dt_spec *spec, uint32_t period, uint32_t pulse);`
 
 The channel, device and flags come from the `pwms` property in the devicetree. The `bl` of the demonstration comes from `pwms = <&pwm_bl 0 20000 PWM_POLARITY_INVERTED>` in the `zephyr,user` node of the overlay.
 
@@ -327,28 +248,9 @@ static void demo_set_dt(void)
          port 0 enabled 1, port 1 enabled 1, load current level 64 (maximum brightness code 3)
 ```
 
-### pwm_set_pulse_dt
-
-```c
-int pwm_set_pulse_dt(const struct pwm_dt_spec *spec, uint32_t pulse);
-```
+**`pwm_set_pulse_dt`** `int pwm_set_pulse_dt(const struct pwm_dt_spec *spec, uint32_t pulse);`
 
 Uses the period written in the devicetree and supplies only the pulse. A pulse of 0 gives level 0, with both ports switched off, which is the way to turn the backlight off.
-
-```c
-/* pwm_set_pulse_dt: only the pulse; 0 switches the backlight off */
-static void demo_set_pulse_dt(void)
-{
-	int ret = pwm_set_pulse_dt(&bl, bl.period * 3 / 4);
-
-	printk("[dt] pwm_set_pulse_dt(3/4 of the period)        = %s\n", err(ret));
-	show_regs();
-
-	ret = pwm_set_pulse_dt(&bl, 0);
-	printk("[dt] pwm_set_pulse_dt(0)                        = %s\n", err(ret));
-	show_regs();
-}
-```
 
 ```text
 [dt] pwm_set_pulse_dt(3/4 of the period)        = 0
@@ -357,27 +259,9 @@ static void demo_set_pulse_dt(void)
          port 0 enabled 0, port 1 enabled 0, load current level 0 (maximum brightness code 3)
 ```
 
-### Arguments the driver rejects
+**Arguments the driver rejects**
 
 The driver checks three things, the channel number, the period and the pulse: only channel 0 exists, any other channel returns `-EINVAL` and the registers are left untouched.
-
-```c
-/* the arguments the driver refuses */
-static void demo_errors(void)
-{
-	int ret;
-
-	ret = pwm_set_cycles(pwm_bl, 0, 0, 0, 0);
-	printk("[error] period 0                                = %s\n", err(ret));
-
-	ret = pwm_set_cycles(pwm_bl, 0, 20000, 20001, 0);
-	printk("[error] pulse longer than the period            = %s\n", err(ret));
-
-	ret = pwm_set_cycles(pwm_bl, 5, 20000, 10000, 0);
-	printk("[error] channel 5 (only channel 0 exists)       = %s\n", err(ret));
-	show_regs();
-}
-```
 
 ```text
 [error] period 0                                = -EINVAL
@@ -388,8 +272,6 @@ static void demo_errors(void)
 
 ## The complete demonstration program
 
-All the examples and logs above come from this one program. Create a directory, put the files below into it, and it can be built like any other Zephyr application.
-
 ```text
 pwm_bl_api/
 ├── CMakeLists.txt
@@ -399,7 +281,7 @@ pwm_bl_api/
     └── main.c
 ```
 
-### CMakeLists.txt
+**CMakeLists.txt**
 
 ```cmake
 cmake_minimum_required(VERSION 3.20.0)
@@ -409,7 +291,7 @@ project(pwm_bl_api)
 target_sources(app PRIVATE src/main.c)
 ```
 
-### prj.conf
+**prj.conf**
 
 ```ini
 CONFIG_PWM=y
@@ -420,7 +302,7 @@ CONFIG_DEVMEM_SHELL=n
 CONFIG_LOG_PRINTK=n
 ```
 
-### app.overlay
+**app.overlay**
 
 ```c
 /*
@@ -451,7 +333,7 @@ CONFIG_LOG_PRINTK=n
 };
 ```
 
-### src/main.c
+**src/main.c**
 
 ```c
 /*
@@ -598,7 +480,7 @@ int main(void)
 }
 ```
 
-### Building and running
+**Building and running**
 
 ```sh
 . ~/f101-zephyr/env.sh

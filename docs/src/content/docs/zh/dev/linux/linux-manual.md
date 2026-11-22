@@ -2,7 +2,7 @@
 title: "手动构建 Linux 镜像"
 ---
 
-这一页从源码一步步构建 YuzukiNeko <strong>F101-S3</strong> 的 SPI NOR 启动镜像（<strong>RV32</strong>）：SyterKit、OpenSBI、Linux 内核、BusyBox 根文件系统，然后按 Flash 布局拼成 16 MiB 的 `.img`，用 xfel 分段或整片烧录。64 位（RV64I）的改法见 [手动构建 RV64I 镜像](linux-manual-rv64.md)；想一条命令出镜像，请看 [Linux + Buildroot](linux-buildroot.md)。
+这一页从源码一步步构建 YuzukiNeko <strong>F101-S3</strong> 的 SPI NOR 启动镜像（<strong>RV32</strong>）：SyterKit、OpenSBI、Linux 内核、BusyBox 根文件系统，然后按 Flash 布局拼成 16 MiB 的 `.img`，用 xfel 分段或整片烧录。64 位（RV64I）的改法见 [手动构建 RV64I 镜像](linux-manual-rv64.md)。想一条命令出镜像，请看 [Linux + Buildroot](linux-buildroot.md)。
 
 启动链和 Buildroot 版一致：
 

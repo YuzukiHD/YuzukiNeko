@@ -18,7 +18,7 @@ esp_async_memcpy_install(&cfg, &dma);
 esp_async_memcpy(dma, dst, src, len, NULL, NULL);
 ```
 
-最后两个参数是完成回调和回调参数，传 `NULL` 表示同步等待。源和目标地址要按 64 字节对齐，驱动会在提交前后做 cache 维护。DMA 通道也被 I2S 的循环链占用；同时使用 I2S 和大块拷贝时，先检查剩余通道和描述符数量。
+最后两个参数是完成回调和回调参数，传 `NULL` 表示同步等待。源和目标地址要按 64 字节对齐，驱动会在提交前后做 cache 维护。DMA 通道也被 I2S 的循环链占用。同时使用 I2S 和大块拷贝时，先检查剩余通道和描述符数量。
 
 ## PPA 2D 加速
 
@@ -62,7 +62,7 @@ ppa_do_scale_rotate_mirror(ppa, &srm);
 | 混合 | `PPA_OPERATION_BLEND` | `ppa_do_blend()` |
 | 填充 | `PPA_OPERATION_FILL` | `ppa_do_fill()` |
 
-输入和输出缓冲要按 64 字节对齐，尺寸不能超过 8192 像素。`PPA_TRANS_MODE_BLOCKING` 在操作完成前阻塞；非阻塞模式通过回调或事件通知。G2D 的硬件缓存和带宽限制器由驱动配置，应用不需要直接操作。
+输入和输出缓冲要按 64 字节对齐，尺寸不能超过 8192 像素。`PPA_TRANS_MODE_BLOCKING` 在操作完成前阻塞。非阻塞模式通过回调或事件通知。G2D 的硬件缓存和带宽限制器由驱动配置，应用不需要直接操作。
 
 ## JPEG 解码
 
@@ -90,7 +90,7 @@ uint32_t out_size;
 jpeg_decoder_process(decoder, &dec_cfg, jpeg_data, jpeg_len, out, out_cap, &out_size);
 ```
 
-`jpeg_decoder_get_info()` 只解析文件头，不需要硬件；先用它取得宽高，再分配输出缓冲。输出是去掉填充后的 `width * height` 像素。解码器一次处理一张图，多个任务共享同一个 engine 时要串行化。
+`jpeg_decoder_get_info()` 只解析文件头，不需要硬件。先用它取得宽高，再分配输出缓冲。输出是去掉填充后的 `width * height` 像素。解码器一次处理一张图，多个任务共享同一个 engine 时要串行化。
 
 ## 限制
 

@@ -2,7 +2,7 @@
 title: "GPIO 与引脚复用"
 ---
 
-F101 的 GPIO 是六个 PIO bank（PA 到 PF），没有 ESP32 的 GPIO matrix。每个焊盘只有固定的几组复用功能，驱动通过 `f101_periph_route()` 查表选择功能；一个焊盘不能任意映射到任意外设。
+F101 的 GPIO 是六个 PIO bank（PA 到 PF），没有 ESP32 的 GPIO matrix。每个焊盘只有固定的几组复用功能，驱动通过 `f101_periph_route()` 查表选择功能。一个焊盘不能任意映射到任意外设。
 
 ## 引脚编号
 
@@ -15,7 +15,7 @@ gpio_set_direction(GPIO_NUM_PD(5), GPIO_MODE_OUTPUT);
 gpio_set_level(GPIO_NUM_PD(5), 1);
 ```
 
-YuzukiNeko 的板载 LED 在 PD5，和底板 `SW1` 共用这个引脚；Wi-Fi 的 `REG_ON` 在 PE10，音频功放使能在 PD4。
+YuzukiNeko 的板载 LED 在 PD5，和底板 `SW1` 共用这个引脚。Wi-Fi 的 `REG_ON` 在 PE10，音频功放使能在 PD4。
 
 ## 方向、电平与上下拉
 
@@ -26,7 +26,7 @@ gpio_set_drive_capability(gpio, GPIO_DRIVE_CAP_2);
 int level = gpio_get_level(gpio);
 ```
 
-输入模式支持上拉、下拉和浮空；驱动能力为 0 到 3，数值越大驱动越强。F101 的引脚复用是固定功能，调用 `gpio_set_direction()` 会把焊盘切到 GPIO 功能，之后 `f101_periph_route()` 才能把它切回外设。
+输入模式支持上拉、下拉和浮空。驱动能力为 0 到 3，数值越大驱动越强。F101 的引脚复用是固定功能，调用 `gpio_set_direction()` 会把焊盘切到 GPIO 功能，之后 `f101_periph_route()` 才能把它切回外设。
 
 ## gpio_config 的 64 位掩码
 

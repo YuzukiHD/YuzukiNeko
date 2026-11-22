@@ -56,13 +56,6 @@ Enabled in the devicetree, compiled into the kernel, and exercised on the board:
 
 To use a peripheral whose node exists but is disabled, set it to `okay` in `sun252i-f101-yuzukineko-common.dtsi`, give it a pin group, and rebuild the devicetree.
 
-## In this chapter
-
-- [Prebuilt images](linux-prebuilt.md)
-- [Manual build](linux-manual.md)
-- [Manual build RV64I](linux-manual-rv64.md)
-- [Linux + Buildroot](linux-buildroot.md)
-
 ## Apps
 
 - [Buildroot packages](apps/buildroot-packages.md): what the root filesystem contains and how to add a package

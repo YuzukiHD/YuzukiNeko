@@ -2,11 +2,6 @@
 title: "USB"
 ---
 
-:::note[版本范围]
-Zephyr 4.2.2 与 4.5.0 并存。本页原有示例、录像及板上结果使用 4.2.2 基线，4.5 的变化另行说明。请按[版本与迁移指南](../zephyr-4-5.md)选择配套的内核、组件分支及独立环境和构建目录。4.5 编译或主机测试通过，不会改变已有板上结果的版本归属。
-:::
-
-
 F101 有一个 USB 2.0 OTG 控制器（Mentor MUSB 内核）和一个 EHCI/OHCI 主机控制器，共用同一个 UTMI PHY。Zephyr 里没有走上游的 USB 设备栈，而是用 [CherryUSB](https://github.com/cherry-embedded/CherryUSB) 协议栈，F101 这边提供板级胶水（`drivers/usb/cherryusb/`）和 PHY 驱动（`drivers/usb/phy/usb_phy_sunxi.c`）。
 
 ```mermaid
@@ -28,17 +23,6 @@ flowchart TB
 | 传输 | 设备模式由 CPU 搬运 FIFO 数据（`VEND0` 寄存器的 PIO 位），不用 USB 自带的 DMA |
 
 本文演示的是设备模式：一个 CDC ACM 虚拟串口，主机往里写什么，板子就原样回什么。
-
-
-## 在 4.5 构建仓库内的示例
-
-激活配套的 4.5 分支和环境后，可直接构建维护中的示例。下文完整代码保留 4.2.2 教程基线，当前头文件与 API 字段以所选分支中的示例为准。
-
-```sh
-west build -b yuzukineko -d build/zephyr-4.5.0/usb_api zephyr-components/examples/usb_api
-```
-
-该配置已通过 `yuzukineko` 的 4.5 组件构建检查，尚无新的 4.5 板上日志；请按实际镜像布局选择 [RAM 或 XIP 流程](../zephyr-build-run.md)。
 
 ## 设备树
 
@@ -176,11 +160,11 @@ usbhci: usb@4101000 {
 
 ## 接口详解
 
-CherryUSB 的接口是 `usbd_*`（设备）和 `usbh_*`（主机）。设备的使用顺序是：注册描述符，添加接口和端点，初始化控制器。下面每个接口一个小标题：原型、行为和示例函数。示例来自文末的[完整演示程序](#完整演示程序)。
-
 演示由两个源文件组成。CherryUSB 的头文件和 Zephyr 的头文件有同名的宏（比如 `__PACKED`），不能放在同一个源文件里包含，所以 CherryUSB 相关的代码在 `cdc_echo.c`，Zephyr 相关的在 `main.c`，两边用几个外部函数连接。CherryUSB 的日志宏 `USB_LOG_RAW` 被板子的 `usb_config.h` 映射到 `printk`。
 
-### 描述符
+### 描述符与注册
+
+**描述符**
 
 主机靠描述符认识设备：设备描述符（VID/PID 和类）、配置描述符（接口和端点）、字符串描述符。高速设备还要提供设备限定描述符和“另一种速度”的配置描述符。描述符放在 `config_descriptor_hs`、`config_descriptor_fs` 等数组里，用 CherryUSB 的宏拼出来：`USB_DEVICE_DESCRIPTOR_INIT`、`USB_CONFIG_DESCRIPTOR_INIT`、`CDC_ACM_DESCRIPTOR_INIT`。三个端点：
 
@@ -192,111 +176,23 @@ CherryUSB 的接口是 `usbd_*`（设备）和 `usbh_*`（主机）。设备的�
 
 批量端点的最大包长高速是 512 字节（`USB_BULK_EP_MPS_HS`），全速是 64 字节（`USB_BULK_EP_MPS_FS`）。栈在需要的时候调用下面这些回调取描述符，它们收集在一个 `struct usb_descriptor` 里：
 
-```c
-static const uint8_t *device_descriptor_callback(uint8_t speed)
-{
-	(void)speed;
-	return device_descriptor;
-}
-
-static const uint8_t *config_descriptor_callback(uint8_t speed)
-{
-	return speed == USB_SPEED_HIGH ? config_descriptor_hs :
-	       speed == USB_SPEED_FULL ? config_descriptor_fs : NULL;
-}
-
-static const uint8_t *device_quality_descriptor_callback(uint8_t speed)
-{
-	(void)speed;
-	return device_quality_descriptor;
-}
-
-static const uint8_t *other_speed_config_descriptor_callback(uint8_t speed)
-{
-	return speed == USB_SPEED_HIGH ? other_speed_config_descriptor_hs :
-	       speed == USB_SPEED_FULL ? other_speed_config_descriptor_fs : NULL;
-}
-
-static const char *string_descriptor_callback(uint8_t speed, uint8_t index)
-{
-	(void)speed;
-	return index < (sizeof(string_descriptors) / sizeof(string_descriptors[0])) ? string_descriptors[index] : NULL;
-}
-```
-
-### usbd_desc_register
-
-```c
-void usbd_desc_register(uint8_t busid, const struct usb_descriptor *desc);
-```
+**`usbd_desc_register`** `void usbd_desc_register(uint8_t busid, const struct usb_descriptor *desc);`
 
 把上面那组描述符回调交给栈。`busid` 是 USB 总线的编号，只有一个控制器，是 0。
 
-```c
-/* usbd_desc_register: hand the descriptors to the stack */
-static void cdc_register_descriptors(void)
-{
-	usbd_desc_register(0, &cdc_descriptor);
-}
-```
-
-### usbd_add_interface
-
-```c
-void usbd_add_interface(uint8_t busid, struct usbd_interface *intf);
-```
+**`usbd_add_interface`** `void usbd_add_interface(uint8_t busid, struct usbd_interface *intf);`
 
 登记一个接口。CDC ACM 有两个接口（控制接口和数据接口），所以 `usbd_cdc_acm_init_intf` 调用两次，它初始化接口并返回它，交给 `usbd_add_interface`。
 
-```c
-/* usbd_add_interface: the two interfaces of a CDC function, control and data */
-static void cdc_add_interfaces(void)
-{
-	usbd_add_interface(0, usbd_cdc_acm_init_intf(0, &intf0));
-	usbd_add_interface(0, usbd_cdc_acm_init_intf(0, &intf1));
-}
-```
-
-### usbd_add_endpoint
-
-```c
-void usbd_add_endpoint(uint8_t busid, struct usbd_endpoint *ep);
-```
+**`usbd_add_endpoint`** `void usbd_add_endpoint(uint8_t busid, struct usbd_endpoint *ep);`
 
 登记端点和它的完成回调：`ep_addr` 是端点地址，`ep_cb` 在这个端点上的一次传输完成时调用，参数里有实际传输的字节数。演示登记批量 OUT 和批量 IN。
 
-```c
-/* usbd_add_endpoint: the callbacks of the bulk endpoints */
-static void cdc_add_endpoints(void)
-{
-	usbd_add_endpoint(0, &cdc_out_ep);
-	usbd_add_endpoint(0, &cdc_in_ep);
-}
-```
+### 初始化与事件
 
-### usbd_initialize
+**`usbd_initialize`** `int usbd_initialize(uint8_t busid, uintptr_t reg_base, usbd_event_handler_t event_handler);`
 
-```c
-int usbd_initialize(uint8_t busid, uintptr_t reg_base, usbd_event_handler_t event_handler);
-```
-
-启动控制器；从这里开始主机可以枚举设备。`reg_base` 是 OTG 寄存器基址，由板子的胶水函数 `usb_sunxi_otg_base()` 给出。它调用 `usb_dc_low_level_init()`：打开时钟、释放复位、取得 PHY、设置 PIO 模式、连接并打开中断。`event_handler` 接收总线事件。
-
-```c
-/* usbd_initialize: start the controller; from here on the host can enumerate the device */
-static void cdc_start(uintptr_t reg_base)
-{
-	usbd_initialize(0, reg_base, usbd_event_handler);
-}
-
-void cdc_echo_init(uintptr_t reg_base)
-{
-	cdc_register_descriptors();
-	cdc_add_interfaces();
-	cdc_add_endpoints();
-	cdc_start(reg_base);
-}
-```
+启动控制器。从这里开始主机可以枚举设备。`reg_base` 是 OTG 寄存器基址，由板子的胶水函数 `usb_sunxi_otg_base()` 给出。它调用 `usb_dc_low_level_init()`：打开时钟、释放复位、取得 PHY、设置 PIO 模式、连接并打开中断。`event_handler` 接收总线事件。
 
 `main.c` 里调用它的地方：
 
@@ -327,52 +223,13 @@ int main(void)
 }
 ```
 
-### usbd_event_handler
-
-```c
-typedef void (*usbd_event_handler_t)(uint8_t busid, uint8_t event);
-```
+**`usbd_event_handler`** `typedef void (*usbd_event_handler_t)(uint8_t busid, uint8_t event);`
 
 总线事件：`USBD_EVENT_RESET`、`CONNECTED`、`DISCONNECTED`、`SUSPEND`、`RESUME`、`CONFIGURED` 等。收到 `CONFIGURED` 就是主机选定了配置，端点可以用了，演示在这里发出第一次读。
 
-```c
-/* the events of the bus */
-static void usbd_event_handler(uint8_t busid, uint8_t event)
-{
-	switch (event) {
-	case USBD_EVENT_RESET:
-		USB_LOG_RAW("[usb] reset\r\n");
-		break;
-	case USBD_EVENT_CONNECTED:
-		USB_LOG_RAW("[usb] connected\r\n");
-		break;
-	case USBD_EVENT_DISCONNECTED:
-		USB_LOG_RAW("[usb] disconnected\r\n");
-		configured = false;
-		break;
-	case USBD_EVENT_SUSPEND:
-		USB_LOG_RAW("[usb] suspend\r\n");
-		break;
-	case USBD_EVENT_RESUME:
-		USB_LOG_RAW("[usb] resume\r\n");
-		break;
-	case USBD_EVENT_CONFIGURED:
-		USB_LOG_RAW("[usb] configured, bulk packet size %u\r\n", usbd_get_ep_mps(busid, CDC_OUT_EP));
-		configured = true;
-		/* the first read: wait for data from the host */
-		cdc_start_read(busid);
-		break;
-	default:
-		break;
-	}
-}
-```
+### 端点读写
 
-### usbd_ep_start_read
-
-```c
-int usbd_ep_start_read(uint8_t busid, const uint8_t ep, uint8_t *data, uint32_t data_len);
-```
+**`usbd_ep_start_read`** `int usbd_ep_start_read(uint8_t busid, const uint8_t ep, uint8_t *data, uint32_t data_len);`
 
 在 OUT 端点上等主机发数据，最多 `data_len` 个字节，收到后调用这个端点的回调。缓冲区放在非缓存的内存里并对齐（`USB_NOCACHE_RAM_SECTION USB_MEM_ALIGNX`）。
 
@@ -399,11 +256,7 @@ static void usbd_cdc_acm_bulk_out(uint8_t busid, uint8_t ep, uint32_t nbytes)
 }
 ```
 
-### usbd_ep_start_write
-
-```c
-int usbd_ep_start_write(uint8_t busid, const uint8_t ep, const uint8_t *data, uint32_t data_len);
-```
+**`usbd_ep_start_write`** `int usbd_ep_start_write(uint8_t busid, const uint8_t ep, const uint8_t *data, uint32_t data_len);`
 
 在 IN 端点上把数据发给主机，发完调用这个端点的回调。写的数据正好是整数个最大包长时，要再发一个长度为 0 的包告诉主机这次传输结束，这就是 `usbd_cdc_acm_bulk_in` 里 `nbytes % mps == 0` 的分支。
 
@@ -430,13 +283,11 @@ static void usbd_cdc_acm_bulk_in(uint8_t busid, uint8_t ep, uint32_t nbytes)
 }
 ```
 
-### usbd_cdc_acm_set_dtr
+### CDC 控制
 
-```c
-void usbd_cdc_acm_set_dtr(uint8_t busid, uint8_t intf, bool state);
-```
+**`usbd_cdc_acm_set_dtr`** `void usbd_cdc_acm_set_dtr(uint8_t busid, uint8_t intf, bool state);`
 
-主机设置 DTR 控制线（串口工具打开端口时置位）时，类驱动调用它；应用定义这个函数即可。
+主机设置 DTR 控制线（串口工具打开端口时置位）时，类驱动调用它。应用定义这个函数即可。
 
 ```c
 /* the class driver calls these when the host sets the control lines and the line coding */
@@ -447,11 +298,7 @@ void usbd_cdc_acm_set_dtr(uint8_t busid, uint8_t intf, bool state)
 }
 ```
 
-### usbd_cdc_acm_set_rts
-
-```c
-void usbd_cdc_acm_set_rts(uint8_t busid, uint8_t intf, bool state);
-```
+**`usbd_cdc_acm_set_rts`** `void usbd_cdc_acm_set_rts(uint8_t busid, uint8_t intf, bool state);`
 
 主机设置 RTS 控制线时调用。
 
@@ -462,11 +309,7 @@ void usbd_cdc_acm_set_rts(uint8_t busid, uint8_t intf, bool state)
 }
 ```
 
-### usbd_cdc_acm_set_line_coding
-
-```c
-void usbd_cdc_acm_set_line_coding(uint8_t busid, uint8_t intf, struct cdc_line_coding *line_coding);
-```
+**`usbd_cdc_acm_set_line_coding`** `void usbd_cdc_acm_set_line_coding(uint8_t busid, uint8_t intf, struct cdc_line_coding *line_coding);`
 
 主机设置线路参数（波特率、数据位、校验、停止位）时调用。CDC ACM 的“波特率”只是主机和设备之间约定的数字，对 USB 传输速度没有影响。
 
@@ -562,7 +405,7 @@ usb_api done
 
 ## 完整演示程序
 
-上面所有示例和日志都来自这一个程序。建一个目录，放进下面的文件，就可以像其他 Zephyr 应用一样编译。
+
 
 ```text
 usb_api/
@@ -575,7 +418,7 @@ usb_api/
     └── usbtest.ps1       主机一侧的验证脚本，见上
 ```
 
-### CMakeLists.txt
+**CMakeLists.txt**
 
 ```cmake
 cmake_minimum_required(VERSION 3.20.0)
@@ -585,7 +428,7 @@ project(usb_api)
 target_sources(app PRIVATE src/main.c src/cdc_echo.c)
 ```
 
-### prj.conf
+**prj.conf**
 
 ```ini
 CONFIG_CHERRYUSB=y
@@ -602,7 +445,7 @@ CONFIG_DEVMEM_SHELL=n
 CONFIG_LOG_PRINTK=n
 ```
 
-### src/cdc_echo.c
+**src/cdc_echo.c**
 
 ```c
 /*
@@ -865,7 +708,7 @@ void cdc_echo_init(uintptr_t reg_base)
 }
 ```
 
-### src/main.c
+**src/main.c**
 
 ```c
 /*
@@ -910,7 +753,7 @@ int main(void)
 }
 ```
 
-### 编译和运行
+**编译和运行**
 
 ```sh
 . ~/f101-zephyr/env.sh
@@ -920,6 +763,6 @@ west build -b yuzukineko -d build/usb-api usb_api
 
 <div class="asciinema-cast" data-src="assets/casts/zephyr/drivers-usb/build.cast" data-speed="6"></div>
 
-下载运行的方法见[编译与运行](../zephyr-build-run.md)。注意：用 xfel 下载到 RAM 时，板子是通过同一个 USB 口进入 FEL 的；程序一运行，这个口就变成了 CDC ACM 设备，FEL 设备消失。
+下载运行的方法见[编译与运行](../zephyr-build-run.md)。注意：用 xfel 下载到 RAM 时，板子是通过同一个 USB 口进入 FEL 的。程序一运行，这个口就变成了 CDC ACM 设备，FEL 设备消失。
 
-另外还有三个示例：`samples/drivers/usb/cherryusb_cdc_acm`（CherryUSB 自带的 CDC ACM 演示）、`cherryusb_display`（vendor display 类，把屏幕投给主机上的程序）、`cherryusb_host`（主机模式，读 U 盘等；需要有 VBUS 开关的板子，如 `f101_evb`）。
+另外还有三个示例：`samples/drivers/usb/cherryusb_cdc_acm`（CherryUSB 自带的 CDC ACM 演示）、`cherryusb_display`（vendor display 类，把屏幕投给主机上的程序）、`cherryusb_host`（主机模式，读 U 盘等。需要有 VBUS 开关的板子，如 `f101_evb`）。

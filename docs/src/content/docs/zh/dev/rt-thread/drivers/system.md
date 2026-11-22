@@ -97,7 +97,7 @@ MSH_CMD_EXPORT(demo_dma, Copy aligned memory through a native DMA channel);
 test_wdt
 ```
 
-该命令验证喂狗及停止。`test_wdt_reset` 会主动复位芯片，不属于普通连续驱动回归；仅 RAM 启动的镜像会回到 ROM 启动路径，不会自动重新加载自己。
+该命令验证喂狗及停止。`test_wdt_reset` 会主动复位芯片，不属于普通连续驱动回归。仅 RAM 启动的镜像会回到 ROM 启动路径，不会自动重新加载自己。
 
 ## SID 与 MBUS 查询示例
 
@@ -119,7 +119,7 @@ static int demo_system_info(int argc, char **argv)
 MSH_CMD_EXPORT(demo_system_info, Inspect chip identity and MBUS without changing policy);
 ```
 
-SID 包含 512 位熔丝；`sun252i_sid_read(offset, buf, len)` 要求偏移和长度均为 4 字节整数倍，返回字节数，只提供读取接口。MBUS 提供具名流量计数及 `mbus_set/get_priority(master, ...)`、`mbus_set/get_limit(master, ...)`。带宽限制会量化，零表示关闭限制。原始计数快照不直接等于 MB/s，应使用明确采样区间并考虑回绕和后台流量。修改优先级可能饿死其他实时客户端，应先观察再调参。
+SID 包含 512 位熔丝。`sun252i_sid_read(offset, buf, len)` 要求偏移和长度均为 4 字节整数倍，返回字节数，只提供读取接口。MBUS 提供具名流量计数及 `mbus_set/get_priority(master, ...)`、`mbus_set/get_limit(master, ...)`。带宽限制会量化，零表示关闭限制。原始计数快照不直接等于 MB/s，应使用明确采样区间并考虑回绕和后台流量。修改优先级可能饿死其他实时客户端，应先观察再调参。
 
 ## DBI 与验证范围
 

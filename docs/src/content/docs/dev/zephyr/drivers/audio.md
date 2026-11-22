@@ -2,11 +2,6 @@
 title: "AUDIO - Audio Driver"
 ---
 
-:::note[Version scope]
-Zephyr 4.2.2 and 4.5.0 coexist. The original examples, captures and target results on this page use the 4.2.2 baseline; 4.5 changes are identified separately. Select matching kernel and component branches and separate environments/build directories using the [version and migration guide](../zephyr-4-5.md). A 4.5 build or host-test pass does not update the version of an existing board result.
-:::
-
-
 F101 has three audio controllers. In Zephyr they all carry audio data through the standard I2S interface `<zephyr/drivers/i2s.h>`; the analog part of the on-chip codec additionally uses the audio codec interface `<zephyr/audio/codec.h>` to control volume, mute and input selection.
 
 ```mermaid
@@ -21,6 +16,8 @@ flowchart LR
     I2S0 --> PIN1["PE0…PE4<br/>external codec"]
     OWA --> PIN2["PD22 / PE6<br/>OWA-OUT"]
 ```
+
+4.5 audio API changes are in the [version and migration guide](../zephyr-4-5.md).
 
 | Device | Driver | Contents |
 | --- | --- | --- |
@@ -39,17 +36,6 @@ The three I2S devices share the DMA ring and queue in `drivers/i2s/i2s_sunxi_str
 | Channels | 1 or 2 for transmit, 1 for receive | 1…16 | 1 or 2 |
 | Format | Fixed | I2S, left-justified, right-justified, PCM short frame, PCM long frame; master, slave; inverted clock; internal loopback | Internal loopback |
 | Analog part | Headphone output, microphone, FM, line input, 3 input selections | None | None |
-
-
-## Build the checked-in example on 4.5
-
-With the matching 4.5 branches and environment active, build the maintained example directly. The complete listings later in this article retain the 4.2.2 tutorial baseline; the example in the selected branch is the reference for current headers and API fields.
-
-```sh
-west build -b yuzukineko -d build/zephyr-4.5.0/audio_api zephyr-components/examples/audio_api
-```
-
-This configuration passed the 4.5 component build check for `yuzukineko`. It has no new 4.5 target log; use the [RAM or XIP flow](../zephyr-build-run.md) matching the actual image layout.
 
 ## Devicetree
 
@@ -222,8 +208,6 @@ The output pin of S/PDIF is `OWA-OUT`: PD22 (mux function 2) or PE6 (mux functio
 
 ## API in detail
 
-Each API below gets its own heading: prototype, what the driver does, the example function and its output on the board. The examples come from the [complete demo program](#complete-demo-program) at the end of the page, whose `err()` turns a return value into a name. A few shared definitions first:
-
 ```c
 static const struct device *const codec_i2s = DEVICE_DT_GET(DT_NODELABEL(audio_codec));
 
@@ -245,11 +229,9 @@ static struct i2s_config base_cfg(void)
 }
 ```
 
-### i2s_configure
+### I2S configuration
 
-```c
-int i2s_configure(const struct device *dev, enum i2s_dir dir, const struct i2s_config *i2s_cfg);
-```
+**`i2s_configure`** `int i2s_configure(const struct device *dev, enum i2s_dir dir, const struct i2s_config *i2s_cfg);`
 
 Configures a stream (`I2S_DIR_TX` or `I2S_DIR_RX`): sample rate `frame_clk_freq`, word size, channel count, data format, and which `k_mem_slab` the memory blocks come from and how large they are. The stream must be in the not-configured or configured (READY) state; a stream that is already running returns `-EINVAL`.
 
@@ -262,77 +244,6 @@ Configures a stream (`I2S_DIR_TX` or `I2S_DIR_RX`): sample rate `frame_clk_freq`
 | `frame_clk_freq` is 0 | Releases the stream and its DMA ring, returns 0 |
 
 Limits of the on-chip codec: 1 or 2 channels for transmit, 1 channel for receive; 16, 24 and 32 bit words.
-
-```c
-/* i2s_configure: the format of a stream. A stream is configured before it starts, in the states
- * not-ready and ready only. The codec plays 8, 12, 16, 24, 32, 48, 96 and 192 kHz and the 44.1 kHz
- * family, 16, 24 and 32 bit words, mono or stereo for playback and mono for capture.
- */
-static void demo_i2s_configure(void)
-{
-	struct i2s_config cfg;
-	int ret;
-
-	cfg = base_cfg();
-	ret = i2s_configure(codec_i2s, I2S_DIR_TX, &cfg);
-	printk("[configure] 48000 Hz, 16 bit, stereo            = %s\n", err(ret));
-
-	cfg = base_cfg();
-	cfg.frame_clk_freq = 44100;
-	ret = i2s_configure(codec_i2s, I2S_DIR_TX, &cfg);
-	printk("[configure] 44100 Hz                            = %s\n", err(ret));
-
-	cfg = base_cfg();
-	cfg.frame_clk_freq = 8000;
-	cfg.channels = 1;
-	ret = i2s_configure(codec_i2s, I2S_DIR_TX, &cfg);
-	printk("[configure] 8000 Hz, mono                       = %s\n", err(ret));
-
-	cfg = base_cfg();
-	cfg.word_size = 24;
-	ret = i2s_configure(codec_i2s, I2S_DIR_TX, &cfg);
-	printk("[configure] 24 bit words                        = %s\n", err(ret));
-
-	cfg = base_cfg();
-	cfg.frame_clk_freq = 50000;
-	ret = i2s_configure(codec_i2s, I2S_DIR_TX, &cfg);
-	printk("[configure] 50000 Hz (not a rate of the codec)  = %s\n", err(ret));
-
-	cfg = base_cfg();
-	cfg.word_size = 8;
-	ret = i2s_configure(codec_i2s, I2S_DIR_TX, &cfg);
-	printk("[configure] 8 bit words                         = %s\n", err(ret));
-
-	cfg = base_cfg();
-	cfg.channels = 3;
-	ret = i2s_configure(codec_i2s, I2S_DIR_TX, &cfg);
-	printk("[configure] 3 channels                          = %s\n", err(ret));
-
-	cfg = base_cfg();
-	cfg.channels = 2;
-	ret = i2s_configure(codec_i2s, I2S_DIR_RX, &cfg);
-	printk("[configure] 2 channels for capture              = %s\n", err(ret));
-
-	cfg = base_cfg();
-	cfg.block_size = BLOCK_SIZE - 2;
-	ret = i2s_configure(codec_i2s, I2S_DIR_TX, &cfg);
-	printk("[configure] block size not a multiple of 4      = %s\n", err(ret));
-
-	cfg = base_cfg();
-	cfg.mem_slab = NULL;
-	ret = i2s_configure(codec_i2s, I2S_DIR_TX, &cfg);
-	printk("[configure] no memory slab                      = %s\n", err(ret));
-
-	cfg = base_cfg();
-	cfg.block_size = BLOCK_SIZE * 2;
-	ret = i2s_configure(codec_i2s, I2S_DIR_TX, &cfg);
-	printk("[configure] block larger than the slab blocks   = %s\n", err(ret));
-
-	cfg = base_cfg();
-	ret = i2s_configure(codec_i2s, I2S_DIR_BOTH, &cfg);
-	printk("[configure] I2S_DIR_BOTH                        = %s\n", err(ret));
-}
-```
 
 ```text
 [configure] 48000 Hz, 16 bit, stereo            = 0
@@ -349,33 +260,9 @@ static void demo_i2s_configure(void)
 [configure] I2S_DIR_BOTH                        = -ENOSYS
 ```
 
-### i2s_config_get
-
-```c
-const struct i2s_config *i2s_config_get(const struct device *dev, enum i2s_dir dir);
-```
+**`i2s_config_get`** `const struct i2s_config *i2s_config_get(const struct device *dev, enum i2s_dir dir);`
 
 Returns the current configuration of a stream; returns NULL when the stream has never been configured (or has been released with `frame_clk_freq = 0`).
-
-```c
-/* i2s_config_get: the configuration of a stream, NULL while it is not configured */
-static void demo_i2s_config_get(void)
-{
-	struct i2s_config cfg = base_cfg();
-	const struct i2s_config *got;
-
-	cfg.frame_clk_freq = 0;			/* frame_clk_freq 0 releases the stream */
-	i2s_configure(codec_i2s, I2S_DIR_TX, &cfg);
-	got = i2s_config_get(codec_i2s, I2S_DIR_TX);
-	printk("[config_get] after releasing the stream        = %p\n", got);
-
-	cfg = base_cfg();
-	i2s_configure(codec_i2s, I2S_DIR_TX, &cfg);
-	got = i2s_config_get(codec_i2s, I2S_DIR_TX);
-	printk("[config_get] after configuring                 = %u Hz, %u bit, %u channels, block %u\n",
-	       got->frame_clk_freq, got->word_size, got->channels, (unsigned int)got->block_size);
-}
-```
 
 ```text
 [config_get] after releasing the stream        = 0
@@ -384,11 +271,9 @@ static void demo_i2s_config_get(void)
 
 The `0` on the first line is the NULL printed by `%p`.
 
-### i2s_write
+### I2S data
 
-```c
-int i2s_write(const struct device *dev, void *mem_block, size_t size);
-```
+**`i2s_write`** `int i2s_write(const struct device *dev, void *mem_block, size_t size);`
 
 Puts a block full of audio data into the transmit queue. The block must be allocated from the `mem_slab` of the configuration, no larger than `block_size`, and the driver frees it when it has been played. The stream must be in the configured or running state, otherwise `-EIO`; a block longer than `block_size` returns `-EINVAL`; a full queue returns `-EAGAIN` after waiting `timeout` milliseconds.
 
@@ -452,57 +337,11 @@ static void make_table(void)
 [write] a block longer than block_size          = -EINVAL
 ```
 
-### i2s_read
-
-```c
-int i2s_read(const struct device *dev, void **mem_block, size_t *size);
-```
+**`i2s_read`** `int i2s_read(const struct device *dev, void **mem_block, size_t *size);`
 
 Takes one captured block out of the receive queue. The block comes from the `mem_slab` of the configuration, and when it has been used the caller must give it back to the slab (`k_mem_slab_free`). When the queue holds no data, a running stream returns `-EAGAIN` after waiting `timeout` milliseconds, a stream that is not running (configured or error) returns `-EIO`; an unconfigured stream is `-EIO` as well.
 
 The demo configures a 48 kHz mono receive stream with 200 ms blocks (19200 bytes), opens the microphone input, reads 5 blocks and prints the minimum, maximum and mean of each block.
-
-```c
-K_MEM_SLAB_DEFINE_STATIC(rx_slab, RATE / 5 * sizeof(int16_t), 6, 4);
-
-static void demo_i2s_read(void)
-{
-	struct i2s_config rx = base_cfg();
-	int ret;
-
-	rx.channels = 1;
-	rx.block_size = RATE / 5 * sizeof(int16_t);			/* 200 ms */
-	rx.mem_slab = &rx_slab;
-	ret = i2s_configure(codec_i2s, I2S_DIR_RX, &rx);
-	printk("[read] configure the capture stream             = %s\n", err(ret));
-	ret = i2s_trigger(codec_i2s, I2S_DIR_RX, I2S_TRIGGER_START);
-	printk("[read] start the capture                        = %s\n", err(ret));
-
-	for (int n = 0; n < 5 && ret == 0; n++) {
-		void *block;
-		size_t size;
-		int32_t min = 32767, max = -32768;
-		int64_t sum = 0;
-		int16_t *p;
-
-		ret = i2s_read(codec_i2s, &block, &size);
-		if (ret != 0) {
-			printk("[read] i2s_read                                 = %s\n", err(ret));
-			break;
-		}
-		p = block;
-		for (size_t i = 0; i < size / 2; i++) {
-			min = MIN(min, p[i]);
-			max = MAX(max, p[i]);
-			sum += p[i];
-		}
-		printk("[read] block %d: %zu bytes, min %d, max %d, mean %d\n", n, size, min, max,
-		       (int)(sum / (int)(size / 2)));
-		k_mem_slab_free(&rx_slab, block);
-	}
-	i2s_trigger(codec_i2s, I2S_DIR_RX, I2S_TRIGGER_DROP);
-}
-```
 
 ```text
 [read] configure the capture stream             = 0
@@ -516,11 +355,7 @@ static void demo_i2s_read(void)
 
 Nothing makes a sound at the microphone on the board, so the data is a small DC offset (a mean of about −129).
 
-### i2s_trigger
-
-```c
-int i2s_trigger(const struct device *dev, enum i2s_dir dir, enum i2s_trigger_cmd cmd);
-```
+**`i2s_trigger`** `int i2s_trigger(const struct device *dev, enum i2s_dir dir, enum i2s_trigger_cmd cmd);`
 
 Controls the state of a stream. What the driver does:
 
@@ -532,20 +367,7 @@ Controls the state of a stream. What the driver does:
 | `I2S_TRIGGER_DROP` | Any configured state | Stops at once, throws away the queued blocks and returns to configured; unconfigured returns `-EIO` |
 | `I2S_TRIGGER_PREPARE` | Error state | Clears the queue and returns to configured; other states return `-EIO` |
 
-#### Example: START
-
-```c
-/* i2s_trigger START: begin the DMA transfer of the blocks that are queued */
-static void demo_i2s_trigger_start(void)
-{
-	int ret = i2s_trigger(codec_i2s, I2S_DIR_TX, I2S_TRIGGER_START);
-
-	printk("[trigger] I2S_TRIGGER_START                     = %s\n", err(ret));
-
-	ret = i2s_trigger(codec_i2s, I2S_DIR_TX, I2S_TRIGGER_START);
-	printk("[trigger] START again while running             = %s\n", err(ret));
-}
-```
+**Example: START**
 
 ```text
 [trigger] I2S_TRIGGER_START                     = 0
@@ -554,78 +376,19 @@ static void demo_i2s_trigger_start(void)
 
 After START the program feeds a block every 20 ms for 3 seconds and measures the real frame rate:
 
-```c
-/* keep the stream fed for a while: a block every 20 ms, and measure the real frame rate */
-static void play_tone(int seconds)
-{
-	int64_t t0 = k_uptime_get(), mark = 0;
-	int blocks = 0, mark_blocks = 0;
-
-	while (k_uptime_get() - t0 < seconds * 1000) {
-		void *block;
-
-		if (k_mem_slab_alloc(&slab, &block, K_MSEC(1000)) != 0) {
-			printk("[play] no block\n");
-			return;
-		}
-		fill_tone(block);
-		if (i2s_write(codec_i2s, block, BLOCK_SIZE) != 0) {
-			k_mem_slab_free(&slab, block);
-			printk("[play] write failed after %d blocks\n", blocks);
-			return;
-		}
-		blocks++;
-		if (mark == 0 && k_uptime_get() - t0 > 1000) {
-			mark = k_uptime_get();
-			mark_blocks = blocks;
-		}
-	}
-	printk("[play] %d blocks in %d s, steady state %d Hz\n", blocks, seconds,
-	       (int)((blocks - mark_blocks) * FRAMES * 1000LL / (k_uptime_get() - mark)));
-}
-```
-
 ```text
 [play] 157 blocks in 3 s, steady state 48000 Hz
 ```
 
 157 blocks × 960 frames = 150720 frames in 3 seconds; the steady state frame rate is 48000 Hz.
 
-#### Example: DRAIN
-
-```c
-/* i2s_trigger DRAIN: play what is queued, then stop. STOP stops after the current block, DROP at once and throws away what is queued. */
-static void demo_i2s_trigger_drain(void)
-{
-	int ret = i2s_trigger(codec_i2s, I2S_DIR_TX, I2S_TRIGGER_DRAIN);
-
-	printk("[trigger] I2S_TRIGGER_DRAIN                     = %s\n", err(ret));
-	k_msleep(300);
-}
-```
+**Example: DRAIN**
 
 ```text
 [trigger] I2S_TRIGGER_DRAIN                     = 0
 ```
 
-#### Example: a stream that is not running
-
-```c
-/* i2s_trigger with a stream that is not running */
-static void demo_i2s_trigger_errors(void)
-{
-	int ret;
-
-	ret = i2s_trigger(codec_i2s, I2S_DIR_TX, I2S_TRIGGER_STOP);
-	printk("[trigger] STOP while not running                = %s\n", err(ret));
-
-	ret = i2s_trigger(codec_i2s, I2S_DIR_TX, I2S_TRIGGER_DROP);
-	printk("[trigger] I2S_TRIGGER_DROP                      = %s\n", err(ret));
-
-	ret = i2s_trigger(codec_i2s, I2S_DIR_TX, I2S_TRIGGER_PREPARE);
-	printk("[trigger] PREPARE while not in the error state  = %s\n", err(ret));
-}
-```
+**Example: a stream that is not running**
 
 ```text
 [trigger] STOP while not running                = -EIO
@@ -633,24 +396,11 @@ static void demo_i2s_trigger_errors(void)
 [trigger] PREPARE while not in the error state  = -EIO
 ```
 
-### i2s_sunxi_codec_tx_position
+### Codec configuration
 
-```c
-int i2s_sunxi_codec_tx_position(const struct device *dev, uint32_t *blocks, uint32_t *cycle);
-```
+**`i2s_sunxi_codec_tx_position`** `int i2s_sunxi_codec_tx_position(const struct device *dev, uint32_t *blocks, uint32_t *cycle);`
 
 Header `<zephyr/drivers/i2s_sunxi.h>`; this is an extension of this driver. Returns how many blocks the DMA has already played, and the CPU cycle count when the most recent block finished playing. Audio/video synchronization uses it: the playback position is `blocks × frames per block`, and the [MP4 Player](../apps/mp4-player.md) calls this function.
-
-```c
-/* i2s_sunxi_codec_tx_position: how many blocks the DMA has played, and the cycle counter at the last block */
-static void demo_tx_position(void)
-{
-	uint32_t blocks = 0, cycle = 0;
-	int ret = i2s_sunxi_codec_tx_position(codec_i2s, &blocks, &cycle);
-
-	printk("[position] i2s_sunxi_codec_tx_position          = %s: %u blocks played\n", err(ret), blocks);
-}
-```
 
 ```text
 [position] i2s_sunxi_codec_tx_position          = 0: 151 blocks played
@@ -658,37 +408,15 @@ static void demo_tx_position(void)
 
 160 blocks were sent in all (the 3 written first plus the 157 in the loop); 151 have been played and the rest are in the queue and the DMA ring.
 
-### audio_codec_configure
-
-```c
-int audio_codec_configure(const struct device *dev, struct audio_codec_cfg *cfg);
-```
+**`audio_codec_configure`** `int audio_codec_configure(const struct device *dev, struct audio_codec_cfg *cfg);`
 
 The analog part needs no configuration: the stream format and the clocks belong to the I2S device. This call only checks that the argument is not NULL (a NULL pointer returns `-EINVAL`).
-
-```c
-/* audio_codec_configure: the stream format and the clocks belong to the I2S device, so this call
- * only checks its argument
- */
-static void demo_audio_codec_configure(void)
-{
-	struct audio_codec_cfg cfg = { 0 };
-	int ret = audio_codec_configure(analog, &cfg);
-
-	printk("[codec_configure] audio_codec_configure         = %s\n", err(ret));
-}
-```
 
 ```text
 [codec_configure] audio_codec_configure         = 0
 ```
 
-### audio_codec_set_property
-
-```c
-int audio_codec_set_property(const struct device *dev, audio_property_t property,
-                             audio_channel_t channel, audio_property_value_t val);
-```
+**`audio_codec_set_property`** `int audio_codec_set_property(const struct device *dev, audio_property_t property, audio_channel_t channel, audio_property_value_t val);`
 
 | Property | Value | What the driver does |
 | --- | --- | --- |
@@ -698,46 +426,6 @@ int audio_codec_set_property(const struct device *dev, audio_property_t property
 | `AUDIO_PROPERTY_INPUT_MUTE` | `val.mute` | Mutes the input |
 
 Every property is written to the registers as soon as it is set. The `dac-volume` (130) and `adc-volume` (160) in the devicetree are the initial values.
-
-```c
-/* audio_codec_set_property: output volume 0..255 of one or both channels, mute, and the same for the input */
-static void demo_audio_codec_set_property(void)
-{
-	audio_property_value_t v;
-	int ret;
-
-	v.vol = 130;
-	ret = audio_codec_set_property(analog, AUDIO_PROPERTY_OUTPUT_VOLUME, AUDIO_CHANNEL_ALL, v);
-	printk("[property] output volume 130, both channels     = %s\n", err(ret));
-
-	v.vol = 200;
-	ret = audio_codec_set_property(analog, AUDIO_PROPERTY_OUTPUT_VOLUME, AUDIO_CHANNEL_FRONT_LEFT, v);
-	printk("[property] output volume 200, left only         = %s\n", err(ret));
-
-	v.vol = 256;
-	ret = audio_codec_set_property(analog, AUDIO_PROPERTY_OUTPUT_VOLUME, AUDIO_CHANNEL_ALL, v);
-	printk("[property] output volume 256                    = %s\n", err(ret));
-
-	v.mute = true;
-	ret = audio_codec_set_property(analog, AUDIO_PROPERTY_OUTPUT_MUTE, AUDIO_CHANNEL_FRONT_RIGHT, v);
-	printk("[property] mute the right channel               = %s\n", err(ret));
-
-	v.mute = false;
-	ret = audio_codec_set_property(analog, AUDIO_PROPERTY_OUTPUT_MUTE, AUDIO_CHANNEL_ALL, v);
-	printk("[property] unmute both channels                 = %s\n", err(ret));
-
-	v.vol = 160;
-	ret = audio_codec_set_property(analog, AUDIO_PROPERTY_INPUT_VOLUME, AUDIO_CHANNEL_ALL, v);
-	printk("[property] input volume 160                     = %s\n", err(ret));
-
-	v.mute = false;
-	ret = audio_codec_set_property(analog, AUDIO_PROPERTY_INPUT_MUTE, AUDIO_CHANNEL_ALL, v);
-	printk("[property] input unmuted                        = %s\n", err(ret));
-
-	v.vol = 130;
-	ret = audio_codec_set_property(analog, AUDIO_PROPERTY_OUTPUT_VOLUME, AUDIO_CHANNEL_ALL, v);
-}
-```
 
 ```text
 [property] output volume 130, both channels     = 0
@@ -749,77 +437,33 @@ static void demo_audio_codec_set_property(void)
 [property] input unmuted                        = 0
 ```
 
-### audio_codec_apply_properties
+### Codec output and routing
 
-```c
-int audio_codec_apply_properties(const struct device *dev);
-```
+**`audio_codec_apply_properties`** `int audio_codec_apply_properties(const struct device *dev);`
 
 Some codecs collect a batch of properties and apply them together. This driver writes its properties as they are set, so there is nothing to do and it returns 0.
-
-```c
-/* audio_codec_apply_properties: every property is written as soon as it is set, so there is nothing to apply */
-static void demo_audio_codec_apply_properties(void)
-{
-	int ret = audio_codec_apply_properties(analog);
-
-	printk("[apply] audio_codec_apply_properties            = %s\n", err(ret));
-}
-```
 
 ```text
 [apply] audio_codec_apply_properties            = 0
 ```
 
-### audio_codec_start_output
-
-```c
-void audio_codec_start_output(const struct device *dev);
-```
+**`audio_codec_start_output`** `void audio_codec_start_output(const struct device *dev);`
 
 Turns the output on: enables the DAC and the headphone driver (with a pop-free ramp), raises the amplifier enable pin when `pa-gpios` is set, and waits `pa-delay-ms` (10 ms). Call it before `i2s_trigger(START)`.
-
-```c
-/* audio_codec_start_output: power up the headphone driver (and enable the speaker amplifier on pa-gpios) */
-static void demo_audio_codec_start_output(void)
-{
-	int64_t t0 = k_uptime_get();
-
-	audio_codec_start_output(analog);
-	printk("[start_output] headphone driver and amplifier on, %lld ms\n", k_uptime_get() - t0);
-}
-```
 
 ```text
 [start_output] headphone driver and amplifier on, 10 ms
 ```
 
-### audio_codec_stop_output
-
-```c
-void audio_codec_stop_output(const struct device *dev);
-```
+**`audio_codec_stop_output`** `void audio_codec_stop_output(const struct device *dev);`
 
 First lowers the amplifier enable pin, then turns off the headphone driver, the ramp and the DAC in turn; the output is muted.
-
-```c
-/* audio_codec_stop_output: power the headphone driver down again */
-static void demo_audio_codec_stop_output(void)
-{
-	audio_codec_stop_output(analog);
-	printk("[stop_output] headphone driver and amplifier off\n");
-}
-```
 
 ```text
 [stop_output] headphone driver and amplifier off
 ```
 
-### audio_codec_route_input
-
-```c
-int audio_codec_route_input(const struct device *dev, audio_channel_t channel, uint32_t input);
-```
+**`audio_codec_route_input`** `int audio_codec_route_input(const struct device *dev, audio_channel_t channel, uint32_t input);`
 
 Chooses which analog input the ADC listens to. `input` is 1, 2 or 3, 0 means unconnected, and anything above 3 returns `-EINVAL`; `channel` is ignored.
 
@@ -832,67 +476,26 @@ Chooses which analog input the ADC listens to. `input` is 1, 2 or 3, 0 means unc
 
 The initial value comes from the devicetree `adc-source`.
 
-```c
-/* audio_codec_route_input: choose what the ADC listens to: 1 microphone, 2 FM input, 3 line input */
-static void demo_audio_codec_route_input(void)
-{
-	int ret;
-
-	ret = audio_codec_route_input(analog, AUDIO_CHANNEL_ALL, 1);
-	printk("[route] input 1 (microphone)                    = %s\n", err(ret));
-
-	ret = audio_codec_route_input(analog, AUDIO_CHANNEL_ALL, 4);
-	printk("[route] input 4                                 = %s\n", err(ret));
-}
-```
-
 ```text
 [route] input 1 (microphone)                    = 0
 [route] input 4                                 = -EINVAL
 ```
 
-### audio_codec_route_output
-
-```c
-int audio_codec_route_output(const struct device *dev, audio_channel_t channel, uint32_t output);
-```
+**`audio_codec_route_output`** `int audio_codec_route_output(const struct device *dev, audio_channel_t channel, uint32_t output);`
 
 The driver does not implement it and returns `-ENOSYS`. The output is always the headphone, and the amplifier is controlled with `pa-gpios`.
 
-### audio_codec_clear_errors
+### Errors and release
 
-```c
-int audio_codec_clear_errors(const struct device *dev);
-```
+**`audio_codec_clear_errors`** `int audio_codec_clear_errors(const struct device *dev);`
 
 The driver does not implement it and returns `-ENOSYS`.
 
-### audio_codec_register_error_callback
-
-```c
-int audio_codec_register_error_callback(const struct device *dev, audio_codec_error_callback_t cb);
-```
+**`audio_codec_register_error_callback`** `int audio_codec_register_error_callback(const struct device *dev, audio_codec_error_callback_t cb);`
 
 The driver does not implement it and returns `-ENOSYS`.
 
 All three are in the function below:
-
-```c
-/* audio_codec functions the analog front end does not implement */
-static void demo_audio_codec_unsupported(void)
-{
-	int ret;
-
-	ret = audio_codec_route_output(analog, AUDIO_CHANNEL_ALL, 0);
-	printk("[unsupported] audio_codec_route_output          = %s\n", err(ret));
-
-	ret = audio_codec_clear_errors(analog);
-	printk("[unsupported] audio_codec_clear_errors          = %s\n", err(ret));
-
-	ret = audio_codec_register_error_callback(analog, NULL);
-	printk("[unsupported] audio_codec_register_error_callback = %s\n", err(ret));
-}
-```
 
 ```text
 [unsupported] audio_codec_route_output          = -ENOSYS
@@ -900,24 +503,9 @@ static void demo_audio_codec_unsupported(void)
 [unsupported] audio_codec_register_error_callback = -ENOSYS
 ```
 
-### Releasing a stream
+**Releasing a stream**
 
 Setting `frame_clk_freq` of `i2s_configure` to 0 releases the stream and its DMA ring and gives the memory back to the heap. When several demos of the same device run one after another, a stream that is not released makes the later configurations return `-ENOMEM` because the heap runs out.
-
-```c
-/* i2s_configure with frame_clk_freq 0: release the stream and give its DMA ring back to the heap */
-static void demo_i2s_release(void)
-{
-	struct i2s_config cfg = base_cfg();
-	int ret;
-
-	cfg.frame_clk_freq = 0;
-	ret = i2s_configure(codec_i2s, I2S_DIR_TX, &cfg);
-	printk("[release] playback stream                       = %s\n", err(ret));
-	ret = i2s_configure(codec_i2s, I2S_DIR_RX, &cfg);
-	printk("[release] capture stream                        = %s\n", err(ret));
-}
-```
 
 ```text
 [release] playback stream                       = 0
@@ -1089,7 +677,7 @@ audio_api/
     └── main.c
 ```
 
-### CMakeLists.txt
+**CMakeLists.txt**
 
 ```cmake
 cmake_minimum_required(VERSION 3.20.0)
@@ -1099,7 +687,7 @@ project(audio_api)
 target_sources(app PRIVATE src/main.c)
 ```
 
-### prj.conf
+**prj.conf**
 
 ```ini
 CONFIG_I2S=y
@@ -1115,7 +703,7 @@ CONFIG_DEVMEM_SHELL=n
 CONFIG_LOG_PRINTK=n
 ```
 
-### src/main.c
+**src/main.c**
 
 ```c
 /*
@@ -1694,7 +1282,7 @@ int main(void)
 }
 ```
 
-### Building and running
+**Building and running**
 
 ```sh
 . ~/f101-zephyr/env.sh

@@ -2,7 +2,7 @@
 title: "DLNA - UPnP 媒体接收器"
 ---
 
-`zephyr-components/dlna` 是可复用的 UPnP AV **MediaRenderer:1**。手机或 PC 发送媒体 URL 和播放命令，应用下载并播放文件。DLNA 不镜像手机桌面；Android 无线屏幕镜像请使用 [Miracast](../apps/miracast.md)。
+`zephyr-components/dlna` 是可复用的 UPnP AV **MediaRenderer:1**。手机或 PC 发送媒体 URL 和播放命令，应用下载并播放文件。DLNA 不镜像手机桌面。Android 无线屏幕镜像请使用 [Miracast](../apps/miracast.md)。
 
 ## 版本与验证
 
@@ -31,7 +31,7 @@ NekoBox 播放器支持普通的 **HTTP H.264/AAC MP4**，包括 chunked 和没�
 
 下载器每写入 64 KiB 同步一次，再发布可读数据。完整 `moov` 与配置的缓冲量可用后开始播放，文件下载完毕也可启动。`moov` 位于文件尾部时必须等待全部下载。等待中的读取可被暂停、跳转、停止或替换请求打断，UI 线程不会等待网络数据。
 
-DLNA 不能强制发送应用提供 360p。NekoBox 分别检查选中的 DIDL 资源和实际 MP4 尺寸，缺失或错误的元数据不能绕过限制。URL 最长为解码后的 4095 字节；替换地址被拒绝后，Play 不会重新启动旧地址。
+DLNA 不能强制发送应用提供 360p。NekoBox 分别检查选中的 DIDL 资源和实际 MP4 尺寸，缺失或错误的元数据不能绕过限制。URL 最长为解码后的 4095 字节。替换地址被拒绝后，Play 不会重新启动旧地址。
 
 ## 集成模块
 
@@ -53,4 +53,4 @@ sh zephyr-components/dlna/tests/host/run.sh
 sh zephyr-components/nekobox/tests/streaming/run.sh
 ```
 
-检查需要 GCC、Python 和 FFmpeg，包含 ASan/UBSan、通过 POSIX 适配运行的实际 HTTP 服务器、事件 XML 校验，以及模拟 FAT 缓存文件大小的 MP4 渐进读取。它们需与真实 SD 卡和网络测试配合。发现失败时检查组播与网络隔离；播放失败时检查 HTTP 可达性、格式、分辨率和卡上空间。
+检查需要 GCC、Python 和 FFmpeg，包含 ASan/UBSan、通过 POSIX 适配运行的实际 HTTP 服务器、事件 XML 校验，以及模拟 FAT 缓存文件大小的 MP4 渐进读取。它们需与真实 SD 卡和网络测试配合。发现失败时检查组播与网络隔离。播放失败时检查 HTTP 可达性、格式、分辨率和卡上空间。

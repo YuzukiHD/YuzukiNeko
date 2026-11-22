@@ -2,7 +2,7 @@
 title: "VE - 视频解码"
 ---
 
-F101 的视频引擎（VE）是硬件视频解码器。在这颗芯片上它能解 JPEG 和 H.264；它没有编码器，cedrus 驱动在其它全志 SoC 上支持的 HEVC、MPEG-2 和 VP8 块在这里也不存在。Linux 用主线 cedrus 驱动来驱动它，在 `/dev/video1` 上暴露成 V4L2 mem2mem 解码器，并在 `/dev/media0` 上提供 media controller。两个解码器给使用者的都是线性 NV12 图像，尽管引擎内部解码成平铺布局。
+F101 的视频引擎（VE）是硬件视频解码器。在这颗芯片上它能解 JPEG 和 H.264。它没有编码器，cedrus 驱动在其它全志 SoC 上支持的 HEVC、MPEG-2 和 VP8 块在这里也不存在。Linux 用主线 cedrus 驱动来驱动它，在 `/dev/video1` 上暴露成 V4L2 mem2mem 解码器，并在 `/dev/media0` 上提供 media controller。两个解码器给使用者的都是线性 NV12 图像，尽管引擎内部解码成平铺布局。
 
 | 项目 | 内容 |
 | --- | --- |
@@ -17,7 +17,7 @@ F101 的视频引擎（VE）是硬件视频解码器。在这颗芯片上它能�
 
 ## 硬件
 
-引擎分成顶部块、解码器段和转换块。顶部块选择解码器并管理 SRAM 端口；解码器段包含 JPEG/MPEG VLD 块、H.264 解码器和它们共用的存储；转换块把平铺的宏块图像变成捕获队列暴露的线性 NV12。
+引擎分成顶部块、解码器段和转换块。顶部块选择解码器并管理 SRAM 端口。解码器段包含 JPEG/MPEG VLD 块、H.264 解码器和它们共用的存储。转换块把平铺的宏块图像变成捕获队列暴露的线性 NV12。
 
 ```mermaid
 flowchart LR
@@ -43,13 +43,13 @@ flowchart LR
 | H.264 | `0x01` | `0x09` |
 | HEVC | `0x04` | `0x0c` |
 
-F101 变体只使能 JPEG 和 H.264，所以只有前两行可达。JPEG 使用 MPEG 解码块，因为 JPEG 熵解码器就在那里；`VE_MODE` 写 MPEG 族的值，JPEG VLD 通过 `0x114` 的块单独触发。
+F101 变体只使能 JPEG 和 H.264，所以只有前两行可达。JPEG 使用 MPEG 解码块，因为 JPEG 熵解码器就在那里。`VE_MODE` 写 MPEG 族的值，JPEG VLD 通过 `0x114` 的块单独触发。
 
-`0x50` 的 `VE_BUF_CTRL` 选择 H.264 行缓冲放在哪里。F101 写 `0x0a`，即 `VE_BUF_CTRL_INTRAPRED_EXT_RAM | VE_BUF_CTRL_DBLK_EXT_RAM`：帧内预测和去块的行缓冲都在外部 RAM。地址写到 `VE_DBLK_DRAM_BUF_ADDR`（`0x54`）和 `VE_INTRAPRED_DRAM_BUF_ADDR`（`0x58`）。这个设置是 H.264 在这个引擎版本上能解码的前提；内部 SRAM 没有交给解码器。
+`0x50` 的 `VE_BUF_CTRL` 选择 H.264 行缓冲放在哪里。F101 写 `0x0a`，即 `VE_BUF_CTRL_INTRAPRED_EXT_RAM | VE_BUF_CTRL_DBLK_EXT_RAM`：帧内预测和去块的行缓冲都在外部 RAM。地址写到 `VE_DBLK_DRAM_BUF_ADDR`（`0x54`）和 `VE_INTRAPRED_DRAM_BUF_ADDR`（`0x58`）。这个设置是 H.264 在这个引擎版本上能解码的前提。内部 SRAM 没有交给解码器。
 
 ### SRAM 段
 
-VE SRAM 是系统控制器下的 `mmio-sram` 子节点，44 KiB，位于 `0x00020000`。申请这段会把系统控制寄存器 `0x03000004` 的 bit 24 写成 0；写 1 则把区域交给 CPU。启动引导程序也从 `0x00020000` 运行，所以这块区域要等 Linux 启动后才空出来给解码器用。H.264 解码器用它放参考图像列表、参考列表 0 和 1、8x8 和 4x4 缩放矩阵以及预测权重表。驱动通过 SRAM 端口写这些结构：
+VE SRAM 是系统控制器下的 `mmio-sram` 子节点，44 KiB，位于 `0x00020000`。申请这段会把系统控制寄存器 `0x03000004` 的 bit 24 写成 0。写 1 则把区域交给 CPU。启动引导程序也从 `0x00020000` 运行，所以这块区域要等 Linux 启动后才空出来给解码器用。H.264 解码器用它放参考图像列表、参考列表 0 和 1、8x8 和 4x4 缩放矩阵以及预测权重表。驱动通过 SRAM 端口写这些结构：
 
 - `VE_AVC_SRAM_PORT_OFFSET` 选择一个字偏移；
 - `VE_AVC_SRAM_PORT_DATA` 写一个 32 位字。
@@ -91,7 +91,7 @@ H.264 解码器是无状态解码器：用户空间解析码流，把 SPS、PPS�
 | `VE_H264_STATUS`、`VE_H264_CTRL` | 中断状态和使能 |
 | `VE_H264_OUTPUT_FRAME_IDX` | 参考帧列表里的槽位 |
 
-有两个 F101 细节很重要。第一，`VE_H264_VLD_END` 必须是整个输入缓冲区的最后一个字节，而不是 slice 的末尾；如果结束位置在 slice 末尾，解码器在第一次 burst 后就停止，图像解不完。第二，`VE_H264_CTRL` 在图像之间保持 bit 10 置位，因为这是这个引擎版本的复位值。触发时还会在启动 slice 解码前置寄存器 `0x1c` 的 bit 6。
+有两个 F101 细节很重要。第一，`VE_H264_VLD_END` 必须是整个输入缓冲区的最后一个字节，而不是 slice 的末尾。如果结束位置在 slice 末尾，解码器在第一次 burst 后就停止，图像解不完。第二，`VE_H264_CTRL` 在图像之间保持 bit 10 置位，因为这是这个引擎版本的复位值。触发时还会在启动 slice 解码前置寄存器 `0x1c` 的 bit 6。
 
 输入格式是 `V4L2_PIX_FMT_H264_SLICE`，配合 `V4L2_STATELESS_H264_DECODE_MODE_SLICE_BASED` 和 `V4L2_STATELESS_H264_START_CODE_NONE`。`START_CODE_NONE` 表示缓冲区从 NAL 头开始，而不是从 `00 00 01` 起始码开始。测试程序自己剥掉起始码，每个 request 排一个 slice NAL。
 
@@ -196,7 +196,7 @@ static const struct cedrus_variant sun252i_f101_cedrus_variant = {
 };
 ```
 
-探测申请中断，初始化可选的 reserved memory，申请 SRAM 段，取得三个时钟和复位，映射寄存器并设置模块时钟。时钟是 300 MHz，因为 512 MHz 会让这块板子上的引擎挂死。驱动启用 runtime PM；suspend 路径关闭 RAM、模块和 AHB 时钟并断言复位，resume 路径按相反顺序恢复。
+探测申请中断，初始化可选的 reserved memory，申请 SRAM 段，取得三个时钟和复位，映射寄存器并设置模块时钟。时钟是 300 MHz，因为 512 MHz 会让这块板子上的引擎挂死。驱动启用 runtime PM。suspend 路径关闭 RAM、模块和 AHB 时钟并断言复位，resume 路径按相反顺序恢复。
 
 视频设备用 `VFL_TYPE_VIDEO` 注册，media 设备用 `v4l2_m2m_register_media_controller()` 注册。media 设备是无状态 request 的前提：`MEDIA_IOC_REQUEST_ALLOC` 创建 request 文件描述符，控制项和缓冲区挂到它上面，`MEDIA_REQUEST_IOC_QUEUE` 原子地提交它们。
 
@@ -262,7 +262,7 @@ H.264 路径是无状态的。`cedrus_device_run()` 把 request 控制项复制�
 - 去块：`DIV_ROUND_UP(width, 16) * 1024`；
 - 帧内预测：`16 KiB + DIV_ROUND_UP(width, 16) * 546`。
 
-picture info 缓冲区从 `18 * 0x1000` 字节起，按 `source_height * 2 * 64` 增长，且不小于 130 KiB；neighbour info 缓冲区是 32 KiB。
+picture info 缓冲区从 `18 * 0x1000` 字节起，按 `source_height * 2 * 64` 增长，且不小于 130 KiB。neighbour info 缓冲区是 32 KiB。
 
 ### 中断与看门狗
 
@@ -276,19 +276,19 @@ picture info 缓冲区从 `18 * 0x1000` 字节起，按 `source_height * 2 * 64`
 
 ### Cache 与 PBMT
 
-C906/C907 核运行 Sv32，没有 PBMT，所以 DMA 缓冲区不会自动变成非缓存。解码器在硬件里写捕获缓冲区。测试用的是 DMA 分配器的 MMAP 缓冲区，在这个队列上不会被标记为非一致性；dma-buf 导入会被标记为非一致性，`vb2_dma_contig` 的 prepare 和 finish memop 会在作业前后同步它。H.264 行缓冲和 tile 缓冲用 `dma_alloc_attrs()` 分配，并有意建立内核映射好让内核清零，因为解码器要求行缓冲从零开始。
+C906/C907 核运行 Sv32，没有 PBMT，所以 DMA 缓冲区不会自动变成非缓存。解码器在硬件里写捕获缓冲区。测试用的是 DMA 分配器的 MMAP 缓冲区，在这个队列上不会被标记为非一致性。dma-buf 导入会被标记为非一致性，`vb2_dma_contig` 的 prepare 和 finish memop 会在作业前后同步它。H.264 行缓冲和 tile 缓冲用 `dma_alloc_attrs()` 分配，并有意建立内核映射好让内核清零，因为解码器要求行缓冲从零开始。
 
 ## 用户空间
 
 ### 设备
 
-`/dev/video1` 是解码器。G2D 在 `/dev/video0`，两个视频节点按探测顺序分配；用下面的命令确认：
+`/dev/video1` 是解码器。G2D 在 `/dev/video0`，两个视频节点按探测顺序分配。用下面的命令确认：
 
 ```sh
 cat /sys/class/video4linux/video*/name
 ```
 
-解码器报告的 driver 是 `cedrus`，card 是 `cedrus`。`/dev/media0` 是同一设备的 media controller；它只用于 request 的分配和排队。
+解码器报告的 driver 是 `cedrus`，card 是 `cedrus`。`/dev/media0` 是同一设备的 media controller。它只用于 request 的分配和排队。
 
 ### 无状态控制项
 
@@ -305,11 +305,11 @@ H.264 控制项是标准的 V4L2 无状态 H.264 集合：
 | `V4L2_CID_STATELESS_H264_DECODE_MODE` | 固定为 slice-based |
 | `V4L2_CID_STATELESS_H264_START_CODE` | 固定为 none |
 
-`cedrus_try_ctrl()` 拒绝不是 4:2:0、亮度与色度位深不一致、或位深不是 8 的 SPS。profile 控制项接受 Baseline、Main 和 High；Extended 被屏蔽。
+`cedrus_try_ctrl()` 拒绝不是 4:2:0、亮度与色度位深不一致、或位深不是 8 的 SPS。profile 控制项接受 Baseline、Main 和 High。Extended 被屏蔽。
 
 ### 示例：解码 JPEG
 
-下面的程序把一张 baseline JPEG 解码成线性 NV12。它走有状态路径：不需要 media request，一个输出缓冲区和一个捕获缓冲区。输出格式必须带图像的真实宽高，因为捕获格式由它推导；示例假设 1920x1080 的 JPEG，换图时改这两个数。
+下面的程序把一张 baseline JPEG 解码成线性 NV12。它走有状态路径：不需要 media request，一个输出缓冲区和一个捕获缓冲区。输出格式必须带图像的真实宽高，因为捕获格式由它推导。示例假设 1920x1080 的 JPEG，换图时改这两个数。
 
 ```c
 #include <stdio.h>
@@ -442,7 +442,7 @@ int main(int argc, char **argv)
 }
 ```
 
-程序打印驱动选择的、对齐后的捕获格式。源宽高本来就是 32 的倍数时，打印的就是源尺寸，stride 等于宽度；否则两者都向上取整。
+程序打印驱动选择的、对齐后的捕获格式。源宽高本来就是 32 的倍数时，打印的就是源尺寸，stride 等于宽度。否则两者都向上取整。
 
 ### 示例：用 request 解码 H.264
 
@@ -467,7 +467,7 @@ build-rv32/host/bin/riscv32-buildroot-linux-musl-gcc -static -O2 \
 	-o h264t fel-stage/src/h264t.c
 ```
 
-板子没有网络。程序和码流用 `xfel` 写进 `0x41e00000` 的 reserved memory，再用 `/dev/mem` 取出来。这里用的是测试设备树，它在 `0x41e00000` 保留了 2 MiB；正式 NOR 启动的设备树没有描述这块保留区。
+板子没有网络。程序和码流用 `xfel` 写进 `0x41e00000` 的 reserved memory，再用 `/dev/mem` 取出来。这里用的是测试设备树，它在 `0x41e00000` 保留了 2 MiB。正式 NOR 启动的设备树没有描述这块保留区。
 
 ```bat
 xfel write 0x41e00000 h264t
@@ -483,7 +483,7 @@ chmod +x /tmp/h264t
 /tmp/h264t /tmp/test.h264
 ```
 
-两兆字节的 reserved 区域在 `0x41e00000`，所以程序必须小于到码流之间的 1 MiB 间隔。准确的 `count` 应该是文件大小向上取整到兆字节；固定读一兆字节只在两个文件都放得下时才安全。
+两兆字节的 reserved 区域在 `0x41e00000`，所以程序必须小于到码流之间的 1 MiB 间隔。准确的 `count` 应该是文件大小向上取整到兆字节。固定读一兆字节只在两个文件都放得下时才安全。
 
 程序每个阶段打印一行，最后给出结论：
 

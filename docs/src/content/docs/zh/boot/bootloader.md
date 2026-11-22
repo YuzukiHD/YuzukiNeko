@@ -22,7 +22,7 @@ flowchart TD
     FLASH --> UF2["UF2 下载器 / 应用"]
 ```
 
-Boot ROM 根据 NOR 偏移 `0x000000` 是否有有效 eGON 镜像决定进入 FEL 还是从 NOR 启动。FEL 路径不写 NOR，所有镜像通过 USB 写入 SRAM 或 PSRAM；NOR 路径由 `spinor-boot` 或 `flash-boot` 读取固定区域。
+Boot ROM 根据 NOR 偏移 `0x000000` 是否有有效 eGON 镜像决定进入 FEL 还是从 NOR 启动。FEL 路径不写 NOR，所有镜像通过 USB 写入 SRAM 或 PSRAM。NOR 路径由 `spinor-boot` 或 `flash-boot` 读取固定区域。
 
 ## 选择引导方式
 
@@ -71,7 +71,7 @@ xfel write 0x40000000 build/hello/zephyr/zephyr.bin
 xfel exec 0x40000000
 ```
 
-S4 把 helper 换成 `init_psram_efex_s4.bin`。`zephyr.bin` 的链接地址必须是 `0x40000000`；XIP 配置的镜像不能走这条路径。完整流程见 [Zephyr 编译与运行](../dev/zephyr/zephyr-build-run.md)。
+S4 把 helper 换成 `init_psram_efex_s4.bin`。`zephyr.bin` 的链接地址必须是 `0x40000000`。XIP 配置的镜像不能走这条路径。完整流程见 [Zephyr 编译与运行](../dev/zephyr/zephyr-build-run.md)。
 
 ## 启动 RT-Thread 与 ESP-IDF
 
@@ -131,7 +131,7 @@ xfel write 0x20000 xip-boot_fel.bin
 xfel exec 0x20000
 ```
 
-应用位于 NOR `0x80000`，窗口为 `0x0e000000`，长度默认 6 MiB。镜像偏移由 `CONFIG_DRIVER_MTD_SPIF_NOR_XIP_OFFSET` 控制，默认 `0x80000`；采样训练参数保存在 `0x20000`。NekoBox、Bilibili 和 Miracast 使用这条路径，见 [Zephyr UF2 与 XIP](../dev/zephyr/zephyr-uf2.md)。
+应用位于 NOR `0x80000`，窗口为 `0x0e000000`，长度默认 6 MiB。镜像偏移由 `CONFIG_DRIVER_MTD_SPIF_NOR_XIP_OFFSET` 控制，默认 `0x80000`。采样训练参数保存在 `0x20000`。NekoBox、Bilibili 和 Miracast 使用这条路径，见 [Zephyr UF2 与 XIP](../dev/zephyr/zephyr-uf2.md)。
 
 UF2 流程使用 `flash-boot`：系统程序在 NOR `0x30000`，应用在 `0x200000`，上电时按住 PD5 或应用无效会进入 UF2 下载器：
 
@@ -149,4 +149,4 @@ xfel spinor erase 0x0 0x10000
 xfel reset
 ```
 
-擦除前确认偏移和长度；只擦 `0x000000`–`0x00ffff`，不要碰应用或文件系统区域。
+擦除前确认偏移和长度。只擦 `0x000000`–`0x00ffff`，不要碰应用或文件系统区域。

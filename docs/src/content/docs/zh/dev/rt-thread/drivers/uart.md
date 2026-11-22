@@ -62,7 +62,7 @@ MSH_CMD_EXPORT(demo_uart_tx, Transmit through the native UART1 device);
 
 ## 完整中断接收示例
 
-使用前在 DTS 启用并布线另一 UART；示例有意拒绝 UART1 和已打开的设备。保存为 `applications/demo_uart_rx.c`，调用 `demo_uart_rx <uart-name>`，十秒采集期间从另一适配器发送 115200 8N1 数据。回调只通知信号量，工作线程读取并打印。已挂起的信号量可避免读取为空到开始等待之间漏掉通知。
+使用前在 DTS 启用并布线另一 UART。示例有意拒绝 UART1 和已打开的设备。保存为 `applications/demo_uart_rx.c`，调用 `demo_uart_rx <uart-name>`，十秒采集期间从另一适配器发送 115200 8N1 数据。回调只通知信号量，工作线程读取并打印。已挂起的信号量可避免读取为空到开始等待之间漏掉通知。
 
 ```c
 #include <rtthread.h>
