@@ -19,6 +19,7 @@ npm run check:i18n # 校验中英两棵树是否对得上
 | `src/content/docs/**/figures/` | 页面里的图片，放在文章同目录的 `figures/` 下，用 `![](figures/xx.webp)` 引用，例如 `dev/asterinas/figures/`、`boot/figures/`；根目录页面（如外壳）的图片在 `src/content/docs/figures/` |
 | `public/figures/` | 两种语言共用、不走 Astro 图片处理的图（首页那张板子渲染图）。页面里写 `<img src="assets/figures/xx.webp">`，`assets/` 前缀由构建插件换成站点地址 |
 | `public/casts/` | asciinema 录像（`.cast`），两种语言共用 |
+| `public/agent/` | 可下载的 skill 文件；`f101-ram-boot-test/SKILL.md` 与工作区 `.claude/skills/f101-ram-boot-test/SKILL.md` 保持一致 |
 | `public/enhance.js` | 浏览器端脚本：画 mermaid 图、启动 asciinema 播放器 |
 | `src/plugins/remark-docs.mjs` | 构建期插件，见下 |
 | `sidebar.mjs` | 侧边栏，按章节分组；一级分组默认展开，嵌套的子分组默认折叠 |

@@ -806,6 +806,18 @@ export const sidebar = [
     ]
   },
   {
+    "label": "Agent-assisted development",
+    "translations": { "zh-CN": "Agent 辅助开发" },
+    "collapsed": false,
+    "items": [
+      {
+        "label": "RAM-boot testing",
+        "translations": { "zh-CN": "RAM 启动测试" },
+        "slug": "dev/agent"
+      }
+    ]
+  },
+  {
     "label": "Enclosure",
     "translations": { "zh-CN": "外壳" },
     "collapsed": false,

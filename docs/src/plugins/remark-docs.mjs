@@ -38,13 +38,14 @@ export function remarkDocs({ base = '' } = {}) {
 			} else if (node.type === 'link' && typeof node.url === 'string') {
 				node.url = pageUrl(node.url);
 			} else if (node.type === 'html' && node.value.includes('assets/')) {
-				// Files that live in public/ are written as src="assets/..." and get the site base
-				// here, so a raw HTML <img> works the same way as the asciinema <div>s.
+				// Files that live in public/ are written as src="assets/..." or href="assets/..."
+				// and get the site base here, so a raw HTML <img> or download link works the same
+				// way as the asciinema <div>s.
 				if (node.value.includes('class="asciinema-cast"')) {
 					// not-content keeps the page's own spacing rules away from the player's inner elements
 					node.value = node.value.replace('class="asciinema-cast"', 'class="asciinema-cast not-content"');
 				}
-				node.value = node.value.replaceAll(/((?:data-)?src)="assets\//g, `$1="${base}/`);
+				node.value = node.value.replaceAll(/((?:data-)?src|href)="assets\//g, `$1="${base}/`);
 			}
 		});
 	};
