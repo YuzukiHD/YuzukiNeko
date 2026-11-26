@@ -74,5 +74,6 @@ Zephyr 4.2.2 and 4.5.0 remain available together; choose matched branches using 
 ## Next steps
 
 - Want to attach peripherals → [Pinout](hardware/pinout.md)
+- Want the schematic or an enclosure → [Hardware downloads](hardware/download.md), [3D-printed enclosures](shell.md)
 - Want drag-and-drop `.uf2` flashing → [UF2 drag-and-drop flashing](dev/zephyr/zephyr-uf2.md)
 - Hitting problems → [FAQ](faq.md)

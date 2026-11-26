@@ -11,6 +11,13 @@ This compact development board is based on the **F101 Series SoC**. It follows t
 
 > The *multiplexed functions* in this document are functions the SoC **can select** on a pin. They are not simultaneous functions, nor do they imply that every function is routed, enabled, or used by default on this board. Configure one function per pin in pinctrl/pinmux software.
 
+## Documentation and downloads
+
+- Documentation site: <https://yuzukihd.github.io/YuzukiNeko/>
+- Hardware design files: [`01_Hardware/`](https://github.com/YuzukiHD/YuzukiNeko/tree/main/01_Hardware) for the core board (V1.3, V1.4, V1.5), [`04_BaseBoard/`](https://github.com/YuzukiHD/YuzukiNeko/tree/main/04_BaseBoard) for the YuzukiCube-M base board
+- Enclosures: core board [`03_Shell_3D/YuzukiNeko_case.3mf`](https://github.com/YuzukiHD/YuzukiNeko/blob/main/03_Shell_3D/YuzukiNeko_case.3mf); base board [`04_BaseBoard/V1.0/04_3D/3DShell_PCB2.zip`](https://github.com/YuzukiHD/YuzukiNeko/blob/main/04_BaseBoard/V1.0/04_3D/3DShell_PCB2.zip)
+- Prebuilt firmware: [`02_Firmware/`](https://github.com/YuzukiHD/YuzukiNeko/tree/main/02_Firmware)
+
 ## Board Features
 
 | Item | Specification |

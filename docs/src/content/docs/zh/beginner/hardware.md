@@ -78,7 +78,8 @@ YuzukiNeko 分核心板和底板两级。核心板是完整的 SoC 模块，可�
 ## 参考资料
 
 - 引脚排布和复用：[引脚排布](../hardware/pinout.md)
-- 原理图和硬件文件：[硬件文件说明](../hardware/files.md)
+- 原理图和硬件文件：[硬件资料下载](../hardware/download.md)
+- 核心板外壳和底板外壳：[3D 打印外壳](../shell.md)
 - 底板器件和电源：[YuzukiCube-M 底板](../baseboard.md)
 - 版本差异和已知问题：[勘误与版本差异](../hardware/errata.md)
 

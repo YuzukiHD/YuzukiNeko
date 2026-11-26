@@ -74,5 +74,6 @@ Zephyr 4.2.2 与 4.5.0 同时保留，先按[版本指南](dev/zephyr/zephyr-4-5
 ## 下一步
 
 - 想接外设 → [引脚排布](hardware/pinout.md)
+- 想要原理图或外壳 → [硬件资料下载](hardware/download.md)、[3D 打印外壳](shell.md)
 - 想拖放 `.uf2` 烧录 → [UF2 拖放烧录](dev/zephyr/zephyr-uf2.md)
 - 遇到问题 → [常见问题](faq.md)

@@ -7,7 +7,8 @@ title: "License"
 | Hardware design files (schematic, PCB, BOM, Gerber, etc.) | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/), unless stated otherwise |
 | This documentation (the text, images, videos and diagrams on the documentation site) | [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh-hans) |
 | Firmware and software, third-party files | Follow the license declared in their respective directories |
-| 3D enclosure | Adapted from dj.santos's Pico enclosure (BY-NC-SA), follow its terms |
+| Core board 3D enclosure | Adapted from dj.santos's Pico enclosure (BY-NC-SA), follow its terms |
+| Base board 3D enclosure | Part of the `04_BaseBoard/V1.0` hardware design files, CC0 1.0 |
 
 ## License of this documentation
 

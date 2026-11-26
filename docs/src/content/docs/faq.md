@@ -21,6 +21,12 @@ Use the whole-chip image you backed up earlier: `xfel spinor write 0x0 neko-back
 
 ## Hardware
 
+<strong>Where do I download the schematic, Gerber, BOM and 3D model?</strong>
+Every core board revision and the base board are listed in [Hardware downloads](hardware/download.md). The directory layout is explained in [Hardware file layout](hardware/files.md).
+
+<strong>Where is the base board enclosure?</strong>
+It is [`3DShell_PCB2.zip`](https://github.com/YuzukiHD/YuzukiNeko/blob/main/04_BaseBoard/V1.0/04_3D/3DShell_PCB2.zip) in the base board's `04_3D/` directory; the bottom part is also a separate [STL](https://github.com/YuzukiHD/YuzukiNeko/blob/main/04_BaseBoard/V1.0/04_3D/3DShell_3DShell_PCB2_B.stl). The core board uses a different file, `YuzukiNeko_case.3mf`, which does not fit the base board. Both are described in [3D-printed enclosures](shell.md).
+
 <strong>On a V1.3 board `PD12`–`PD20` do not work.</strong>
 The V1.3 silkscreen is 2 lower than the real GPIO. Silkscreen `PD12` is actually `PD14`. See [errata](hardware/errata.md).
 

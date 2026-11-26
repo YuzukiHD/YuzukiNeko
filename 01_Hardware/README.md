@@ -23,5 +23,9 @@ Each revision directory holds the same item set:
 
 `07_Project` first appears in V1.4; V1.3 has no project archive.
 
+Online downloads with direct links to every file: <https://yuzukihd.github.io/YuzukiNeko/hardware/download/>
+
+Enclosures are not in this directory: the core board enclosure is [`03_Shell_3D/YuzukiNeko_case.3mf`](../03_Shell_3D/YuzukiNeko_case.3mf), and the YuzukiCube-M base board enclosure is [`04_BaseBoard/V1.0/04_3D/3DShell_PCB2.zip`](../04_BaseBoard/V1.0/04_3D/3DShell_PCB2.zip).
+
 See the [repository README](../README.md) for the revision history, the V1.3 PD
 silkscreen errata, and the V1.4-and-earlier microSD card-detect note.

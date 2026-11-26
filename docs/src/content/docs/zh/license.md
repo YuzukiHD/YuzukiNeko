@@ -7,7 +7,8 @@ title: "许可证"
 | 硬件设计文件（原理图、PCB、BOM、Gerber 等） | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)，另有说明的除外 |
 | 本文档（文档站里的文字、图片、录像和图表） | [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh-hans) |
 | 固件与软件、第三方文件 | 遵循各自目录里声明的许可证 |
-| 3D 外壳 | 改自 dj.santos 的 Pico 外壳（BY-NC-SA），请遵守其条款 |
+| 核心板 3D 外壳 | 改自 dj.santos 的 Pico 外壳（BY-NC-SA），请遵守其条款 |
+| 底板 3D 外壳 | 属于 `04_BaseBoard/V1.0` 硬件设计文件，CC0 1.0 |
 
 ## 本文档的许可
 

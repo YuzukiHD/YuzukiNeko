@@ -39,7 +39,7 @@ The following is how existing software uses the header pins. It is <strong>not a
 | `PD0`–`PD22` | Selectable RGB LCD data/timing lines | RGB uses the full group; DSI uses only some PD pins, as specified by the board DTS |
 
 :::caution
-Which header pins the console serial port is on depends on the software in use (Zephyr `yuzukineko`: UART1 `PB0/PB1`). Before wiring, go by the [schematic](files.md) and the documentation for the firmware you flashed.
+Which header pins the console serial port is on depends on the software in use (Zephyr `yuzukineko`: UART1 `PB0/PB1`). Before wiring, go by the [schematic](download.md) and the documentation for the firmware you flashed.
 :::
 
 Both Zephyr versions configure 16 MiB RAM for `yuzukineko`; 32 MiB hardware needs separate capacity configuration and validation. Hardware provides card detect on `PF6`, but the current DTS leaves `cd-gpios` disabled and NekoBox probes by mounting/reading the card. Amplifier enable on `PE10` belongs to the EVB's different wiring; see [YuzukiCube-M](../baseboard.md) for carrier connections.
