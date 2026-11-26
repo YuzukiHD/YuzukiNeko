@@ -25,6 +25,28 @@ export const sidebar = [
     ]
   },
   {
+    "label": "Downloads",
+    "translations": { "zh-CN": "资料下载" },
+    "collapsed": false,
+    "items": [
+      {
+        "label": "Hardware downloads",
+        "translations": { "zh-CN": "硬件资料下载" },
+        "slug": "hardware/download"
+      },
+      {
+        "label": "3D-printed enclosures",
+        "translations": { "zh-CN": "3D 打印外壳" },
+        "slug": "shell"
+      },
+      {
+        "label": "Hardware file layout",
+        "translations": { "zh-CN": "硬件文件结构" },
+        "slug": "hardware/files"
+      }
+    ]
+  },
+  {
     "label": "Beginner's guide",
     "translations": { "zh-CN": "零基础入门" },
     "collapsed": false,
@@ -90,16 +112,6 @@ export const sidebar = [
         "label": "Errata and revision differences",
         "translations": { "zh-CN": "勘误与版本差异" },
         "slug": "hardware/errata"
-      },
-      {
-        "label": "Hardware downloads",
-        "translations": { "zh-CN": "硬件资料下载" },
-        "slug": "hardware/download"
-      },
-      {
-        "label": "Hardware files",
-        "translations": { "zh-CN": "硬件文件说明" },
-        "slug": "hardware/files"
       },
       {
         "label": "YuzukiCube-M base board",
@@ -814,18 +826,6 @@ export const sidebar = [
         "label": "RAM-boot testing",
         "translations": { "zh-CN": "RAM 启动测试" },
         "slug": "dev/agent"
-      }
-    ]
-  },
-  {
-    "label": "Enclosure",
-    "translations": { "zh-CN": "外壳" },
-    "collapsed": false,
-    "items": [
-      {
-        "label": "3D-printed enclosure",
-        "translations": { "zh-CN": "3D 打印外壳" },
-        "slug": "shell"
       }
     ]
   },

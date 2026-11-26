@@ -14,6 +14,7 @@ YuzukiNeko 是一块基于 <strong>Allwinner F101 系列 SoC</strong> 的开发�
 | --- | --- |
 | 完全没接触过硬件 | [零基础入门](beginner/index.md) |
 | 第一次上电，让板子跑起来 | [上手指南](quickstart.md) |
+| 下载板卡设计文件、三维模型和外壳 | [硬件资料下载](hardware/download.md)、[3D 打印外壳](shell.md) |
 | 查某个引脚能做什么 | [引脚排布](hardware/pinout.md)、[引脚复用](hardware/mux.md) |
 | 接 UART / I²C / SPI / CAN / PWM | [常用外设引脚组合](hardware/groups.md) |
 | 搞清楚自己的板子是 V1.3 / V1.4 / V1.5 | [勘误与版本差异](hardware/errata.md) |
@@ -25,7 +26,6 @@ YuzukiNeko 是一块基于 <strong>Allwinner F101 系列 SoC</strong> 的开发�
 | 使用媒体与游戏盒 | [NekoBox](dev/zephyr/apps/nekobox.md)、[Bilibili](dev/zephyr/apps/bilibili.md) |
 | 从手机投屏 | [Miracast 无线显示](dev/zephyr/apps/miracast.md)、[DLNA 视频](dev/zephyr/components/dlna.md)、[Android ADB](dev/zephyr/apps/android-mirror.md)、[AirPlay](dev/zephyr/apps/ios-mirror.md) |
 | 使用脚本开发界面 | [MicroPython](dev/zephyr/apps/micropython.md)、[PocketJS 应用](dev/zephyr/apps/pocketjs.md)与[运行时组件](dev/zephyr/components/pocketjs.md) |
-| 打印外壳 | [3D 打印外壳](shell.md) |
 
 ## 板卡规格
 

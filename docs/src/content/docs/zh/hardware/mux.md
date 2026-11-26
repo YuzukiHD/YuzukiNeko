@@ -61,4 +61,4 @@ title: "引脚复用 (MUX)"
 | `PE9` |  | UART2-CTS | TWI0-SDA | CAN1_RX0 | UART3-RX | PWM0-1 | SPI1-MOSI/DBI-SDO |  |  | PE-EINT9 |
 | `PE10` |  | UART4-TX | TWI1-SCK | I2S0-MCLK | UART1-TX | PWM0-2 | SPI1-MISO/DBI-SDI/DBI-TE/DBI-DCX |  |  | PE-EINT10 |
 
-`GPADC` 是模拟输入，板级通道分配需要对照[原理图](files.md)确认。
+`GPADC` 是模拟输入，板级通道分配需要对照[原理图](download.md)确认。

@@ -39,7 +39,7 @@ title: "板卡概览"
 | `PD0`–`PD22` | RGB LCD 可选数据/时序线 | RGB 使用整组；DSI 使用部分 PD 引脚，见板级 DTS |
 
 :::caution
-控制台串口究竟接在哪组脚上，随所用软件而定（Zephyr `yuzukineko`：UART1 `PB0/PB1`）。接线前以[原理图](files.md)和你所刷固件的说明为准。
+控制台串口究竟接在哪组脚上，随所用软件而定（Zephyr `yuzukineko`：UART1 `PB0/PB1`）。接线前以[原理图](download.md)和你所刷固件的说明为准。
 :::
 
 当前两版 Zephyr 的 `yuzukineko` 配置均按 16 MiB RAM。32 MiB 硬件需另行启用并验证全容量。卡检测 `PF6` 存在于硬件，但当前 DTS 未启用 `cd-gpios`，NekoBox 通过挂载／读卡探测。功放 `PE10` 属于 EVB 的不同布线，不能套用到底板。底板连接见 [YuzukiCube-M](../baseboard.md)。

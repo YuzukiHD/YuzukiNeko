@@ -9,8 +9,19 @@ git clone https://github.com/YuzukiHD/YuzukiNeko.git
 ```
 
 :::tip
-请使用与你手上板子<strong>同一版本</strong>的文件。版本差异见[勘误与版本差异](errata.md)，目录结构见[硬件文件说明](files.md)。
+请使用与你手上板子<strong>同一版本</strong>的文件。版本差异见[勘误与版本差异](errata.md)，目录结构见[硬件文件结构](files.md)。
 :::
+
+## 快速下载
+
+| 要下载 | 地址 |
+| --- | --- |
+| 核心板设计文件 | [V1.5](#v15) · [V1.4](#v14) · [V1.3](#v13) |
+| 底板设计文件 | [YuzukiCube-M V1.0](#yuzukicube-m-底板-v10) |
+| 核心板外壳 | [`YuzukiNeko_case.3mf`](https://github.com/YuzukiHD/YuzukiNeko/blob/main/03_Shell_3D/YuzukiNeko_case.3mf) |
+| 底板外壳 | [`3DShell_PCB2.zip`](https://github.com/YuzukiHD/YuzukiNeko/blob/main/04_BaseBoard/V1.0/04_3D/3DShell_PCB2.zip) · [下壳 STL](https://github.com/YuzukiHD/YuzukiNeko/blob/main/04_BaseBoard/V1.0/04_3D/3DShell_3DShell_PCB2_B.stl) |
+| 外壳打印说明 | [3D 打印外壳](../shell.md) |
+| 固件镜像 | [`02_Firmware/`](https://github.com/YuzukiHD/YuzukiNeko/tree/main/02_Firmware) |
 
 ## YuzukiNeko
 
@@ -66,16 +77,16 @@ git clone https://github.com/YuzukiHD/YuzukiNeko.git
 | 原理图 | [`SCH_Schematic2_2026-10-10.pdf`](https://github.com/YuzukiHD/YuzukiNeko/blob/main/04_BaseBoard/V1.0/01_SCH/SCH_Schematic2_2026-10-10.pdf) |
 | PCB | [`ProDoc_PCB2_2026-10-10.epro2`](https://github.com/YuzukiHD/YuzukiNeko/blob/main/04_BaseBoard/V1.0/02_PCB/ProDoc_PCB2_2026-10-10.epro2) |
 | Gerber | [`Gerber_PCB2_2026-10-10.zip`](https://github.com/YuzukiHD/YuzukiNeko/blob/main/04_BaseBoard/V1.0/03_Gerber/Gerber_PCB2_2026-10-10.zip) |
-| 三维模型 | [`3D_PCB2_2026-10-10.zip`](https://github.com/YuzukiHD/YuzukiNeko/blob/main/04_BaseBoard/V1.0/04_3D/3D_PCB2_2026-10-10.zip) |
-| 三维模型 | [`3DShell_PCB2.zip`](https://github.com/YuzukiHD/YuzukiNeko/blob/main/04_BaseBoard/V1.0/04_3D/3DShell_PCB2.zip) |
+| 三维模型（PCB） | [`3D_PCB2_2026-10-10.zip`](https://github.com/YuzukiHD/YuzukiNeko/blob/main/04_BaseBoard/V1.0/04_3D/3D_PCB2_2026-10-10.zip) |
+| 外壳（上下壳 STL） | [`3DShell_PCB2.zip`](https://github.com/YuzukiHD/YuzukiNeko/blob/main/04_BaseBoard/V1.0/04_3D/3DShell_PCB2.zip) |
+| 外壳（下壳单件） | [`3DShell_3DShell_PCB2_B.stl`](https://github.com/YuzukiHD/YuzukiNeko/blob/main/04_BaseBoard/V1.0/04_3D/3DShell_3DShell_PCB2_B.stl) |
 | 物料清单 | [`BOM_YuzukiCube-M1_PCB2_2026-10-10.xlsx`](https://github.com/YuzukiHD/YuzukiNeko/blob/main/04_BaseBoard/V1.0/05_BOM/BOM_YuzukiCube-M1_PCB2_2026-10-10.xlsx) |
 | 贴片坐标 | [`PickAndPlace_PCB2_2026_10_10.xlsx`](https://github.com/YuzukiHD/YuzukiNeko/blob/main/04_BaseBoard/V1.0/06_PickAndPlace/PickAndPlace_PCB2_2026_10_10.xlsx) |
 | 完整工程 | [`ProDoc_YuzukiCube-M_2026-10-09.epro2`](https://github.com/YuzukiHD/YuzukiNeko/blob/main/04_BaseBoard/V1.0/07_Project/ProDoc_YuzukiCube-M_2026-10-09.epro2) |
 
 ## 外壳
 
-- [3D 打印外壳（`YuzukiNeko_case.3mf`）](https://github.com/YuzukiHD/YuzukiNeko/blob/main/03_Shell_3D/YuzukiNeko_case.3mf)
-- [目录](https://github.com/YuzukiHD/YuzukiNeko/tree/main/03_Shell_3D)
+两个外壳文件的地址都在上面的[快速下载](#快速下载)表里。预览图、打印建议和两者的区别见 [3D 打印外壳](../shell.md)。
 
 ## 协议
 

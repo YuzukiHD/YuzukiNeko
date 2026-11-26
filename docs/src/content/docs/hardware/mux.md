@@ -61,4 +61,4 @@ The "alternate functions" in the tables below are functions the SoC <strong>can 
 | `PE9` |  | UART2-CTS | TWI0-SDA | CAN1_RX0 | UART3-RX | PWM0-1 | SPI1-MOSI/DBI-SDO |  |  | PE-EINT9 |
 | `PE10` |  | UART4-TX | TWI1-SCK | I2S0-MCLK | UART1-TX | PWM0-2 | SPI1-MISO/DBI-SDI/DBI-TE/DBI-DCX |  |  | PE-EINT10 |
 
-`GPADC` is an analog input; the board-level channel assignment must be confirmed against the [schematic](files.md).
+`GPADC` is an analog input; the board-level channel assignment must be confirmed against the [schematic](download.md).

@@ -14,6 +14,7 @@ YuzukiNeko is a development board based on the <strong>Allwinner F101 series SoC
 | --- | --- |
 | Never touched hardware before | [Beginner's guide](beginner/index.md) |
 | Power up for the first time and get the board running | [Quickstart](quickstart.md) |
+| Download board design files, 3D models and enclosures | [Hardware downloads](hardware/download.md), [3D-printed enclosures](shell.md) |
 | Look up what a given pin can do | [Pinout](hardware/pinout.md), [Pin multiplexing](hardware/mux.md) |
 | Wire up UART / I²C / SPI / CAN / PWM | [Common peripheral pin groups](hardware/groups.md) |
 | Work out whether your board is V1.3 / V1.4 / V1.5 | [Errata and revision differences](hardware/errata.md) |
@@ -25,7 +26,6 @@ YuzukiNeko is a development board based on the <strong>Allwinner F101 series SoC
 | Use a media and game box | [NekoBox](dev/zephyr/apps/nekobox.md), [Bilibili](dev/zephyr/apps/bilibili.md) |
 | Cast from a phone | [Miracast wireless display](dev/zephyr/apps/miracast.md), [DLNA video](dev/zephyr/components/dlna.md), [Android ADB](dev/zephyr/apps/android-mirror.md), [AirPlay](dev/zephyr/apps/ios-mirror.md) |
 | Build scripted interfaces | [MicroPython](dev/zephyr/apps/micropython.md), [PocketJS applications](dev/zephyr/apps/pocketjs.md) and [runtime component](dev/zephyr/components/pocketjs.md) |
-| Print an enclosure | [3D-printed enclosure](shell.md) |
 
 ## Board specifications
 

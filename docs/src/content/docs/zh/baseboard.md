@@ -8,8 +8,12 @@ title: "YuzukiCube-M 底板"
 工程文件名为 `YuzukiCube-M`，原理图的标题栏写的还是 `YuzukiNeko`（`REV: V1.0`，2026-10-09）。两者指的是同一块底板。
 :::
 
+:::tip
+底板外壳是 [3DShell_PCB2.zip](https://github.com/YuzukiHD/YuzukiNeko/blob/main/04_BaseBoard/V1.0/04_3D/3DShell_PCB2.zip)。核心板外壳 `YuzukiNeko_case.3mf` 装不到底板上，这个外壳也不能单独用在核心板上。两者的说明见 [3D 打印外壳](shell.md#底板外壳)。
+:::
+
 :::caution
-本文的引脚对应是从底板原理图 `04_BaseBoard/V1.0/01_SCH/SCH_Schematic2_2026-10-10.pdf` 的网表读出的，接线前请以该原理图为准。网络名用的是<strong>模块的实际 GPIO 名</strong>。如果你插的是 V1.3 模块，丝印要按[勘误](hardware/errata.md#v13pd-丝印编号错误)换算。
+本文的引脚对应是从底板原理图 [`04_BaseBoard/V1.0/01_SCH/SCH_Schematic2_2026-10-10.pdf`](https://github.com/YuzukiHD/YuzukiNeko/blob/main/04_BaseBoard/V1.0/01_SCH/SCH_Schematic2_2026-10-10.pdf) 的网表读出的，接线前请以该原理图为准。网络名用的是<strong>模块的实际 GPIO 名</strong>。如果你插的是 V1.3 模块，丝印要按[勘误](hardware/errata.md#v13pd-丝印编号错误)换算。
 :::
 
 | 底板实物图 | 底板原理图 |
@@ -138,6 +142,12 @@ title: "YuzukiCube-M 底板"
 
 ## 文件
 
-`04_BaseBoard/V1.0/` 的结构与 `01_Hardware/` 的七个条目相同：`01_SCH`、`02_PCB`、`03_Gerber`、`04_3D`、`05_BOM`、`06_PickAndPlace`、`07_Project`。其中 `04_3D/` 除 PCB 模型外还有一份外壳 `3DShell_PCB2.zip`，与[模块的 3D 打印外壳](shell.md)是两回事。
+- [原理图（PDF）](https://github.com/YuzukiHD/YuzukiNeko/blob/main/04_BaseBoard/V1.0/01_SCH/SCH_Schematic2_2026-10-10.pdf)
+- [PCB 三维模型（ZIP）](https://github.com/YuzukiHD/YuzukiNeko/blob/main/04_BaseBoard/V1.0/04_3D/3D_PCB2_2026-10-10.zip)
+- [底板外壳，上下壳 STL（ZIP）](https://github.com/YuzukiHD/YuzukiNeko/blob/main/04_BaseBoard/V1.0/04_3D/3DShell_PCB2.zip)
+- [底板外壳，下壳单件（STL）](https://github.com/YuzukiHD/YuzukiNeko/blob/main/04_BaseBoard/V1.0/04_3D/3DShell_3DShell_PCB2_B.stl)
+- [浏览 `04_BaseBoard/V1.0` 目录](https://github.com/YuzukiHD/YuzukiNeko/tree/main/04_BaseBoard/V1.0)
 
-目录总览见[硬件文件说明](hardware/files.md)，协议见[许可证](license.md)。
+`04_BaseBoard/V1.0/` 的结构与 `01_Hardware/` 的七个条目相同：`01_SCH`、`02_PCB`、`03_Gerber`、`04_3D`、`05_BOM`、`06_PickAndPlace`、`07_Project`。底板外壳与[核心板外壳](shell.md)是两份不同的文件，两者的说明见 [3D 打印外壳](shell.md)。
+
+所有版本和底板的文件都列在[硬件资料下载](hardware/download.md)里，目录结构见[硬件文件结构](hardware/files.md)，协议见[许可证](license.md)。

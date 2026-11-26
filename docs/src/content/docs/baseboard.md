@@ -8,8 +8,12 @@ title: "YuzukiCube-M Base Board"
 The project file name is `YuzukiCube-M`, while the title block of the schematic still says `YuzukiNeko` (`REV: V1.0`, 2026-10-09). Both refer to the same base board.
 :::
 
+:::tip
+The base board enclosure is [3DShell_PCB2.zip](https://github.com/YuzukiHD/YuzukiNeko/blob/main/04_BaseBoard/V1.0/04_3D/3DShell_PCB2.zip). The core board enclosure `YuzukiNeko_case.3mf` does not fit the base board, and this enclosure does not fit the core board on its own. Both are described in [3D-printed enclosures](shell.md#base-board-enclosure).
+:::
+
 :::caution
-The pin mapping in this page is read from the netlist of the base board schematic `04_BaseBoard/V1.0/01_SCH/SCH_Schematic2_2026-10-10.pdf`; before wiring anything, treat that schematic as authoritative. The net names use the <strong>module's actual GPIO names</strong>; if you have fitted a V1.3 module, convert the silkscreen labels using the [errata](hardware/errata.md#v13-pd-silkscreen-numbering-error).
+The pin mapping in this page is read from the netlist of the base board schematic [`04_BaseBoard/V1.0/01_SCH/SCH_Schematic2_2026-10-10.pdf`](https://github.com/YuzukiHD/YuzukiNeko/blob/main/04_BaseBoard/V1.0/01_SCH/SCH_Schematic2_2026-10-10.pdf); before wiring anything, treat that schematic as authoritative. The net names use the <strong>module's actual GPIO names</strong>; if you have fitted a V1.3 module, convert the silkscreen labels using the [errata](hardware/errata.md#v13-pd-silkscreen-numbering-error).
 :::
 
 | Base board photo | Base board schematic |
@@ -138,6 +142,12 @@ The base board has no battery or charging circuit; `VSYS-5V` comes entirely from
 
 ## Files
 
-`04_BaseBoard/V1.0/` has the same structure as the seven entries under `01_Hardware/`: `01_SCH`, `02_PCB`, `03_Gerber`, `04_3D`, `05_BOM`, `06_PickAndPlace`, `07_Project`. Besides the PCB model, `04_3D/` also contains an enclosure, `3DShell_PCB2.zip`, which is a different thing from the [module's 3D-printed enclosure](shell.md).
+- [Schematic (PDF)](https://github.com/YuzukiHD/YuzukiNeko/blob/main/04_BaseBoard/V1.0/01_SCH/SCH_Schematic2_2026-10-10.pdf)
+- [PCB 3D model (ZIP)](https://github.com/YuzukiHD/YuzukiNeko/blob/main/04_BaseBoard/V1.0/04_3D/3D_PCB2_2026-10-10.zip)
+- [Base board enclosure, top and bottom STL (ZIP)](https://github.com/YuzukiHD/YuzukiNeko/blob/main/04_BaseBoard/V1.0/04_3D/3DShell_PCB2.zip)
+- [Base board enclosure, bottom part only (STL)](https://github.com/YuzukiHD/YuzukiNeko/blob/main/04_BaseBoard/V1.0/04_3D/3DShell_3DShell_PCB2_B.stl)
+- [Browse the `04_BaseBoard/V1.0` directory](https://github.com/YuzukiHD/YuzukiNeko/tree/main/04_BaseBoard/V1.0)
 
-For an overview of the directories see [Hardware file list](hardware/files.md), and for licensing see [License](license.md).
+`04_BaseBoard/V1.0/` has the same structure as the seven entries under `01_Hardware/`: `01_SCH`, `02_PCB`, `03_Gerber`, `04_3D`, `05_BOM`, `06_PickAndPlace`, `07_Project`. The base board enclosure is separate from the [core board enclosure](shell.md); see [3D-printed enclosures](shell.md) for both.
+
+All revisions and the base board are listed in [Hardware downloads](hardware/download.md); the directory layout is in [Hardware file layout](hardware/files.md), and licensing in [License](license.md).

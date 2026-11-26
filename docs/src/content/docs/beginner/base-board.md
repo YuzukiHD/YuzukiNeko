@@ -16,7 +16,7 @@ In the photo, `FPC1` is at the top centre, `CN1` CAN at the top left, `CN3` spea
 - Check the orientation, notch and gold contacts; do not insert at an angle.
 - If a connector will not go in, stop and check the orientation; do not use force.
 - FPC cables and 1.25 mm connectors are thin; do not pull on the cable when inserting or removing.
-- See [Hardware files](../hardware/files.md) for the schematic.
+- See [Hardware downloads](../hardware/download.md) for the schematic.
 
 ## Display: FPC1
 
@@ -138,7 +138,8 @@ To power down, disconnect USB first and wait for the system to stop; then remove
 
 - Base board devices, power and pin conflicts: [YuzukiCube-M base board](../baseboard.md)
 - Pin groups for display, audio, Wi-Fi and CAN: [Peripheral pin groups](../hardware/groups.md)
-- Schematics and hardware files: [Hardware files](../hardware/files.md)
+- Schematics and hardware files: [Hardware downloads](../hardware/download.md)
+- Base board enclosure: [3D-printed enclosures](../shell.md)
 - Revision differences and known issues: [Errata and revision differences](../hardware/errata.md)
 
 ---

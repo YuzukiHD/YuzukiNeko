@@ -69,7 +69,7 @@ console=ttyS1,115200n8 earlycon=uart8250,mmio32,0x02500400 loglevel=8 printk.tim
 控制台是 UART1 / `ttyS1`。启动时先把 SquashFS 根挂载为只读，再由 `/sbin/init` 在上面搭好 overlayfs，然后出现登录提示。配置里没有设置 root 密码，因此适用 Buildroot 的默认值：用 `root` 登录，密码为空。
 
 :::tip
-本包的说明没有指明控制台接在哪一组排针引脚上。请对照[原理图](../../hardware/files.md)确认串口引脚。
+本包的说明没有指明控制台接在哪一组排针引脚上。请对照[原理图](../../hardware/download.md)确认串口引脚。
 :::
 
 :::tip

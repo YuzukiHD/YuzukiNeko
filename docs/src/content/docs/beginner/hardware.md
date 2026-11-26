@@ -78,7 +78,8 @@ Connect the display, antenna, audio and serial first, then plug in USB. Do not i
 ## References
 
 - Pinout and pin multiplexing: [Pinout](../hardware/pinout.md)
-- Schematics and hardware files: [Hardware files](../hardware/files.md)
+- Schematics and hardware files: [Hardware downloads](../hardware/download.md)
+- Core board and base board enclosures: [3D-printed enclosures](../shell.md)
 - Base board devices and power: [YuzukiCube-M base board](../baseboard.md)
 - Revision differences and known issues: [Errata and revision differences](../hardware/errata.md)
 

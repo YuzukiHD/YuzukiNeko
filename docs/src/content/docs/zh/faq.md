@@ -21,6 +21,12 @@ Flash 里已经有有效的启动加载器，上电直接运行它，不再自�
 
 ## 硬件
 
+<strong>原理图、Gerber、BOM 和三维模型在哪里下载？</strong>
+核心板的每个版本和底板的文件都列在[硬件资料下载](hardware/download.md)里。目录结构见[硬件文件结构](hardware/files.md)。
+
+<strong>底板外壳在哪里下载？</strong>
+底板外壳是底板 `04_3D/` 目录里的 [`3DShell_PCB2.zip`](https://github.com/YuzukiHD/YuzukiNeko/blob/main/04_BaseBoard/V1.0/04_3D/3DShell_PCB2.zip)，下壳也可以单独下载：[STL](https://github.com/YuzukiHD/YuzukiNeko/blob/main/04_BaseBoard/V1.0/04_3D/3DShell_3DShell_PCB2_B.stl)。核心板用的是另一个文件 `YuzukiNeko_case.3mf`，装不到底板上。两者的说明见 [3D 打印外壳](shell.md)。
+
 <strong>V1.3 板上 `PD12`–`PD20` 不工作。</strong>
 V1.3 丝印比真实 GPIO 小 2。丝印 `PD12` 实际是 `PD14`。见[勘误](hardware/errata.md)。
 

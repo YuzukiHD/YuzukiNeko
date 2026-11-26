@@ -59,7 +59,7 @@ This image uses <strong>UART1 (PB0 / PB1)</strong> as the console, which appears
 > | `PB1` | UART1 RX, board receives | `TX` |
 > | `GND` | Signal ground | `GND` |
 > 
-> With the component side up and the USB-C connector at the top, `PB0` and `PB1` are on rows 10 and 11 of the right-hand header, and `GND` is on row 2 of the right-hand header; see [Pinout](../../hardware/pinout.md) for the positions, and before wiring check the [schematic](../../hardware/files.md) for the corresponding hardware revision. The board is powered over USB; connect only the three signal wires from the table to the serial adapter and leave the power pins unconnected, using 3.3 V logic level.
+> With the component side up and the USB-C connector at the top, `PB0` and `PB1` are on rows 10 and 11 of the right-hand header, and `GND` is on row 2 of the right-hand header; see [Pinout](../../hardware/pinout.md) for the positions, and before wiring check the [schematic](../../hardware/download.md) for the corresponding hardware revision. The board is powered over USB; connect only the three signal wires from the table to the serial adapter and leave the power pins unconnected, using 3.3 V logic level.
 
 In the serial terminal, select the port the adapter actually uses, set it to <strong>115200 baud, 8N1, no flow control</strong>, and open the port before resetting the board to boot the system. 8N1 means 8 data bits, no parity and 1 stop bit. The port name on the host varies with the adapter and the computer, so do not copy someone else's port name as a fixed value.
 

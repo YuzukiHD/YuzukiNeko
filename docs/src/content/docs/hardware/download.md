@@ -9,8 +9,19 @@ git clone https://github.com/YuzukiHD/YuzukiNeko.git
 ```
 
 :::tip
-Use files of the <strong>same revision</strong> as your board. Differences are listed in [Errata and revision differences](errata.md). Directory layout: [Hardware files](files.md).
+Use files of the <strong>same revision</strong> as your board. Differences are listed in [Errata and revision differences](errata.md). Directory layout: [Hardware file layout](files.md).
 :::
+
+## Quick access
+
+| What | Where |
+| --- | --- |
+| Core board design files | [V1.5](#v15) · [V1.4](#v14) · [V1.3](#v13) |
+| Base board design files | [YuzukiCube-M V1.0](#yuzukicube-m-base-board-v10) |
+| Core board enclosure | [`YuzukiNeko_case.3mf`](https://github.com/YuzukiHD/YuzukiNeko/blob/main/03_Shell_3D/YuzukiNeko_case.3mf) |
+| Base board enclosure | [`3DShell_PCB2.zip`](https://github.com/YuzukiHD/YuzukiNeko/blob/main/04_BaseBoard/V1.0/04_3D/3DShell_PCB2.zip) · [bottom part STL](https://github.com/YuzukiHD/YuzukiNeko/blob/main/04_BaseBoard/V1.0/04_3D/3DShell_3DShell_PCB2_B.stl) |
+| Enclosure printing notes | [3D-printed enclosures](../shell.md) |
+| Firmware images | [`02_Firmware/`](https://github.com/YuzukiHD/YuzukiNeko/tree/main/02_Firmware) |
 
 ## YuzukiNeko
 
@@ -66,16 +77,16 @@ Use files of the <strong>same revision</strong> as your board. Differences are l
 | Schematic | [`SCH_Schematic2_2026-10-10.pdf`](https://github.com/YuzukiHD/YuzukiNeko/blob/main/04_BaseBoard/V1.0/01_SCH/SCH_Schematic2_2026-10-10.pdf) |
 | PCB | [`ProDoc_PCB2_2026-10-10.epro2`](https://github.com/YuzukiHD/YuzukiNeko/blob/main/04_BaseBoard/V1.0/02_PCB/ProDoc_PCB2_2026-10-10.epro2) |
 | Gerber | [`Gerber_PCB2_2026-10-10.zip`](https://github.com/YuzukiHD/YuzukiNeko/blob/main/04_BaseBoard/V1.0/03_Gerber/Gerber_PCB2_2026-10-10.zip) |
-| 3D model | [`3D_PCB2_2026-10-10.zip`](https://github.com/YuzukiHD/YuzukiNeko/blob/main/04_BaseBoard/V1.0/04_3D/3D_PCB2_2026-10-10.zip) |
-| 3D model | [`3DShell_PCB2.zip`](https://github.com/YuzukiHD/YuzukiNeko/blob/main/04_BaseBoard/V1.0/04_3D/3DShell_PCB2.zip) |
+| 3D model (PCB) | [`3D_PCB2_2026-10-10.zip`](https://github.com/YuzukiHD/YuzukiNeko/blob/main/04_BaseBoard/V1.0/04_3D/3D_PCB2_2026-10-10.zip) |
+| Enclosure (top and bottom STL) | [`3DShell_PCB2.zip`](https://github.com/YuzukiHD/YuzukiNeko/blob/main/04_BaseBoard/V1.0/04_3D/3DShell_PCB2.zip) |
+| Enclosure (bottom part) | [`3DShell_3DShell_PCB2_B.stl`](https://github.com/YuzukiHD/YuzukiNeko/blob/main/04_BaseBoard/V1.0/04_3D/3DShell_3DShell_PCB2_B.stl) |
 | BOM | [`BOM_YuzukiCube-M1_PCB2_2026-10-10.xlsx`](https://github.com/YuzukiHD/YuzukiNeko/blob/main/04_BaseBoard/V1.0/05_BOM/BOM_YuzukiCube-M1_PCB2_2026-10-10.xlsx) |
 | Pick-and-place | [`PickAndPlace_PCB2_2026_10_10.xlsx`](https://github.com/YuzukiHD/YuzukiNeko/blob/main/04_BaseBoard/V1.0/06_PickAndPlace/PickAndPlace_PCB2_2026_10_10.xlsx) |
 | Project | [`ProDoc_YuzukiCube-M_2026-10-09.epro2`](https://github.com/YuzukiHD/YuzukiNeko/blob/main/04_BaseBoard/V1.0/07_Project/ProDoc_YuzukiCube-M_2026-10-09.epro2) |
 
-## Enclosure
+## Enclosures
 
-- [3D-printed case (`YuzukiNeko_case.3mf`)](https://github.com/YuzukiHD/YuzukiNeko/blob/main/03_Shell_3D/YuzukiNeko_case.3mf)
-- [Directory](https://github.com/YuzukiHD/YuzukiNeko/tree/main/03_Shell_3D)
+Both enclosure files are linked under [Quick access](#quick-access). For previews, print recommendations and the difference between the two, see [3D-printed enclosures](../shell.md).
 
 ## License
 

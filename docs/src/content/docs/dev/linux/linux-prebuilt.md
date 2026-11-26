@@ -69,7 +69,7 @@ console=ttyS1,115200n8 earlycon=uart8250,mmio32,0x02500400 loglevel=8 printk.tim
 The console is UART1 / `ttyS1`. At boot the SquashFS root is first mounted read-only, then `/sbin/init` sets up overlayfs on top of it, and the login prompt appears. No root password is set in the configuration, so Buildroot's default applies: log in as `root` with an empty password.
 
 :::tip
-The documentation in this package does not specify which header pin group the console is wired to. Check the serial port pins against the [schematic](../../hardware/files.md).
+The documentation in this package does not specify which header pin group the console is wired to. Check the serial port pins against the [schematic](../../hardware/download.md).
 :::
 
 :::tip

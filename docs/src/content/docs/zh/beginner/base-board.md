@@ -16,7 +16,7 @@ title: "底板接线"
 - 确认方向、缺口和金手指，不要斜插。
 - 插不到底时停下来检查方向，不要用力。
 - FPC 排线和 1.25 mm 插座都比较薄，插拔时不要拉拽线缆。
-- 原理图见[硬件文件说明](../hardware/files.md)。
+- 原理图见[硬件资料下载](../hardware/download.md)。
 
 ## 屏幕：FPC1
 
@@ -138,7 +138,8 @@ title: "底板接线"
 
 - 底板器件、电源和引脚冲突：[YuzukiCube-M 底板](../baseboard.md)
 - 屏幕、音频、Wi-Fi 和 CAN 的引脚组合：[常用外设引脚组合](../hardware/groups.md)
-- 原理图和硬件文件：[硬件文件说明](../hardware/files.md)
+- 原理图和硬件文件：[硬件资料下载](../hardware/download.md)
+- 底板外壳：[3D 打印外壳](../shell.md)
 - 版本差异和已知问题：[勘误与版本差异](../hardware/errata.md)
 
 ---
