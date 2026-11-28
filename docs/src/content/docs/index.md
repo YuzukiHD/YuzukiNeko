@@ -22,6 +22,8 @@ YuzukiNeko is a development board based on the <strong>Allwinner F101 series SoC
 | Flash ready-made firmware (RustSBI + Asterinas, Linux + Buildroot) | [RustSBI + Asterinas](dev/asterinas/rustsbi-asterinas.md), [Prebuilt Linux images](dev/linux/linux-prebuilt.md) |
 | Use the base board for display, Wi-Fi, CAN and audio | [YuzukiCube-M base board](baseboard.md) |
 | Write programs | [Zephyr development](dev/zephyr/index.md), [RT-Thread development](dev/rt-thread/index.md), [ESP-IDF development](dev/esp-idf/index.md), [Linux development](dev/linux/index.md), [RustSBI + Asterinas](dev/asterinas/rustsbi-asterinas.md) |
+| Write Arduino sketches | [Arduino development](dev/arduino/index.md) |
+| Run UEFI firmware and a boot menu | [UEFI (EDK II) development](dev/uefi/index.md) |
 | Choose Zephyr 4.2.2 or 4.5.0 | [Versions and 4.5 changes](dev/zephyr/zephyr-4-5.md) |
 | Use a media and game box | [NekoBox](dev/zephyr/apps/nekobox.md), [Bilibili](dev/zephyr/apps/bilibili.md) |
 | Cast from a phone | [Miracast wireless display](dev/zephyr/apps/miracast.md), [DLNA video](dev/zephyr/components/dlna.md), [Android ADB](dev/zephyr/apps/android-mirror.md), [AirPlay](dev/zephyr/apps/ios-mirror.md) |
@@ -59,7 +61,7 @@ Both Zephyr versions currently configure 16 MiB RAM in the board DTS; 32 MiB har
 | Connectivity and peripherals | USB 2.0 DRD × 1, SDIO 2.0, SPI × 2, UART × 6, TWI × 3, CAN × 2, PWM, IR_RX, GPADC, TPADC |
 
 :::tip
-The table above is the SoC's capability ceiling; it does not mean that every item is brought out on the development board or has ready-made software support. For what is brought out and how well each software option supports it, see [Pinout](hardware/pinout.md) and the documentation for each software option ([Zephyr](dev/zephyr/index.md), [RT-Thread](dev/rt-thread/index.md), [ESP-IDF](dev/esp-idf/index.md), [Linux](dev/linux/index.md)).
+The table above is the SoC's capability ceiling; it does not mean that every item is brought out on the development board or has ready-made software support. For what is brought out and how well each software option supports it, see [Pinout](hardware/pinout.md) and the documentation for each software option ([Zephyr](dev/zephyr/index.md), [Arduino](dev/arduino/index.md), [RT-Thread](dev/rt-thread/index.md), [ESP-IDF](dev/esp-idf/index.md), [Linux](dev/linux/index.md), [UEFI (EDK II)](dev/uefi/index.md)).
 :::
 
 ## Related projects
@@ -67,3 +69,5 @@ The table above is the SoC's capability ceiling; it does not mean that every ite
 - Development board repository: <https://github.com/YuzukiHD/YuzukiNeko>
 - SyterKit (bootloader): <https://github.com/YuzukiHD/SyterKit>
 - xfel: <https://github.com/xboot/xfel>, rfel: <https://github.com/rustsbi/allwinner-hal/tree/main/rfel>
+- EDK II build scripts: <https://github.com/YuzukiHD/edk2-build>
+- Arduino core: <https://github.com/YuzukiHD/Arduino>
