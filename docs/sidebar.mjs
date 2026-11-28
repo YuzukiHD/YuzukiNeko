@@ -412,6 +412,80 @@ export const sidebar = [
     ]
   },
   {
+    "label": "Arduino development",
+    "translations": { "zh-CN": "Arduino 开发" },
+    "collapsed": false,
+    "items": [
+      {
+        "label": "Introduction",
+        "translations": { "zh-CN": "简介" },
+        "slug": "dev/arduino"
+      },
+      {
+        "label": "Install and upload sketches",
+        "translations": { "zh-CN": "安装与上传 sketch" },
+        "slug": "dev/arduino/install"
+      },
+      {
+        "label": "The prebuilt core and the sketch ABI",
+        "translations": { "zh-CN": "预编译核心与 sketch ABI" },
+        "slug": "dev/arduino/core"
+      },
+      {
+        "label": "Arduino API and pins",
+        "translations": { "zh-CN": "Arduino API 与引脚" },
+        "slug": "dev/arduino/api"
+      },
+      {
+        "label": "Example sketches",
+        "translations": { "zh-CN": "示例 sketch" },
+        "slug": "dev/arduino/examples"
+      },
+      {
+        "label": "Peripheral libraries",
+        "translations": { "zh-CN": "外设库" },
+        "collapsed": true,
+        "items": [
+          {
+            "label": "Overview",
+            "translations": { "zh-CN": "总览" },
+            "slug": "dev/arduino/libraries"
+          },
+          {
+            "label": "Display, DBI and G2D",
+            "translations": { "zh-CN": "Display、DBI 与 G2D" },
+            "slug": "dev/arduino/libraries/display"
+          },
+          {
+            "label": "Audio, I2S and S/PDIF",
+            "translations": { "zh-CN": "Audio、I2S 与 S/PDIF" },
+            "slug": "dev/arduino/libraries/audio"
+          },
+          {
+            "label": "SD, USB device and USB host",
+            "translations": { "zh-CN": "SD、USB 设备与 USB 主机" },
+            "slug": "dev/arduino/libraries/storage-usb"
+          },
+          {
+            "label": "Video decoding",
+            "translations": { "zh-CN": "视频解码" },
+            "slug": "dev/arduino/libraries/video"
+          }
+        ]
+      },
+      {
+        "label": "Building the core and the release",
+        "translations": { "zh-CN": "构建核心与发行包" },
+        "slug": "dev/arduino/core-build"
+      },
+      {
+        "label": "Status and known limits",
+        "translations": { "zh-CN": "状态与已知限制" },
+        "slug": "dev/arduino/limits"
+      }
+    ]
+  },
+  {
     "label": "RT-Thread development",
     "translations": {
       "zh-CN": "RT-Thread 开发"
@@ -802,6 +876,48 @@ export const sidebar = [
             "slug": "dev/linux/components/buildroot-external"
           }
         ]
+      }
+    ]
+  },
+  {
+    "label": "UEFI (EDK II) development",
+    "translations": { "zh-CN": "UEFI (EDK II) 开发" },
+    "collapsed": false,
+    "items": [
+      {
+        "label": "Introduction",
+        "translations": { "zh-CN": "简介" },
+        "slug": "dev/uefi"
+      },
+      {
+        "label": "Building and running",
+        "translations": { "zh-CN": "构建与运行" },
+        "slug": "dev/uefi/build-run"
+      },
+      {
+        "label": "Boot chain",
+        "translations": { "zh-CN": "启动链" },
+        "slug": "dev/uefi/boot-chain"
+      },
+      {
+        "label": "Platform firmware",
+        "translations": { "zh-CN": "平台固件" },
+        "slug": "dev/uefi/platform"
+      },
+      {
+        "label": "Graphics output",
+        "translations": { "zh-CN": "图形输出" },
+        "slug": "dev/uefi/display"
+      },
+      {
+        "label": "Debugging",
+        "translations": { "zh-CN": "调试" },
+        "slug": "dev/uefi/debug"
+      },
+      {
+        "label": "Status and known limits",
+        "translations": { "zh-CN": "状态与已知限制" },
+        "slug": "dev/uefi/limits"
       }
     ]
   },

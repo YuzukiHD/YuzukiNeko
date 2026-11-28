@@ -22,6 +22,8 @@ YuzukiNeko 是一块基于 <strong>Allwinner F101 系列 SoC</strong> 的开发�
 | 刷入现成的固件（RustSBI + Asterinas、Linux + Buildroot） | [RustSBI + Asterinas](dev/asterinas/rustsbi-asterinas.md)、[预编译 Linux 镜像](dev/linux/linux-prebuilt.md) |
 | 用底板接显示、Wi-Fi、CAN、音频 | [YuzukiCube-M 底板](baseboard.md) |
 | 写程序 | [Zephyr 开发](dev/zephyr/index.md)、[RT-Thread 开发](dev/rt-thread/index.md)、[ESP-IDF 开发](dev/esp-idf/index.md)、[Linux 开发](dev/linux/index.md)、[RustSBI + Asterinas](dev/asterinas/rustsbi-asterinas.md) |
+| 写 Arduino sketch | [Arduino 开发](dev/arduino/index.md) |
+| 运行 UEFI 固件和启动菜单 | [UEFI (EDK II) 开发](dev/uefi/index.md) |
 | 选择 Zephyr 4.2.2 或 4.5.0 | [版本与 4.5 变更](dev/zephyr/zephyr-4-5.md) |
 | 使用媒体与游戏盒 | [NekoBox](dev/zephyr/apps/nekobox.md)、[Bilibili](dev/zephyr/apps/bilibili.md) |
 | 从手机投屏 | [Miracast 无线显示](dev/zephyr/apps/miracast.md)、[DLNA 视频](dev/zephyr/components/dlna.md)、[Android ADB](dev/zephyr/apps/android-mirror.md)、[AirPlay](dev/zephyr/apps/ios-mirror.md) |
@@ -59,7 +61,7 @@ YuzukiNeko 是一块基于 <strong>Allwinner F101 系列 SoC</strong> 的开发�
 | 连接与外设 | USB 2.0 DRD × 1、SDIO 2.0、SPI × 2、UART × 6、TWI × 3、CAN × 2、PWM、IR_RX、GPADC、TPADC |
 
 :::tip
-上表是 SoC 的能力上限，不等于开发板上每一项都已引出或有现成软件支持。引出了哪些、软件支持到什么程度，见[引脚排布](hardware/pinout.md)和各软件方案的文档（[Zephyr](dev/zephyr/index.md)、[RT-Thread](dev/rt-thread/index.md)、[ESP-IDF](dev/esp-idf/index.md)、[Linux](dev/linux/index.md)）。
+上表是 SoC 的能力上限，不等于开发板上每一项都已引出或有现成软件支持。引出了哪些、软件支持到什么程度，见[引脚排布](hardware/pinout.md)和各软件方案的文档（[Zephyr](dev/zephyr/index.md)、[Arduino](dev/arduino/index.md)、[RT-Thread](dev/rt-thread/index.md)、[ESP-IDF](dev/esp-idf/index.md)、[Linux](dev/linux/index.md)、[UEFI (EDK II)](dev/uefi/index.md)）。
 :::
 
 ## 相关项目
@@ -67,3 +69,5 @@ YuzukiNeko 是一块基于 <strong>Allwinner F101 系列 SoC</strong> 的开发�
 - 开发板仓库：<https://github.com/YuzukiHD/YuzukiNeko>
 - SyterKit（启动加载器）：<https://github.com/YuzukiHD/SyterKit>
 - xfel：<https://github.com/xboot/xfel>　rfel：<https://github.com/rustsbi/allwinner-hal/tree/main/rfel>
+- EDK II 构建脚本：<https://github.com/YuzukiHD/edk2-build>
+- Arduino 核心：<https://github.com/YuzukiHD/Arduino>
